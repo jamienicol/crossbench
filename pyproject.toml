@@ -1,0 +1,28 @@
+[project]
+name = "crossbench"
+version = "0.0.1"
+authors = [
+  { name="Camillo Bruni", email="cbruni@chromium.org" },
+]
+description = "A cross-browser, cross-system benchmark runner"
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "hjson~=3.0.2",
+  "psutil~=5.8.0",
+  "selenium~=4.1.0",
+]
+
+[project.urls]
+"Homepage" = "https://chromium.googlesource.com/crossbench"
+"Bug Tracker" = "https://bugs.chromium.org/p/chromium/issues/list?q=crossbench"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
