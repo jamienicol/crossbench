@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Copyright 2022 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,7 +7,7 @@ import itertools
 import json
 import logging
 from pathlib import Path
-from typing import Iterable, Optional, Type
+from typing import Iterable, Optional, Type, Tuple, List, Dict, Set, Union
 
 import hjson
 import crossbench
@@ -20,25 +19,26 @@ class FlagGroupConfig:
   This object is create from configuration files and mainly contains a mapping
   from flag-names to multiple values.
   """
-  def __init__(self, name: str, variants: dict):
+  def __init__(self, name: str, variants: Dict[str, Union[Iterable[Optional[str]],  str]]):
     self.name = name
-    self._variants: dict[str, Iterable[str]] = {}
+    self._variants: Dict[str, Iterable[Optional[str]]] = {}
     for flag_name, flag_variants_or_value in variants.items():
       assert flag_name not in self._variants
       assert len(flag_name) > 0
-      if isinstance(flag_variants_or_value, set):
-        self._variants[flag_name] = flag_variants_or_value
+      if isinstance(flag_variants_or_value, str):
+        self._variants[flag_name] = (str(flag_variants_or_value), )
       else:
-        assert isinstance(flag_variants_or_value, str)
-        self._variants[flag_name] = (flag_variants_or_value, )
+        assert isinstance(flag_variants_or_value, Iterable)
+        flag_variants = tuple(flag_variants_or_value)
+        assert len(flag_variants) == len(set(flag_variants)), (
+          "Flag variant contains duplicate entries: {flag_variants}"
+        )
+        self._variants[flag_name] = tuple(flag_variants_or_value)
 
-  def get_variant_items(self) -> Iterable[Optional[tuple[str, str]]]:
-    variants = []
+  def get_variant_items(self) -> Iterable[Optional[Tuple[str, Optional[str]]]]:
     for flag_name, flag_values in self._variants.items():
-      flag_variants = tuple(
+      yield tuple(
           self._map(flag_name, flag_value) for flag_value in flag_values)
-      variants.append(flag_variants)
-    return variants
 
   @staticmethod
   def _map(flag_name : str, flag_value : Optional[str]):
@@ -49,23 +49,36 @@ class FlagGroupConfig:
     return (flag_name, flag_value)
 
 
-class Config:
-  def __init__(self, path=None):
-    self._flag_groups : dict[str, FlagGroupConfig] = {}
-    self.browsers : list[browsers.Browser] = []
-    if path:
-      with path.open() as f:
-        try:
-          config = hjson.load(f)
-        except hjson.decoder.HjsonDecodeError as e:
-          raise Exception(f"Failed to parse config file: {path}") from e
-      for group_name, group_config in config['flags'].items():
-        self._parse_flag_group(group_name, group_config)
-      for group_name, group_config in config['browsers'].items():
-        self.browsers += self._parse_browser(group_name, group_config)
+class BrowserConfig:
+  @classmethod
+  def load(cls, f):
+    try:
+      config = hjson.load(f)
+    except hjson.decoder.HjsonDecodeError as e:
+      raise hjson.decoder.HjsonDecodeError(
+          f"Failed to parse config file: {f}") from e
+    return cls(config)
+
+  @classmethod
+  def loads(cls, string):
+    try:
+      config = hjson.loads(string)
+    except hjson.decoder.HjsonDecodeError as e:
+      raise hjson.decoder.HjsonDecodeError(
+          f"Failed to parse config string") from e
+    return cls(config)
+
+  def __init__(self, config_data=None):
+    self.flag_groups : Dict[str, FlagGroupConfig] = {}
+    self.variants : List[browsers.Browser] = []
+    if config_data:
+      for flag_name, group_config in config_data['flags'].items():
+        self._parse_flag_group(flag_name, group_config)
+      for name, browser_config in config_data['browsers'].items():
+        self._parse_browser(name, browser_config)
 
   def _parse_flag_group(self, name, data):
-    assert name not in self._flag_groups, (
+    assert name not in self.flag_groups, (
         f"flag-group='{name}' exists already")
     variants = {}
     for flag_name, values in data.items():
@@ -82,24 +95,24 @@ class Config:
             "Same flag variant was specified more than once: "
             f"'{value}' for entry '{flag_name}")
         flag_values.add(value)
-    self._flag_groups[name] = FlagGroupConfig(name, variants)
+    self.flag_groups[name] = FlagGroupConfig(name, variants)
 
   def _parse_browser(self, name, data):
     path = self._get_browser_path(data['path'])
     assert path.exists(), f"Browser='{name}' path='{path}' does not exist."
     cls = self._get_browser_cls_from_path(path)
     variants_flags = tuple(
-        cls.DEFAULT_FLAGS(flags) for flags in self._parse_flags(name, data))
+        cls.default_flags(flags) for flags in self._parse_flags(name, data))
     logging.info(
         f"Running browser '{name}' with {len(variants_flags)} flag variants:")
     for i in range(len(variants_flags)):
       logging.info("   %s: %s", i, variants_flags[i])
-    return [
+    self.variants += [
         cls(label=self._flags_to_label(name, flags), path=path, flags=flags)
         for flags in variants_flags
     ]
 
-  def _flags_to_label(self, name, flags):
+  def _flags_to_label(self, name:str, flags:flags.Flags) -> str:
     return f"{name}_{browsers.convert_flags_to_label(*flags.get_list())}"
 
   def _parse_flags(self, name, data):
@@ -112,9 +125,9 @@ class Config:
       if flag_group_name.startswith('--'):
         flag_name, flag_value = flags.Flags.split(flag_group_name)
         flag_group = FlagGroupConfig("temporary", {flag_name: flag_value})
-        assert flag_group_name not in self._flag_groups
+        assert flag_group_name not in self.flag_groups
       else:
-        flag_group = self._flag_groups.get(flag_group_name, None)
+        flag_group = self.flag_groups.get(flag_group_name, None)
         assert flag_group is not None, (f"Flag-group='{flag_group_name}' "
                                         f"for browser='{name}' does not exist.")
       flags_product += flag_group.get_variant_items()
@@ -155,7 +168,7 @@ class Config:
 
     label = browsers.convert_flags_to_label(*flags.get_list())
     browser = cls(label=label, path=path, flags=flags)
-    self.browsers.append(browser)
+    self.variants.append(browser)
 
   def _get_browser_path(self, path_or_short_name: str) -> Path:
     short_name = path_or_short_name.lower()
@@ -181,7 +194,7 @@ class Config:
         f"Unknown browser path or short name: '{path_or_short_name}'")
 
 
-class BenchmarkCli:
+class CrossBenchCLI:
 
   BENCHMARKS = (
       benchmarks.Speedometer20Runner,
@@ -245,21 +258,24 @@ class BenchmarkCli:
         "--browser",
         help="Browser binary. Use this to test a single browser. "
         "Use a shortname [chrome, stable, dev, canary, safari] "
-        "for system default browsers or a full path")
+        "for system default browsers or a full path. "
+        "Defaults to 'chrome'. "
+        "Cannot be used with --browser-config")
     browser_group.add_argument(
         "--browser-config",
         type=Path,
         help="Browser configuration.json file. "
         "Use this to run multiple browsers and/or multiple flag configurations."
-    )
+        "See browser.config.example.hjson on how to set up a complex "
+        "configuration file. "
+        "Cannot be used together with --browser.")
     subparser.add_argument(
         "--probe",
         action='append',
         default=[],
         choices=self.GENERAL_PURPOSE_PROBES_BY_NAME.keys(),
-        help=(
-            "Enable general purpose probes to measure data on all stories. "
-            "This argument can be specified multiple times to add more probes"))
+        help="Enable general purpose probes to measure data on all stories. "
+        "This argument can be specified multiple times to add more probes")
     subparser.add_argument('other_browser_args', nargs="*")
     chrome_args = subparser.add_argument_group(
         "Chrome-forwarded Options",
@@ -288,11 +304,11 @@ class BenchmarkCli:
             f"Given path '{path.absolute}' does not exist")
       assert args.browser is None, (
           "Cannot specify --browser and --browser-config at the same time")
-      args.browser_config = Config(path)
+      args.browser_config = BrowserConfig(path)
     else:
-      args.browser_config = Config()
+      args.browser_config = BrowserConfig()
       args.browser_config.load_from_args(args)
-    args.browsers = args.browser_config.browsers
+    args.browsers = args.browser_config.variants
     benchmark_cls = args.benchmark_cls
     assert issubclass(benchmark_cls, runner.Runner), \
         f"benchmark_cls={benchmark_cls} is not subclass of Runner"
@@ -304,8 +320,8 @@ class BenchmarkCli:
     benchmark.run(is_dry_run=args.dry_run)
     print(f"RESULTS: {benchmark.out_dir / 'results.json' }")
 
-  def run(self):
-    args = self.parser.parse_args()
+  def run(self, argv):
+    args = self.parser.parse_args(argv)
     self._initialize_logging(args)
     args.subcommand(args)
 
@@ -321,8 +337,3 @@ class BenchmarkCli:
       logging.getLogger().setLevel(logging.DEBUG)
     consoleHandler.addFilter(logging.Filter("root"))
     logging.getLogger().addHandler(consoleHandler)
-
-
-if __name__ == "__main__":
-  cli = BenchmarkCli()
-  cli.run()

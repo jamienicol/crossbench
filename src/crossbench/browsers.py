@@ -19,11 +19,13 @@ import tempfile
 import traceback
 import urllib.request
 import zipfile
-from typing import Optional, Dict, List
+from typing import Iterable, Optional, Dict, List
 
 import psutil
 
 from crossbench import helper, probes, flags
+
+FlagsInitialDataType = flags.Flags.InitialDataType
 
 # =============================================================================
 BROWSERS_CACHE = Path(__file__).parent.parent / '.browsers-cache'
@@ -37,10 +39,15 @@ else:
 class Browser:
 
   @classmethod
-  def default_flags(cls, initial_data=None):
+  def default_flags(cls, initial_data:FlagsInitialDataType=None):
     return flags.Flags(initial_data)
 
-  def __init__(self, type, label, path, flags=None, cache_dir=None):
+  def __init__(self,
+               type: str,
+               label: str,
+               path: Path,
+               flags: FlagsInitialDataType = None,
+               cache_dir: Optional[Path] = None):
     self.type = type
     self.label = label
     self.path = path
@@ -184,13 +191,11 @@ def convert_flags_to_label(*flags, index=None):
   return f"{str(index).rjust(2,'0')}_{label}"
 
 
-class Chrome(Browser):
-  @classmethod
+class ChromeMeta(type):
   @property
   def default_path(cls):
     return cls.stable_path
 
-  @classmethod
   @property
   def stable_path(cls):
     if helper.platform.is_macos:
@@ -203,43 +208,37 @@ class Chrome(Browser):
       raise Exception("Could not find binary")
     raise NotImplementedError()
 
-  @classmethod
   @property
   def dev_path(cls):
     if helper.platform.is_macos:
       return Path('/Applications/Google Chrome Dev.app')
     raise NotImplementedError()
 
-  @classmethod
   @property
   def canary_path(cls):
     if helper.platform.is_macos:
       return Path('/Applications/Google Chrome Canary.app')
     raise NotImplementedError()
 
-
+class Chrome(Browser, metaclass=ChromeMeta):
   @classmethod
   def combine(cls,
-              binaries,
-              js_flags_list=tuple(tuple()),
-              browser_flags_list=tuple(tuple()),
-              user_data_dir=None):
+              binaries: Iterable[Path],
+              js_flags_list: Optional[Iterable[FlagsInitialDataType]] = None,
+              browser_flags_list: Optional[Iterable[FlagsInitialDataType]]= None,
+              user_data_dir: Optional[Path] = None):
     if isinstance(binaries, Path):
-      binaries = tuple(binaries)
-    assert len(binaries) > 0, 'No browser binaries provided'
+      binaries = [binaries,]
     browsers = []
-    if len(js_flags_list) == 0:
-      js_flags_list.append([])
-    browser_flags_list = list(browser_flags_list)
-    if len(browser_flags_list) == 0:
-      browser_flags_list.append([])
-    for browser_flags in browser_flags_list:
-      assert not isinstance(browser_flags_list, str), \
-          "browser_flags should be a list of strings but got: " \
-          f"{repr(browser_flags)}"
-      for js_flags in js_flags_list:
-        assert not isinstance(js_flags, str), \
-            f"js_flags should be a list, but got: {repr(js_flags)}"
+    empty_flags = tuple(tuple())
+    for browser_flags in browser_flags_list or empty_flags:
+      assert not isinstance(browser_flags_list, FlagsInitialDataType), (
+          f"browser_flags should be a {FlagsInitialDataType}  but got: "
+          f"{repr(browser_flags)}")
+      for js_flags in js_flags_list or empty_flags:
+        assert isinstance(js_flags, FlagsInitialDataType), (
+            f"js_flags should be an {FlagsInitialDataType}, but got type={type(js_flags)}: "
+            f"{repr(js_flags)}")
         for binary in binaries:
           assert isinstance(binary, Path), "Expected browser binary path"
           index = len(browsers)
@@ -251,6 +250,7 @@ class Chrome(Browser):
                         flags=browser_flags,
                         cache_dir=user_data_dir)
           browsers.append(browser)
+    assert len(browsers) > 0, 'No browser variants produced'
     return browsers
 
   DEFAULT_FLAGS = [
@@ -263,10 +263,15 @@ class Chrome(Browser):
   ]
 
   @classmethod
-  def default_flags(cls, initial_data=None):
+  def default_flags(cls, initial_data:FlagsInitialDataType=None):
     return flags.ChromeFlags(initial_data)
 
-  def __init__(self, label, path, js_flags=None, flags=None, cache_dir=None):
+  def __init__(self,
+               label: str,
+               path: Path,
+               js_flags: FlagsInitialDataType = None,
+               flags: FlagsInitialDataType = None,
+               cache_dir=None):
     super().__init__('chrome', label, path)
     assert not isinstance(
         js_flags, str), f"js_flags should be a list, but got: {repr(js_flags)}"
@@ -440,7 +445,13 @@ class WebdriverMixin:
 
 
 class ChromeWebDriver(WebdriverMixin, Chrome):
-  def __init__(self, label, path, js_flags=None, flags=None, cache_dir=None):
+
+  def __init__(self,
+               label: str,
+               path: Path,
+               js_flags: FlagsInitialDataType = None,
+               flags: FlagsInitialDataType = None,
+               cache_dir=None):
     super().__init__(label, path, js_flags, flags, cache_dir)
     self.driver = None
     if self.version_number == 0 or (self.path.parent / 'args.gn').exists():
@@ -589,30 +600,31 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
         f"chromedriver used wrong browser version: "
         f"{used_major_version} != {self.version_number}")
 
-
-class Safari(Browser):
-  @classmethod
+class SafariMeta(type):
   @property
   def default(cls):
     return cls('Safari', cls.default_path)
 
-  @classmethod
   @property
   def default_path(cls):
     return Path('/Applications/Safari.app')
 
-  @classmethod
   @property
   def technology_preview(cls):
     return cls('Safari Tech Preview', cls.technology_preview_path)
 
-  @classmethod
   @property
   def technology_preview_path(cls):
     return Path('/Applications/Safari Technology Preview.app')
 
-  def __init__(self, label, path, flags=None, cache_dir=None):
-    super().__init__('safari', label, path)
+class Safari(Browser, metaclass=SafariMeta):
+
+  def __init__(self,
+               label: str,
+               path: Path,
+               flags: FlagsInitialDataType = None,
+               cache_dir=None):
+    super().__init__('safari', label, path, flags)
     assert helper.platform.is_macos, "Safari only works on MacOS"
     bundle_name = self.path.stem.replace(' ', '')
     assert cache_dir is None, "Cannot set custom cache dir for Safari"
@@ -679,7 +691,7 @@ end tell
 
 
 class SafariWebDriver(WebdriverMixin, Safari):
-  def __init__(self, label, path, flags=None, cache_dir=None):
+  def __init__(self, label:str, path:Path, flags:FlagsInitialDataType=None, cache_dir=None):
     super().__init__(label, path, flags, cache_dir)
     self._find_driver()
     self._check_driver()
@@ -711,7 +723,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
     capabilities['safari:diagnose'] = 'true'
     if 'Technology Preview' in self.app_name:
       capabilities['browserName'] = 'Safari Technology Preview'
-    self.driver = webdriver.Safari(executable_path=self.driver_path,
+    self.driver = webdriver.Safari(executable_path=str(self.driver_path),
                                    desired_capabilities=capabilities)
     self.driver.set_window_position(self.x, self.y)
     self.driver.set_window_size(self.width, self.height)

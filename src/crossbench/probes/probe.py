@@ -6,6 +6,7 @@ import abc
 from datetime import datetime
 import logging
 from pathlib import Path
+from typing import Set
 
 from crossbench import helper
 from crossbench import runner
@@ -51,7 +52,7 @@ class Probe(abc.ABC):
   # Set to True if the probe only works on battery power
   BATTERY_ONLY = False
 
-  _browsers: set[browsers.Browser]
+  _browsers: Set[browsers.Browser]
 
   @classmethod
   def get_subclasses(cls):

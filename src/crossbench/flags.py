@@ -2,19 +2,24 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import collections
-from typing import Optional, Iterable, Dict
+from typing import Optional, Iterable, Dict, Tuple, Union
 
 class Flags(collections.UserDict):
+
+  InitialDataType = Optional[Union[Dict[str, str], "Flags",
+                                            Iterable[Union[Tuple[str, str],
+                                                           str]]]]
+
   @classmethod
   def split(cls, flag_str: str):
     if "=" in flag_str:
       return flag_str.split("=", maxsplit=1)
     return (flag_str, None)
 
-  def __init__(self,
-               initial_data: Optional[Dict[str, str] | "Flags"
-                                      | Iterable[str]] = None):
+  def __init__(self, initial_data: Flags.InitialDataType = None):
     super().__init__(initial_data)
 
   def __setitem__(self, flag_name, flag_value):
@@ -37,11 +42,7 @@ class Flags(collections.UserDict):
     assert flag_value is None or isinstance(flag_value, str)
     self.data[flag_name] = flag_value
 
-  def update(self,
-             initial_data: Optional[Dict[str, str] | "Flags"
-                                    | Iterable[str]
-                                    | Iterable[tuple[str, str]]] = None,
-                                    override=False):
+  def update(self, initial_data: Flags.InitialDataType = None, override=False):
     if initial_data is None:
       return
     if isinstance(initial_data, (Flags, dict)):

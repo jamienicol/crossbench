@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from abc import ABC, ABCMeta, abstractmethod
+from typing import Tuple
 import logging
 import re
 
@@ -46,32 +47,13 @@ class Story(ABC):
 
 
 class PressBenchmarkStory(Story, metaclass=ABCMeta):
-  NAME = ''
-  URL = ''
-  URL_LOCAL = ''
+  NAME :str = ''
+  URL : str = ''
+  URL_LOCAL : str = ''
   SUBSTORIES = None
-  # @property
-  # @abstractmethod
-  # def NAME(self) -> str:
-  #   pass
-
-  # @property
-  # @abstractmethod
-  # def URL(self) -> str:
-  #   pass
-
-  # @property
-  # @abstractmethod
-  # def URL_LOCAL(self) -> str:
-  #   pass
-
-  # @property
-  # @abstractmethod
-  # def SUBSTORIES(self) -> tuple[str]:
-  #   pass
 
   @classmethod
-  def story_names(cls) -> tuple[str]:
+  def story_names(cls) -> Tuple[str, ...]:
     return cls.SUBSTORIES
 
   @classmethod

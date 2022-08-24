@@ -1,1 +1,4 @@
 *.pyc
+.browsers-cache
+__pycache__
+.vscode

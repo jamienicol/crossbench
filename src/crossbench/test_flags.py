@@ -2,9 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from math import fabs
 import unittest
-from crossbench import flags
 
 from crossbench.flags import Flags, ChromeFeatures, ChromeFlags, JSFlags
 

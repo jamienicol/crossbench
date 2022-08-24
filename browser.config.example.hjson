@@ -9,12 +9,12 @@
         // "--max-opt=4",
       ],
       --enable-fied-trial-config: [
-        // null,
+        null,
         ""
       ]
     },
-    chrome-mac: {
-      // Defing Mac-specific flag groups here
+    // Define custom flag groups here (referenced by name):
+    chrome-custom: {
     },
 
     // ------------------------------------------------------------------------
@@ -49,10 +49,11 @@
   // --------------------------------------------------------------------------
   // Contains browser configs
   browsers: {
-    "chrome-compiled": {
+    "chrome-stable": {
       path: "stable",
       flags: [
-        // You can reference multiple flag-groups here
+        // You can reference multiple flag-groups here, any name added to
+        // the 'flags' dict above can be used here.
         "default",
         // You can also directly define fixed flags
         // "--js-flags=--no-opt",

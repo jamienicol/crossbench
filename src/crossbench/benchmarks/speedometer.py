@@ -145,10 +145,15 @@ class Speedometer20Runner(runner.PressBenchmarkStoryRunner):
   @classmethod
   def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
     parser = super().add_cli_parser(subparsers)
-    parser.add_argument("--iterations",
-                        default=10,
-                        type=int,
-                        help="Number of iterations of each Speedometer suite")
+    parser.add_argument(
+        "--iterations",
+        default=10,
+        type=int,
+        help="Number of iterations each Speedometer subtest is run "
+        "within the same session. \n"
+        "Note: --repeat restarts the whole benchmark, --iterations runs the"
+        "same test tests n-times within the same session without the setup "
+        'overhead of starting up a whole new browser.')
     return parser
 
   @classmethod

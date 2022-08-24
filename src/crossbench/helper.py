@@ -17,7 +17,7 @@ import traceback
 import urllib
 import urllib.request
 
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Dict
 
 import shutil
 
@@ -460,7 +460,7 @@ class Durations:
   """
 
   def __init__(self):
-    self._durations : dict[str, timedelta] = {}
+    self._durations : Dict[str, timedelta] = {}
 
   def __getitem__(self, name) -> timedelta:
     return self._durations[name]
@@ -487,7 +487,7 @@ class Durations:
         f"Cannot measure '{name}' duration twice!")
     return self._DurationMeasureContext(self, name)
 
-  def to_json(self) -> dict[str, float]:
+  def to_json(self) -> Dict[str, float]:
     return {
         name: self._durations[name].total_seconds()
         for name in sorted(self._durations.keys())

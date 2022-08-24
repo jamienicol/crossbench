@@ -14,7 +14,7 @@ from pathlib import Path
 import sys
 import traceback
 import shutil
-from typing import Iterable, List, Optional, Type
+from typing import Iterable, List, Optional, Type, Tuple
 
 import psutil
 
@@ -168,7 +168,7 @@ class CheckList:
 
 class ExceptionHandler:
 
-  _exceptions: list[tuple[str, BaseException]]
+  _exceptions: List[Tuple[str, BaseException]]
   throw: bool
 
   def __init__(self, throw=False):
@@ -515,8 +515,14 @@ class PressBenchmarkStoryRunner(SubStoryRunner):
   def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
     parser = super().add_cli_parser(subparsers)
     is_live_group = parser.add_mutually_exclusive_group()
-    is_live_group.add_argument("--live", default=True, action='store_true')
-    is_live_group.add_argument("--local", dest="live", action='store_false')
+    is_live_group.add_argument("--live",
+                               default=True,
+                               action='store_true',
+                               help="Use live/online benchmark url.")
+    is_live_group.add_argument("--local",
+                               dest="live",
+                               action='store_false',
+                               help="Use locally hosted benchmark url.")
     return parser
 
   @classmethod
@@ -629,7 +635,7 @@ class StoriesRunGroup(RunGroup):
 
   def __init__(self, throw=False):
     super().__init__(throw)
-    self._repetitions_groups: list[RepetitionsRunGroup] = []
+    self._repetitions_groups: List[RepetitionsRunGroup] = []
     self._browser: browsers.Browser = None
 
   @classmethod
@@ -648,7 +654,7 @@ class StoriesRunGroup(RunGroup):
     self._repetitions_groups.append(group)
 
   @property
-  def repetitions_groups(self) -> list[RepetitionsRunGroup]:
+  def repetitions_groups(self) -> List[RepetitionsRunGroup]:
     return self._repetitions_groups
 
   @property
