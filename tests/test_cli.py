@@ -57,7 +57,7 @@ class TestCLI(unittest.TestCase):
 
 class TestBrowserConfig(unittest.TestCase):
   EXAMPLE_CONFIG_PATH = Path(
-      __file__).parents[2] / 'browser.config.example.hjson'
+      __file__).parent.parent / 'browser.config.example.hjson'
 
   def test_load_browser_config_template(self):
     with open(self.EXAMPLE_CONFIG_PATH) as f:
@@ -100,7 +100,7 @@ class TestBrowserConfig(unittest.TestCase):
             }
         }
     })
-    self.assertEquals(len(config.variants), 3 * 3)
+    self.assertEqual(len(config.variants), 3 * 3)
 
   def test_flag_combination_with_fixed(self):
     config = BrowserConfig({
@@ -120,7 +120,7 @@ class TestBrowserConfig(unittest.TestCase):
             }
         }
     })
-    self.assertEquals(len(config.variants), 3 * 3)
+    self.assertEqual(len(config.variants), 3 * 3)
 
   def test_flag_group_combination(self):
     config = BrowserConfig({
@@ -142,7 +142,7 @@ class TestBrowserConfig(unittest.TestCase):
             }
         }
     })
-    self.assertEquals(len(config.variants), 3 * 3 * 2)
+    self.assertEqual(len(config.variants), 3 * 3 * 2)
 
 
 class TestFlagGroupConfig(unittest.TestCase):

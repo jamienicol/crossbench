@@ -4,10 +4,16 @@ Crossbench
 Crossbench is a cross-browser/cross-benchmark runner to extract performance
 numbers.
 
+This project uses [poetry](https://python-poetry.org/) deps and package scripts to setup the correct environment for testing and debugging.
+
+```
+pip3 install poetry
+```
+
 Example usage:
 
 ```
-src/crossbench.py speedometer_2.0 \
+poetry run crossbench speedometer_2.0 \
     --browser=/path/to/chromium \
     --stories=VanillaJS.* \
     --probe=profiling \
@@ -16,7 +22,7 @@ src/crossbench.py speedometer_2.0 \
 
 Describe *all* subcommands with stories and all probes:
 ```
-src/crossbench.py describe
+poetry run crossbench describe
 ```
 
 

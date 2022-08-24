@@ -1,28 +1,30 @@
-[project]
+[tool.poetry]
 name = "crossbench"
 version = "0.0.1"
-authors = [
-  { name="Camillo Bruni", email="cbruni@chromium.org" },
-]
+authors = [ "Camillo Bruni <cbruni@chromium.org>" ]
 description = "A cross-browser, cross-system benchmark runner"
 readme = "README.md"
-license = { file="LICENSE" }
-requires-python = ">=3.8"
+license = "BSD-3-Clause"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
 ]
-dependencies = [
-  "hjson~=3.0.2",
-  "psutil~=5.8.0",
-  "selenium~=4.1.0",
-]
 
-[project.urls]
+[tool.poetry.urls]
 "Homepage" = "https://chromium.googlesource.com/crossbench"
 "Bug Tracker" = "https://bugs.chromium.org/p/chromium/issues/list?q=crossbench"
 
+[tool.poetry.dependencies]
+python = "^3.7"
+hjson = "^3.1.0"
+psutil = "^5.9.1"
+selenium = "^4.4.3"
+
+
+[tool.poetry.scripts]
+crossbench = 'scripts:crossbench'
+
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry_core>=1.1.5"]
+build-backend = "poetry.core.masonry.api"

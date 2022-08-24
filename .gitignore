@@ -1,4 +1,6 @@
 *.pyc
 .browsers-cache
-__pycache__
+.pytype
 .vscode
+__pycache__
+dist
