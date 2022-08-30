@@ -13,19 +13,19 @@ class TestFlags(unittest.TestCase):
   def test_construct(self):
     flags = self.CLASS()
     self.assertEqual(len(flags), 0)
-    self.assertFalse('foo' in flags)
+    self.assertNotIn('foo', flags)
 
   def test_construct_dict(self):
     flags = self.CLASS({ '--foo' : 'v1', '--bar': 'v2'})
-    self.assertTrue('--foo' in flags)
-    self.assertTrue('--bar' in flags)
+    self.assertIn('--foo', flags)
+    self.assertIn('--bar', flags)
     self.assertEqual(flags['--foo'], 'v1')
     self.assertEqual(flags['--bar'], 'v2')
 
   def test_construct_list(self):
     flags = self.CLASS(('--foo', '--bar'))
-    self.assertTrue('--foo' in flags)
-    self.assertTrue('--bar' in flags)
+    self.assertIn('--foo', flags)
+    self.assertIn('--bar', flags)
     self.assertEqual(flags['--foo'], None)
     self.assertEqual(flags['--bar'], None)
     with self.assertRaises(AssertionError):
@@ -37,8 +37,8 @@ class TestFlags(unittest.TestCase):
   def test_construct_flags(self):
     original_flags = self.CLASS({ '--foo' : 'v1', '--bar': 'v2'})
     flags = self.CLASS(original_flags)
-    self.assertTrue('--foo' in flags)
-    self.assertTrue('--bar' in flags)
+    self.assertIn('--foo', flags)
+    self.assertIn('--bar', flags)
     self.assertEqual(flags['--foo'], 'v1')
     self.assertEqual(flags['--bar'], 'v2')
 
@@ -51,8 +51,8 @@ class TestFlags(unittest.TestCase):
     flags['--foo'] = 'v1'
     self.assertEqual(flags['--foo'], 'v1')
     flags.set('--bar')
-    self.assertTrue('--foo' in flags)
-    self.assertTrue('--bar' in flags)
+    self.assertIn('--foo', flags)
+    self.assertIn('--bar', flags)
     self.assertEqual(flags['--bar'], None)
     with self.assertRaises(AssertionError):
       flags.set('--bar', 'v3')
@@ -88,7 +88,7 @@ class TestChromeFlags(TestFlags):
     flags = self.CLASS({'--foo':None, '--bar':'v1', })
     self.assertEqual(flags['--foo'], None)
     self.assertEqual(flags['--bar'], 'v1')
-    self.assertFalse('--js-flags' in flags)
+    self.assertNotIn('--js-flags', flags)
     with self.assertRaises(AssertionError):
       flags['--js-flags'] = '--js-foo, --no-js-foo'
     flags['--js-flags'] = '--js-foo=v3, --no-js-bar'
@@ -131,10 +131,10 @@ class TestJSFlags(TestFlags):
     flags = self.CLASS(('--foo', '--no-bar'))
     self.assertEqual(flags['--foo'], None)
     self.assertEqual(flags['--no-bar'], None)
-    self.assertTrue('--foo' in flags)
-    self.assertFalse('--no-foo' in flags)
-    self.assertFalse('--bar' in flags)
-    self.assertTrue('--no-bar' in flags)
+    self.assertIn('--foo', flags)
+    self.assertNotIn('--no-foo', flags)
+    self.assertNotIn('--bar', flags)
+    self.assertIn('--no-bar', flags)
 
   def test_conflicting_override(self):
     flags = self.CLASS(('--foo', '--no-bar'))
@@ -150,7 +150,7 @@ class TestJSFlags(TestFlags):
     self.assertEqual(flags['--foo'], None)
     self.assertEqual(flags['--no-bar'], None)
     flags.set('--no-foo', override=True)
-    self.assertFalse('--foo' in flags)
-    self.assertTrue('--no-foo' in flags)
-    self.assertFalse('--bar' in flags)
-    self.assertTrue('--no-bar' in flags)
+    self.assertNotIn('--foo', flags)
+    self.assertIn('--no-foo', flags)
+    self.assertNotIn('--bar', flags)
+    self.assertIn('--no-bar', flags)

@@ -4,14 +4,19 @@
 
 import argparse
 import itertools
-import json
 import logging
+import json
 from pathlib import Path
 from typing import Iterable, Optional, Type, Tuple, List, Dict, Set, Union
 
-import hjson
 import crossbench
 from crossbench import benchmarks, browsers, helper, probes, runner, flags
+
+try:
+  import hjson
+except ModuleNotFoundError:
+  logging.debug("hjson module not found")
+  hjson = None
 
 
 class FlagGroupConfig:
@@ -53,19 +58,13 @@ class BrowserConfig:
   @classmethod
   def load(cls, f):
     try:
-      config = hjson.load(f)
-    except hjson.decoder.HjsonDecodeError as e:
-      raise hjson.decoder.HjsonDecodeError(
+      if hjson:
+        config = hjson.load(f)
+      else:
+        config = json.load(f)
+    except ValueError as e:
+      raise ValueError(
           f"Failed to parse config file: {f}") from e
-    return cls(config)
-
-  @classmethod
-  def loads(cls, string):
-    try:
-      config = hjson.loads(string)
-    except hjson.decoder.HjsonDecodeError as e:
-      raise hjson.decoder.HjsonDecodeError(
-          f"Failed to parse config string") from e
     return cls(config)
 
   def __init__(self, config_data=None):

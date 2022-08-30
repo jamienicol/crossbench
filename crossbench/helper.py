@@ -2,7 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from abc import ABC, abstractmethod
+from __future__ import annotations
+
+import abc
 from datetime import datetime
 from datetime import timedelta
 import logging
@@ -20,7 +22,6 @@ import urllib.request
 from typing import Iterable, Optional, Dict
 
 import shutil
-
 import psutil
 
 if not hasattr(shlex, "join"):
@@ -40,10 +41,6 @@ class TTYColor:
   UNDERLINE = '\033[4m'
   REVERSED = '\033[7m'
   RESET = '\033[0m'
-
-
-def implies(a, b):
-  return not (a) or b
 
 
 def group_by(collection, key, value=None, group=None):
@@ -100,15 +97,10 @@ def get_subclasses(cls):
     yield from get_subclasses(subclass)
 
 
-class Platform(ABC):
-  @classmethod
-  def instance(cls):
-    if sys.platform == 'linux':
-      return LinuxPlatform()
-    elif sys.platform == 'darwin':
-      return OSXPlatform()
-    else:
-      raise Exception("Unsupported Platform")
+class Platform(abc.ABC):
+  @abc.abstractproperty
+  def short_name(self) -> str:
+    pass
 
   @property
   def machine(self):
@@ -194,6 +186,9 @@ class Platform(ABC):
       raise SubprocessError(process)
     return process
 
+  def exec_apple_script(self, script, quite=False):
+    raise NotImplementedError("AppleScript is only available on MacOS")
+
   def terminate(self, proc_pid):
     process = psutil.Process(proc_pid)
     for proc in process.children(recursive=True):
@@ -212,13 +207,17 @@ class Platform(ABC):
       level = logging.ERROR
     logging.log(level, messages)
 
+  @abc.abstractmethod
+  def disable_monitoring(self):
+    pass
+
   def get_relative_cpu_speed(self) -> float:
     return 1
 
   def is_thermal_throttled(self) -> bool:
     return self.get_relative_cpu_speed() < 1
 
-  @abstractmethod
+  @abc.abstractmethod
   def get_hardware_details(self):
     pass
 
@@ -253,13 +252,14 @@ class SubprocessError(subprocess.CalledProcessError):
     return f"{super_str}\nstderr:{self.stderr.decode()}"
 
 
-class UnixPlatform(Platform):
+class UnixPlatform(Platform, metaclass=abc.ABCMeta):
   pass
 
 
-class OSXPlatform(UnixPlatform):
+class MacOSPlatform(UnixPlatform):
+
   @property
-  def is_macos(self) -> bool:
+  def is_macos(self):
     return True
 
   @property
@@ -283,8 +283,9 @@ class OSXPlatform(UnixPlatform):
     except Exception as e:
       return None
 
-  def exec_apple_script(self, script):
-    print(script)
+  def exec_apple_script(self, script, quiet=False):
+    if not quiet:
+      logging.debug("AppleScript: %s", script)
     return self.sh('/usr/bin/osascript', '-e', script)
 
   def get_relative_cpu_speed(self) -> float:
@@ -302,6 +303,9 @@ class OSXPlatform(UnixPlatform):
     sysctl_machdep_cpu = self.sh_stdout('sysctl', 'machdep.cpu')
     sysctl_hw = self.sh_stdout('sysctl', 'hw')
     return system_profiler + sysctl_machdep_cpu + sysctl_hw
+
+  def disable_monitoring(self):
+    self.disable_crowdstrike()
 
   def disable_crowdstrike(self):
     falconctl = Path('/Applications/Falcon.app/Contents/Resources/falconctl')
@@ -324,12 +328,15 @@ class LinuxPlatform(UnixPlatform):
   )
 
   @property
-  def is_linux(self) -> bool:
+  def is_linux(self):
     return True
 
   @property
   def short_name(self):
     return 'linux'
+
+  def disable_monitoring(self):
+    pass
 
   def get_hardware_details(self):
     lscpu = self.sh_stdout('lscpu')
@@ -348,7 +355,13 @@ class LinuxPlatform(UnixPlatform):
     return None
 
 
-platform = Platform.instance()
+if sys.platform == 'linux':
+  platform = LinuxPlatform()
+elif sys.platform == 'darwin':
+  platform = MacOSPlatform()
+else:
+  raise Exception("Unsupported Platform")
+
 log = platform.log
 
 # =============================================================================

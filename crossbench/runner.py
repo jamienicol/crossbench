@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import abc
 import argparse
 import contextlib
@@ -14,7 +16,7 @@ from pathlib import Path
 import sys
 import traceback
 import shutil
-from typing import Iterable, List, Optional, Type, Tuple
+from typing import Iterable, List, Optional, Type, Tuple, cast
 
 import psutil
 
@@ -53,7 +55,7 @@ class CheckList:
     if not helper.platform.is_macos:
       return True
     try:
-      helper.platform.disable_crowdstrike()
+      helper.platform.disable_monitoring()
       self._add_min_delay(5)
       return True
     except Exception as e:
@@ -183,7 +185,7 @@ class ExceptionHandler:
   def exceptions(self):
     return self._exceptions
 
-  def extend(self, handler: "ExceptionHandler"):
+  def extend(self, handler: ExceptionHandler):
     self._exceptions.extend(handler.exceptions)
 
   def handle(self, e: BaseException):
@@ -371,9 +373,6 @@ class Runner(abc.ABC):
   def is_success(self):
     return len(self._runs) > 0 and self._exceptions.is_success
 
-  def exec_apple_script(self, script):
-    return helper.platform.exec_apple_script(script)
-
   def sh(self, *args, shell=False, stdout=None):
     return helper.platform.sh(*args, shell=shell, stdout=stdout)
 
@@ -394,6 +393,8 @@ class Runner(abc.ABC):
       raise Exception("No browsers provided: self.browsers is empty")
     if len(self.stories) == 0:
       raise Exception("No stories provided: self.stories is empty")
+    for browser in self.browsers:
+      browser.setup_binary(self)
     self._runs = list(self.get_runs())
     assert len(self._runs) > 0, "get_runs() produced no runs"
     if self._use_checklist:
@@ -563,7 +564,7 @@ class RunGroup:
   def exceptions(self) -> ExceptionHandler:
     return self._exceptions
 
-  def get_probe_results_file(self, probe: "probes.Probe") -> Path:
+  def get_probe_results_file(self, probe: probes.Probe) -> Path:
     new_file = self.path / probe.results_file_name
     assert not new_file.exists(), \
         f"Merged file {new_file} for {self.__class__} exists already."
@@ -579,7 +580,7 @@ class RunGroup:
       except Exception as e:
         self._exceptions.handle(e)
 
-  def _merge_probe_results(self, probe: "probes.Probe"):
+  def _merge_probe_results(self, probe: probes.Probe):
     return None
 
 
@@ -624,7 +625,7 @@ class RepetitionsRunGroup(RunGroup):
   def browser(self) -> browsers.Browser:
     return self._browser
 
-  def _merge_probe_results(self, probe: "probes.Probe"):
+  def _merge_probe_results(self, probe: probes.Probe):
     return probe.merge_repetitions(self)  # pytype: disable=wrong-arg-types
 
 
@@ -670,7 +671,7 @@ class StoriesRunGroup(RunGroup):
   def stories(self) -> Iterable[stories.Story]:
     return (group.story for group in self._repetitions_groups)
 
-  def _merge_probe_results(self, probe: "probes.Probe"):
+  def _merge_probe_results(self, probe: probes.Probe):
     return probe.merge_stories(self)  # pytype: disable=wrong-arg-types
 
 
@@ -696,7 +697,7 @@ class BrowsersRunGroup(RunGroup):
     for group in self._story_groups:
       yield from group.runs
 
-  def _merge_probe_results(self, probe: "probes.Probe"):
+  def _merge_probe_results(self, probe: probes.Probe):
     return probe.merge_browsers(self)  # pytype: disable=wrong-arg-types
 
 
@@ -837,7 +838,8 @@ class Run:
         probe_scope.setup(self)
 
     with self._durations.measure('browser-setup'):
-      self._browser.setup(self)
+      # pytype somehow gets the package path wrong here, disabling for now.
+      self._browser.setup(self)  # pytype: disable=wrong-arg-types
     return probe_run_scopes
 
   def run(self, is_dry_run=False):
@@ -911,7 +913,7 @@ class Actions(helper.TimeScope):
   _run: Run
   _browser: browsers.Browser
   _runner: Runner
-  _parent: "Actions"
+  _parent: Actions
   _is_active: bool = False
 
   def __init__(self, message, run: Run, runner=None, browser=None, parent=None):

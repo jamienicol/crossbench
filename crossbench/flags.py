@@ -95,16 +95,16 @@ class JSFlags(Flags):
       if override:
         del self[enabled]
       else:
-        assert not enabled in self, (
+        assert enabled not in self, (
             f"Conflicting flag '{flag_name}', "
             f"it has already been enabled by '{self._describe(enabled)}'")
     else:
       # --foo => --no-foo
       disabled = f"--no-{flag_name[2:]}"
-      if not disabled in self:
+      if disabled not in self:
         # Try compact version: --foo => --nofoo
         disabled = f"--no{flag_name[2:]}"
-        if not disabled in self:
+        if disabled not in self:
           return
       if override:
         del self[disabled]
