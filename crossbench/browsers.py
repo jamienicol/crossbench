@@ -458,18 +458,24 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
                path: Path,
                js_flags: FlagsInitialDataType = None,
                flags: FlagsInitialDataType = None,
-               cache_dir : Optional[Path] =None):
+               cache_dir: Optional[Path] = None,
+               driver_path: Optional[Path] = None):
     super().__init__(label, path, js_flags, flags, cache_dir)
     self.driver = None
+    self.driver_path = driver_path
 
   def setup_binary(self, runner):
     super().setup_binary(runner)
+    if self.driver_path:
+      pass
     if self.version_number == 0 or (self.path.parent / 'args.gn').exists():
       self._find_local_chromedriver_build()
     else:
       self.driver_path = BROWSERS_CACHE / f'chromedriver-{self.version_number}'
       if not self.driver_path.exists():
         self._find_driver_download()
+    assert self.driver_path.exists(), (
+      f"Could not find chromedriver at {self.driver_path}")
 
   def _find_local_chromedriver_build(self):
     # assume it's a local build

@@ -56,7 +56,7 @@ class FlagGroupConfig:
 
 class BrowserConfig:
   @classmethod
-  def load(cls, f):
+  def load(cls, f, lookup={}):
     try:
       if hjson:
         config = hjson.load(f)
@@ -65,16 +65,18 @@ class BrowserConfig:
     except ValueError as e:
       raise ValueError(
           f"Failed to parse config file: {f}") from e
-    return cls(config)
+    return cls(config, lookup)
 
-  def __init__(self, config_data=None):
+  def __init__(self,
+               config_data : Dict = None,
+               lookup: Dict[str, browsers.Browser] = {}):
     self.flag_groups : Dict[str, FlagGroupConfig] = {}
     self.variants : List[browsers.Browser] = []
     if config_data:
       for flag_name, group_config in config_data['flags'].items():
         self._parse_flag_group(flag_name, group_config)
       for name, browser_config in config_data['browsers'].items():
-        self._parse_browser(name, browser_config)
+        self._parse_browser(name, browser_config, lookup)
 
   def _parse_flag_group(self, name, data):
     assert name not in self.flag_groups, (
@@ -96,10 +98,14 @@ class BrowserConfig:
         flag_values.add(value)
     self.flag_groups[name] = FlagGroupConfig(name, variants)
 
-  def _parse_browser(self, name, data):
-    path = self._get_browser_path(data['path'])
-    assert path.exists(), f"Browser='{name}' path='{path}' does not exist."
-    cls = self._get_browser_cls_from_path(path)
+  def _parse_browser(self, name, data, lookup: Dict[str, browsers.Browser]):
+    if name in lookup:
+      path = data['path']
+      cls = lookup[path]
+    else:
+      path = self._get_browser_path(data['path'])
+      assert path.exists(), f"Browser='{name}' path='{path}' does not exist."
+      cls = self._get_browser_cls_from_path(path)
     variants_flags = tuple(
         cls.default_flags(flags) for flags in self._parse_flags(name, data))
     logging.info(

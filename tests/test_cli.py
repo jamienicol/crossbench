@@ -8,8 +8,14 @@ import unittest
 from pathlib import Path
 import unittest.mock as mock
 
-from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig
+from typing import Optional, Dict
 
+import pyfakefs.fake_filesystem_unittest
+import crossbench
+
+import crossbench.flags
+from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig
+from crossbench import browsers, helper
 
 class SysExitException(Exception):
 
@@ -17,7 +23,10 @@ class SysExitException(Exception):
     super().__init__('sys.exit')
 
 
-class TestCLI(unittest.TestCase):
+class TestCLI(pyfakefs.fake_filesystem_unittest.TestCase):
+
+  def setUp(self):
+    self.setUpPyfakefs()
 
   def run_cli(self, *args, raises=None):
     with mock.patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
@@ -55,22 +64,71 @@ class TestCLI(unittest.TestCase):
         self.assertGreater(len(stdout), 0)
 
 
-class TestBrowserConfig(unittest.TestCase):
+
+FlagsInitialDataType = crossbench.flags.Flags.InitialDataType
+class MockBrowser(browsers.Browser):
+  BIN_PATH = None
+  def __init__(self,
+               label: str,
+               path: Path,
+               flags: FlagsInitialDataType = None,
+               cache_dir: Optional[Path] = None):
+    path = Path(self.BIN_PATH)
+    super().__init__(label, path, flags, cache_dir, type="test")
+
+  def _extract_version(self):
+    return "100.22.33.44"
+
+
+class MockBrowserStable(MockBrowser):
+  if helper.platform.is_macos:
+    BIN_PATH = Path("/Applications/Chrome.app")
+  else:
+    BIN_PATH = Path("/usr/bin/chrome")
+
+class MockBrowserDev(MockBrowser):
+  if helper.platform.is_macos:
+    BIN_PATH = Path("/Applications/ChromeDev.app")
+  else:
+    BIN_PATH = Path("/usr/bin/chrome")
+
+
+class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
   EXAMPLE_CONFIG_PATH = Path(
       __file__).parent.parent / 'browser.config.example.hjson'
+
+  BROWSER_LOOKUP = {
+    "stable": MockBrowserStable,
+    "dev": MockBrowserDev,
+    "chrome-stable": MockBrowserStable,
+    "chrome-dev": MockBrowserDev,
+  }
+
+  def setUp(self):
+    # TODO: Move to separate common helper class
+    self.setUpPyfakefs(modules_to_reload=[crossbench])
+    if helper.platform.is_macos:
+      self.fs.create_file(MockBrowserStable.BIN_PATH / "Contents" / "MacOS" /
+                          "Chrome")
+      self.fs.create_file(MockBrowserDev.BIN_PATH / "Contents" / "MacOS" /
+                          "Chrome")
+    else:
+      self.fs.create_file(MockBrowserStable.BIN_PATH)
+      self.fs.create_file(MockBrowserDev.BIN_PATH)
 
   def test_load_browser_config_template(self):
     if not self.EXAMPLE_CONFIG_PATH.exists():
       return
-    with open(self.EXAMPLE_CONFIG_PATH) as f:
-      config = BrowserConfig.load(f)
+    self.fs.add_real_file(self.EXAMPLE_CONFIG_PATH)
+    with self.EXAMPLE_CONFIG_PATH.open() as f:
+      config = BrowserConfig.load(f, lookup=self.BROWSER_LOOKUP)
     self.assertIn('default', config.flag_groups)
     self.assertGreaterEqual(len(config.flag_groups), 1)
     self.assertGreaterEqual(len(config.variants), 1)
 
   def test_flag_combination_duplicate(self):
     with self.assertRaises(AssertionError):
-      config = BrowserConfig({
+      BrowserConfig({
           "flags": {
               "group1": {
                   "--foo": [None, "", 'v1'],
@@ -85,7 +143,7 @@ class TestBrowserConfig(unittest.TestCase):
                   "flags": ["group1", "group2"]
               }
           }
-      })
+      }, lookup=self.BROWSER_LOOKUP)
 
   def test_flag_combination(self):
     config = BrowserConfig({
@@ -101,7 +159,7 @@ class TestBrowserConfig(unittest.TestCase):
                 "flags": ["group1"]
             }
         }
-    })
+    }, lookup=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3)
 
   def test_flag_combination_with_fixed(self):
@@ -121,7 +179,7 @@ class TestBrowserConfig(unittest.TestCase):
                 "flags": ["group1"]
             }
         }
-    })
+    }, lookup=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3)
 
   def test_flag_group_combination(self):
@@ -143,7 +201,7 @@ class TestBrowserConfig(unittest.TestCase):
                 "flags": ["group1", "group2", "group3"]
             }
         }
-    })
+    }, lookup=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3 * 2)
 
 
