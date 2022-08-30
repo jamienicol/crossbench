@@ -77,7 +77,7 @@ class LivePage(_Page):
     return result
 
   def run(self, run):
-    run.browser.show_page(run.runner, self)
+    run.browser.show_url(run.runner, self.url)
     run.runner.wait(self.duration + 1)
 
   def __str__(self):

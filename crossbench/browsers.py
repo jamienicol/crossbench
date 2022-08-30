@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+import abc
 
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -13,6 +14,7 @@ import selenium
 import json
 import logging
 from pathlib import Path
+import time
 import re
 import shlex
 import stat
@@ -36,7 +38,7 @@ BROWSERS_CACHE = Path(__file__).parent.parent / '.browsers-cache'
 # =============================================================================
 
 
-class Browser:
+class Browser(abc.ABC):
   @classmethod
   def default_flags(cls, initial_data:FlagsInitialDataType=None):
     return flags.Flags(initial_data)
@@ -67,8 +69,7 @@ class Browser:
     self.x = 10
     # Move down to avoid menu bars
     self.y = 50
-    self.is_running = False
-    self.browser_process = None
+    self._is_running = False
     self.cache_dir = cache_dir
     self.clear_cache_dir = True
     self._pid = None
@@ -86,15 +87,6 @@ class Browser:
   @property
   def pid(self):
     return self._pid
-
-  @property
-  def all_pids(self):
-    pid = self.pid
-    pids = set([pid])
-    current_process = psutil.Process(pid)
-    for child in current_process.children(recursive=True):
-      pids.add(child.pid)
-    return pids
 
   def _resolve_macos_binary(self):
     assert self.path.is_dir(
@@ -131,11 +123,11 @@ class Browser:
     pass
 
   def setup(self, run: runner.Run):
-    assert not self.is_running
+    assert not self._is_running
     runner = run.runner
     self.clear_cache(runner)
     self.start(run)
-    assert self.is_running
+    assert self._is_running
     self._prepare_temperature(run)
 
   def _extract_major_version_number(self):
@@ -165,12 +157,14 @@ class Browser:
     self.show_url(runner, self.default_page)
     runner.wait(runner.default_wait * 3)
 
-  def show_page(self, runner, page):
-    self.show_url(runner, page.url)
-
   def quit(self, runner):
-    self._pid = None
-    assert self.is_running
+    assert self._is_running
+    try:
+      self.force_quit()
+    finally:
+      self._pid = None
+
+  def force_quit(self):
     logging.info('QUIT')
     if helper.platform.is_macos:
       helper.platform.exec_apple_script(f'''
@@ -178,9 +172,9 @@ class Browser:
     quit
   end tell
       ''')
-    elif self.browser_process:
-      helper.platform.terminate(self.browser_process)
-    self.is_running = False
+    elif self._pid:
+      helper.platform.terminate(self._pid)
+    self._is_running = False
 
 
 _FLAG_TO_PATH_RE = re.compile(r"[-/\\:\.]")
@@ -195,7 +189,7 @@ def convert_flags_to_label(*flags, index=None):
   return f"{str(index).rjust(2,'0')}_{label}"
 
 
-class ChromeMeta(type):
+class ChromeMeta(type(Browser)):
   @property
   def default_path(cls):
     return cls.stable_path
@@ -359,13 +353,13 @@ class Chrome(Browser, metaclass=ChromeMeta):
     runner = run.runner
     assert helper.platform.is_macos, (
         f"Sorry, f{self.__class__} is only supported on MacOS for now")
-    assert not self.is_running
+    assert not self._is_running
     assert self._stdout_log_file is None
     if self.log_file:
       self._stdout_log_file = self.stdout_log_file.open('w')
-    self.browser_process = runner.popen(self.bin_path,
-                                        *self._get_chrome_args(run),
-                                        stdout=self._stdout_log_file)
+    self._pid = runner.popen(self.bin_path,
+                             *self._get_chrome_args(run),
+                             stdout=self._stdout_log_file)
     runner.wait(1)
     self.show_url(runner, self.default_page)
     self.exec_apple_script(f'''
@@ -375,7 +369,7 @@ tell application "{self.app_name}"
     set the bounds of the first window to {{50,50,1050,1050}}
 end tell
     ''')
-    self.is_running = True
+    self._is_running = True
 
   def quit(self, runner):
     super().quit(runner)
@@ -392,14 +386,43 @@ end tell
     ''')
 
 
-class WebdriverMixin:
-  driver: webdriver.Remote
-  log_file: Path
-  is_running: bool
+class WebdriverMixin(Browser):
+  _driver: webdriver.Remote
+  _driver_path : Path
+  _driver_pid : int
 
   @property
   def driver_log_file(self):
     return self.log_file.with_suffix(".driver.log")
+
+  def setup_binary(self, runner):
+    self._driver_path = self._find_driver()
+    assert self._driver_path.exists(), (
+        f"Webdriver path '{self._driver_path}' does not exist")
+
+  @abc.abstractmethod
+  def _find_driver(self) -> Path:
+    pass
+
+  @abc.abstractmethod
+  def _check_driver_version(self):
+    pass
+
+  def start(self, run):
+    assert not self._is_running
+    self._check_driver_version()
+    self._driver = self._start_driver(run, self._driver_path)
+    if hasattr(self._driver, "service"):
+      self._driver_pid = self._driver.service.process.pid
+    self._is_running = True
+    self._driver.set_window_position(self.x, self.y)
+    self._driver.set_window_size(self.width, self.height)
+    self._check_driver_version()
+    self.show_url(runner, 'about://blank')
+
+  @abc.abstractmethod
+  def _start_driver(self, run:runner.Run, driver_path:Path) -> webdriver.Remote:
+    pass
 
   def details_json(self):
     details = super().details_json()  # pytype: disable=attribute-error
@@ -408,9 +431,9 @@ class WebdriverMixin:
 
   def show_url(self, runner, url):
     logging.info(f"SHOW_URL {url}")
-    self.driver.switch_to.window(self.driver.window_handles[0])
+    self._driver.switch_to.window(self._driver.window_handles[0])
     try:
-      self.driver.get(url)
+      self._driver.get(url)
     except selenium.common.exceptions.WebDriverException as e:
       if "net::ERR_CONNECTION_REFUSED" in e.msg:
         raise Exception(f"Browser failed to load URL={url}. "
@@ -419,95 +442,89 @@ class WebdriverMixin:
 
   def js(self, runner, script, timeout=None, arguments=()):
     logging.info(f"RUN SCRIPT timeout={timeout}, script: {script[:100]}")
-    assert self.is_running
+    assert self._is_running
     if timeout is not None:
       assert timeout > 0, f"timeout must be a positive number, got: {timeout}"
-      self.driver.set_script_timeout(timeout)
-      return self.driver.execute_script(script, *arguments)
-    return self.driver.execute_script(script, *arguments)
+      self._driver.set_script_timeout(timeout)
+      return self._driver.execute_script(script, *arguments)
+    return self._driver.execute_script(script, *arguments)
 
   def quit(self, runner):
-    assert self.is_running
-    if self.driver is None:
+    assert self._is_running
+    self.force_quit()
+
+  def force_quit(self):
+    if self._driver is None:
       return
     logging.info('QUIT')
     try:
       # Close the current window
-      self.driver.close()
+      self._driver.close()
+      time.sleep(0.1)
       try:
-        self.driver.quit()
+        self._driver.quit()
       except InvalidSessionIdException:
         return True
       # Sometimes a second quit is needed, ignore any warnings there
       try:
-        self.driver.quit()
+        self._driver.quit()
       except Exception:
         pass
       return True
     except Exception:
       traceback.print_exc(file=sys.stdout)
     finally:
-      self.is_running = False
+      self._is_running = False
     return False
 
 
-class ChromeWebDriver(WebdriverMixin, Chrome):
+class ChromeDriverFinder:
+  URL = 'http://chromedriver.storage.googleapis.com'
 
-  def __init__(self,
-               label: str,
-               path: Path,
-               js_flags: FlagsInitialDataType = None,
-               flags: FlagsInitialDataType = None,
-               cache_dir: Optional[Path] = None,
-               driver_path: Optional[Path] = None):
-    super().__init__(label, path, js_flags, flags, cache_dir)
-    self.driver = None
-    self.driver_path = driver_path
+  driver_path : Path
 
-  def setup_binary(self, runner):
-    super().setup_binary(runner)
-    if self.driver_path:
-      pass
-    if self.version_number == 0 or (self.path.parent / 'args.gn').exists():
-      self._find_local_chromedriver_build()
-    else:
-      self.driver_path = BROWSERS_CACHE / f'chromedriver-{self.version_number}'
-      if not self.driver_path.exists():
-        self._find_driver_download()
-    assert self.driver_path.exists(), (
-      f"Could not find chromedriver at {self.driver_path}")
+  def __init__(self, browser:ChromeWebDriver):
+    self.browser = browser
 
-  def _find_local_chromedriver_build(self):
+  def find_local_build(self):
     # assume it's a local build
-    self.driver_path = self.path.parent / 'chromedriver'
+    self.driver_path = self.browser.path.parent / 'chromedriver'
     if not self.driver_path.exists():
       raise Exception(f'Driver "{self.driver_path}" does not exist. '
                       'Please build "chromedriver" manually for local builds.')
+    return self.driver_path
+
+  def download(self):
+    self.driver_path = (
+        BROWSERS_CACHE / f'chromedriver-{self.browser.version_number}')
+    if not self.driver_path.exists():
+      self._find_driver_download()
+    return self.driver_path
 
   def _find_driver_download(self):
-    base_url = 'http://chromedriver.storage.googleapis.com'
-    logging.info(f"CHROMEDRIVER Downloading from {base_url} for "
-                 f"{self.type} v{self.version_number}")
+    version_number = self.browser.version_number
+    logging.info(f"CHROMEDRIVER Downloading from {self.URL} for "
+                 f"{self.browser.type} v{version_number}")
     driver_version = None
     listing_url = None
-    if self.version_number <= 69:
-      with helper.urlopen(f'{base_url}/2.46/notes.txt') as response:
+    if version_number <= 69:
+      with helper.urlopen(f'{self.URL}/2.46/notes.txt') as response:
         lines = response.read().decode('utf-8').split('\n')
         for i, line in enumerate(lines):
           if not line.startswith('---'):
             continue
           [min, max] = map(int, re.findall(r'\d+', lines[i + 1]))
-          if min <= self.version_number and self.version_number <= max:
+          if min <= version_number and version_number <= max:
             match = re.search(r'\d\.\d+', line)
             assert match, "Could not parse version number"
             driver_version = match.group(0)
             break
     else:
-      url = f'{base_url}/LATEST_RELEASE_{self.version_number}'
+      url = f'{self.URL}/LATEST_RELEASE_{version_number}'
       try:
         with helper.urlopen(url) as response:
           driver_version = response.read().decode('utf-8')
-        listing_url = f"{base_url}/index.html?path={driver_version}/"
+        listing_url = f"{self.URL}/index.html?path={driver_version}/"
       except urllib.error.HTTPError as e:
         if e.status != 404:
           raise
@@ -515,15 +532,16 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
       arch_suffix = ""
       if helper.platform.is_arm64:
         arch_suffix = "_m1"
-      url = (f"{base_url}/{driver_version}/"
+      url = (f"{self.URL}/{driver_version}/"
              f"chromedriver_{helper.platform.short_name}64{arch_suffix}.zip")
     else:
       # Try downloading the canary version
       # Lookup the branch name
-      url = f"https://omahaproxy.appspot.com/deps.json?version={self.version}"
+      url = ("https://omahaproxy.appspot.com/deps.json"
+             f"?version={self.browser.version}")
       with helper.urlopen(url) as response:
         version_info = json.loads(response.read().decode('utf-8'))
-        assert version_info['chromium_version'] == self.version
+        assert version_info['chromium_version'] == self.browser.version
         chromium_base_position = int(version_info['chromium_base_position'])
       # Use prefixes to limit listing results and increase changes of finding
       # a matching version
@@ -562,10 +580,10 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
 
       assert url is not None, (
           "Please manually compile/download chromedriver for "
-          f"{self.type} {self.version}")
+          f"{self.browser.type} {self.browser.version}")
 
     logging.info("CHROMEDRIVER Downloading for version "
-                 f"{self.version_number}: {listing_url or url}")
+                 f"{version_number}: {listing_url or url}")
     with tempfile.TemporaryDirectory() as tmp_dir:
       zip_file = Path(tmp_dir) / 'download.zip'
       helper.platform.download_to(url, zip_file)
@@ -580,44 +598,52 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
       maybe_driver.rename(self.driver_path)
       self.driver_path.chmod(self.driver_path.stat().st_mode | stat.S_IEXEC)
 
-  def start(self, run):
-    runner = run.runner
-    assert not self.is_running
-    self.options = ChromeOptions()
+
+class ChromeWebDriver(WebdriverMixin, Chrome):
+  def __init__(self,
+               label: str,
+               path: Path,
+               js_flags: FlagsInitialDataType = None,
+               flags: FlagsInitialDataType = None,
+               cache_dir: Optional[Path] = None,
+               driver_path: Optional[Path] = None):
+    super().__init__(label, path, js_flags, flags, cache_dir)
+    self._driver = None
+    self._driver_path = driver_path
+
+  def _find_driver(self):
+    finder = ChromeDriverFinder(self)
+    if self.version_number == 0 or (self.path.parent / 'args.gn').exists():
+      return finder.find_local_build()
+    return finder.download()
+
+  def _start_driver(self, run, driver_path):
+    assert not self._is_running
+    stdout_log_file = self.log_file.with_suffix(".stdout.log")
+    options = ChromeOptions()
     args = self._get_chrome_args(run)
     for arg in args:
-      self.options.add_argument(arg)
-    self.options.binary_location = str(self.path)
+      options.add_argument(arg)
+    options.binary_location = str(self.path)
     logging.info(f"STARTING BROWSER: args: {shlex.join(args)} "
-                 f"browser: {self.path} driver: {self.driver_path}")
-    stdout_log_file = self.log_file.with_suffix(".stdout.log")
+                 f"browser: {self.path} driver: {driver_path}")
     # pytype: disable=wrong-keyword-args
-    service = ChromeService(executable_path=str(self.driver_path),
+    service = ChromeService(executable_path=str(driver_path),
                             log_path=self.driver_log_file,
                             service_args=[])
     service.log_file = stdout_log_file.open('w')
-    self.driver = webdriver.Chrome(options=self.options, service=service)
+    driver = webdriver.Chrome(options=options, service=service)
     # pytype: enable=wrong-keyword-args
     # Prevent debugging overhead.
-    self.driver.execute_cdp_cmd('Runtime.setMaxCallStackSizeToCapture',
+    driver.execute_cdp_cmd('Runtime.setMaxCallStackSizeToCapture',
                                 dict(size=0))
-    self.driver.set_window_position(self.x, self.y)
-    self.driver.set_window_size(self.width, self.height)
-    self._check_browser_version()
-    self._pid = self.driver.service.process.pid
-    self.is_running = True
+    return driver
 
-  def _check_browser_version(self):
-    # Make sure the driver used the provided chrome binary:
-    if self.version_number == 0:
-      return
-    used_major_version = (self.driver.capabilities.get('browserVersion')
-                          or self.driver.capabilities['version']).split('.')[0]
-    assert int(used_major_version) == self.version_number, (
-        f"chromedriver used wrong browser version: "
-        f"{used_major_version} != {self.version_number}")
+  def _check_driver_version(self):
+    version = helper.platform.sh_stdout(self._driver_path, '--version')
+    # TODO
 
-class SafariMeta(type):
+class SafariMeta(type(Browser)):
   @property
   def default(cls):
     return cls('Safari', cls.default_path)
@@ -659,7 +685,7 @@ class Safari(Browser, metaclass=SafariMeta):
 
   def start(self, run):
     runner = run.runner
-    assert not self.is_running
+    assert not self._is_running
     runner.exec_apple_script(f'''
 tell application "{self.app_name}"
   activate
@@ -686,17 +712,7 @@ tell application "{self.app_name}"
 end tell
     ''')
     runner.wait(2)
-    self.is_running = True
-
-  def show_page(self, runner, page):
-    super().show_page(runner, page)
-    runner.exec_apple_script(f'''
-tell application "{self.app_name}"
-    activate
-    tell application "System Events"
-        to click button 1 of window 1 of process "{self.bin_name}"
-end tell
-    ''')
+    self._is_running = True
 
   def show_url(self, runner, url):
     runner.exec_apple_script(f'''
@@ -711,47 +727,50 @@ class SafariWebDriver(WebdriverMixin, Safari):
   def __init__(self, label:str, path:Path, flags:FlagsInitialDataType=None,
           cache_dir : Optional[Path] =None):
     super().__init__(label, path, flags, cache_dir)
-    self._find_driver()
-    self._check_driver()
 
   def _find_driver(self):
-    self.driver_path = self.path.parent / 'safaridriver'
-    if not self.driver_path.exists():
+    driver_path = self.path.parent / 'safaridriver'
+    if not driver_path.exists():
       # The system-default Safari version doesn't come with the driver
-      self.driver_path = Path("/usr/bin/safaridriver")
-    assert self.driver_path.exists(
-    ), f'safari driver "{self.driver_path}" does not exist.'
+      driver_path = Path("/usr/bin/safaridriver")
+    return driver_path
 
-  def _check_driver(self):
-    # The bundled driver is always ok
-    for parent in self.driver_path.parents:
-      if parent == self.path.parent:
-        return True
-    version = helper.platform.sh_stdout(self.driver_path, '--version')
-    assert str(self.version_number) in version, \
-        f"safaridriver={self.driver_path} version='{version}' "\
-        f" doesn't match safari version={self.version_number}"
-
-  def start(self, run):
-    runner = run.runner
-    assert not self.is_running
+  def _start_driver(self, run, driver_path):
+    assert not self._is_running
+    logging.info(
+        f"STARTING BROWSER: browser: {self.path} driver: {driver_path}")
     capabilities = DesiredCapabilities.SAFARI.copy()
     capabilities['safari.cleanSession'] = 'true'
     # Enable browser logging
     capabilities['safari:diagnose'] = 'true'
     if 'Technology Preview' in self.app_name:
       capabilities['browserName'] = 'Safari Technology Preview'
-    self.driver = webdriver.Safari(executable_path=str(self.driver_path),
+    driver = webdriver.Safari(executable_path=str(driver_path),
                                    desired_capabilities=capabilities)
-    self.driver.set_window_position(self.x, self.y)
-    self.driver.set_window_size(self.width, self.height)
-    logs = Path("~/Library/Logs/com.apple.WebDriver/").expanduser(
-    ) / self.driver.session_id
+    logs = (Path("~/Library/Logs/com.apple.WebDriver/").expanduser() /
+            driver.session_id)
     self.log_file = list(logs.glob("safaridriver*"))[0]
     assert self.log_file.is_file()
-    self.show_url(runner, 'about://blank')
-    self._pid = self.driver.service.process.pid
-    self.is_running = True
+    return driver
+
+  def _check_driver_version(self):
+    # The bundled driver is always ok
+    for parent in self._driver_path.parents:
+      if parent == self.path.parent:
+        return True
+    version = helper.platform.sh_stdout(self._driver_path, '--version')
+    assert str(self.version_number) in version, \
+        f"safaridriver={self._driver_path} version='{version}' "\
+        f" doesn't match safari version={self.version_number}"
 
   def clear_cache(self, runner):
     pass
+
+  def quit(self, runner):
+    super().quit(runner)
+    # Safari needs some additional push to quit properly
+    helper.platform.exec_apple_script(f'''
+  tell application "{self.app_name}"
+    quit
+  end tell
+      ''')

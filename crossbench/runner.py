@@ -838,8 +838,13 @@ class Run:
         probe_scope.setup(self)
 
     with self._durations.measure('browser-setup'):
-      # pytype somehow gets the package path wrong here, disabling for now.
-      self._browser.setup(self)  # pytype: disable=wrong-arg-types
+      try:
+        # pytype somehow gets the package path wrong here, disabling for now.
+        self._browser.setup(self)  # pytype: disable=wrong-arg-types
+      except:
+        # Clean up half-setup browser instances
+        self._browser.force_quit()
+        raise
     return probe_run_scopes
 
   def run(self, is_dry_run=False):

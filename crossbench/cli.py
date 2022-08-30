@@ -68,8 +68,8 @@ class BrowserConfig:
     return cls(config, lookup)
 
   def __init__(self,
-               config_data : Dict = None,
-               lookup: Dict[str, browsers.Browser] = {}):
+               config_data : Optional[Dict] = None,
+               lookup: Dict[str, Type[browsers.Browser]] = {}):
     self.flag_groups : Dict[str, FlagGroupConfig] = {}
     self.variants : List[browsers.Browser] = []
     if config_data:
@@ -98,7 +98,8 @@ class BrowserConfig:
         flag_values.add(value)
     self.flag_groups[name] = FlagGroupConfig(name, variants)
 
-  def _parse_browser(self, name, data, lookup: Dict[str, browsers.Browser]):
+  def _parse_browser(self, name, data, lookup: Dict[str,
+                                                    Type[browsers.Browser]]):
     if name in lookup:
       path = data['path']
       cls = lookup[path]
