@@ -45,6 +45,7 @@ class PowerSamplerProbe(probes.Probe):
     return helper.platform.is_macos
 
   class Scope(probes.Probe.Scope):
+
     def __init__(self, probe, run):
       super().__init__(probe, run)
       self._bin_path = probe._power_sampler_bin_path

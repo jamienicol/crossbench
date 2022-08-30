@@ -7,11 +7,11 @@ from __future__ import annotations
 import collections
 from typing import Optional, Iterable, Dict, Tuple, Union
 
+
 class Flags(collections.UserDict):
 
-  InitialDataType = Optional[Union[Dict[str, str], "Flags",
-                                            Iterable[Union[Tuple[str, str],
-                                                           str]]]]
+  InitialDataType = Optional[
+      Union[Dict[str, str], "Flags", Iterable[Union[Tuple[str, str], str]]]]
 
   @classmethod
   def split(cls, flag_str: str):
@@ -220,8 +220,8 @@ class ChromeFeatures:
 
   def get_list(self):
     if len(self._enabled) > 0:
-      joined = ",".join(k if v is None else f"{k}{v}"
-                        for k, v in self._enabled.items())
+      joined = ",".join(
+          k if v is None else f"{k}{v}" for k, v in self._enabled.items())
       yield f"{self._ENABLE_FLAG}={joined}"
     if len(self._disabled) > 0:
       joined = ",".join(self._disabled)

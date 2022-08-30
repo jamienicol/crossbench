@@ -47,9 +47,9 @@ class Story(ABC):
 
 
 class PressBenchmarkStory(Story, metaclass=ABCMeta):
-  NAME :str = ''
-  URL : str = ''
-  URL_LOCAL : str = ''
+  NAME: str = ''
+  URL: str = ''
+  URL_LOCAL: str = ''
   SUBSTORIES = None
 
   @classmethod
@@ -64,8 +64,8 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
         names = cls.SUBSTORIES
       elif first not in cls.SUBSTORIES:
         pattern = re.compile(first)
-        names = tuple(substory for substory in cls.SUBSTORIES
-                      if pattern.match(substory))
+        names = tuple(
+            substory for substory in cls.SUBSTORIES if pattern.match(substory))
         assert len(names) > 0, \
             f"Regexp '{pattern.pattern}' didn't match any stories."
         logging.info("FILTERED SUB-STORIES story=%s selected=%s", cls.NAME,
@@ -130,8 +130,9 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
   def _verify_substories(self):
     if len(self._substories) != len(set(self._substories)):
       # Beware of the O(n**2):
-      duplicates = set(substory for substory in self._substories
-                       if self._substories.count(substory) > 1)
+      duplicates = set(
+          substory for substory in self._substories
+          if self._substories.count(substory) > 1)
       assert len(duplicates) > 0, (
           f"substories='{self._substories}' contains duplicate entries: "
           f"{duplicates}")

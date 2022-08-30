@@ -49,9 +49,9 @@ class JetStream2Probe(probes.JsonResultProbe):
   def _json_to_csv(self, merged_data, out_file):
     assert not out_file.exists()
     # "story_name" => [ metric_value_path, ...], ...
-    grouped_by_story = helper.group_by(sorted(
-        merged_data.keys(), key=lambda path: str(path).lower()),
-                                       key=lambda path: path.parts[0])
+    grouped_by_story = helper.group_by(
+        sorted(merged_data.keys(), key=lambda path: str(path).lower()),
+        key=lambda path: path.parts[0])
     # ("metric_name", ...) => [ "story_name", ... ], ...
     grouped_by_metrics = helper.group_by(
         grouped_by_story.items(),
@@ -79,7 +79,7 @@ class JetStream2Probe(probes.JsonResultProbe):
 
 class JetStream2Story(stories.PressBenchmarkStory):
   NAME = "jetstream_2"
-  PROBES = (JetStream2Probe, )
+  PROBES = (JetStream2Probe,)
   URL = "https://browserbench.org/JetStream/"
   URL_LOCAL = "http://localhost:8000/"
   SUBSTORIES = (
@@ -148,7 +148,7 @@ class JetStream2Story(stories.PressBenchmarkStory):
       '3d-raytrace-SP',
       '3d-cube-SP',
   )
-  DEFAULT_PROBES = (JetStream2Probe, )
+  DEFAULT_PROBES = (JetStream2Probe,)
 
   def run(self, run):
     with run.actions("Setup") as actions:
@@ -157,12 +157,13 @@ class JetStream2Story(stories.PressBenchmarkStory):
         actions.wait_js_condition(("return JetStream && JetStream.benchmarks "
                                    "&& JetStream.benchmarks.length > 0;"),
                                   helper.wait_range(0.1, 10))
-        actions.js("""
+        actions.js(
+            """
         let benchmarks = arguments[0];
         JetStream.benchmarks = JetStream.benchmarks.filter(
             benchmark => benchmarks.includes(benchmark.name));
         """,
-                   arguments=[self._substories])
+            arguments=[self._substories])
       actions.wait_js_condition(
           """
         return document.querySelectorAll("#results>.benchmark").length > 0;

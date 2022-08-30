@@ -35,7 +35,7 @@ class LivePage(_Page):
         pages = cls._resolve_name_or_urls(name_or_url_list, use_hostname=True)
     if not separate and len(pages) > 1:
       combined_name = '_'.join(page.name for page in pages)
-      pages = (CombinedPage(pages, combined_name), )
+      pages = (CombinedPage(pages, combined_name),)
     logging.info("PAGES: %s", list(map(str, pages)))
     return pages
 
@@ -85,6 +85,7 @@ class LivePage(_Page):
 
 
 class CombinedPage(_Page):
+
   @classmethod
   def story_names(cls):
     raise NotImplementedError()

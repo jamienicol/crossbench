@@ -6,6 +6,7 @@ import unittest
 
 from crossbench.flags import Flags, ChromeFeatures, ChromeFlags, JSFlags
 
+
 class TestFlags(unittest.TestCase):
 
   CLASS = Flags
@@ -16,7 +17,7 @@ class TestFlags(unittest.TestCase):
     self.assertNotIn('foo', flags)
 
   def test_construct_dict(self):
-    flags = self.CLASS({ '--foo' : 'v1', '--bar': 'v2'})
+    flags = self.CLASS({'--foo': 'v1', '--bar': 'v2'})
     self.assertIn('--foo', flags)
     self.assertIn('--bar', flags)
     self.assertEqual(flags['--foo'], 'v1')
@@ -29,13 +30,13 @@ class TestFlags(unittest.TestCase):
     self.assertEqual(flags['--foo'], None)
     self.assertEqual(flags['--bar'], None)
     with self.assertRaises(AssertionError):
-       self.CLASS(('--foo=v1', '--bar=v2'))
+      self.CLASS(('--foo=v1', '--bar=v2'))
     flags = self.CLASS((('--foo', 'v3'), '--bar'))
     self.assertEqual(flags['--foo'], 'v3')
     self.assertEqual(flags['--bar'], None)
 
   def test_construct_flags(self):
-    original_flags = self.CLASS({ '--foo' : 'v1', '--bar': 'v2'})
+    original_flags = self.CLASS({'--foo': 'v1', '--bar': 'v2'})
     flags = self.CLASS(original_flags)
     self.assertIn('--foo', flags)
     self.assertIn('--bar', flags)
@@ -61,16 +62,16 @@ class TestFlags(unittest.TestCase):
     self.assertEqual(flags['--bar'], 'v4')
 
   def test_get_list(self):
-    flags = self.CLASS({ '--foo' : 'v1', '--bar': None})
+    flags = self.CLASS({'--foo': 'v1', '--bar': None})
     self.assertEqual(list(flags.get_list()), ['--foo=v1', '--bar'])
 
   def test_copy(self):
-    flags = self.CLASS({ '--foo' : 'v1', '--bar': None})
+    flags = self.CLASS({'--foo': 'v1', '--bar': None})
     copy = flags.copy()
     self.assertEqual(list(flags.get_list()), list(copy.get_list()))
 
   def test_update(self):
-    flags = self.CLASS({ '--foo' : 'v1', '--bar': None})
+    flags = self.CLASS({'--foo': 'v1', '--bar': None})
     with self.assertRaises(AssertionError):
       flags.update({'--bar': 'v2'})
     self.assertEqual(flags['--foo'], 'v1')
@@ -85,7 +86,10 @@ class TestChromeFlags(TestFlags):
   CLASS = ChromeFlags
 
   def test_js_flags(self):
-    flags = self.CLASS({'--foo':None, '--bar':'v1', })
+    flags = self.CLASS({
+        '--foo': None,
+        '--bar': 'v1',
+    })
     self.assertEqual(flags['--foo'], None)
     self.assertEqual(flags['--bar'], 'v1')
     self.assertNotIn('--js-flags', flags)
@@ -99,11 +103,12 @@ class TestChromeFlags(TestFlags):
     self.assertEqual(js_flags['--no-js-bar'], None)
 
   def test_js_flags_initial_data(self):
-    flags = self.CLASS({'--js-flags': '--foo=v1,--no-bar', })
+    flags = self.CLASS({
+        '--js-flags': '--foo=v1,--no-bar',
+    })
     js_flags = flags.js_flags
     self.assertEqual(js_flags['--foo'], 'v1')
     self.assertEqual(js_flags['--no-bar'], None)
-
 
   def test_features(self):
     flags = self.CLASS()
@@ -115,7 +120,7 @@ class TestChromeFlags(TestFlags):
     with self.assertRaises(AssertionError):
       flags["--disable-features"] = "F2,F1"
     flags["--disable-features"] = "F3,F4"
-    self.assertEqual(features.enabled, {'F1':None, 'F2':None})
+    self.assertEqual(features.enabled, {'F1': None, 'F2': None})
     self.assertEqual(features.disabled, set(('F3', 'F4')))
 
 

@@ -24,20 +24,21 @@ class FlagGroupConfig:
   This object is create from configuration files and mainly contains a mapping
   from flag-names to multiple values.
   """
-  def __init__(self, name: str, variants: Dict[str, Union[Iterable[Optional[str]],  str]]):
+
+  def __init__(self, name: str,
+               variants: Dict[str, Union[Iterable[Optional[str]], str]]):
     self.name = name
     self._variants: Dict[str, Iterable[Optional[str]]] = {}
     for flag_name, flag_variants_or_value in variants.items():
       assert flag_name not in self._variants
       assert len(flag_name) > 0
       if isinstance(flag_variants_or_value, str):
-        self._variants[flag_name] = (str(flag_variants_or_value), )
+        self._variants[flag_name] = (str(flag_variants_or_value),)
       else:
         assert isinstance(flag_variants_or_value, Iterable)
         flag_variants = tuple(flag_variants_or_value)
         assert len(flag_variants) == len(set(flag_variants)), (
-          "Flag variant contains duplicate entries: {flag_variants}"
-        )
+            "Flag variant contains duplicate entries: {flag_variants}")
         self._variants[flag_name] = tuple(flag_variants_or_value)
 
   def get_variant_items(self) -> Iterable[Optional[Tuple[str, Optional[str]]]]:
@@ -46,7 +47,7 @@ class FlagGroupConfig:
           self._map(flag_name, flag_value) for flag_value in flag_values)
 
   @staticmethod
-  def _map(flag_name : str, flag_value : Optional[str]):
+  def _map(flag_name: str, flag_value: Optional[str]):
     if flag_value is None:
       return None
     if flag_value == "":
@@ -55,6 +56,7 @@ class FlagGroupConfig:
 
 
 class BrowserConfig:
+
   @classmethod
   def load(cls, f, lookup={}):
     try:
@@ -63,15 +65,14 @@ class BrowserConfig:
       else:
         config = json.load(f)
     except ValueError as e:
-      raise ValueError(
-          f"Failed to parse config file: {f}") from e
+      raise ValueError(f"Failed to parse config file: {f}") from e
     return cls(config, lookup)
 
   def __init__(self,
-               config_data : Optional[Dict] = None,
+               config_data: Optional[Dict] = None,
                lookup: Dict[str, Type[browsers.Browser]] = {}):
-    self.flag_groups : Dict[str, FlagGroupConfig] = {}
-    self.variants : List[browsers.Browser] = []
+    self.flag_groups: Dict[str, FlagGroupConfig] = {}
+    self.variants: List[browsers.Browser] = []
     if config_data:
       for flag_name, group_config in config_data['flags'].items():
         self._parse_flag_group(flag_name, group_config)
@@ -79,8 +80,7 @@ class BrowserConfig:
         self._parse_browser(name, browser_config, lookup)
 
   def _parse_flag_group(self, name, data):
-    assert name not in self.flag_groups, (
-        f"flag-group='{name}' exists already")
+    assert name not in self.flag_groups, (f"flag-group='{name}' exists already")
     variants = {}
     for flag_name, values in data.items():
       if not flag_name.startswith("-"):
@@ -98,8 +98,8 @@ class BrowserConfig:
         flag_values.add(value)
     self.flag_groups[name] = FlagGroupConfig(name, variants)
 
-  def _parse_browser(self, name, data, lookup: Dict[str,
-                                                    Type[browsers.Browser]]):
+  def _parse_browser(self, name, data,
+                     lookup: Dict[str, Type[browsers.Browser]]):
     if name in lookup:
       path = data['path']
       cls = lookup[path]
@@ -118,7 +118,7 @@ class BrowserConfig:
         for flags in variants_flags
     ]
 
-  def _flags_to_label(self, name:str, flags:flags.Flags) -> str:
+  def _flags_to_label(self, name: str, flags: flags.Flags) -> str:
     return f"{name}_{browsers.convert_flags_to_label(*flags.get_list())}"
 
   def _parse_flags(self, name, data):
@@ -139,11 +139,13 @@ class BrowserConfig:
       flags_product += flag_group.get_variant_items()
     if len(flags_product) == 0:
       # use empty default
-      return (dict(), )
+      return (dict(),)
     flags_product = itertools.product(*flags_product)
     # Filter out (.., None) value
     flags_product = list(
-        list(flag_item for flag_item in flags_items if flag_item is not None)
+        list(flag_item
+             for flag_item in flags_items
+             if flag_item is not None)
         for flags_items in flags_product)
     assert len(flags_product) > 0
     return flags_product
@@ -210,8 +212,7 @@ class CrossBenchCLI:
   )
 
   GENERAL_PURPOSE_PROBES_BY_NAME = {
-      cls.NAME: cls
-      for cls in probes.GENERAL_PURPOSE_PROBES
+      cls.NAME: cls for cls in probes.GENERAL_PURPOSE_PROBES
   }
 
   def __init__(self):
@@ -220,17 +221,17 @@ class CrossBenchCLI:
     self._setup_subparser()
 
   def _setup_parser(self):
-    self.parser.add_argument("-v",
-                             "--verbose",
-                             dest="verbosity",
-                             action="count",
-                             default=0,
-                             help="Increase output verbosity (0..2)")
+    self.parser.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbosity",
+        action="count",
+        default=0,
+        help="Increase output verbosity (0..2)")
 
   def _setup_subparser(self):
-    self.subparsers = self.parser.add_subparsers(title='Subcommands',
-                                                 dest="subcommand",
-                                                 required=True)
+    self.subparsers = self.parser.add_subparsers(
+        title='Subcommands', dest="subcommand", required=True)
     for benchmark_cls in self.BENCHMARKS:
       self._setup_benchmark_subparser(benchmark_cls)
     describe_parser = self.subparsers.add_parser(
@@ -255,10 +256,11 @@ class CrossBenchCLI:
     assert isinstance(subparser, argparse.ArgumentParser), (
         f"Benchmark class {benchmark_cls}.add_cli_parser did not return "
         f"an ArgumentParser: {subparser}")
-    subparser.add_argument("--dry-run",
-                           action="store_true",
-                           default=False,
-                           help="Don't run any browsers or probes")
+    subparser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Don't run any browsers or probes")
     browser_group = subparser.add_mutually_exclusive_group()
     browser_group.add_argument(
         "--browser",
@@ -299,8 +301,8 @@ class CrossBenchCLI:
         "--disable-features",
         help="Command-separated list of disabled chrome features. " + DOC,
         default='')
-    subparser.set_defaults(subcommand=self.benchmark_subcommand,
-                           benchmark_cls=benchmark_cls)
+    subparser.set_defaults(
+        subcommand=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
 
   def benchmark_subcommand(self, args):
     if args.browser_config:

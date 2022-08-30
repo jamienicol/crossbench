@@ -43,17 +43,17 @@ class Speedometer20Probe(probes.JsonResultProbe):
     # In: "tests/Angular2-TypeScript-TodoMVC/tests/Adding100Items/tests/Async"
     # Out: "Angular2-TypeScript-TodoMVC/Adding100Items/Async"
     merged_data = {
-        Path(str(k).replace("tests/", "")): v
-        for k, v in merged_data.items()
+        Path(str(k).replace("tests/", "")): v for k, v in merged_data.items()
     }
     # "suite_name" => (metric_value_path, ...), ...
-    grouped_by_suite = helper.group_by(sorted(
-        merged_data.keys(), key=lambda path: str(path).lower()),
-                                       key=lambda path: path.parts[0])
+    grouped_by_suite = helper.group_by(
+        sorted(merged_data.keys(), key=lambda path: str(path).lower()),
+        key=lambda path: path.parts[0])
     # Sort summary metrics ("total"...) last
     grouped_by_suite = dict(
-        sorted(grouped_by_suite.items(),
-               key=lambda item: ("-" not in item[0], item[0].lower())))
+        sorted(
+            grouped_by_suite.items(),
+            key=lambda item: ("-" not in item[0], item[0].lower())))
 
     with out_file.open('w') as f:
       for suite_name, metric_paths in grouped_by_suite.items():
@@ -69,7 +69,7 @@ class Speedometer20Probe(probes.JsonResultProbe):
 
 class Speedometer20Story(stories.PressBenchmarkStory):
   NAME = 'speedometer_2.0'
-  PROBES = (Speedometer20Probe, )
+  PROBES = (Speedometer20Probe,)
   URL = "https://browserbench.org/Speedometer2.0/InteractiveRunner.html"
   URL_LOCAL = "http://localhost:8000/InteractiveRunner.html"
   SUBSTORIES = (
@@ -103,16 +103,18 @@ class Speedometer20Story(stories.PressBenchmarkStory):
         return globalThis.Suites !== undefined;
       """, helper.wait_range(0.5, 10))
       if self._substories != self.SUBSTORIES:
-        actions.js("""
+        actions.js(
+            """
         let substories = arguments[0];
         Suites.forEach((suite) => {
           suite.disabled = substories.indexOf(suite.name) == -1;
         });
         """,
-                   arguments=[self._substories])
+            arguments=[self._substories])
       actions.wait(0.5)
     with run.actions("Run") as actions:
-      actions.js("""
+      actions.js(
+          """
         // Store all the results in the benchmarkClient
         globalThis.testDone = false;
         let benchmarkClient = {};
@@ -127,7 +129,7 @@ class Speedometer20Story(stories.PressBenchmarkStory):
         let iterationCount = arguments[0];
         runner.runMultipleIterations(iterationCount);
         """,
-                 arguments=[self.iterations])
+          arguments=[self.iterations])
       actions.wait(1 * len(self._substories))
       actions.wait_js_condition(
           "return globalThis.testDone",

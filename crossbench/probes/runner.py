@@ -21,6 +21,7 @@ class RunRunnerLogProbe(probes.Probe):
   FLATTEN = False
 
   class Scope(probes.Probe.Scope):
+
     def __init__(self, *args, **kwargs):
       super().__init__(*args, **kwargs)
       self._log_handler = None
@@ -58,6 +59,7 @@ class RunDurationsProbe(JsonResultProbe):
     return actions.run.durations.to_json()
 
   class Scope(JsonResultProbe.Scope):
+
     def stop(self, run):
       # Only extract data in the late TearDown phase.
       pass
@@ -152,6 +154,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
     return self.write_group_result(group, merged_data)
 
   class Scope(JsonResultProbe.Scope):
+
     def stop(self, run):
       # Only extract data in the late TearDown phase.
       pass

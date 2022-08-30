@@ -39,8 +39,9 @@ BROWSERS_CACHE = Path(__file__).parent.parent / '.browsers-cache'
 
 
 class Browser(abc.ABC):
+
   @classmethod
-  def default_flags(cls, initial_data:FlagsInitialDataType=None):
+  def default_flags(cls, initial_data: FlagsInitialDataType = None):
     return flags.Flags(initial_data)
 
   def __init__(self,
@@ -48,7 +49,7 @@ class Browser(abc.ABC):
                path: Path,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[Path] = None,
-               type : Optional[str] = None):
+               type: Optional[str] = None):
     # Marked optional to make subclass constructor calls easier with pytype.
     assert type
     self.type = type
@@ -109,15 +110,16 @@ class Browser(abc.ABC):
     probe.attach(self)
 
   def details_json(self):
-    return dict(label=self.label,
-                app_name=self.app_name,
-                version=self.version,
-                flags=tuple(self.flags.get_list()),
-                js_flags=tuple(),
-                path=str(self.path),
-                clear_cache_dir=self.clear_cache_dir,
-                version_number=self.version_number,
-                log={})
+    return dict(
+        label=self.label,
+        app_name=self.app_name,
+        version=self.version,
+        flags=tuple(self.flags.get_list()),
+        js_flags=tuple(),
+        path=str(self.path),
+        clear_cache_dir=self.clear_cache_dir,
+        version_number=self.version_number,
+        log={})
 
   def setup_binary(self, runner: runner.Runner):
     pass
@@ -190,6 +192,7 @@ def convert_flags_to_label(*flags, index=None):
 
 
 class ChromeMeta(type(Browser)):
+
   @property
   def default_path(cls):
     return cls.stable_path
@@ -218,15 +221,20 @@ class ChromeMeta(type(Browser)):
       return Path('/Applications/Google Chrome Canary.app')
     raise NotImplementedError()
 
+
 class Chrome(Browser, metaclass=ChromeMeta):
+
   @classmethod
-  def combine(cls,
-              binaries: Iterable[Path],
-              js_flags_list: Optional[Iterable[FlagsInitialDataType]] = None,
-              browser_flags_list: Optional[Iterable[FlagsInitialDataType]]= None,
-              user_data_dir: Optional[Path] = None):
+  def combine(
+      cls,
+      binaries: Iterable[Path],
+      js_flags_list: Optional[Iterable[FlagsInitialDataType]] = None,
+      browser_flags_list: Optional[Iterable[FlagsInitialDataType]] = None,
+      user_data_dir: Optional[Path] = None):
     if isinstance(binaries, Path):
-      binaries = [binaries,]
+      binaries = [
+          binaries,
+      ]
     browsers = []
     empty_flags = tuple(tuple())
     for browser_flags in browser_flags_list or empty_flags:
@@ -242,11 +250,12 @@ class Chrome(Browser, metaclass=ChromeMeta):
           index = len(browsers)
           # Don't print a browser/binary index if there is only one
           label = convert_flags_to_label(*js_flags, *browser_flags, index=index)
-          browser = cls(label,
-                        binary,
-                        js_flags=js_flags,
-                        flags=browser_flags,
-                        cache_dir=user_data_dir)
+          browser = cls(
+              label,
+              binary,
+              js_flags=js_flags,
+              flags=browser_flags,
+              cache_dir=user_data_dir)
           browsers.append(browser)
     assert len(browsers) > 0, 'No browser variants produced'
     return browsers
@@ -261,7 +270,7 @@ class Chrome(Browser, metaclass=ChromeMeta):
   ]
 
   @classmethod
-  def default_flags(cls, initial_data:FlagsInitialDataType=None):
+  def default_flags(cls, initial_data: FlagsInitialDataType = None):
     return flags.ChromeFlags(initial_data)
 
   def __init__(self,
@@ -269,7 +278,7 @@ class Chrome(Browser, metaclass=ChromeMeta):
                path: Path,
                js_flags: FlagsInitialDataType = None,
                flags: FlagsInitialDataType = None,
-               cache_dir : Optional[Path] =None):
+               cache_dir: Optional[Path] = None):
     super().__init__(label, path, type='chrome')
     assert not isinstance(
         js_flags, str), f"js_flags should be a list, but got: {repr(js_flags)}"
@@ -344,7 +353,7 @@ class Chrome(Browser, metaclass=ChromeMeta):
       flags_copy.set('--enable-logging')
       flags_copy["--log-file"] = str(self.chrome_log_file)
 
-    return tuple(flags_copy.get_list()) + (self.default_page, )
+    return tuple(flags_copy.get_list()) + (self.default_page,)
 
   def get_label_from_flags(self):
     return convert_flags_to_label(*self.flags, *self.js_flags)
@@ -357,9 +366,10 @@ class Chrome(Browser, metaclass=ChromeMeta):
     assert self._stdout_log_file is None
     if self.log_file:
       self._stdout_log_file = self.stdout_log_file.open('w')
-    self._pid = runner.popen(self.bin_path,
-                             *self._get_chrome_args(run),
-                             stdout=self._stdout_log_file)
+    self._pid = runner.popen(
+        self.bin_path,
+        *self._get_chrome_args(run),
+        stdout=self._stdout_log_file)
     runner.wait(1)
     self.show_url(runner, self.default_page)
     self.exec_apple_script(f'''
@@ -388,8 +398,8 @@ end tell
 
 class WebdriverMixin(Browser):
   _driver: webdriver.Remote
-  _driver_path : Path
-  _driver_pid : int
+  _driver_path: Path
+  _driver_pid: int
 
   @property
   def driver_log_file(self):
@@ -421,7 +431,8 @@ class WebdriverMixin(Browser):
     self.show_url(runner, 'about://blank')
 
   @abc.abstractmethod
-  def _start_driver(self, run:runner.Run, driver_path:Path) -> webdriver.Remote:
+  def _start_driver(self, run: runner.Run,
+                    driver_path: Path) -> webdriver.Remote:
     pass
 
   def details_json(self):
@@ -481,9 +492,9 @@ class WebdriverMixin(Browser):
 class ChromeDriverFinder:
   URL = 'http://chromedriver.storage.googleapis.com'
 
-  driver_path : Path
+  driver_path: Path
 
-  def __init__(self, browser:ChromeWebDriver):
+  def __init__(self, browser: ChromeWebDriver):
     self.browser = browser
 
   def find_local_build(self):
@@ -600,6 +611,7 @@ class ChromeDriverFinder:
 
 
 class ChromeWebDriver(WebdriverMixin, Chrome):
+
   def __init__(self,
                label: str,
                path: Path,
@@ -628,22 +640,24 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
     logging.info(f"STARTING BROWSER: args: {shlex.join(args)} "
                  f"browser: {self.path} driver: {driver_path}")
     # pytype: disable=wrong-keyword-args
-    service = ChromeService(executable_path=str(driver_path),
-                            log_path=self.driver_log_file,
-                            service_args=[])
+    service = ChromeService(
+        executable_path=str(driver_path),
+        log_path=self.driver_log_file,
+        service_args=[])
     service.log_file = stdout_log_file.open('w')
     driver = webdriver.Chrome(options=options, service=service)
     # pytype: enable=wrong-keyword-args
     # Prevent debugging overhead.
-    driver.execute_cdp_cmd('Runtime.setMaxCallStackSizeToCapture',
-                                dict(size=0))
+    driver.execute_cdp_cmd('Runtime.setMaxCallStackSizeToCapture', dict(size=0))
     return driver
 
   def _check_driver_version(self):
     version = helper.platform.sh_stdout(self._driver_path, '--version')
     # TODO
 
+
 class SafariMeta(type(Browser)):
+
   @property
   def default(cls):
     return cls('Safari', cls.default_path)
@@ -660,13 +674,14 @@ class SafariMeta(type(Browser)):
   def technology_preview_path(cls):
     return Path('/Applications/Safari Technology Preview.app')
 
+
 class Safari(Browser, metaclass=SafariMeta):
 
   def __init__(self,
                label: str,
                path: Path,
                flags: FlagsInitialDataType = None,
-               cache_dir : Optional[Path] = None):
+               cache_dir: Optional[Path] = None):
     super().__init__(label, path, flags, type="safari")
     assert helper.platform.is_macos, "Safari only works on MacOS"
     bundle_name = self.path.stem.replace(' ', '')
@@ -724,8 +739,12 @@ end tell
 
 
 class SafariWebDriver(WebdriverMixin, Safari):
-  def __init__(self, label:str, path:Path, flags:FlagsInitialDataType=None,
-          cache_dir : Optional[Path] =None):
+
+  def __init__(self,
+               label: str,
+               path: Path,
+               flags: FlagsInitialDataType = None,
+               cache_dir: Optional[Path] = None):
     super().__init__(label, path, flags, cache_dir)
 
   def _find_driver(self):
@@ -745,10 +764,11 @@ class SafariWebDriver(WebdriverMixin, Safari):
     capabilities['safari:diagnose'] = 'true'
     if 'Technology Preview' in self.app_name:
       capabilities['browserName'] = 'Safari Technology Preview'
-    driver = webdriver.Safari(executable_path=str(driver_path),
-                                   desired_capabilities=capabilities)
-    logs = (Path("~/Library/Logs/com.apple.WebDriver/").expanduser() /
-            driver.session_id)
+    driver = webdriver.Safari(
+        executable_path=str(driver_path), desired_capabilities=capabilities)
+    logs = (
+        Path("~/Library/Logs/com.apple.WebDriver/").expanduser() /
+        driver.session_id)
     self.log_file = list(logs.glob("safaridriver*"))[0]
     assert self.log_file.is_file()
     return driver

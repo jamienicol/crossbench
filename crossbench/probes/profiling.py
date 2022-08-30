@@ -91,6 +91,7 @@ class ProfilingProbe(probes.Probe):
     raise Exception("Invalid platform")
 
   class MacOSProfilingScope(probes.Probe.Scope):
+
     def __init__(self, *args, **kwargs):
       super().__init__(*args, **kwargs)
       self._default_results_file = self.results_file.parent / 'profile.trace'

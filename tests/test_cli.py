@@ -17,6 +17,7 @@ import crossbench.flags
 from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig
 from crossbench import browsers, helper
 
+
 class SysExitException(Exception):
 
   def __init__(self):
@@ -56,18 +57,18 @@ class TestCLI(pyfakefs.fake_filesystem_unittest.TestCase):
   def test_help_subcommand(self):
     for benchmark in CrossBenchCLI.BENCHMARKS:
       with mock.patch('sys.exit', side_effect=SysExitException()) as exit_mock:
-        stdout = self.run_cli(benchmark.NAME,
-                              '--help',
-                              raises=SysExitException)
+        stdout = self.run_cli(benchmark.NAME, '--help', raises=SysExitException)
         self.assertTrue(exit_mock.called)
         exit_mock.assert_called_with(0)
         self.assertGreater(len(stdout), 0)
 
 
-
 FlagsInitialDataType = crossbench.flags.Flags.InitialDataType
+
+
 class MockBrowser(browsers.Browser):
   BIN_PATH = None
+
   def __init__(self,
                label: str,
                path: Path,
@@ -86,6 +87,7 @@ class MockBrowserStable(MockBrowser):
   else:
     BIN_PATH = Path("/usr/bin/chrome")
 
+
 class MockBrowserDev(MockBrowser):
   if helper.platform.is_macos:
     BIN_PATH = Path("/Applications/ChromeDev.app")
@@ -98,10 +100,10 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
       __file__).parent.parent / 'browser.config.example.hjson'
 
   BROWSER_LOOKUP = {
-    "stable": MockBrowserStable,
-    "dev": MockBrowserDev,
-    "chrome-stable": MockBrowserStable,
-    "chrome-dev": MockBrowserDev,
+      "stable": MockBrowserStable,
+      "dev": MockBrowserDev,
+      "chrome-stable": MockBrowserStable,
+      "chrome-dev": MockBrowserDev,
   }
 
   def setUp(self):
@@ -128,80 +130,88 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
 
   def test_flag_combination_duplicate(self):
     with self.assertRaises(AssertionError):
-      BrowserConfig({
-          "flags": {
-              "group1": {
-                  "--foo": [None, "", 'v1'],
+      BrowserConfig(
+          {
+              "flags": {
+                  "group1": {
+                      "--foo": [None, "", 'v1'],
+                  },
+                  "group2": {
+                      "--foo": [None, "", 'v1'],
+                  }
               },
-              "group2": {
-                  "--foo": [None, "", 'v1'],
+              "browsers": {
+                  "stable": {
+                      "path": "stable",
+                      "flags": ["group1", "group2"]
+                  }
               }
           },
-          "browsers": {
-              "stable": {
-                  "path": "stable",
-                  "flags": ["group1", "group2"]
-              }
-          }
-      }, lookup=self.BROWSER_LOOKUP)
+          lookup=self.BROWSER_LOOKUP)
 
   def test_flag_combination(self):
-    config = BrowserConfig({
-        "flags": {
-            "group1": {
-                "--foo": [None, "", 'v1'],
-                "--bar": [None, "", 'v1'],
+    config = BrowserConfig(
+        {
+            "flags": {
+                "group1": {
+                    "--foo": [None, "", 'v1'],
+                    "--bar": [None, "", 'v1'],
+                }
+            },
+            "browsers": {
+                "stable": {
+                    "path": "stable",
+                    "flags": ["group1"]
+                }
             }
         },
-        "browsers": {
-            "stable": {
-                "path": "stable",
-                "flags": ["group1"]
-            }
-        }
-    }, lookup=self.BROWSER_LOOKUP)
+        lookup=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3)
 
   def test_flag_combination_with_fixed(self):
-    config = BrowserConfig({
-        "flags": {
-            "group1": {
-                "--foo": [None, "", 'v1'],
-                "--bar": [None, "", 'v1'],
-                "--always_1": "true",
-                "--always_2": "true",
-                "--always_3": "true",
+    config = BrowserConfig(
+        {
+            "flags": {
+                "group1": {
+                    "--foo": [None, "", 'v1'],
+                    "--bar": [None, "", 'v1'],
+                    "--always_1": "true",
+                    "--always_2": "true",
+                    "--always_3": "true",
+                }
+            },
+            "browsers": {
+                "stable": {
+                    "path": "stable",
+                    "flags": ["group1"]
+                }
             }
         },
-        "browsers": {
-            "stable": {
-                "path": "stable",
-                "flags": ["group1"]
-            }
-        }
-    }, lookup=self.BROWSER_LOOKUP)
+        lookup=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3)
 
   def test_flag_group_combination(self):
-    config = BrowserConfig({
-        "flags": {
-            "group1": {
-                "--foo": [None, "", 'v1'],
+    config = BrowserConfig(
+        {
+            "flags": {
+                "group1": {
+                    "--foo": [None, "", 'v1'],
+                },
+                "group2": {
+                    "--bar": [None, "", 'v1'],
+                },
+                "group3": {
+                    "--other": ["v1", 'v2'],
+                }
             },
-            "group2": {
-                "--bar": [None, "", 'v1'],
-            },
-            "group3": {
-                "--other": ["v1", 'v2'],
+            "browsers": {
+                "stable": {
+                    "path": "stable",
+                    "flags": ["group1", "group2", "group3"]
+                }
             }
         },
-        "browsers": {
-            "stable": {
-                "path": "stable",
-                "flags": ["group1", "group2", "group3"]
-            }
-        }
-    }, lookup=self.BROWSER_LOOKUP)
+        lookup=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3 * 2)
 
 
@@ -229,16 +239,16 @@ class TestFlagGroupConfig(unittest.TestCase):
         (),
     ])
 
-    variants = self.parse({'--foo': (None, )})
+    variants = self.parse({'--foo': (None,)})
     self.assertListEqual(variants, [
-        (None, ),
+        (None,),
     ])
 
-    variants = self.parse({'--foo': ("", )})
+    variants = self.parse({'--foo': ("",)})
     self.assertEqual(len(variants), 1)
     self.assertTupleEqual(
         variants[0],
-        (('--foo', None), ),
+        (('--foo', None),),
     )
 
     variants = self.parse({'--foo': (
@@ -264,8 +274,8 @@ class TestFlagGroupConfig(unittest.TestCase):
 
     variants = self.parse({'--foo': "a", '--bar': "b"})
     self.assertEqual(len(variants), 2)
-    self.assertTupleEqual(variants[0], (("--foo", "a"), ))
-    self.assertTupleEqual(variants[1], (("--bar", "b"), ))
+    self.assertTupleEqual(variants[0], (("--foo", "a"),))
+    self.assertTupleEqual(variants[1], (("--bar", "b"),))
 
     variants = self.parse({'--foo': ["a1", "a2"], '--bar': "b"})
     self.assertEqual(len(variants), 2)
@@ -273,7 +283,7 @@ class TestFlagGroupConfig(unittest.TestCase):
         ("--foo", "a1"),
         ("--foo", "a2"),
     ))
-    self.assertTupleEqual(variants[1], (("--bar", "b"), ))
+    self.assertTupleEqual(variants[1], (("--bar", "b"),))
 
     variants = self.parse({'--foo': ["a1", "a2"], '--bar': ["b1", "b2"]})
     self.assertEqual(len(variants), 2)

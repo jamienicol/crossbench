@@ -47,14 +47,15 @@ class SystemStatsProbe(probes.Probe):
       time.sleep(interval)
 
   class Scope(probes.Probe.Scope):
+
     def setup(self, run):
       self.results_file.mkdir()
 
     def start(self, run):
       self._event = threading.Event()
-      self._poller = threading.Thread(target=SystemStatsProbe.poll,
-                                      args=(self.probe.interval,
-                                            self.results_file, self._event))
+      self._poller = threading.Thread(
+          target=SystemStatsProbe.poll,
+          args=(self.probe.interval, self.results_file, self._event))
       self._poller.start()
 
     def stop(self, run):

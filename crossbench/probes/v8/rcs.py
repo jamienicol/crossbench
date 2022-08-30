@@ -5,6 +5,7 @@
 from pathlib import Path
 
 from crossbench import probes
+
 from crossbench import runner
 
 from crossbench.helper import platform
@@ -30,6 +31,7 @@ class V8RCSProbe(probes.Probe):
     return f"{self.name}.txt"
 
   class Scope(probes.Probe.Scope):
+
     def setup(self, run):
       pass
 

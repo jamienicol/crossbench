@@ -37,15 +37,14 @@ class MotionMark12Probe(probes.JsonResultProbe):
   def flatten_json_data(self, json_data):
     flat_data = probes.json.flatten(*json_data)
     flat_data = {
-        k: v
-        for k, v in flat_data.items() if MotionMark12Probe.filter(k, v)
+        k: v for k, v in flat_data.items() if MotionMark12Probe.filter(k, v)
     }
     return flat_data
 
 
 class MotionMark12Story(stories.PressBenchmarkStory):
   NAME = "motionmark_1.2"
-  PROBES = (MotionMark12Probe, )
+  PROBES = (MotionMark12Probe,)
   URL = "https://browserbench.org/MotionMark1.2/developer.html"
   URL_LOCAL = "http://localhost:8000/developer.html"
   ALL_STORIES = {
@@ -149,7 +148,8 @@ class MotionMark12Story(stories.PressBenchmarkStory):
       actions.wait_js_condition(
           """return document.querySelector("tree > li") !== undefined""",
           helper.wait_range(0.1, 10))
-      num_enabled = actions.js("""
+      num_enabled = actions.js(
+          """
         let benchmarks = arguments[0];
         const list = document.querySelectorAll('.tree li');
         let counter = 0;
@@ -166,7 +166,7 @@ class MotionMark12Story(stories.PressBenchmarkStory):
         }
         return counter
         """,
-                               arguments=[self._substories])
+          arguments=[self._substories])
       assert num_enabled > 0, "No tests were enabled"
       actions.wait(0.1)
     with run.actions("Run") as actions:

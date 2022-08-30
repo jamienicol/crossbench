@@ -40,6 +40,7 @@ class JsonResultProbe(probes.Probe, metaclass=ABCMeta):
     return flatten(json_data)
 
   class Scope(probes.Probe.Scope):
+
     def __init__(self, *args, **kwargs):
       super().__init__(*args, *kwargs)
       self._json_data = None
@@ -217,7 +218,7 @@ class JSONFlat:
 
   def _flatten(self, parent_path, data, ignore_toplevel=False):
     for name, item in data.items():
-      path = parent_path + (name, )
+      path = parent_path + (name,)
       if self._is_leaf_item(item):
         if ignore_toplevel and parent_path == ():
           continue

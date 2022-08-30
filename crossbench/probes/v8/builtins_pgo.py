@@ -21,11 +21,12 @@ class V8BuiltinsPGOProbe(probes.Probe):
   def is_compatible(self, browser):
     return browser.type == "chrome"
 
-  def attach(self, browser:browsers.Chrome):
+  def attach(self, browser: browsers.Chrome):
     super().attach(browser)
     browser.js_flags.set('--allow-natives-syntax')
 
   class Scope(probes.Probe.Scope):
+
     def __init__(self, *args, **kwargs):
       super().__init__(*args, *kwargs)
       self._pgo_counters = None
@@ -38,7 +39,8 @@ class V8BuiltinsPGOProbe(probes.Probe):
 
     def stop(self, run):
       with run.actions("Extract Builtins PGO DATA") as actions:
-        self._pgo_counters = actions.js("return %GetAndResetTurboProfilingData();")
+        self._pgo_counters = actions.js(
+            "return %GetAndResetTurboProfilingData();")
 
     def tear_down(self, run):
       assert self._pgo_counters is not None and len(self._pgo_counters) > 0, (
@@ -53,12 +55,10 @@ class V8BuiltinsPGOProbe(probes.Probe):
   def merge_repetitions(self, group: runner.RepetitionsRunGroup):
     merged_result_path = group.get_probe_results_file(self)
     result_files = (Path(run.results[self]) for run in group.runs)
-    return platform.concat_files(inputs=result_files,
-                                 output=merged_result_path)
+    return platform.concat_files(inputs=result_files, output=merged_result_path)
 
   def merge_stories(self, group: runner.StoriesRunGroup):
     merged_result_path = group.get_probe_results_file(self)
-    result_files = (Path(group.results[self])
-                    for group in group.repetitions_groups)
-    return platform.concat_files(inputs=result_files,
-                                 output=merged_result_path)
+    result_files = (
+        Path(group.results[self]) for group in group.repetitions_groups)
+    return platform.concat_files(inputs=result_files, output=merged_result_path)

@@ -98,6 +98,7 @@ def get_subclasses(cls):
 
 
 class Platform(abc.ABC):
+
   @abc.abstractproperty
   def short_name(self) -> str:
     pass
@@ -143,10 +144,8 @@ class Platform(abc.ABC):
     time.sleep(seconds)
 
   def sh_stdout(self, *args, shell=False, quiet=False) -> str:
-    completed_process = self.sh(*args,
-                                shell=shell,
-                                capture_output=True,
-                                quiet=quiet)
+    completed_process = self.sh(
+        *args, shell=shell, capture_output=True, quiet=quiet)
     return completed_process.stdout.decode()
 
   def popen(self,
@@ -159,11 +158,8 @@ class Platform(abc.ABC):
     if not quiet:
       logging.debug('SHELL: %s', shlex.join(map(str, args)))
       logging.debug('CWD: %s', os.getcwd())
-    return subprocess.Popen(args=args,
-                            shell=shell,
-                            stdin=stdin,
-                            stderr=stderr,
-                            stdout=stdout)
+    return subprocess.Popen(
+        args=args, shell=shell, stdin=stdin, stderr=stderr, stdout=stdout)
 
   def sh(self,
          *args,
@@ -176,12 +172,13 @@ class Platform(abc.ABC):
     if not quiet:
       logging.debug('SHELL: %s', shlex.join(map(str, args)))
       logging.debug('CWD: %s', os.getcwd())
-    process = subprocess.run(args=args,
-                             shell=shell,
-                             stdin=stdin,
-                             stdout=stdout,
-                             stderr=stderr,
-                             capture_output=capture_output)
+    process = subprocess.run(
+        args=args,
+        shell=shell,
+        stdin=stdin,
+        stdout=stdout,
+        stderr=stderr,
+        capture_output=capture_output)
     if process.returncode != 0:
       raise SubprocessError(process)
     return process
@@ -379,6 +376,7 @@ def urlopen(url):
 
 
 class ChangeCWD:
+
   def __init__(self, destination):
     self.new_dir = destination
     self.prev_dir = None
@@ -413,7 +411,8 @@ class TimeScope:
   """
   Measures and logs the time spend during the lifetime of the TimeScope.
   """
-  def __init__(self, message:str, level=3):
+
+  def __init__(self, message: str, level=3):
     self._message = message
     self._level = level
     self._start = None
@@ -427,6 +426,7 @@ class TimeScope:
 
 
 class wait_range:
+
   def __init__(self,
                min=0.1,
                timeout=10,
@@ -473,7 +473,7 @@ class Durations:
   """
 
   def __init__(self):
-    self._durations : Dict[str, timedelta] = {}
+    self._durations: Dict[str, timedelta] = {}
 
   def __getitem__(self, name) -> timedelta:
     return self._durations[name]
@@ -483,6 +483,7 @@ class Durations:
     self._durations[name] = duration
 
   class _DurationMeasureContext:
+
     def __init__(self, durations, name):
       self._start_time = None
       self._durations = durations

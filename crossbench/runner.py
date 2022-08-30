@@ -25,6 +25,7 @@ from crossbench import browsers, helper, probes, stories, flags
 
 
 class CheckList:
+
   def __init__(self, runner):
     self._runner = runner
     self._wait_until = datetime.now()
@@ -103,8 +104,8 @@ class CheckList:
 
   def _check_running_binaries(self):
     ps_stats = helper.platform.sh_stdout("ps", "aux")
-    browser_binaries = helper.group_by(self.runner.browsers,
-                                       key=lambda browser: str(browser.path))
+    browser_binaries = helper.group_by(
+        self.runner.browsers, key=lambda browser: str(browser.path))
     for binary, browsers in browser_binaries.items():
       # Add a white-space to get less false-positives
       binary_search = f"{binary} "
@@ -247,26 +248,30 @@ class Runner(abc.ABC):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         help=doc_title,
         description=cls.__doc__.strip())
-    parser.add_argument("--repeat",
-                        default=1,
-                        type=int,
-                        help="Number of times each benchmark story is "
-                        "repeated. Defaults to 1")
-    parser.add_argument("--out-dir",
-                        type=Path,
-                        help="Results will be stored in this directory. "
-                        "Defaults to result/$DATE")
-    parser.add_argument('--throw',
-                        action='store_true',
-                        default=False,
-                        help="Directly throw exceptions")
+    parser.add_argument(
+        "--repeat",
+        default=1,
+        type=int,
+        help="Number of times each benchmark story is "
+        "repeated. Defaults to 1")
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        help="Results will be stored in this directory. "
+        "Defaults to result/$DATE")
+    parser.add_argument(
+        '--throw',
+        action='store_true',
+        default=False,
+        help="Directly throw exceptions")
     parser.add_argument("--label", type=str, help="Custom output label")
-    parser.add_argument('--skip-checklist',
-                        dest="use_checklist",
-                        action='store_false',
-                        default=True,
-                        help="Do not check for potential SetUp issues "
-                        "before running the benchmark. Enabled by default.")
+    parser.add_argument(
+        '--skip-checklist',
+        dest="use_checklist",
+        action='store_false',
+        default=True,
+        help="Do not check for potential SetUp issues "
+        "before running the benchmark. Enabled by default.")
     return parser
 
   @classmethod
@@ -275,11 +280,12 @@ class Runner(abc.ABC):
       label = args.label or cls.NAME
       cli_dir = Path(__file__).parent.parent
       args.out_dir = cls.get_out_dir(cli_dir, label)
-    return dict(out_dir=args.out_dir,
-                browsers=args.browsers,
-                repetitions=args.repeat,
-                use_checklist=args.use_checklist,
-                throw=args.throw)
+    return dict(
+        out_dir=args.out_dir,
+        browsers=args.browsers,
+        repetitions=args.repeat,
+        use_checklist=args.use_checklist,
+        throw=args.throw)
 
   @classmethod
   def describe(cls):
@@ -407,12 +413,13 @@ class Runner(abc.ABC):
     for iteration in range(self.repetitions):
       for story in self.stories:
         for browser in self.browsers:
-          yield Run(self,
-                    browser,
-                    story,
-                    iteration,
-                    self.out_dir,
-                    throw=self._exceptions.throw)
+          yield Run(
+              self,
+              browser,
+              story,
+              iteration,
+              self.out_dir,
+              throw=self._exceptions.throw)
 
   def run(self, is_dry_run=False):
     try:
@@ -463,6 +470,7 @@ class Runner(abc.ABC):
 
 
 class SubStoryRunner(Runner):
+
   @classmethod
   def parse_cli_stories(cls, values):
     return tuple(story.strip() for story in values.split(","))
@@ -482,9 +490,10 @@ class SubStoryRunner(Runner):
         default=False,
         action='store_false',
         help="Run each story in the same session. (default)")
-    is_combined_group.add_argument("--separate",
-                                   action='store_true',
-                                   help="Run each story in a fresh browser.")
+    is_combined_group.add_argument(
+        "--separate",
+        action='store_true',
+        help="Run each story in a fresh browser.")
     return parser
 
   @classmethod
@@ -512,18 +521,21 @@ class SubStoryRunner(Runner):
 
 
 class PressBenchmarkStoryRunner(SubStoryRunner):
+
   @classmethod
   def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
     parser = super().add_cli_parser(subparsers)
     is_live_group = parser.add_mutually_exclusive_group()
-    is_live_group.add_argument("--live",
-                               default=True,
-                               action='store_true',
-                               help="Use live/online benchmark url.")
-    is_live_group.add_argument("--local",
-                               dest="live",
-                               action='store_false',
-                               help="Use locally hosted benchmark url.")
+    is_live_group.add_argument(
+        "--live",
+        default=True,
+        action='store_true',
+        help="Use live/online benchmark url.")
+    is_live_group.add_argument(
+        "--local",
+        dest="live",
+        action='store_false',
+        help="Use locally hosted benchmark url.")
     return parser
 
   @classmethod
@@ -542,6 +554,7 @@ class PressBenchmarkStoryRunner(SubStoryRunner):
 
 
 class RunGroup:
+
   def __init__(self, throw=False):
     self._exceptions = ExceptionHandler(throw)
     self._path = None
@@ -593,9 +606,10 @@ class RepetitionsRunGroup(RunGroup):
   @classmethod
   def groups(cls, runs, throw=False):
     return list(
-        helper.group_by(runs,
-                        key=lambda run: (run.story, run.browser),
-                        group=lambda _: cls(throw)).values())
+        helper.group_by(
+            runs,
+            key=lambda run: (run.story, run.browser),
+            group=lambda _: cls(throw)).values())
 
   def __init__(self, throw=False):
     super().__init__(throw)
@@ -642,9 +656,10 @@ class StoriesRunGroup(RunGroup):
   @classmethod
   def groups(cls, run_groups, throw=False):
     return list(
-        helper.group_by(run_groups,
-                        key=lambda run_group: run_group.browser,
-                        group=lambda _: cls(throw)).values())
+        helper.group_by(
+            run_groups,
+            key=lambda run_group: run_group.browser,
+            group=lambda _: cls(throw)).values())
 
   def append(self, group: RepetitionsRunGroup):
     if self._path is None:
@@ -708,12 +723,12 @@ class Run:
   STATE_DONE = 3
 
   def __init__(self,
-               runner : Runner,
-               browser : browsers.Browser,
-               story : stories.Story,
-               iteration : int,
-               root_dir : Path,
-               name = None,
+               runner: Runner,
+               browser: browsers.Browser,
+               story: stories.Story,
+               iteration: int,
+               root_dir: Path,
+               name=None,
                temperature=None,
                throw=False):
     self._state = self.STATE_INITIAL
@@ -947,14 +962,14 @@ class Actions(helper.TimeScope):
   def _assert_is_active(self):
     assert self._is_active, "Actions have to be used in a with scope"
 
-  def js(self, js_code:str, timeout=10, arguments=(), **kwargs):
+  def js(self, js_code: str, timeout=10, arguments=(), **kwargs):
     self._assert_is_active()
     assert len(js_code) > 0, "js_code must be a valid JS script"
     if kwargs:
       js_code = js_code.format(**kwargs)
     return self._browser.js(self._runner, js_code, timeout, arguments=arguments)
 
-  def wait_js_condition(self, js_code:str, wait_range):
+  def wait_js_condition(self, js_code: str, wait_range):
     assert "return" in js_code, (
         f"Missing return statement in js-wait code: {js_code}")
     for time_spent, time_left in helper.wait_with_backoff(wait_range):
@@ -964,7 +979,7 @@ class Actions(helper.TimeScope):
       assert result is False, \
           f"js_code did not return a bool, but got: {result}"
 
-  def navigate_to(self, url:str):
+  def navigate_to(self, url: str):
     self._assert_is_active()
     self._browser.show_url(self._runner, url)
 

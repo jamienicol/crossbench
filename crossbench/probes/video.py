@@ -41,8 +41,9 @@ class VideoProbe(probes.Probe):
       return checklist.warn(
           f"Probe={self.NAME} might not be able to merge so many "
           f"repetitions={checklist.runner.repetitions}. Continue?")
-    checklist.check_installed(binaries=('ffmpeg', 'montage'),
-                              message="Missing binaries for video probe: %s")
+    checklist.check_installed(
+        binaries=('ffmpeg', 'montage'),
+        message="Missing binaries for video probe: %s")
     return True
 
   class Scope(probes.Probe.Scope):
