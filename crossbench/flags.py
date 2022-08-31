@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import collections
-from typing import Optional, Iterable, Dict, Tuple, Union
+from typing import Dict, Iterable, Optional, Tuple, Union
 
 
 class Flags(collections.UserDict):

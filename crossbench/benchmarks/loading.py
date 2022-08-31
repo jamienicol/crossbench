@@ -3,12 +3,11 @@
 # found in the LICENSE file.
 
 import logging
-from abc import ABCMeta
 import re
+from abc import ABCMeta
 from urllib.parse import urlparse
 
-from crossbench import runner
-from crossbench import stories
+from crossbench import runner, stories
 
 
 class _Page(stories.Story, metaclass=ABCMeta):

@@ -5,8 +5,7 @@
 import threading
 import time
 
-from crossbench import probes
-from crossbench import helper
+from crossbench import helper, probes
 
 
 class SystemStatsProbe(probes.Probe):

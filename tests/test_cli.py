@@ -5,17 +5,16 @@
 import io
 import json
 import unittest
-from pathlib import Path
 import unittest.mock as mock
-
-from typing import Optional, Dict
+from pathlib import Path
+from typing import Dict, Optional
 
 import pyfakefs.fake_filesystem_unittest
-import crossbench
 
+import crossbench
 import crossbench.flags
-from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig
 from crossbench import browsers, helper
+from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig
 
 
 class SysExitException(Exception):
@@ -92,7 +91,7 @@ class MockBrowserDev(MockBrowser):
   if helper.platform.is_macos:
     BIN_PATH = Path("/Applications/ChromeDev.app")
   else:
-    BIN_PATH = Path("/usr/bin/chrome")
+    BIN_PATH = Path("/usr/bin/chrome-dev")
 
 
 class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):

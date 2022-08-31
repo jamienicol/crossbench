@@ -2,14 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from pathlib import Path
 import itertools
 import json
+from pathlib import Path
 
-from crossbench import helper
-from crossbench import probes
-from crossbench import runner
-from crossbench import stories
+from crossbench import helper, probes, runner, stories
 
 
 class MotionMark12Probe(probes.JsonResultProbe):

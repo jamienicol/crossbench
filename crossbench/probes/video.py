@@ -4,14 +4,12 @@
 
 import logging
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 
-from crossbench import probes
-from crossbench import helper
-from crossbench import runner
+from crossbench import helper, probes, runner
 
 
 class VideoProbe(probes.Probe):

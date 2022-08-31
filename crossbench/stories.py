@@ -2,10 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from abc import ABC, ABCMeta, abstractmethod
-from typing import Tuple
 import logging
 import re
+from abc import ABC, ABCMeta, abstractmethod
+from typing import Tuple
 
 
 class Story(ABC):

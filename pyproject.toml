@@ -26,6 +26,7 @@ crossbench = 'scripts:crossbench'
 
 [tool.poetry.dev-dependencies]
 pyfakefs = "^4.6.3"
+isort = "^5.10.1"
 
 [build-system]
 requires = ["poetry_core>=1.1.5"]

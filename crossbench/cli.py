@@ -4,13 +4,13 @@
 
 import argparse
 import itertools
-import logging
 import json
+import logging
 from pathlib import Path
-from typing import Iterable, Optional, Type, Tuple, List, Dict, Set, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 
 import crossbench
-from crossbench import benchmarks, browsers, helper, probes, runner, flags
+from crossbench import benchmarks, browsers, flags, helper, probes, runner
 
 try:
   import hjson

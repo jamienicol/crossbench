@@ -4,10 +4,7 @@
 
 from pathlib import Path
 
-from crossbench import helper
-from crossbench import probes
-from crossbench import runner
-from crossbench import stories
+from crossbench import helper, probes, runner, stories
 
 
 class JetStream2Probe(probes.JsonResultProbe):

@@ -3,14 +3,12 @@
 # found in the LICENSE file.
 
 import abc
-from datetime import datetime
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Set
 
-from crossbench import helper
-from crossbench import runner
-from crossbench import browsers
+from crossbench import browsers, helper, runner
 
 
 class Probe(abc.ABC):

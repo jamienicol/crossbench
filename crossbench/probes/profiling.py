@@ -4,13 +4,12 @@
 
 import logging
 import multiprocessing
-from pathlib import Path
 import shutil
 import signal
 import time
+from pathlib import Path
 
-from crossbench import probes
-from crossbench import helper
+from crossbench import helper, probes
 
 
 class ProfilingProbe(probes.Probe):

@@ -3,31 +3,31 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-import abc
 
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.chrome.options import Options as ChromeOptions
-from selenium.common.exceptions import InvalidSessionIdException
-from selenium import webdriver
-import selenium
+import abc
 import json
 import logging
-from pathlib import Path
-import time
 import re
 import shlex
 import stat
 import sys
 import tempfile
+import time
 import traceback
 import urllib.request
 import zipfile
-from typing import Iterable, Optional, Dict, List
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional
 
 import psutil
+import selenium
+from selenium import webdriver
+from selenium.common.exceptions import InvalidSessionIdException
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
-from crossbench import helper, probes, flags, runner
+from crossbench import flags, helper, probes, runner
 
 # =============================================================================
 

@@ -6,8 +6,7 @@ import json
 import logging
 from pathlib import Path
 
-from crossbench import probes
-from crossbench import runner
+from crossbench import probes, runner
 from crossbench.probes.json import JsonResultProbe
 
 

@@ -5,23 +5,21 @@
 from __future__ import annotations
 
 import abc
-from datetime import datetime
-from datetime import timedelta
 import logging
 import os
-from pathlib import Path
 import platform as py_platform
 import shlex
+import shutil
 import subprocess
 import sys
 import time
 import traceback
 import urllib
 import urllib.request
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, Iterable, Optional
 
-from typing import Iterable, Optional, Dict
-
-import shutil
 import psutil
 
 if not hasattr(shlex, "join"):

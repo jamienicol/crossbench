@@ -4,10 +4,7 @@
 
 from pathlib import Path
 
-from crossbench import probes
-from crossbench import runner
-from crossbench import browsers
-
+from crossbench import browsers, probes, runner
 from crossbench.helper import platform
 
 

@@ -2,10 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import argparse
 import json
 from pathlib import Path
-
-import argparse
 
 from crossbench import helper, probes, runner, stories
 

@@ -4,11 +4,10 @@
 
 import csv
 import logging
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
-from crossbench import probes
-from crossbench import helper
+from crossbench import helper, probes
 
 
 class PowerSamplerProbe(probes.Probe):

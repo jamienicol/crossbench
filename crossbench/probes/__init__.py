@@ -2,15 +2,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from crossbench.probes.probe import Probe, ProbeResultDict
 from crossbench.probes.json import JsonResultProbe
 from crossbench.probes.performance_entries import PerformanceEntriesProbe
 from crossbench.probes.power_sampler import PowerSamplerProbe
+from crossbench.probes.probe import Probe, ProbeResultDict
 from crossbench.probes.profiling import ProfilingProbe
-from crossbench.probes.runner import RunResultsSummaryProbe, RunRunnerLogProbe, RunDurationsProbe
+from crossbench.probes.runner import (RunDurationsProbe,
+                                      RunResultsSummaryProbe,
+                                      RunRunnerLogProbe)
 from crossbench.probes.system_stats import SystemStatsProbe
 from crossbench.probes.tracing import TracingProbe
-from crossbench.probes.v8 import V8RCSProbe, V8LogProbe, V8BuiltinsPGOProbe
+from crossbench.probes.v8 import V8BuiltinsPGOProbe, V8LogProbe, V8RCSProbe
 from crossbench.probes.video import VideoProbe
 
 ABSTRACT_PROBES = (Probe, JsonResultProbe)

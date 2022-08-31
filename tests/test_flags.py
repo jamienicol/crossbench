@@ -4,7 +4,7 @@
 
 import unittest
 
-from crossbench.flags import Flags, ChromeFeatures, ChromeFlags, JSFlags
+from crossbench.flags import ChromeFeatures, ChromeFlags, Flags, JSFlags
 
 
 class TestFlags(unittest.TestCase):
@@ -27,13 +27,13 @@ class TestFlags(unittest.TestCase):
     flags = self.CLASS(('--foo', '--bar'))
     self.assertIn('--foo', flags)
     self.assertIn('--bar', flags)
-    self.assertEqual(flags['--foo'], None)
-    self.assertEqual(flags['--bar'], None)
+    self.assertIsNone(flags['--foo'])
+    self.assertIsNone(flags['--bar'])
     with self.assertRaises(AssertionError):
       self.CLASS(('--foo=v1', '--bar=v2'))
     flags = self.CLASS((('--foo', 'v3'), '--bar'))
     self.assertEqual(flags['--foo'], 'v3')
-    self.assertEqual(flags['--bar'], None)
+    self.assertIsNone(flags['--bar'])
 
   def test_construct_flags(self):
     original_flags = self.CLASS({'--foo': 'v1', '--bar': 'v2'})
@@ -54,7 +54,7 @@ class TestFlags(unittest.TestCase):
     flags.set('--bar')
     self.assertIn('--foo', flags)
     self.assertIn('--bar', flags)
-    self.assertEqual(flags['--bar'], None)
+    self.assertIsNone(flags['--bar'])
     with self.assertRaises(AssertionError):
       flags.set('--bar', 'v3')
     flags.set('--bar', 'v4', override=True)
@@ -75,7 +75,7 @@ class TestFlags(unittest.TestCase):
     with self.assertRaises(AssertionError):
       flags.update({'--bar': 'v2'})
     self.assertEqual(flags['--foo'], 'v1')
-    self.assertEqual(flags['--bar'], None)
+    self.assertIsNone(flags['--bar'])
     flags.update({'--bar': 'v2'}, override=True)
     self.assertEqual(flags['--foo'], 'v1')
     self.assertEqual(flags['--bar'], 'v2')
@@ -90,7 +90,7 @@ class TestChromeFlags(TestFlags):
         '--foo': None,
         '--bar': 'v1',
     })
-    self.assertEqual(flags['--foo'], None)
+    self.assertIsNone(flags['--foo'])
     self.assertEqual(flags['--bar'], 'v1')
     self.assertNotIn('--js-flags', flags)
     with self.assertRaises(AssertionError):
@@ -100,7 +100,7 @@ class TestChromeFlags(TestFlags):
       flags['--js-flags'] = '--js-foo=v4, --no-js-bar'
     js_flags = flags.js_flags
     self.assertEqual(js_flags['--js-foo'], 'v3')
-    self.assertEqual(js_flags['--no-js-bar'], None)
+    self.assertIsNone(js_flags['--no-js-bar'])
 
   def test_js_flags_initial_data(self):
     flags = self.CLASS({
@@ -108,7 +108,7 @@ class TestChromeFlags(TestFlags):
     })
     js_flags = flags.js_flags
     self.assertEqual(js_flags['--foo'], 'v1')
-    self.assertEqual(js_flags['--no-bar'], None)
+    self.assertIsNone(js_flags['--no-bar'])
 
   def test_features(self):
     flags = self.CLASS()
@@ -134,8 +134,8 @@ class TestJSFlags(TestFlags):
     with self.assertRaises(AssertionError):
       flags = self.CLASS(('--foo', '--nofoo'))
     flags = self.CLASS(('--foo', '--no-bar'))
-    self.assertEqual(flags['--foo'], None)
-    self.assertEqual(flags['--no-bar'], None)
+    self.assertIsNone(flags['--foo'])
+    self.assertIsNone(flags['--no-bar'])
     self.assertIn('--foo', flags)
     self.assertNotIn('--no-foo', flags)
     self.assertNotIn('--bar', flags)
@@ -152,8 +152,8 @@ class TestJSFlags(TestFlags):
       flags.set('--bar')
     with self.assertRaises(AssertionError):
       flags.set('--foo', 'v2')
-    self.assertEqual(flags['--foo'], None)
-    self.assertEqual(flags['--no-bar'], None)
+    self.assertIsNone(flags['--foo'])
+    self.assertIsNone(flags['--no-bar'])
     flags.set('--no-foo', override=True)
     self.assertNotIn('--foo', flags)
     self.assertIn('--no-foo', flags)

@@ -2,14 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from abc import ABCMeta, abstractmethod
 import json
 import logging
 import math
+from abc import ABCMeta, abstractmethod
 from pathlib import Path
 
-from crossbench import probes
-from crossbench import runner
+from crossbench import probes, runner
 
 
 class JsonResultProbe(probes.Probe, metaclass=ABCMeta):

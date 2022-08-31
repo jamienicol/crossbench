@@ -7,21 +7,20 @@ from __future__ import annotations
 import abc
 import argparse
 import contextlib
-from datetime import datetime
-from datetime import timedelta
 import inspect
 import logging
 import os
-from pathlib import Path
+import shutil
 import sys
 import traceback
-import shutil
-from typing import Iterable, List, Optional, Type, Tuple, cast
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Iterable, List, Optional, Tuple, Type, cast
 
 import psutil
 
 import crossbench
-from crossbench import browsers, helper, probes, stories, flags
+from crossbench import browsers, flags, helper, probes, stories
 
 
 class CheckList:
