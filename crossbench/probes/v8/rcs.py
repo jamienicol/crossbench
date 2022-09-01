@@ -2,10 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 from pathlib import Path
 
-from crossbench import probes, runner
-from crossbench.helper import platform
+import crossbench
+from crossbench import helper, probes
 
 
 class V8RCSProbe(probes.Probe):
@@ -48,12 +50,13 @@ class V8RCSProbe(probes.Probe):
         f.write(self._rcs_table)
       return rcs_file
 
-  def merge_repetitions(self, group: runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: crossbench.runner.RepetitionsRunGroup):
     merged_result_path = group.get_probe_results_file(self)
     result_files = (Path(run.results[self]) for run in group.runs)
-    return platform.concat_files(inputs=result_files, output=merged_result_path)
+    return helper.platform.concat_files(inputs=result_files,
+                                        output=merged_result_path)
 
-  def merge_stories(self, group: runner.StoriesRunGroup):
+  def merge_stories(self, group: crossbench.runner.StoriesRunGroup):
     merged_result_path = group.get_probe_results_file(self)
     with merged_result_path.open('w') as merged_file:
       for repetition_group in group.repetitions_groups:

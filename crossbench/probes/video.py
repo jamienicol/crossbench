@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import logging
 import os
 import shutil
@@ -9,7 +11,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from crossbench import helper, probes, runner
+import crossbench
+from crossbench import helper, probes
 
 
 class VideoProbe(probes.Probe):
@@ -129,7 +132,7 @@ class VideoProbe(probes.Probe):
                          'x100', timeline_strip_file)
       return timeline_strip_file
 
-  def merge_repetitions(self, group: runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: crossbench.runner.RepetitionsRunGroup):
     result_file = group.get_probe_results_file(self)
     timeline_strip_file = result_file.with_suffix(self.TIMESTRIP_FILE_SUFFIX)
     runs = tuple(group.runs)
@@ -161,7 +164,7 @@ class VideoProbe(probes.Probe):
         'scale=3000:-2', *self.VIDEO_QUALITY, result_file)
     return (result_file, timeline_strip_file)
 
-  def merge_browsers(self, group: runner.BrowsersRunGroup):
+  def merge_browsers(self, group: crossbench.runner.BrowsersRunGroup):
     """Merge story videos from multiple browser/configurations"""
     groups = list(group.repetitions_groups)
     if len(groups) <= 1:

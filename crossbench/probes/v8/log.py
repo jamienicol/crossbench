@@ -2,7 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from crossbench import browsers, flags, helper, probes
+from __future__ import annotations
+
+from crossbench import flags, helper, probes
 
 
 class V8LogProbe(probes.Probe):

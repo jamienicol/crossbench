@@ -2,13 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import abc
 import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Set
 
-from crossbench import browsers, helper, runner
+import crossbench.browsers
+from crossbench import helper
 
 
 class Probe(abc.ABC):
@@ -50,7 +53,7 @@ class Probe(abc.ABC):
   # Set to True if the probe only works on battery power
   BATTERY_ONLY = False
 
-  _browsers: Set[browsers.Browser]
+  _browsers: Set[crossbench.browsers.Browser]
 
   @classmethod
   def get_subclasses(cls):
@@ -109,21 +112,21 @@ class Probe(abc.ABC):
       assert self.is_compatible(browser)
     return True
 
-  def merge_repetitions(self, group: runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: crossbench.runner.RepetitionsRunGroup):
     """
     Can be used to merge probe data from multiple repetitions of the same story.
     Return None, a result file Path (or a list of Paths)
     """
     return None
 
-  def merge_stories(self, group: runner.StoriesRunGroup):
+  def merge_stories(self, group: crossbench.runner.StoriesRunGroup):
     """
     Can be used to merge probe data from multiple stories for the same browser.
     Return None, a result file Path (or a list of Paths)
     """
     return None
 
-  def merge_browsers(self, group: runner.BrowsersRunGroup):
+  def merge_browsers(self, group: crossbench.runner.BrowsersRunGroup):
     """
     Can be used to merge all probe data (from multiple stories and browsers.)
     Return None, a result file Path (or a list of Paths)

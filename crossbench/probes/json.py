@@ -2,13 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import json
 import logging
 import math
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 
-from crossbench import probes, runner
+import crossbench
+from crossbench import probes
 
 
 class JsonResultProbe(probes.Probe, metaclass=ABCMeta):
@@ -56,14 +59,14 @@ class JsonResultProbe(probes.Probe, metaclass=ABCMeta):
     def tear_down(self, run):
       return self.write_json(run, self._json_data)
 
-    def extract_json(self, run: runner.Run):
+    def extract_json(self, run: crossbench.runner.Run):
       with run.actions(f"Extracting Probe name={self.probe.name}") as actions:
         json_data = self.to_json(actions)
         assert json_data is not None, (
             "Probe name=={self.probe.name} produced no data")
         return json_data
 
-    def write_json(self, run: runner.Run, json_data):
+    def write_json(self, run: crossbench.runner.Run, json_data):
       with run.actions(f"Writing Probe name={self.probe.name}") as actions:
         assert json_data is not None
         raw_file = self.results_file
@@ -82,7 +85,7 @@ class JsonResultProbe(probes.Probe, metaclass=ABCMeta):
     def flatten_json_data(self, json_data):
       return self.probe.flatten_json_data(json_data)
 
-  def merge_repetitions(self, group: runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: crossbench.runner.RepetitionsRunGroup):
     merger = JSONMerger()
     for run in group.runs:
       source_file = self.get_mergeable_result_file(run.results[self])

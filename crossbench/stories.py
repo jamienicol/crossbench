@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import logging
 import re
 from abc import ABC, ABCMeta, abstractmethod
@@ -22,7 +24,7 @@ class Story(ABC):
     pass
 
   def __init__(self, name: str, duration=15):
-    assert len(name) > 0, "Invalid page name"
+    assert name, "Invalid page name"
     self._name = name
     assert duration > 0, (
         f"duration must be a positive number, but got: {duration}")

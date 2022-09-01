@@ -2,11 +2,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import json
 import logging
 from pathlib import Path
 
-from crossbench import probes, runner
+import crossbench
+from crossbench import probes
 from crossbench.probes.json import JsonResultProbe
 
 
@@ -96,7 +99,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
         "errors": run.exceptions.to_json()
     }
 
-  def merge_repetitions(self, group: runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: crossbench.runner.RepetitionsRunGroup):
     iterations = []
     browser = None
 
@@ -124,7 +127,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
     }
     return self.write_group_result(group, merged_data)
 
-  def merge_stories(self, group: runner.StoriesRunGroup):
+  def merge_stories(self, group: crossbench.runner.StoriesRunGroup):
     stories = {}
     browser = None
 

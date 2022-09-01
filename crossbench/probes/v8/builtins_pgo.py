@@ -2,10 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 from pathlib import Path
 
-from crossbench import browsers, probes, runner
-from crossbench.helper import platform
+import crossbench
+from crossbench import helper, probes
 
 
 class V8BuiltinsPGOProbe(probes.Probe):
@@ -18,7 +20,7 @@ class V8BuiltinsPGOProbe(probes.Probe):
   def is_compatible(self, browser):
     return browser.type == "chrome"
 
-  def attach(self, browser: browsers.Chrome):
+  def attach(self, browser: crossbench.browsers.Chrome):
     super().attach(browser)
     browser.js_flags.set('--allow-natives-syntax')
 
@@ -49,13 +51,15 @@ class V8BuiltinsPGOProbe(probes.Probe):
         f.write(self._pgo_counters)
       return pgo_file
 
-  def merge_repetitions(self, group: runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group:  crossbench.runner.RepetitionsRunGroup):
     merged_result_path = group.get_probe_results_file(self)
     result_files = (Path(run.results[self]) for run in group.runs)
-    return platform.concat_files(inputs=result_files, output=merged_result_path)
+    return helper.platform.concat_files(inputs=result_files,
+                                        output=merged_result_path)
 
-  def merge_stories(self, group: runner.StoriesRunGroup):
+  def merge_stories(self, group: crossbench.runner.StoriesRunGroup):
     merged_result_path = group.get_probe_results_file(self)
     result_files = (
         Path(group.results[self]) for group in group.repetitions_groups)
-    return platform.concat_files(inputs=result_files, output=merged_result_path)
+    return helper.platform.concat_files(inputs=result_files,
+                                        output=merged_result_path)
