@@ -20,7 +20,7 @@ from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig
 class SysExitException(Exception):
 
   def __init__(self):
-    super().__init__('sys.exit')
+    super().__init__("sys.exit")
 
 
 class TestCLI(pyfakefs.fake_filesystem_unittest.TestCase):
@@ -29,7 +29,7 @@ class TestCLI(pyfakefs.fake_filesystem_unittest.TestCase):
     self.setUpPyfakefs()
 
   def run_cli(self, *args, raises=None):
-    with mock.patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
+    with mock.patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
       cli = CrossBenchCLI()
       if raises:
         with self.assertRaises(raises):
@@ -43,20 +43,20 @@ class TestCLI(pyfakefs.fake_filesystem_unittest.TestCase):
     data = json.loads(stdout)
     self.assertIn("benchmarks", data)
     self.assertIn("probes", data)
-    self.assertIsInstance(data['benchmarks'], dict)
-    self.assertIsInstance(data['probes'], dict)
+    self.assertIsInstance(data["benchmarks"], dict)
+    self.assertIsInstance(data["probes"], dict)
 
   def test_help(self):
-    with mock.patch('sys.exit', side_effect=SysExitException) as exit_mock:
-      stdout = self.run_cli('--help', raises=SysExitException)
+    with mock.patch("sys.exit", side_effect=SysExitException) as exit_mock:
+      stdout = self.run_cli("--help", raises=SysExitException)
       self.assertTrue(exit_mock.called)
       exit_mock.assert_called_with(0)
       self.assertGreater(len(stdout), 0)
 
   def test_help_subcommand(self):
     for benchmark in CrossBenchCLI.BENCHMARKS:
-      with mock.patch('sys.exit', side_effect=SysExitException()) as exit_mock:
-        stdout = self.run_cli(benchmark.NAME, '--help', raises=SysExitException)
+      with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
+        stdout = self.run_cli(benchmark.NAME, "--help", raises=SysExitException)
         self.assertTrue(exit_mock.called)
         exit_mock.assert_called_with(0)
         self.assertGreater(len(stdout), 0)
@@ -96,7 +96,7 @@ class MockBrowserDev(MockBrowser):
 
 class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
   EXAMPLE_CONFIG_PATH = Path(
-      __file__).parent.parent / 'browser.config.example.hjson'
+      __file__).parent.parent / "browser.config.example.hjson"
 
   BROWSER_LOOKUP = {
       "stable": MockBrowserStable,
@@ -123,7 +123,7 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
     self.fs.add_real_file(self.EXAMPLE_CONFIG_PATH)
     with self.EXAMPLE_CONFIG_PATH.open() as f:
       config = BrowserConfig.load(f, lookup=self.BROWSER_LOOKUP)
-    self.assertIn('default', config.flag_groups)
+    self.assertIn("default", config.flag_groups)
     self.assertGreaterEqual(len(config.flag_groups), 1)
     self.assertGreaterEqual(len(config.variants), 1)
 
@@ -133,10 +133,10 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
           {
               "flags": {
                   "group1": {
-                      "--foo": [None, "", 'v1'],
+                      "--foo": [None, "", "v1"],
                   },
                   "group2": {
-                      "--foo": [None, "", 'v1'],
+                      "--foo": [None, "", "v1"],
                   }
               },
               "browsers": {
@@ -153,8 +153,8 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
         {
             "flags": {
                 "group1": {
-                    "--foo": [None, "", 'v1'],
-                    "--bar": [None, "", 'v1'],
+                    "--foo": [None, "", "v1"],
+                    "--bar": [None, "", "v1"],
                 }
             },
             "browsers": {
@@ -172,8 +172,8 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
         {
             "flags": {
                 "group1": {
-                    "--foo": [None, "", 'v1'],
-                    "--bar": [None, "", 'v1'],
+                    "--foo": [None, "", "v1"],
+                    "--bar": [None, "", "v1"],
                     "--always_1": "true",
                     "--always_2": "true",
                     "--always_3": "true",
@@ -194,13 +194,13 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
         {
             "flags": {
                 "group1": {
-                    "--foo": [None, "", 'v1'],
+                    "--foo": [None, "", "v1"],
                 },
                 "group2": {
-                    "--bar": [None, "", 'v1'],
+                    "--bar": [None, "", "v1"],
                 },
                 "group3": {
-                    "--other": ["v1", 'v2'],
+                    "--other": ["v1", "v2"],
                 }
             },
             "browsers": {
@@ -222,61 +222,61 @@ class TestFlagGroupConfig(unittest.TestCase):
     return variants
 
   def test_empty(self):
-    config = FlagGroupConfig('empty_name', dict())
-    self.assertEqual(config.name, 'empty_name')
+    config = FlagGroupConfig("empty_name", dict())
+    self.assertEqual(config.name, "empty_name")
     variants = list(config.get_variant_items())
     self.assertEqual(len(variants), 0)
 
   def test_single_flag(self):
-    variants = self.parse({'--foo': set()})
+    variants = self.parse({"--foo": set()})
     self.assertListEqual(variants, [
         (),
     ])
 
-    variants = self.parse({'--foo': []})
+    variants = self.parse({"--foo": []})
     self.assertListEqual(variants, [
         (),
     ])
 
-    variants = self.parse({'--foo': (None,)})
+    variants = self.parse({"--foo": (None,)})
     self.assertListEqual(variants, [
         (None,),
     ])
 
-    variants = self.parse({'--foo': ("",)})
+    variants = self.parse({"--foo": ("",)})
     self.assertEqual(len(variants), 1)
     self.assertTupleEqual(
         variants[0],
-        (('--foo', None),),
+        (("--foo", None),),
     )
 
-    variants = self.parse({'--foo': (
+    variants = self.parse({"--foo": (
         "",
         None,
     )})
     self.assertEqual(len(variants), 1)
-    self.assertTupleEqual(variants[0], (('--foo', None), None))
+    self.assertTupleEqual(variants[0], (("--foo", None), None))
 
-    variants = self.parse({'--foo': (
+    variants = self.parse({"--foo": (
         "v1",
         "v2",
         "",
         None,
     )})
     self.assertEqual(len(variants), 1)
-    self.assertTupleEqual(variants[0], (('--foo', "v1"), ('--foo', "v2"),
-                                        ('--foo', None), None))
+    self.assertTupleEqual(variants[0], (("--foo", "v1"), ("--foo", "v2"),
+                                        ("--foo", None), None))
 
   def test_two_flags(self):
-    variants = self.parse({'--foo': [], '--bar': []})
+    variants = self.parse({"--foo": [], "--bar": []})
     self.assertListEqual(variants, [(), ()])
 
-    variants = self.parse({'--foo': "a", '--bar': "b"})
+    variants = self.parse({"--foo": "a", "--bar": "b"})
     self.assertEqual(len(variants), 2)
     self.assertTupleEqual(variants[0], (("--foo", "a"),))
     self.assertTupleEqual(variants[1], (("--bar", "b"),))
 
-    variants = self.parse({'--foo': ["a1", "a2"], '--bar': "b"})
+    variants = self.parse({"--foo": ["a1", "a2"], "--bar": "b"})
     self.assertEqual(len(variants), 2)
     self.assertTupleEqual(variants[0], (
         ("--foo", "a1"),
@@ -284,7 +284,7 @@ class TestFlagGroupConfig(unittest.TestCase):
     ))
     self.assertTupleEqual(variants[1], (("--bar", "b"),))
 
-    variants = self.parse({'--foo': ["a1", "a2"], '--bar': ["b1", "b2"]})
+    variants = self.parse({"--foo": ["a1", "a2"], "--bar": ["b1", "b2"]})
     self.assertEqual(len(variants), 2)
     self.assertTupleEqual(variants[0], (
         ("--foo", "a1"),

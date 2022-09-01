@@ -35,7 +35,7 @@ class Flags(collections.UserDict):
     self._set(flag_name, flag_value, override)
 
   def _set(self, flag_name: str, flag_value=None, override=False):
-    assert len(flag_name) > 0, "Cannot set empty flag"
+    assert flag_name, "Cannot set empty flag"
     assert "=" not in flag_name, (
         f"Flag name contains '=': {flag_name}, please split")
     assert flag_name.startswith("-"), f"Invalid flag name: {flag_name}"
@@ -89,7 +89,7 @@ class JSFlags(Flags):
     if flag_name.startswith(self._NO_PREFIX):
       enabled = flag_name[len(self._NO_PREFIX):]
       # Check for --no-foo form
-      if enabled.startswith('-'):
+      if enabled.startswith("-"):
         enabled = enabled[1:]
       enabled = "--" + enabled
       if override:
@@ -111,7 +111,7 @@ class JSFlags(Flags):
       else:
         assert False, (
             f"Conflicting flag '{flag_name}', "
-            f"it has previously been disabled by '{self._describe(flag_name)}")
+            f"it has previously been disabled by '{self._describe(flag_name)}'")
 
   def __str__(self):
     return ",".join(self.get_list())
@@ -192,11 +192,11 @@ class ChromeFeatures:
         f"'{feature}' contains multiple features. Please split them first."
     parts = feature.split("<")
     if len(parts) == 2:
-      return (parts[0], '<' + parts[1])
+      return (parts[0], "<" + parts[1])
     assert len(parts) == 1
     parts = feature.split(":")
     if len(parts) == 2:
-      return (parts[0], ':' + parts[1])
+      return (parts[0], ":" + parts[1])
     assert len(parts) == 1
     return (feature, None)
 
@@ -219,11 +219,11 @@ class ChromeFeatures:
     self._disabled.add(name)
 
   def get_list(self):
-    if len(self._enabled) > 0:
+    if self._enabled:
       joined = ",".join(
           k if v is None else f"{k}{v}" for k, v in self._enabled.items())
       yield f"{self._ENABLE_FLAG}={joined}"
-    if len(self._disabled) > 0:
+    if self._disabled:
       joined = ",".join(self._disabled)
       yield f"{self._DISABLE_FLAG}={joined}"
 

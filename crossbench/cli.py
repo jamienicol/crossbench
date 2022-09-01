@@ -33,7 +33,7 @@ class FlagGroupConfig:
     self._variants: Dict[str, Iterable[Optional[str]]] = {}
     for flag_name, flag_variants_or_value in variants.items():
       assert flag_name not in self._variants
-      assert len(flag_name) > 0
+      assert flag_name
       if isinstance(flag_variants_or_value, str):
         self._variants[flag_name] = (str(flag_variants_or_value),)
       else:
@@ -76,9 +76,9 @@ class BrowserConfig:
     self.flag_groups: Dict[str, FlagGroupConfig] = {}
     self.variants: List[browsers.Browser] = []
     if config_data:
-      for flag_name, group_config in config_data['flags'].items():
+      for flag_name, group_config in config_data["flags"].items():
         self._parse_flag_group(flag_name, group_config)
-      for name, browser_config in config_data['browsers'].items():
+      for name, browser_config in config_data["browsers"].items():
         self._parse_browser(name, browser_config, lookup)
 
   def _parse_flag_group(self, name, data):
@@ -96,17 +96,17 @@ class BrowserConfig:
       for value in values:
         assert value not in flag_values, (
             "Same flag variant was specified more than once: "
-            f"'{value}' for entry '{flag_name}")
+            f"'{value}' for entry '{flag_name}')
         flag_values.add(value)
     self.flag_groups[name] = FlagGroupConfig(name, variants)
 
   def _parse_browser(self, name, data,
                      lookup: Dict[str, Type[browsers.Browser]]):
     if name in lookup:
-      path = data['path']
+      path = data["path"]
       cls = lookup[path]
     else:
-      path = self._get_browser_path(data['path'])
+      path = self._get_browser_path(data["path"])
       assert path.exists(), f"Browser='{name}' path='{path}' does not exist."
       cls = self._get_browser_cls_from_path(path)
     variants_flags = tuple(
@@ -125,12 +125,12 @@ class BrowserConfig:
 
   def _parse_flags(self, name, data):
     flags_product = []
-    flag_group_names = data['flags']
+    flag_group_names = data["flags"]
     assert isinstance(flag_group_names, list), \
-        f"'flags' is not a list for browser='{name}'"
+        f""flags" is not a list for browser='{name}'"
     for flag_group_name in flag_group_names:
       # Use temporary FlagGroupConfig for inline fixed flag definition
-      if flag_group_name.startswith('--'):
+      if flag_group_name.startswith("--"):
         flag_name, flag_value = flags.Flags.split(flag_group_name)
         flag_group = FlagGroupConfig("temporary", {flag_name: flag_value})
         assert flag_group_name not in self.flag_groups
@@ -149,30 +149,30 @@ class BrowserConfig:
              for flag_item in flags_items
              if flag_item is not None)
         for flags_items in flags_product)
-    assert len(flags_product) > 0
+    assert flags_product
     return flags_product
 
   def _get_browser_cls_from_path(self, path) -> Type[browsers.Browser]:
     cls = browsers.ChromeWebDriver
-    if 'Safari' in str(path):
+    if "Safari" in str(path):
       return browsers.SafariWebDriver
     else:
-      assert 'chrome' in str(path).lower(), f"Unsupported browser='{path}'"
+      assert "chrome" in str(path).lower(), f"Unsupported browser='{path}'"
     return cls
 
   def load_from_args(self, args):
-    path = self._get_browser_path(args.browser or 'chrome')
+    path = self._get_browser_path(args.browser or "chrome")
     logging.warning("SELECTED BROWSER: %s", path)
     cls = self._get_browser_cls_from_path(path)
     flags = cls.default_flags()
     if args.enable_features:
-      for feature in args.enabled_features.split(','):
+      for feature in args.enabled_features.split(","):
         flags.features.enable(feature)
     if args.disable_features:
-      for feature in args.disabled_features.split(','):
+      for feature in args.disabled_features.split(","):
         flags.features.disable(feature)
     if args.js_flags:
-      flags.js_flags.update(args.js_flags.split(','))
+      flags.js_flags.update(args.js_flags.split(","))
     for flag_str in args.other_browser_args:
       flags.set(*crossbench.flags.Flags.split(flag_str))
 
@@ -182,15 +182,15 @@ class BrowserConfig:
 
   def _get_browser_path(self, path_or_short_name: str) -> Path:
     short_name = path_or_short_name.lower()
-    if short_name == 'chrome' or short_name == 'stable':
+    if short_name == "chrome" or short_name == "stable":
       return browsers.Chrome.stable_path
-    if short_name == 'chrome dev' or short_name == 'dev':
+    if short_name == "chrome dev" or short_name == "dev":
       return browsers.Chrome.dev_path
-    if short_name == 'chrome canary' or short_name == 'canary':
+    if short_name == "chrome canary" or short_name == "canary":
       return browsers.Chrome.canary_path
-    if short_name == 'safari':
+    if short_name == "safari":
       return browsers.Safari.default_path
-    if short_name == 'safari technology preview' or short_name == 'tp':
+    if short_name == "safari technology preview" or short_name == "tp":
       return browsers.Safari.technology_preview_path
     path = Path(path_or_short_name)
     if path.exists():
@@ -233,7 +233,7 @@ class CrossBenchCLI:
 
   def _setup_subparser(self):
     self.subparsers = self.parser.add_subparsers(
-        title='Subcommands', dest="subcommand", required=True)
+        title="Subcommands", dest="subcommand", required=True)
     for benchmark_cls in self.BENCHMARKS:
       self._setup_benchmark_subparser(benchmark_cls)
     describe_parser = self.subparsers.add_parser(
@@ -262,14 +262,14 @@ class CrossBenchCLI:
         "--dry-run",
         action="store_true",
         default=False,
-        help="Don't run any browsers or probes")
+        help="Don"t run any browsers or probes")
     browser_group = subparser.add_mutually_exclusive_group()
     browser_group.add_argument(
         "--browser",
         help="Browser binary. Use this to test a single browser. "
         "Use a shortname [chrome, stable, dev, canary, safari] "
         "for system default browsers or a full path. "
-        "Defaults to 'chrome'. "
+        "Defaults to "chrome". "
         "Cannot be used with --browser-config")
     browser_group.add_argument(
         "--browser-config",
@@ -281,28 +281,28 @@ class CrossBenchCLI:
         "Cannot be used together with --browser.")
     subparser.add_argument(
         "--probe",
-        action='append',
+        action="append",
         default=[],
         choices=self.GENERAL_PURPOSE_PROBES_BY_NAME.keys(),
         help="Enable general purpose probes to measure data on all stories. "
         "This argument can be specified multiple times to add more probes")
-    subparser.add_argument('other_browser_args', nargs="*")
+    subparser.add_argument("other_browser_args", nargs="*")
     chrome_args = subparser.add_argument_group(
         "Chrome-forwarded Options",
         "For convenience these arguments are directly are forwarded "
         "directly to chrome. Any other browser option can be passed "
-        "after the '--' arguments separator.")
+        "after the "--" arguments separator.")
     chrome_args.add_argument("--js-flags", dest="js_flags")
 
     DOC = "See chrome's base/feature_list.h source file for more details"
     chrome_args.add_argument(
         "--enable-features",
         help="Comma-separated list of enabled chrome features. " + DOC,
-        default='')
+        default="")
     chrome_args.add_argument(
         "--disable-features",
         help="Command-separated list of disabled chrome features. " + DOC,
-        default='')
+        default="")
     subparser.set_defaults(
         subcommand=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
 
@@ -328,7 +328,7 @@ class CrossBenchCLI:
       probe = self.GENERAL_PURPOSE_PROBES_BY_NAME[probe_name]()
       benchmark.attach_probe(probe, matching_browser_only=True)
     benchmark.run(is_dry_run=args.dry_run)
-    print(f"RESULTS: {benchmark.out_dir / 'results.json' }")
+    print(f"RESULTS: {benchmark.out_dir / "results.json" }")
 
   def run(self, argv):
     args = self.parser.parse_args(argv)

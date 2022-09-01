@@ -15,7 +15,7 @@ class SystemStatsProbe(probes.Probe):
   General-purpose probe to periodically collect system-wide CPU and memory
   stats on unix systems.
   """
-  NAME = 'system.stats'
+  NAME = "system.stats"
   CMD = ("ps", "-a", "-e", "-o pcpu,pmem,args", "-r")
 
   def __init__(self, *args, interval=1, **kwargs):
@@ -43,7 +43,7 @@ class SystemStatsProbe(probes.Probe):
     while not event.is_set():
       data = helper.platform.sh_stdout(*cls.CMD)
       out_file = path / f"{time.time()}.txt"
-      with out_file.open('w') as f:
+      with out_file.open("w") as f:
         f.write(data)
       time.sleep(interval)
 

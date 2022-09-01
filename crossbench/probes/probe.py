@@ -58,7 +58,7 @@ class Probe(abc.ABC):
   @classmethod
   def get_subclasses(cls):
     for subclass in helper.get_subclasses(cls):
-      if len(subclass.__abstractmethods__) > 0:
+      if subclass.__abstractmethods__:
         continue
       if subclass.__name__.startswith("_"):
         continue
@@ -90,7 +90,7 @@ class Probe(abc.ABC):
 
   @property
   def is_attached(self):
-    return len(self._browsers) > 0
+    return self._browsers
 
   def attach(self, browser):
     assert self.is_compatible(browser), \

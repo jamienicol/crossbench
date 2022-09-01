@@ -15,7 +15,7 @@ class PerformanceEntriesProbe(json.JsonResultProbe):
   NAME = "performance.entries"
 
   def is_compatible(self, browser):
-    return hasattr(browser, 'js')
+    return hasattr(browser, "js")
 
   def to_json(self, actions):
     return actions.js("""

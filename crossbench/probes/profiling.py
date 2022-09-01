@@ -43,7 +43,7 @@ class ProfilingProbe(probes.Probe):
 
   def is_compatible(self, browser):
     if helper.platform.is_linux:
-      return browser.type == 'chrome'
+      return browser.type == "chrome"
     if helper.platform.is_macos:
       return True
     return False
@@ -62,7 +62,7 @@ class ProfilingProbe(probes.Probe):
       assert shutil.which("xctrace"), "Please install Xcode to use xctrace"
     if self._run_pprof:
       try:
-        helper.platform.sh(shutil.which('gcertstatus'))
+        helper.platform.sh(shutil.which("gcertstatus"))
         return True
       except helper.SubprocessError:
         return checklist.warn("Please run gcert for generating pprof results")
@@ -77,10 +77,10 @@ class ProfilingProbe(probes.Probe):
     if self._sample_js:
       browser.js_flags.update(self.JS_FLAGS_PERF)
     cmd = Path(__file__).parent / "linux-perf-chrome-renderer-cmd.sh"
-    assert cmd.is_file(), f"Didn't find {cmd}"
+    assert cmd.is_file(), f"Didn"t find {cmd}"
     browser.flags["--renderer-cmd-prefix"] = str(cmd)
     # Disable sandbox to write profiling data
-    browser.flags.set('--no-sandbox')
+    browser.flags.set("--no-sandbox")
 
   def get_scope(self, run):
     if helper.platform.is_linux:
@@ -93,17 +93,17 @@ class ProfilingProbe(probes.Probe):
 
     def __init__(self, *args, **kwargs):
       super().__init__(*args, **kwargs)
-      self._default_results_file = self.results_file.parent / 'profile.trace'
+      self._default_results_file = self.results_file.parent / "profile.trace"
 
     def start(self, run):
-      self._process = helper.platform.popen('xctrace', 'record', '--template',
-                                            'Time Profiler', '--all-processes',
-                                            '--output', self.results_file)
+      self._process = helper.platform.popen("xctrace", "record", "--template",
+                                            "Time Profiler", "--all-processes",
+                                            "--output", self.results_file)
       # xctrace takes some time to start up
       time.sleep(3)
 
     def stop(self, run):
-      # Needs to be SIGINT for xctrace, terminate won't work.
+      # Needs to be SIGINT for xctrace, terminate won"t work.
       self._process.send_signal(signal.SIGINT)
 
     def tear_down(self, run):
@@ -112,11 +112,11 @@ class ProfilingProbe(probes.Probe):
       return self.results_file
 
   class LinuxProfilingScope(probes.Probe.Scope):
-    PERF_DATA_PATTERN = '*.perf.data'
+    PERF_DATA_PATTERN = "*.perf.data"
     TEMP_FILE_PATTERNS = (
-        '*.perf.data.jitted',
-        'jitted-*.so',
-        'jit-*.dump',
+        "*.perf.data.jitted",
+        "jitted-*.so",
+        "jit-*.dump",
     )
 
     def __init__(self, *args, **kwargs):
@@ -152,7 +152,7 @@ class ProfilingProbe(probes.Probe):
       if self.probe._sample_js:
         perf_files = self._inject_v8_symbols(run, perf_files)
       perf_files = helper.sort_by_file_size(perf_files)
-      if not self.probe._run_pprof or not shutil.which('gcert'):
+      if not self.probe._run_pprof or not shutil.which("gcert"):
         return map(str, perf_files)
 
       try:
@@ -174,15 +174,15 @@ class ProfilingProbe(probes.Probe):
     def _export_to_pprof(self, run, perf_files):
       run_details_json = run.get_browser_details_json()
       with run.actions(f"Probe {self.probe.name}: exporting to pprof"):
-        helper.platform.sh('gcertstatus >&/dev/null || gcert', shell=True)
+        helper.platform.sh("gcertstatus >&/dev/null || gcert", shell=True)
         with multiprocessing.Pool() as pool:
           items = zip(perf_files, [run_details_json] * len(perf_files))
           urls = dict(pool.starmap(linux_perf_probe_pprof, items))
         try:
-          if len(perf_files) > 0:
+          if perf_files:
             # Make this configurable as it is generally too slow.
-            # url = urls['combined'] = helper.platform.sh_stdout(
-            #     'pprof', '-flame', *perf_files).strip()
+            # url = urls["combined"] = helper.platform.sh_stdout(
+            #     "pprof", "-flame", *perf_files).strip()
             # logging.info(f"PPROF COMBINED {url}")
             pass
         except Exception:
@@ -210,8 +210,8 @@ def linux_perf_probe_inject_v8_symbols(perf_data_file):
 
 def linux_perf_probe_pprof(perf_data_file, run_details):
   url = helper.platform.sh_stdout(
-      'pprof',
-      '-flame',
+      "pprof",
+      "-flame",
       f"-add_comment={run_details}",
       perf_data_file,
   ).strip()

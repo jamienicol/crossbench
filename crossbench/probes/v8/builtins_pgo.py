@@ -22,7 +22,7 @@ class V8BuiltinsPGOProbe(probes.Probe):
 
   def attach(self, browser: crossbench.browsers.Chrome):
     super().attach(browser)
-    browser.js_flags.set('--allow-natives-syntax')
+    browser.js_flags.set("--allow-natives-syntax")
 
   class Scope(probes.Probe.Scope):
 
@@ -42,8 +42,8 @@ class V8BuiltinsPGOProbe(probes.Probe):
             "return %GetAndResetTurboProfilingData();")
 
     def tear_down(self, run):
-      assert self._pgo_counters is not None and len(self._pgo_counters) > 0, (
-          "Chrome didn't produce any V8 builtins PGO data. "
+      assert self._pgo_counters is not None and self._pgo_counters, (
+          "Chrome didn"t produce any V8 builtins PGO data. "
           "Please make sure to set the v8_enable_builtins_profiling=true "
           "gn args.")
       pgo_file = run.get_probe_results_file(self.probe)

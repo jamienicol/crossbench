@@ -49,9 +49,9 @@ class Story(ABC):
 
 
 class PressBenchmarkStory(Story, metaclass=ABCMeta):
-  NAME: str = ''
-  URL: str = ''
-  URL_LOCAL: str = ''
+  NAME: str = ""
+  URL: str = ""
+  URL_LOCAL: str = ""
   SUBSTORIES = None
 
   @classmethod
@@ -68,8 +68,8 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
         pattern = re.compile(first)
         names = tuple(
             substory for substory in cls.SUBSTORIES if pattern.match(substory))
-        assert len(names) > 0, \
-            f"Regexp '{pattern.pattern}' didn't match any stories."
+        assert names, \
+            f"Regexp '{pattern.pattern}' didn"t match any stories."
         logging.info("FILTERED SUB-STORIES story=%s selected=%s", cls.NAME,
                      names)
     if live:
@@ -105,10 +105,10 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
 
   def __init__(self, *args, is_live=True, substories=None, **kwargs):
     cls = self.__class__
-    assert len(self.SUBSTORIES) > 0, f"{cls}.SUBSTORIES is not set."
+    assert self.SUBSTORIES, f"{cls}.SUBSTORIES is not set."
     assert self.NAME is not None, f"{cls}.NAME is not set."
-    self._verify_url(self.URL, 'URL')
-    self._verify_url(self.URL_LOCAL, 'URL_LOCAL')
+    self._verify_url(self.URL, "URL")
+    self._verify_url(self.URL_LOCAL, "URL_LOCAL")
     if isinstance(substories, str):
       self._substories = [substories]
     else:
@@ -135,7 +135,7 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
       duplicates = set(
           substory for substory in self._substories
           if self._substories.count(substory) > 1)
-      assert len(duplicates) > 0, (
+      assert duplicates, (
           f"substories='{self._substories}' contains duplicate entries: "
           f"{duplicates}")
     if self._substories == self.SUBSTORIES:

@@ -53,7 +53,7 @@ class RunDurationsProbe(JsonResultProbe):
   Runner-internal meta-probe: Collects timing information for various components
   of the runner (and the times spent in individual stories as well).
   """
-  NAME = 'durations'
+  NAME = "durations"
   IS_GENERAL_PURPOSE = False
   FLATTEN = False
 
@@ -109,8 +109,8 @@ class RunResultsSummaryProbe(JsonResultProbe):
       with source_file.open() as f:
         iteration_data = json.load(f)
       if browser is None:
-        browser = iteration_data['browser']
-        del browser['log']
+        browser = iteration_data["browser"]
+        del browser["log"]
       iterations.append({
           "cwd": iteration_data["cwd"],
           "probes": iteration_data["probes"],
@@ -134,10 +134,10 @@ class RunResultsSummaryProbe(JsonResultProbe):
     for story_group in group.repetitions_groups:
       source_file = Path(story_group.results[self])
       assert source_file.is_file()
-      with source_file.open('r') as f:
+      with source_file.open("r") as f:
         merged_story_data = json.load(f)
       if browser is None:
-        browser = merged_story_data['browser']
+        browser = merged_story_data["browser"]
       story_info = merged_story_data["story"]
       stories[story_info["name"]] = {
           "cwd": merged_story_data["cwd"],

@@ -14,7 +14,7 @@ class MotionMark12Probe(probes.JsonResultProbe):
   MotionMark-specific Probe.
   Extracts all MotionMark times and scores.
   """
-  NAME = 'motionmark_1.2'
+  NAME = "motionmark_1.2"
   IS_GENERAL_PURPOSE = False
   FLATTEN = False
   JS = """
@@ -27,7 +27,7 @@ class MotionMark12Probe(probes.JsonResultProbe):
   @staticmethod
   def filter(key, value):
     name = Path(key).name
-    if name.startswith('segment') or name == 'data':
+    if name.startswith("segment") or name == "data":
       return False
     return True
 
@@ -148,12 +148,12 @@ class MotionMark12Story(stories.PressBenchmarkStory):
       num_enabled = actions.js(
           """
         let benchmarks = arguments[0];
-        const list = document.querySelectorAll('.tree li');
+        const list = document.querySelectorAll(".tree li");
         let counter = 0;
         for (const row of list) {
-          const name = row.querySelector('label.tree-label').textContent.trim();
+          const name = row.querySelector("label.tree-label").textContent.trim();
           let checked = benchmarks.includes(name);
-          const labels = row.querySelectorAll('input[type=checkbox]');
+          const labels = row.querySelectorAll("input[type=checkbox]");
           for (const label of labels) {
             if (checked) {
               label.click()
@@ -182,7 +182,7 @@ class MotionMark12Runner(runner.PressBenchmarkStoryRunner):
   See https://browserbench.org/MotionMark1.2/ for more details.
   """
 
-  NAME = 'motionmark_1.2'
+  NAME = "motionmark_1.2"
   DEFAULT_STORY_CLS = MotionMark12Story
 
   def __init__(self, *args, stories=None, **kwargs):

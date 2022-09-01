@@ -27,18 +27,18 @@ if not hasattr(shlex, "join"):
 
 
 class TTYColor:
-  CYAN = '\033[1;36;6m'
-  PURPLE = '\033[1;35;5m'
-  BLUE = '\033[38;5;4m'
-  YELLOW = '\033[38;5;3m'
-  GREEN = '\033[38;5;2m'
-  RED = '\033[38;5;1m'
-  BLACK = '\033[38;5;0m'
+  CYAN = "\033[1;36;6m"
+  PURPLE = "\033[1;35;5m"
+  BLUE = "\033[38;5;4m"
+  YELLOW = "\033[38;5;3m"
+  GREEN = "\033[38;5;2m"
+  RED = "\033[38;5;1m"
+  BLACK = "\033[38;5;0m"
 
-  BOLD = '\033[1m'
-  UNDERLINE = '\033[4m'
-  REVERSED = '\033[7m'
-  RESET = '\033[0m'
+  BOLD = "\033[1m"
+  UNDERLINE = "\033[4m"
+  REVERSED = "\033[7m"
+  RESET = "\033[0m"
 
 
 def group_by(collection, key, value=None, group=None):
@@ -76,7 +76,7 @@ def sort_by_file_size(files):
   return sorted(files, key=lambda f: (-f.stat().st_size, f.name))
 
 
-SIZE_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
+SIZE_UNITS = ["B", "KiB", "MiB", "GiB", "TiB"]
 
 
 def get_file_size(file, digits=2) -> str:
@@ -107,7 +107,7 @@ class Platform(abc.ABC):
 
   @property
   def is_arm64(self) -> bool:
-    return self.machine == 'arm64'
+    return self.machine == "arm64"
 
   @property
   def is_macos(self) -> bool:
@@ -138,7 +138,7 @@ class Platform(abc.ABC):
       seconds = seconds.total_seconds()
     if seconds == 0:
       return
-    logging.info('WAIT %ss', seconds)
+    logging.info("WAIT %ss", seconds)
     time.sleep(seconds)
 
   def sh_stdout(self, *args, shell=False, quiet=False) -> str:
@@ -154,8 +154,8 @@ class Platform(abc.ABC):
             stdin=None,
             quiet=False) -> subprocess.Popen:
     if not quiet:
-      logging.debug('SHELL: %s', shlex.join(map(str, args)))
-      logging.debug('CWD: %s', os.getcwd())
+      logging.debug("SHELL: %s", shlex.join(map(str, args)))
+      logging.debug("CWD: %s", os.getcwd())
     return subprocess.Popen(
         args=args, shell=shell, stdin=stdin, stderr=stderr, stdout=stdout)
 
@@ -168,8 +168,8 @@ class Platform(abc.ABC):
          stdin=None,
          quiet=False) -> subprocess.CompletedProcess:
     if not quiet:
-      logging.debug('SHELL: %s', shlex.join(map(str, args)))
-      logging.debug('CWD: %s', os.getcwd())
+      logging.debug("SHELL: %s", shlex.join(map(str, args)))
+      logging.debug("CWD: %s", os.getcwd())
     process = subprocess.run(
         args=args,
         shell=shell,
@@ -217,7 +217,7 @@ class Platform(abc.ABC):
     pass
 
   def download_to(self, url, path):
-    logging.info('DOWNLOAD: %s\n       TO: %s', url, path)
+    logging.info("DOWNLOAD: %s\n       TO: %s", url, path)
     assert not path.exists(), f"Download destination {path} exists already."
     urllib.request.urlretrieve(url, path)
     assert path.exists(), \
@@ -259,18 +259,18 @@ class MacOSPlatform(UnixPlatform):
 
   @property
   def short_name(self):
-    return 'mac'
+    return "mac"
 
   def find_app_binary_path(self, app_path) -> Path:
-    binaries = (app_path / 'Contents' / 'MacOS').iterdir()
+    binaries = (app_path / "Contents" / "MacOS").iterdir()
     binaries = [path for path in binaries if path.is_file()]
     if len(binaries) != 1:
-      raise Exception(f'Invalid number of binaries found: {binaries}')
+      raise Exception(f"Invalid number of binaries found: {binaries}")
     return binaries[0]
 
   def search_binary(self, app_name) -> Optional[Path]:
     try:
-      app_path = Path('/Applications') / f"{app_name}.app"
+      app_path = Path("/Applications") / f"{app_name}.app"
       bin_path = self.find_app_binary_path(app_path)
       if not bin_path.exists():
         return None
@@ -281,34 +281,34 @@ class MacOSPlatform(UnixPlatform):
   def exec_apple_script(self, script, quiet=False):
     if not quiet:
       logging.debug("AppleScript: %s", script)
-    return self.sh('/usr/bin/osascript', '-e', script)
+    return self.sh("/usr/bin/osascript", "-e", script)
 
   def get_relative_cpu_speed(self) -> float:
     try:
-      lines = self.sh_stdout('pmset', '-g', 'therm').split()
+      lines = self.sh_stdout("pmset", "-g", "therm").split()
       for index, line in enumerate(lines):
-        if line == 'CPU_Speed_Limit':
+        if line == "CPU_Speed_Limit":
           return int(lines[index + 2]) / 100.0
     except Exception:
       traceback.print_exc(file=sys.stdout)
     return 1
 
   def get_hardware_details(self):
-    system_profiler = self.sh_stdout('system_profiler', 'SPHardwareDataType')
-    sysctl_machdep_cpu = self.sh_stdout('sysctl', 'machdep.cpu')
-    sysctl_hw = self.sh_stdout('sysctl', 'hw')
+    system_profiler = self.sh_stdout("system_profiler", "SPHardwareDataType")
+    sysctl_machdep_cpu = self.sh_stdout("sysctl", "machdep.cpu")
+    sysctl_hw = self.sh_stdout("sysctl", "hw")
     return system_profiler + sysctl_machdep_cpu + sysctl_hw
 
   def disable_monitoring(self):
     self.disable_crowdstrike()
 
   def disable_crowdstrike(self):
-    falconctl = Path('/Applications/Falcon.app/Contents/Resources/falconctl')
+    falconctl = Path("/Applications/Falcon.app/Contents/Resources/falconctl")
     if not falconctl.exists():
       logging.debug("You're fine, falconctl or %s are not installed.",
                     falconctl)
     else:
-      self.sh('sudo', falconctl, 'unload')
+      self.sh("sudo", falconctl, "unload")
 
 
 class LinuxPlatform(UnixPlatform):
@@ -328,16 +328,16 @@ class LinuxPlatform(UnixPlatform):
 
   @property
   def short_name(self):
-    return 'linux'
+    return "linux"
 
   def disable_monitoring(self):
     pass
 
   def get_hardware_details(self):
-    lscpu = self.sh_stdout('lscpu')
+    lscpu = self.sh_stdout("lscpu")
     inxi = ""
     try:
-      inxi = self.sh_stdout('inxi')
+      inxi = self.sh_stdout("inxi")
     except Exception:
       return lscpu
     return f"{inxi}\n{lscpu}"
@@ -350,9 +350,9 @@ class LinuxPlatform(UnixPlatform):
     return None
 
 
-if sys.platform == 'linux':
+if sys.platform == "linux":
   platform = LinuxPlatform()
-elif sys.platform == 'darwin':
+elif sys.platform == "darwin":
   platform = MacOSPlatform()
 else:
   raise Exception("Unsupported Platform")
@@ -397,7 +397,7 @@ class SystemSleepPreventer:
 
   def __enter__(self):
     if platform.is_macos:
-      self._process = platform.popen('caffeinate', '-imdsu')
+      self._process = platform.popen("caffeinate", "-imdsu")
     # TODO: Add linux support
 
   def __exit__(self, exc_type, exc_value, exc_traceback):

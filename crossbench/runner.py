@@ -47,7 +47,7 @@ class CheckList:
   def warn(self, message):
     result = input(
         f"{helper.TTYColor.RED}{message}{helper.TTYColor.RESET} [Yn]")
-    return result.lower() != 'n'
+    return result.lower() != "n"
 
   def _disable_crowdstrike(self):
     """go/crowdstrike-falcon has quite terrible overhead for each file-access
@@ -129,7 +129,7 @@ class CheckList:
     # We only have a $DISPLAY env var on macos if xquartz is installed
     if helper.platform.is_macos:
       return True
-    if os.environ.get('DISPLAY', None) is not None:
+    if os.environ.get("DISPLAY", None) is not None:
       return True
     for browser in self._runner.browsers:
       if browser.is_headless:
@@ -231,15 +231,15 @@ class Runner(abc.ABC):
   @staticmethod
   def get_out_dir(cwd, suffix="", test=False) -> Path:
     if test:
-      return cwd / 'results' / 'test'
-    if len(suffix) > 0:
+      return cwd / "results" / "test"
+    if suffix:
       suffix = "_" + suffix
-    return (cwd / 'results' /
-            f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}{suffix}")
+    return (cwd / "results" /
+            f"{datetime.now().strftime("%Y-%m-%d_%H%M%S")}{suffix}")
 
   @classmethod
   def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
-    assert cls.__doc__ and len(cls.__doc__) > 0, \
+    assert cls.__doc__ and cls.__doc__, \
         f"Benchmark class {cls} must provide a doc string."
     doc_title = cls.__doc__.strip().split("\n")[0]
     parser = subparsers.add_parser(
@@ -259,15 +259,15 @@ class Runner(abc.ABC):
         help="Results will be stored in this directory. "
         "Defaults to result/$DATE")
     parser.add_argument(
-        '--throw',
-        action='store_true',
+        "--throw",
+        action="store_true",
         default=False,
         help="Directly throw exceptions")
     parser.add_argument("--label", type=str, help="Custom output label")
     parser.add_argument(
-        '--skip-checklist',
+        "--skip-checklist",
         dest="use_checklist",
-        action='store_false',
+        action="store_false",
         default=True,
         help="Do not check for potential SetUp issues "
         "before running the benchmark. Enabled by default.")
@@ -312,12 +312,12 @@ class Runner(abc.ABC):
     assert not self.out_dir.exists(), f"out_dir={self.out_dir} exists already"
     self.default_wait = 2 if throttle else 0.1
     self.browsers = browsers
-    assert len(browsers) > 0, "No browsers provided"
+    assert browsers, "No browsers provided"
     browser_labels = list(browser.label for browser in browsers)
     assert len(browser_labels) == len(
         set(browser_labels)), (f"Duplicated browser labels in {browser_labels}")
     self.stories = stories
-    assert len(stories) > 0, "No stories provided"
+    assert stories, "No stories provided"
     self.repetitions = repetitions
     assert self.repetitions > 0, f"Invalid repetitions={self.repetitions}"
     self.throttle = throttle
@@ -376,7 +376,7 @@ class Runner(abc.ABC):
 
   @property
   def is_success(self):
-    return len(self._runs) > 0 and self._exceptions.is_success
+    return self._runs and self._exceptions.is_success
 
   def sh(self, *args, shell=False, stdout=None):
     return helper.platform.sh(*args, shell=shell, stdout=stdout)
@@ -386,7 +386,7 @@ class Runner(abc.ABC):
 
   def collect_hardware_details(self):
     self.out_dir.mkdir(parents=True, exist_ok=True)
-    with (self.out_dir / 'GetHardwareDetails.details.txt').open('w') as f:
+    with (self.out_dir / "GetHardwareDetails.details.txt").open("w") as f:
       details = helper.platform.get_hardware_details()
       f.write(details)
 
@@ -401,7 +401,7 @@ class Runner(abc.ABC):
     for browser in self.browsers:
       browser.setup_binary(self)
     self._runs = list(self.get_runs())
-    assert len(self._runs) > 0, "get_runs() produced no runs"
+    assert self._runs, "get_runs() produced no runs"
     if self._use_checklist:
       if not CheckList(self).is_ok():
         raise Exception("Thou shalt not pass the CheckList")
@@ -481,24 +481,24 @@ class SubStoryRunner(Runner):
         "--stories",
         default="all",
         type=cls.parse_cli_stories,
-        help="Comma-separated list of story names. Use 'all' as placeholder.")
+        help="Comma-separated list of story names. Use "all" as placeholder.")
     is_combined_group = parser.add_mutually_exclusive_group()
     is_combined_group.add_argument(
         "--combined",
         dest="separate",
         default=False,
-        action='store_false',
+        action="store_false",
         help="Run each story in the same session. (default)")
     is_combined_group.add_argument(
         "--separate",
-        action='store_true',
+        action="store_true",
         help="Run each story in a fresh browser.")
     return parser
 
   @classmethod
   def kwargs_from_cli(cls, args) -> dict:
     kwargs = super().kwargs_from_cli(args)
-    kwargs['stories'] = cls.stories_from_cli(args)
+    kwargs["stories"] = cls.stories_from_cli(args)
     return kwargs
 
   @classmethod
@@ -511,7 +511,7 @@ class SubStoryRunner(Runner):
   @classmethod
   def describe(cls) -> dict:
     data = super().describe()
-    data['stories'] = cls.story_names()
+    data["stories"] = cls.story_names()
     return data
 
   @classmethod
@@ -528,12 +528,12 @@ class PressBenchmarkStoryRunner(SubStoryRunner):
     is_live_group.add_argument(
         "--live",
         default=True,
-        action='store_true',
+        action="store_true",
         help="Use live/online benchmark url.")
     is_live_group.add_argument(
         "--local",
         dest="live",
-        action='store_false',
+        action="store_false",
         help="Use locally hosted benchmark url.")
     return parser
 
@@ -547,8 +547,8 @@ class PressBenchmarkStoryRunner(SubStoryRunner):
   def describe(cls) -> dict:
     data = super().describe()
     assert issubclass(cls.DEFAULT_STORY_CLS, stories.PressBenchmarkStory)
-    data['url'] = cls.DEFAULT_STORY_CLS.URL
-    data['url-local'] = cls.DEFAULT_STORY_CLS.URL_LOCAL
+    data["url"] = cls.DEFAULT_STORY_CLS.URL
+    data["url-local"] = cls.DEFAULT_STORY_CLS.URL_LOCAL
     return data
 
 
@@ -627,7 +627,7 @@ class RepetitionsRunGroup(RunGroup):
     self._runs.append(run)
 
   @property
-  def runs(self) -> Iterable['Run']:
+  def runs(self) -> Iterable["Run"]:
     return self._runs
 
   @property
@@ -673,7 +673,7 @@ class StoriesRunGroup(RunGroup):
     return self._repetitions_groups
 
   @property
-  def runs(self) -> Iterable['Run']:
+  def runs(self) -> Iterable["Run"]:
     for group in self._repetitions_groups:
       yield from group.runs
 
@@ -814,8 +814,8 @@ class Run:
 
   def get_browser_details_json(self) -> dict:
     details_json = self.browser.details_json()
-    details_json['js_flags'] += tuple(self.extra_js_flags.get_list())
-    details_json['flags'] += tuple(self.extra_flags.get_list())
+    details_json["js_flags"] += tuple(self.extra_js_flags.get_list())
+    details_json["flags"] += tuple(self.extra_flags.get_list())
     return details_json
 
   def get_probe_results_file(self, probe: "crossbench.probes.Probe") -> Path:
@@ -824,20 +824,20 @@ class Run:
     return file
 
   def setup(self):
-    logging.info('PREPARE')
+    logging.info("PREPARE")
     self._advance_state(self.STATE_INITIAL, self.STATE_PREPARE)
     self._run_success = None
-    browser_log_file = self._out_dir / 'browser.log'
+    browser_log_file = self._out_dir / "browser.log"
     assert not browser_log_file.exists(), \
         f"Default browser log file {browser_log_file} already exists."
     self._browser.set_log_file(browser_log_file)
 
-    with self._durations.measure('runner-cooldown'):
+    with self._durations.measure("runner-cooldown"):
       # self._runner.cool_down()
       self._runner.wait(self._runner.default_wait)
 
     probe_run_scopes = []
-    with self._durations.measure('probes-creation'):
+    with self._durations.measure("probes-creation"):
       probe_set = set()
       for probe in self.probes:
         assert probe not in probe_set, \
@@ -847,11 +847,11 @@ class Run:
           self._probe_results[probe] = None
         probe_run_scopes.append(probe.get_scope(self))
 
-    with self._durations.measure('probes-setup'):
+    with self._durations.measure("probes-setup"):
       for probe_scope in probe_run_scopes:
         probe_scope.setup(self)
 
-    with self._durations.measure('browser-setup'):
+    with self._durations.measure("browser-setup"):
       try:
         # pytype somehow gets the package path wrong here, disabling for now.
         self._browser.setup(self)  # pytype: disable=wrong-arg-types
@@ -878,12 +878,12 @@ class Run:
           probe_scope.set_start_time(probe_start_time)
           probe_scope_manager.enter_context(probe_scope)
         with probe_scope_manager:
-          self._durations['probes-start'] = datetime.now() - \
+          self._durations["probes-start"] = datetime.now() - \
               probe_start_time
           logging.info("RUN: BROWSER=%s STORY=%s", self._browser.short_name,
                        self.story.name)
           assert self._state == self.STATE_RUN, "Invalid state"
-          with self._durations.measure('run'):
+          with self._durations.measure("run"):
             self._story.run(self)
           self._run_success = True
       except Exception as e:
@@ -898,7 +898,7 @@ class Run:
 
   def tear_down(self, probe_scopes, is_shutdown=False):
     self._advance_state(self.STATE_RUN, self.STATE_DONE)
-    with self._durations.measure('browser-TearDown'):
+    with self._durations.measure("browser-TearDown"):
       if is_shutdown:
         try:
           self._browser.quit(self._runner)
@@ -910,7 +910,7 @@ class Run:
       except Exception as e:
         logging.warning(f"Error quitting browser: {e}")
         self._exceptions.handle(e)
-    with self._durations.measure('probes-TearDown'):
+    with self._durations.measure("probes-TearDown"):
       logging.info("TEARDOWN")
       self._tear_down_probe_scopes(probe_scopes)
 
@@ -936,7 +936,7 @@ class Actions(helper.TimeScope):
   _is_active: bool = False
 
   def __init__(self, message, run: Run, runner=None, browser=None, parent=None):
-    assert len(message) > 0, "Actions need a name"
+    assert message, "Actions need a name"
     super().__init__(message)
     self._run = run
     self._browser = browser or (run and run.browser)
@@ -963,7 +963,7 @@ class Actions(helper.TimeScope):
 
   def js(self, js_code: str, timeout=10, arguments=(), **kwargs):
     self._assert_is_active()
-    assert len(js_code) > 0, "js_code must be a valid JS script"
+    assert js_code, "js_code must be a valid JS script"
     if kwargs:
       js_code = js_code.format(**kwargs)
     return self._browser.js(self._runner, js_code, timeout, arguments=arguments)

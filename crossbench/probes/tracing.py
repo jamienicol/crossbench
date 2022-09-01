@@ -16,9 +16,9 @@ class TracingProbe(probes.Probe):
   """
   NAME = "tracing"
   FLAGS = (
-      '--enable-perfetto',
-      '--disable-fre',
-      '--danger-disable-safebrowsing-for-crossbench',
+      "--enable-perfetto",
+      "--disable-fre",
+      "--danger-disable-safebrowsing-for-crossbench",
   )
 
   def __init__(self, categories, startup_duration=0, output_format="json"):
@@ -26,16 +26,16 @@ class TracingProbe(probes.Probe):
     self._categories = categories
     self._startup_duration = startup_duration
     self._format = output_format
-    assert self._format in ('json', 'proto'), \
+    assert self._format in ("json", "proto"), \
         f"Invalid trace output output_format={self._format}"
 
   def is_compatible(self, browser):
-    return browser.type == 'chrome'
+    return browser.type == "chrome"
 
   def attach(self, browser):
     super().attach(browser)
-    # '--trace-startup-format'
+    # "--trace-startup-format"
     # --trace-startup-duration=
     # --trace-startup=categories
-    # v--trace-startup-file=' + file_name
+    # v--trace-startup-file=" + file_name
     pass

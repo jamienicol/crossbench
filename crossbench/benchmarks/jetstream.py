@@ -12,7 +12,7 @@ class JetStream2Probe(probes.JsonResultProbe):
   JetStream2-specific Probe.
   Extracts all JetStream2 times and scores.
   """
-  NAME = 'jetstream_2'
+  NAME = "jetstream_2"
   IS_GENERAL_PURPOSE = False
   FLATTEN = False
   JS = """
@@ -39,7 +39,7 @@ class JetStream2Probe(probes.JsonResultProbe):
     merged = probes.json.JSONMerger.from_merged_files(
         story_group.results[self] for story_group in group.repetitions_groups)
     merged_json_file = self.write_group_result(group, merged.to_json())
-    merged_csv_file = merged_json_file.with_suffix('.csv')
+    merged_csv_file = merged_json_file.with_suffix(".csv")
     self._json_to_csv(merged.data, merged_csv_file)
     return (merged_json_file, merged_csv_file)
 
@@ -55,8 +55,8 @@ class JetStream2Probe(probes.JsonResultProbe):
         key=lambda item: tuple(sorted(path.name for path in item[1])),
         value=lambda item: item[0])
 
-    with out_file.open('w') as f:
-      important_fields = ('score', 'average')
+    with out_file.open("w") as f:
+      important_fields = ("score", "average")
       for field_names, story_names in grouped_by_metrics.items():
         # Make field_names mutable again.
         field_names = list(field_names)
@@ -65,13 +65,13 @@ class JetStream2Probe(probes.JsonResultProbe):
           if important_field in field_names:
             field_names.remove(important_field)
             field_names.insert(0, important_field)
-        f.write("Name\t" + ('\t'.join(field_names)) + "\n")
+        f.write("Name\t" + ("\t".join(field_names)) + "\n")
         for suite_name in story_names:
           fields = (suite_name,
                     *(merged_data[Path(suite_name) / field_name].geomean
                       for field_name in field_names))
-          f.write('\t'.join(map(str, fields)))
-          f.write('\n')
+          f.write("\t".join(map(str, fields)))
+          f.write("\n")
 
 
 class JetStream2Story(stories.PressBenchmarkStory):
@@ -80,70 +80,70 @@ class JetStream2Story(stories.PressBenchmarkStory):
   URL = "https://browserbench.org/JetStream/"
   URL_LOCAL = "http://localhost:8000/"
   SUBSTORIES = (
-      'WSL',
-      'UniPoker',
-      'uglify-js-wtb',
-      'typescript',
-      'tsf-wasm',
-      'tagcloud-SP',
-      'string-unpack-code-SP',
-      'stanford-crypto-sha256',
-      'stanford-crypto-pbkdf2',
-      'stanford-crypto-aes',
-      'splay',
-      'segmentation',
-      'richards-wasm',
-      'richards',
-      'regexp',
-      'regex-dna-SP',
-      'raytrace',
-      'quicksort-wasm',
-      'prepack-wtb',
-      'pdfjs',
-      'OfflineAssembler',
-      'octane-zlib',
-      'octane-code-load',
-      'navier-stokes',
-      'n-body-SP',
-      'multi-inspector-code-load',
-      'ML',
-      'mandreel',
-      'lebab-wtb',
-      'json-stringify-inspector',
-      'json-parse-inspector',
-      'jshint-wtb',
-      'HashSet-wasm',
-      'hash-map',
-      'gcc-loops-wasm',
-      'gbemu',
-      'gaussian-blur',
-      'float-mm.c',
-      'FlightPlanner',
-      'first-inspector-code-load',
-      'espree-wtb',
-      'earley-boyer',
-      'delta-blue',
-      'date-format-xparb-SP',
-      'date-format-tofte-SP',
-      'crypto-sha1-SP',
-      'crypto-md5-SP',
-      'crypto-aes-SP',
-      'crypto',
-      'coffeescript-wtb',
-      'chai-wtb',
-      'cdjs',
-      'Box2D',
-      'bomb-workers',
-      'Basic',
-      'base64-SP',
-      'babylon-wtb',
-      'Babylon',
-      'async-fs',
-      'Air',
-      'ai-astar',
-      'acorn-wtb',
-      '3d-raytrace-SP',
-      '3d-cube-SP',
+      "WSL",
+      "UniPoker",
+      "uglify-js-wtb",
+      "typescript",
+      "tsf-wasm",
+      "tagcloud-SP",
+      "string-unpack-code-SP",
+      "stanford-crypto-sha256",
+      "stanford-crypto-pbkdf2",
+      "stanford-crypto-aes",
+      "splay",
+      "segmentation",
+      "richards-wasm",
+      "richards",
+      "regexp",
+      "regex-dna-SP",
+      "raytrace",
+      "quicksort-wasm",
+      "prepack-wtb",
+      "pdfjs",
+      "OfflineAssembler",
+      "octane-zlib",
+      "octane-code-load",
+      "navier-stokes",
+      "n-body-SP",
+      "multi-inspector-code-load",
+      "ML",
+      "mandreel",
+      "lebab-wtb",
+      "json-stringify-inspector",
+      "json-parse-inspector",
+      "jshint-wtb",
+      "HashSet-wasm",
+      "hash-map",
+      "gcc-loops-wasm",
+      "gbemu",
+      "gaussian-blur",
+      "float-mm.c",
+      "FlightPlanner",
+      "first-inspector-code-load",
+      "espree-wtb",
+      "earley-boyer",
+      "delta-blue",
+      "date-format-xparb-SP",
+      "date-format-tofte-SP",
+      "crypto-sha1-SP",
+      "crypto-md5-SP",
+      "crypto-aes-SP",
+      "crypto",
+      "coffeescript-wtb",
+      "chai-wtb",
+      "cdjs",
+      "Box2D",
+      "bomb-workers",
+      "Basic",
+      "base64-SP",
+      "babylon-wtb",
+      "Babylon",
+      "async-fs",
+      "Air",
+      "ai-astar",
+      "acorn-wtb",
+      "3d-raytrace-SP",
+      "3d-cube-SP",
   )
   DEFAULT_PROBES = (JetStream2Probe,)
 
@@ -171,7 +171,7 @@ class JetStream2Story(stories.PressBenchmarkStory):
       actions.wait_js_condition(
           """
         let summaryElement = document.getElementById("result-summary");
-        return (summaryElement.classList.contains('done'));
+        return (summaryElement.classList.contains("done"));
         """, helper.wait_range(1, 60 * 20))
 
 
@@ -182,7 +182,7 @@ class JetStream2Runner(runner.PressBenchmarkStoryRunner):
   See https://browserbench.org/JetStream/ for more details.
   """
 
-  NAME = 'jetstream_2'
+  NAME = "jetstream_2"
   DEFAULT_STORY_CLS = JetStream2Story
 
   def __init__(self, *args, stories=None, **kwargs):

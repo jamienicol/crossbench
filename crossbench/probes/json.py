@@ -74,7 +74,7 @@ class JsonResultProbe(probes.Probe, metaclass=ABCMeta):
           raw_file = raw_file.with_suffix(".raw.json")
           flattened_file = self.results_file
           flat_json_data = self.flatten_json_data(json_data)
-          with flattened_file.open('w') as f:
+          with flattened_file.open("w") as f:
             json.dump(flat_json_data, f, indent=2)
         with raw_file.open("w") as f:
           json.dump(json_data, f, indent=2)
@@ -90,7 +90,7 @@ class JsonResultProbe(probes.Probe, metaclass=ABCMeta):
     for run in group.runs:
       source_file = self.get_mergeable_result_file(run.results[self])
       assert source_file.is_file()
-      with source_file.open('r') as f:
+      with source_file.open("r") as f:
         merger.add(json.load(f))
     return self.write_group_result(group, merger.to_json())
 
@@ -101,7 +101,7 @@ class JsonResultProbe(probes.Probe, metaclass=ABCMeta):
 
   def write_group_result(self, group, merged_data):
     destination_path = group.get_probe_results_file(self)
-    with destination_path.open('w') as f:
+    with destination_path.open("w") as f:
       json.dump(merged_data, f, indent=2)
     return destination_path
 
@@ -116,7 +116,7 @@ class Values:
 
   @classmethod
   def from_json(cls, json_data):
-    return cls(json_data['values'])
+    return cls(json_data["values"])
 
   def __init__(self, values=None):
     self.values = values or []
@@ -146,7 +146,7 @@ class Values:
   @property
   def stddev(self):
     """
-    We're ignoring here any actual distribution of the data and use this as a
+    We"re ignoring here any actual distribution of the data and use this as a
     rough estimate of the quality of the data
     """
     average = self.average
@@ -162,15 +162,15 @@ class Values:
   def to_json(self):
     json_data = dict(values=self.values)
     if self.is_numeric():
-      json_data['min'] = self.min
-      average = json_data['average'] = self.average
-      json_data['geomean'] = self.geomean
-      json_data['max'] = self.max
-      stddev = json_data['stddev'] = self.stddev
+      json_data["min"] = self.min
+      average = json_data["average"] = self.average
+      json_data["geomean"] = self.geomean
+      json_data["max"] = self.max
+      stddev = json_data["stddev"] = self.stddev
       if average == 0:
-        json_data['stddevPercent'] = 0
+        json_data["stddevPercent"] = 0
       else:
-        json_data['stddevPercent'] = (stddev / average) * 100
+        json_data["stddevPercent"] = (stddev / average) * 100
       return json_data
     # Simplify repeated non-numeric values
     if len(set(self.values)) == 1:
@@ -199,7 +199,7 @@ class JSONFlat:
 
   def __init__(self, key=None):
     self._accumulator = {}
-    self._key_fn = key or (lambda path: '/'.join(path))
+    self._key_fn = key or (lambda path: "/".join(path))
 
   @property
   def data(self):
@@ -214,7 +214,7 @@ class JSONFlat:
   def _is_leaf_item(self, item):
     if isinstance(item, (str, float, int, list)):
       return True
-    if "values" in item and isinstance(item['values'], list):
+    if "values" in item and isinstance(item["values"], list):
       return True
     return False
 
@@ -307,7 +307,7 @@ class JSONMerger:
       if path in self._data:
         if merge_duplicate_paths:
           values = self._data[path]
-          for value in json_data['values']:
+          for value in json_data["values"]:
             values.append(value)
         else:
           logging.debug(

@@ -115,9 +115,9 @@ class PowerSamplerProbe(probes.Probe):
             "--sample-count=1")
 
         for row in csv.DictReader(power_sampler_output.splitlines()):
-          max_capacity = float(row['battery_max_capacity(Ah)'])
-          current_capacity = float(row['battery_current_capacity(Ah)'])
+          max_capacity = float(row["battery_max_capacity(Ah)"])
+          current_capacity = float(row["battery_current_capacity(Ah)"])
           percent = 100 * current_capacity / max_capacity
-          logging.info(f'POWER SAMPLER: Battery level is {percent:.2f}%')
+          logging.info(f"POWER SAMPLER: Battery level is {percent:.2f}%")
           if max_capacity != current_capacity:
             return

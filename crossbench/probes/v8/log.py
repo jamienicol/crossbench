@@ -27,7 +27,7 @@ class V8LogProbe(probes.Probe):
     if log_all:
       self._js_flags.set("--log-all")
       enabled = True
-    enabled |= self._enable_js_flag('prof', prof)
+    enabled |= self._enable_js_flag("prof", prof)
     assert enabled, "V8LogProbe has no effect"
 
   def _enable_js_flag(self, flag_name, value):

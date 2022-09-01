@@ -23,7 +23,7 @@ class LivePage(_Page):
 
   @classmethod
   def from_names(cls, name_or_url_list, separate=True):
-    if len(name_or_url_list) == 1 and name_or_url_list[0] == 'all':
+    if len(name_or_url_list) == 1 and name_or_url_list[0] == "all":
       pages = PAGE_LIST
     else:
       pages = cls._resolve_name_or_urls(name_or_url_list)
@@ -33,7 +33,7 @@ class LivePage(_Page):
       if len(hostnames) == len(urls):
         pages = cls._resolve_name_or_urls(name_or_url_list, use_hostname=True)
     if not separate and len(pages) > 1:
-      combined_name = '_'.join(page.name for page in pages)
+      combined_name = "_".join(page.name for page in pages)
       pages = (CombinedPage(pages, combined_name),)
     logging.info("PAGES: %s", list(map(str, pages)))
     return pages
@@ -67,12 +67,12 @@ class LivePage(_Page):
 
   def __init__(self, name, url, duration=15):
     super().__init__(name, duration)
-    assert len(url) > 0, "Invalid page url"
+    assert url, "Invalid page url"
     self.url = url
 
   def details_json(self):
     result = super().details_json()
-    result['url'] = str(self.url)
+    result["url"] = str(self.url)
     return result
 
   def run(self, run):
@@ -102,7 +102,7 @@ class CombinedPage(_Page):
 
   def details_json(self):
     result = super().details_json()
-    result['pages'] = list(page.details_json() for page in self._pages)
+    result["pages"] = list(page.details_json() for page in self._pages)
     return result
 
   def run(self, run):
@@ -110,23 +110,23 @@ class CombinedPage(_Page):
       page.run(run)
 
   def __str__(self):
-    return f"CombinedPage({','.join(page.name for page in self._pages)})"
+    return f"CombinedPage({",".join(page.name for page in self._pages)})"
 
 
 PAGE_LIST = [
-    LivePage('amazon', 'https://www.amazon.de/s?k=heizkissen', 5),
-    LivePage('bing', 'https://www.bing.com/images/search?q=not+a+squirrel', 5),
-    LivePage('caf', 'http://www.caf.fr', 6),
-    LivePage('cnn', 'https://cnn.com/', 7),
-    LivePage('ecma262', 'https://tc39.es/ecma262/#sec-numbers-and-dates', 10),
-    LivePage('expedia', 'https://www.expedia.com/', 7),
-    LivePage('facebook', 'https://facebook.com/shakira', 8),
-    LivePage('maps', 'https://goo.gl/maps/TEZde4y4Hc6r2oNN8', 10),
-    LivePage('microsoft', 'https://microsoft.com/', 6),
-    LivePage('provincial', 'http://www.provincial.com', 6),
-    LivePage('sueddeutsche', 'https://www.sueddeutsche.de/wirtschaft', 8),
-    LivePage('timesofindia', 'https://timesofindia.indiatimes.com/', 8),
-    LivePage('twitter', 'https://twitter.com/wernertwertzog?lang=en', 6),
+    LivePage("amazon", "https://www.amazon.de/s?k=heizkissen", 5),
+    LivePage("bing", "https://www.bing.com/images/search?q=not+a+squirrel", 5),
+    LivePage("caf", "http://www.caf.fr", 6),
+    LivePage("cnn", "https://cnn.com/", 7),
+    LivePage("ecma262", "https://tc39.es/ecma262/#sec-numbers-and-dates", 10),
+    LivePage("expedia", "https://www.expedia.com/", 7),
+    LivePage("facebook", "https://facebook.com/shakira", 8),
+    LivePage("maps", "https://goo.gl/maps/TEZde4y4Hc6r2oNN8", 10),
+    LivePage("microsoft", "https://microsoft.com/", 6),
+    LivePage("provincial", "http://www.provincial.com", 6),
+    LivePage("sueddeutsche", "https://www.sueddeutsche.de/wirtschaft", 8),
+    LivePage("timesofindia", "https://timesofindia.indiatimes.com/", 8),
+    LivePage("twitter", "https://twitter.com/wernertwertzog?lang=en", 6),
 ]
 PAGES = {page.name: page for page in PAGE_LIST}
 
@@ -146,7 +146,7 @@ class PageLoadRunner(runner.SubStoryRunner):
     --urls=http://cnn.com,10s
     --urls=http://twitter.com,5s,http://cnn.com,10s
   """
-  NAME = 'loading'
+  NAME = "loading"
   DEFAULT_STORY_CLS = LivePage
 
   @classmethod
@@ -154,7 +154,7 @@ class PageLoadRunner(runner.SubStoryRunner):
     parser = super().add_cli_parser(subparsers)
     parser.add_argument(
         "--urls",
-        dest='stories',
+        dest="stories",
         type=cls.parse_cli_stories,
         help="List of urls and durations to load: url,seconds,...")
     return parser
