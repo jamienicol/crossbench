@@ -7,6 +7,7 @@ from __future__ import annotations
 import abc
 import json
 import logging
+from optparse import Option
 import re
 import shlex
 import stat
@@ -50,7 +51,9 @@ class Browser(abc.ABC):
                path: Path,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[Path] = None,
-               type: Optional[str] = None):
+               type: Optional[str] = None,
+               platform: Optional[helper.Platform] = None):
+    self.platform = platform or helper.platform
     # Marked optional to make subclass constructor calls easier with pytype.
     assert type
     self.type = type
@@ -89,6 +92,10 @@ class Browser(abc.ABC):
   @property
   def pid(self):
     return self._pid
+
+  @property
+  def is_local(self):
+    return True
 
   def _resolve_macos_binary(self):
     assert self.path.is_dir(
@@ -152,7 +159,7 @@ class Browser(abc.ABC):
       return
     if run.temperature is None:
       return
-    for i in range(3):
+    for _ in range(3):
       self.show_url(runner, run.page.url)
       runner.wait(run.page.duration / 2)
       self.show_url(runner, "about://version")
@@ -169,14 +176,14 @@ class Browser(abc.ABC):
 
   def force_quit(self):
     logging.info("QUIT")
-    if helper.platform.is_macos:
-      helper.platform.exec_apple_script(f"""
+    if self.platform.is_macos:
+      self.platform.exec_apple_script(f"""
   tell application '{self.app_name}'
     quit
   end tell
       """)
     elif self._pid:
-      helper.platform.terminate(self._pid)
+      self.platform.terminate(self._pid)
     self._is_running = False
 
 
@@ -279,8 +286,9 @@ class Chrome(Browser, metaclass=ChromeMeta):
                path: Path,
                js_flags: FlagsInitialDataType = None,
                flags: FlagsInitialDataType = None,
-               cache_dir: Optional[Path] = None):
-    super().__init__(label, path, type="chrome")
+               cache_dir: Optional[Path] = None,
+               platform: Optional[helper.Platform] = None):
+    super().__init__(label, path, type="chrome", platform=platform)
     assert not isinstance(
         js_flags, str), f"js_flags should be a list, but got: {repr(js_flags)}"
     assert not isinstance(
@@ -299,7 +307,7 @@ class Chrome(Browser, metaclass=ChromeMeta):
     self._stdout_log_file = None
 
   def _extract_version(self):
-    version_string = helper.platform.sh_stdout(self.path, "--version")
+    version_string = self.platform.sh_stdout(self.path, "--version")
     # Sample output: "Google Chrome 90.0.4430.212 dev" => "90.0.4430.212"
     return re.findall(r"[\d\.]+", version_string)[0]
 
@@ -327,7 +335,7 @@ class Chrome(Browser, metaclass=ChromeMeta):
     return self._flags.features
 
   def exec_apple_script(self, script):
-    return helper.platform.exec_apple_script(script)
+    return self.platform.exec_apple_script(script)
 
   def details_json(self):
     details = super().details_json()
@@ -361,7 +369,7 @@ class Chrome(Browser, metaclass=ChromeMeta):
 
   def start(self, run):
     runner = run.runner
-    assert helper.platform.is_macos, (
+    assert self.platform.is_macos, (
         f"Sorry, f{self.__class__} is only supported on MacOS for now")
     assert not self._is_running
     assert self._stdout_log_file is None
@@ -500,6 +508,8 @@ class ChromeDriverFinder:
 
   def __init__(self, browser: ChromeWebDriver):
     self.browser = browser
+    assert self.browser.is_local, (
+        "Cannot download chromedriver for remote browser yet")
 
   def find_local_build(self):
     # assume it"s a local build
@@ -621,8 +631,9 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
                js_flags: FlagsInitialDataType = None,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[Path] = None,
-               driver_path: Optional[Path] = None):
-    super().__init__(label, path, js_flags, flags, cache_dir)
+               driver_path: Optional[Path] = None,
+               platform: Optional[helper.Platform] = None):
+    super().__init__(label, path, js_flags, flags, cache_dir, platform)
     self._driver = None
     self._driver_path = driver_path
 
@@ -656,7 +667,7 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
     return driver
 
   def _check_driver_version(self):
-    version = helper.platform.sh_stdout(self._driver_path, "--version")
+    version = self.platform.sh_stdout(self._driver_path, "--version")
     # TODO
 
 
@@ -685,9 +696,10 @@ class Safari(Browser, metaclass=SafariMeta):
                label: str,
                path: Path,
                flags: FlagsInitialDataType = None,
-               cache_dir: Optional[Path] = None):
-    super().__init__(label, path, flags, type="safari")
-    assert helper.platform.is_macos, "Safari only works on MacOS"
+               cache_dir: Optional[Path] = None,
+               platform: Optional[helper.MacOSPlatform] = None):
+    super().__init__(label, path, flags, type="safari", platform=platform)
+    assert self.platform.is_macos, "Safari only works on MacOS"
     bundle_name = self.path.stem.replace(" ", "")
     assert cache_dir is None, "Cannot set custom cache dir for Safari"
     self.cache_dir = Path(
@@ -697,8 +709,8 @@ class Safari(Browser, metaclass=SafariMeta):
 
   def _extract_version(self):
     app_path = self.path.parents[2]
-    version_string = helper.platform.sh_stdout("mdls", "-name",
-                                               "kMDItemVersion", app_path)
+    version_string = self.platform.sh_stdout("mdls", "-name", "kMDItemVersion",
+                                             app_path)
     # Sample output: "kMDItemVersion = "14.1"" => "14.1"
     return re.findall(r"[\d\.]+", version_string)[0]
 
@@ -748,8 +760,9 @@ class SafariWebDriver(WebdriverMixin, Safari):
                label: str,
                path: Path,
                flags: FlagsInitialDataType = None,
-               cache_dir: Optional[Path] = None):
-    super().__init__(label, path, flags, cache_dir)
+               cache_dir: Optional[Path] = None,
+               platform: Optional[helper.MacOSPlatform] = None):
+    super().__init__(label, path, flags, cache_dir, platform)
 
   def _find_driver(self):
     driver_path = self.path.parent / "safaridriver"
@@ -783,7 +796,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
     for parent in self._driver_path.parents:
       if parent == self.path.parent:
         return True
-    version = helper.platform.sh_stdout(self._driver_path, "--version")
+    version = self.platform.sh_stdout(self._driver_path, "--version")
     assert str(self.major_version) in version, \
         f"safaridriver={self._driver_path} version='{version}' "\
         f" doesn't match safari version={self.major_version}"
@@ -794,7 +807,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
   def quit(self, runner):
     super().quit(runner)
     # Safari needs some additional push to quit properly
-    helper.platform.exec_apple_script(f"""
+    self.platform.exec_apple_script(f"""
   tell application '{self.app_name}'
     quit
   end tell
