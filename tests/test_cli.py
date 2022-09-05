@@ -6,7 +6,7 @@ import io
 import json
 import unittest
 import unittest.mock as mock
-from pathlib import Path
+import pathlib
 from typing import Dict, Optional
 
 import pyfakefs.fake_filesystem_unittest
@@ -70,10 +70,10 @@ class MockBrowser(browsers.Browser):
 
   def __init__(self,
                label: str,
-               path: Path,
+               path: pathlib.Path,
                flags: FlagsInitialDataType = None,
-               cache_dir: Optional[Path] = None):
-    path = Path(self.BIN_PATH)
+               cache_dir: Optional[pathlib.Path] = None):
+    path = pathlib.Path(self.BIN_PATH)
     super().__init__(label, path, flags, cache_dir, type="test")
 
   def _extract_version(self):
@@ -82,20 +82,20 @@ class MockBrowser(browsers.Browser):
 
 class MockBrowserStable(MockBrowser):
   if helper.platform.is_macos:
-    BIN_PATH = Path("/Applications/Chrome.app")
+    BIN_PATH = pathlib.Path("/Applications/Chrome.app")
   else:
-    BIN_PATH = Path("/usr/bin/chrome")
+    BIN_PATH = pathlib.Path("/usr/bin/chrome")
 
 
 class MockBrowserDev(MockBrowser):
   if helper.platform.is_macos:
-    BIN_PATH = Path("/Applications/ChromeDev.app")
+    BIN_PATH = pathlib.Path("/Applications/ChromeDev.app")
   else:
-    BIN_PATH = Path("/usr/bin/chrome-dev")
+    BIN_PATH = pathlib.Path("/usr/bin/chrome-dev")
 
 
 class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
-  EXAMPLE_CONFIG_PATH = Path(
+  EXAMPLE_CONFIG_PATH = pathlib.Path(
       __file__).parent.parent / "browser.config.example.hjson"
 
   BROWSER_LOOKUP = {

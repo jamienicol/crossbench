@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from pathlib import Path
+import pathlib
 
 from crossbench import helper, probes, runner, stories
 
@@ -68,7 +68,7 @@ class JetStream2Probe(probes.JsonResultProbe):
         f.write("Name\t" + ("\t".join(field_names)) + "\n")
         for suite_name in story_names:
           fields = (suite_name,
-                    *(merged_data[Path(suite_name) / field_name].geomean
+                    *(merged_data[pathlib.Path(suite_name) / field_name].geomean
                       for field_name in field_names))
           f.write("\t".join(map(str, fields)))
           f.write("\n")

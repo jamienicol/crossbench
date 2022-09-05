@@ -17,7 +17,7 @@ import traceback
 import urllib
 import urllib.request
 from datetime import datetime, timedelta
-from pathlib import Path
+import pathlib
 from typing import Dict, Iterable, Optional
 
 import psutil
@@ -224,7 +224,8 @@ class Platform(abc.ABC):
         f"Downloading {url} failed. Downloaded file {path} doesn't exist."
     return path
 
-  def concat_files(self, inputs: Iterable[Path], output: Path) -> Path:
+  def concat_files(self, inputs: Iterable[pathlib.Path],
+                   output: pathlib.Path) -> pathlib.Path:
     with output.open("w") as output_f:
       for input_file in inputs:
         assert input_file.is_file()
@@ -261,16 +262,16 @@ class MacOSPlatform(UnixPlatform):
   def short_name(self):
     return "mac"
 
-  def find_app_binary_path(self, app_path) -> Path:
+  def find_app_binary_path(self, app_path) -> pathlib.Path:
     binaries = (app_path / "Contents" / "MacOS").iterdir()
     binaries = [path for path in binaries if path.is_file()]
     if len(binaries) != 1:
       raise Exception(f"Invalid number of binaries found: {binaries}")
     return binaries[0]
 
-  def search_binary(self, app_name) -> Optional[Path]:
+  def search_binary(self, app_name) -> Optional[pathlib.Path]:
     try:
-      app_path = Path("/Applications") / f"{app_name}.app"
+      app_path = pathlib.Path("/Applications") / f"{app_name}.app"
       bin_path = self.find_app_binary_path(app_path)
       if not bin_path.exists():
         return None
@@ -303,7 +304,8 @@ class MacOSPlatform(UnixPlatform):
     self.disable_crowdstrike()
 
   def disable_crowdstrike(self):
-    falconctl = Path("/Applications/Falcon.app/Contents/Resources/falconctl")
+    falconctl = pathlib.Path(
+        "/Applications/Falcon.app/Contents/Resources/falconctl")
     if not falconctl.exists():
       logging.debug("You're fine, falconctl or %s are not installed.",
                     falconctl)
@@ -313,13 +315,13 @@ class MacOSPlatform(UnixPlatform):
 
 class LinuxPlatform(UnixPlatform):
   SEARCH_PATHS = (
-      Path("/usr/local/sbin"),
-      Path("/usr/local/bin"),
-      Path("/usr/sbin"),
-      Path("/usr/bin"),
-      Path("/sbin"),
-      Path("/bin"),
-      Path("/opt/google"),
+      pathlib.Path("/usr/local/sbin"),
+      pathlib.Path("/usr/local/bin"),
+      pathlib.Path("/usr/sbin"),
+      pathlib.Path("/usr/bin"),
+      pathlib.Path("/sbin"),
+      pathlib.Path("/bin"),
+      pathlib.Path("/opt/google"),
   )
 
   @property
@@ -342,7 +344,7 @@ class LinuxPlatform(UnixPlatform):
       return lscpu
     return f"{inxi}\n{lscpu}"
 
-  def search_binary(self, bin_name) -> Optional[Path]:
+  def search_binary(self, bin_name) -> Optional[pathlib.Path]:
     for path in self.SEARCH_PATHS:
       bin_path = path / bin_name
       if bin_path.exists():

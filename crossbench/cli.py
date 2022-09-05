@@ -8,7 +8,7 @@ import argparse
 import itertools
 import json
 import logging
-from pathlib import Path
+import pathlib
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 
 import crossbench
@@ -180,7 +180,7 @@ class BrowserConfig:
     browser = cls(label=label, path=path, flags=flags)
     self.variants.append(browser)
 
-  def _get_browser_path(self, path_or_short_name: str) -> Path:
+  def _get_browser_path(self, path_or_short_name: str) -> pathlib.Path:
     short_name = path_or_short_name.lower()
     if short_name == "chrome" or short_name == "stable":
       return browsers.Chrome.stable_path
@@ -192,7 +192,7 @@ class BrowserConfig:
       return browsers.Safari.default_path
     if short_name == "safari technology preview" or short_name == "tp":
       return browsers.Safari.technology_preview_path
-    path = Path(path_or_short_name)
+    path = pathlib.Path(path_or_short_name)
     if path.exists():
       return path
     path = path.expanduser()
@@ -273,7 +273,7 @@ class CrossBenchCLI:
         "Cannot be used with --browser-config")
     browser_group.add_argument(
         "--browser-config",
-        type=Path,
+        type=pathlib.Path,
         help="Browser configuration.json file. "
         "Use this to run multiple browsers and/or multiple flag configurations."
         "See browser.config.example.hjson on how to set up a complex "

@@ -8,7 +8,7 @@ import json
 import logging
 import math
 from abc import ABCMeta, abstractmethod
-from pathlib import Path
+import pathlib
 
 import crossbench.runner
 from crossbench import probes
@@ -96,8 +96,8 @@ class JsonResultProbe(probes.Probe, metaclass=ABCMeta):
 
   def get_mergeable_result_file(self, results):
     if isinstance(results, tuple):
-      return Path(results[0])
-    return Path(results)
+      return pathlib.Path(results[0])
+    return pathlib.Path(results)
 
   def write_group_result(self, group, merged_data):
     destination_path = group.get_probe_results_file(self)
@@ -260,12 +260,12 @@ class JSONMerger:
     "c": 2
   }
 
-  The merged data maps Path() => Values():
+  The merged data maps pathlib.Path() => Values():
   {
-    Path("a/aa"): Values(1.1, 1.2)
-    Path("a/ab"): Values(2)
-    Path("b"):    Values(2.1, 2.2)
-    Path("c"):    Values(2)
+    pathlib.Path("a/aa"): Values(1.1, 1.2)
+    pathlib.Path("a/ab"): Values(2)
+    pathlib.Path("b"):    Values(2.1, 2.2)
+    pathlib.Path("c"):    Values(2)
   }
   """
 
@@ -299,9 +299,9 @@ class JSONMerger:
     """Merge a previously serialized data object"""
     for path, data in json_data.items():
       if prefix_path:
-        path = prefix_path / Path(path)
+        path = prefix_path / pathlib.Path(path)
       else:
-        path = Path(path)
+        path = pathlib.Path(path)
       if path in self._ignored_paths:
         continue
       if path in self._data:
@@ -322,9 +322,9 @@ class JSONMerger:
     if isinstance(json_data, list):
       # Assume that top-level lists are repetitions of the same data
       for item in json_data:
-        self._merge(item, Path())
+        self._merge(item, pathlib.Path())
     else:
-      self._merge(json_data, Path())
+      self._merge(json_data, pathlib.Path())
 
   def _merge(self, json_data, parent_path):
     assert isinstance(json_data, dict)

@@ -14,7 +14,7 @@ import shutil
 import sys
 import traceback
 from datetime import datetime, timedelta
-from pathlib import Path
+import pathlib
 from typing import Iterable, List, Optional, Tuple, Type, cast
 
 import psutil
@@ -229,7 +229,7 @@ class Runner(abc.ABC):
   #   pass
 
   @staticmethod
-  def get_out_dir(cwd, suffix="", test=False) -> Path:
+  def get_out_dir(cwd, suffix="", test=False) -> pathlib.Path:
     if test:
       return cwd / "results" / "test"
     if suffix:
@@ -255,7 +255,7 @@ class Runner(abc.ABC):
         "repeated. Defaults to 1")
     parser.add_argument(
         "--out-dir",
-        type=Path,
+        type=pathlib.Path,
         help="Results will be stored in this directory. "
         "Defaults to result/$DATE")
     parser.add_argument(
@@ -277,7 +277,7 @@ class Runner(abc.ABC):
   def kwargs_from_cli(cls, args):
     if args.out_dir is None:
       label = args.label or cls.NAME
-      cli_dir = Path(__file__).parent.parent
+      cli_dir = pathlib.Path(__file__).parent.parent
       args.out_dir = cls.get_out_dir(cli_dir, label)
     return dict(
         out_dir=args.out_dir,
@@ -559,7 +559,7 @@ class RunGroup:
     self._path = None
     self._merged_probe_results = None
 
-  def _set_path(self, path: Path):
+  def _set_path(self, path: pathlib.Path):
     assert self._path is None
     self._path = path
     self._merged_probe_results = probes.ProbeResultDict(path)
@@ -569,14 +569,14 @@ class RunGroup:
     return self._merged_probe_results
 
   @property
-  def path(self) -> Path:
+  def path(self) -> pathlib.Path:
     return self._path
 
   @property
   def exceptions(self) -> ExceptionHandler:
     return self._exceptions
 
-  def get_probe_results_file(self, probe: probes.Probe) -> Path:
+  def get_probe_results_file(self, probe: probes.Probe) -> pathlib.Path:
     new_file = self.path / probe.results_file_name
     assert not new_file.exists(), \
         f"Merged file {new_file} for {self.__class__} exists already."
@@ -726,7 +726,7 @@ class Run:
                browser: browsers.Browser,
                story: stories.Story,
                iteration: int,
-               root_dir: Path,
+               root_dir: pathlib.Path,
                name=None,
                temperature=None,
                throw=False):
@@ -745,12 +745,12 @@ class Run:
     self._temperature = temperature
     self._exceptions = ExceptionHandler(throw)
 
-  def get_out_dir(self, root_dir) -> Path:
+  def get_out_dir(self, root_dir) -> pathlib.Path:
     return root_dir / self.browser.short_name / self.story.name / str(
         self._iteration)
 
   @property
-  def group_dir(self) -> Path:
+  def group_dir(self) -> pathlib.Path:
     return self.out_dir.parent
 
   def actions(self, name):
@@ -818,7 +818,8 @@ class Run:
     details_json["flags"] += tuple(self.extra_flags.get_list())
     return details_json
 
-  def get_probe_results_file(self, probe: "crossbench.probes.Probe") -> Path:
+  def get_probe_results_file(self,
+                             probe: "crossbench.probes.Probe") -> pathlib.Path:
     file = self._out_dir / probe.results_file_name
     assert not file.exists(), f"Probe results file exists already. file={file}"
     return file

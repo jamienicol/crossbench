@@ -7,7 +7,7 @@ from __future__ import annotations
 import abc
 import logging
 from datetime import datetime
-from pathlib import Path
+import pathlib
 from typing import Set
 
 import crossbench.browsers
@@ -257,7 +257,7 @@ class ProbeResultDict:
   Maps Probes to their result files Paths.
   """
 
-  def __init__(self, path: Path):
+  def __init__(self, path: pathlib.Path):
     self._path = path
     self._dict = {}
 
@@ -269,7 +269,7 @@ class ProbeResultDict:
     self._dict[probe.name] = results
 
   def _check_result_type(self, probe: Probe, results):
-    assert isinstance(results, (Path, str, tuple, dict)), (
+    assert isinstance(results, (pathlib.Path, str, tuple, dict)), (
         f"Probe name={probe.name} should produce Path, URL or tuples/dicts "
         f"thereof, but got: {results}")
     check_items = None
@@ -279,7 +279,7 @@ class ProbeResultDict:
       check_items = results.values()
     if check_items:
       for result in check_items:
-        assert isinstance(result, (Path, str)), (
+        assert isinstance(result, (pathlib.Path, str)), (
             f"Expected probe={probe.name} tuple results to contain Paths or "
             f"strings, but got: {result}")
 
@@ -292,7 +292,7 @@ class ProbeResultDict:
   def to_json(self):
     data = {}
     for probe_name, results in self._dict.items():
-      if isinstance(results, (Path, str)):
+      if isinstance(results, (pathlib.Path, str)):
         data[probe_name] = str(results)
       else:
         if results is None:

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
+import pathlib
 
 import crossbench
 from crossbench import probes
@@ -104,7 +104,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
     browser = None
 
     for run in group.runs:
-      source_file = Path(run.results[self])
+      source_file = pathlib.Path(run.results[self])
       assert source_file.is_file()
       with source_file.open() as f:
         iteration_data = json.load(f)
@@ -132,7 +132,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
     browser = None
 
     for story_group in group.repetitions_groups:
-      source_file = Path(story_group.results[self])
+      source_file = pathlib.Path(story_group.results[self])
       assert source_file.is_file()
       with source_file.open("r") as f:
         merged_story_data = json.load(f)

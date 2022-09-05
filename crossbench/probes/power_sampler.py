@@ -5,7 +5,7 @@
 import csv
 import logging
 import subprocess
-from pathlib import Path
+import pathlib
 
 from crossbench import helper, probes
 
@@ -22,7 +22,7 @@ class PowerSamplerProbe(probes.Probe):
   def __init__(self, power_sampler_bin_path=None):
     super().__init__()
     # TODO(fix)
-    power_sampler_bin_path = Path.home(
+    power_sampler_bin_path = pathlib.Path.home(
     ) / "Documents/chrome/src/out/release/power_sampler"
     self._power_sampler_bin_path = power_sampler_bin_path
     assert self._power_sampler_bin_path.exists(), (

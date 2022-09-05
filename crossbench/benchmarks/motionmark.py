@@ -4,7 +4,7 @@
 
 import itertools
 import json
-from pathlib import Path
+import pathlib
 
 from crossbench import helper, probes, runner, stories
 
@@ -26,7 +26,7 @@ class MotionMark12Probe(probes.JsonResultProbe):
 
   @staticmethod
   def filter(key, value):
-    name = Path(key).name
+    name = pathlib.Path(key).name
     if name.startswith("segment") or name == "data":
       return False
     return True

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+import pathlib
 
 import crossbench
 from crossbench import helper, probes
@@ -52,7 +52,7 @@ class V8RCSProbe(probes.Probe):
 
   def merge_repetitions(self, group: crossbench.runner.RepetitionsRunGroup):
     merged_result_path = group.get_probe_results_file(self)
-    result_files = (Path(run.results[self]) for run in group.runs)
+    result_files = (pathlib.Path(run.results[self]) for run in group.runs)
     return helper.platform.concat_files(inputs=result_files,
                                         output=merged_result_path)
 
@@ -60,7 +60,7 @@ class V8RCSProbe(probes.Probe):
     merged_result_path = group.get_probe_results_file(self)
     with merged_result_path.open("w") as merged_file:
       for repetition_group in group.repetitions_groups:
-        merged_iterations_file = Path(repetition_group.results[self])
+        merged_iterations_file = pathlib.Path(repetition_group.results[self])
         merged_file.write(f"\n== Page: {repetition_group.story.name}\n")
         with merged_iterations_file.open() as f:
           merged_file.write(f.read())

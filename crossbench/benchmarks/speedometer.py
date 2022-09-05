@@ -4,7 +4,7 @@
 
 import argparse
 import json
-from pathlib import Path
+import pathlib
 
 from crossbench import helper, probes, runner, stories
 
@@ -42,7 +42,8 @@ class Speedometer20Probe(probes.JsonResultProbe):
     # In: "tests/Angular2-TypeScript-TodoMVC/tests/Adding100Items/tests/Async"
     # Out: "Angular2-TypeScript-TodoMVC/Adding100Items/Async"
     merged_data = {
-        Path(str(k).replace("tests/", "")): v for k, v in merged_data.items()
+        pathlib.Path(str(k).replace("tests/", "")): v
+        for k, v in merged_data.items()
     }
     # "suite_name" => (metric_value_path, ...), ...
     grouped_by_suite = helper.group_by(

@@ -9,7 +9,7 @@ import os
 import shutil
 import subprocess
 import tempfile
-from pathlib import Path
+import pathlib
 
 import crossbench
 from crossbench import helper, probes
@@ -49,12 +49,13 @@ class VideoProbe(probes.Probe):
 
   class Scope(probes.Probe.Scope):
     IMAGE_FORMAT = "png"
-    FFMPEG_TIMELINE_TEXT = "drawtext=" \
-        "fontfile=/Library/Fonts/Arial.ttf:" \
-        "text='%{eif\\:t\\:d}.%{eif\\:t*100-floor(t)*100\\:d}s':" \
-        "fontsize=h/16:" \
-        "y=h-line_h-5:x=5:" \
-        "box=1:boxborderw=15:boxcolor=white"
+    FFMPEG_TIMELINE_TEXT = (
+        "drawtext="
+        "fontfile=/Library/Fonts/Arial.ttf:"
+        "text='%{eif\\:t\\:d}.%{eif\\:t*100-floor(t)*100\\:d}s':"
+        "fontsize=h/16:"
+        "y=h-line_h-5:x=5:"
+        "box=1:boxborderw=15:boxcolor=white")
 
     def __init__(self, *args, **kwargs):
       super().__init__(*args, **kwargs)
@@ -97,7 +98,7 @@ class VideoProbe(probes.Probe):
       if self._record_process.poll() is not None:
         self._record_process.wait(timeout=5)
       with tempfile.TemporaryDirectory() as tmp_dir:
-        timestrip_file = self._create_time_strip(Path(tmp_dir))
+        timestrip_file = self._create_time_strip(pathlib.Path(tmp_dir))
       return (self.results_file, timestrip_file)
 
     def _create_time_strip(self, tmpdir):
