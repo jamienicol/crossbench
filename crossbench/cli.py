@@ -96,7 +96,7 @@ class BrowserConfig:
       for value in values:
         assert value not in flag_values, (
             "Same flag variant was specified more than once: "
-            f"'{value}' for entry '{flag_name}')
+            f"'{value}' for entry '{flag_name}'")
         flag_values.add(value)
     self.flag_groups[name] = FlagGroupConfig(name, variants)
 
@@ -127,7 +127,7 @@ class BrowserConfig:
     flags_product = []
     flag_group_names = data["flags"]
     assert isinstance(flag_group_names, list), \
-        f""flags" is not a list for browser='{name}'"
+        f"'flags' is not a list for browser='{name}'"
     for flag_group_name in flag_group_names:
       # Use temporary FlagGroupConfig for inline fixed flag definition
       if flag_group_name.startswith("--"):
@@ -262,14 +262,14 @@ class CrossBenchCLI:
         "--dry-run",
         action="store_true",
         default=False,
-        help="Don"t run any browsers or probes")
+        help="Don't run any browsers or probes")
     browser_group = subparser.add_mutually_exclusive_group()
     browser_group.add_argument(
         "--browser",
         help="Browser binary. Use this to test a single browser. "
         "Use a shortname [chrome, stable, dev, canary, safari] "
         "for system default browsers or a full path. "
-        "Defaults to "chrome". "
+        "Defaults to 'chrome'. "
         "Cannot be used with --browser-config")
     browser_group.add_argument(
         "--browser-config",
@@ -291,7 +291,7 @@ class CrossBenchCLI:
         "Chrome-forwarded Options",
         "For convenience these arguments are directly are forwarded "
         "directly to chrome. Any other browser option can be passed "
-        "after the "--" arguments separator.")
+        "after the '--' arguments separator.")
     chrome_args.add_argument("--js-flags", dest="js_flags")
 
     DOC = "See chrome's base/feature_list.h source file for more details"
@@ -328,7 +328,8 @@ class CrossBenchCLI:
       probe = self.GENERAL_PURPOSE_PROBES_BY_NAME[probe_name]()
       benchmark.attach_probe(probe, matching_browser_only=True)
     benchmark.run(is_dry_run=args.dry_run)
-    print(f"RESULTS: {benchmark.out_dir / "results.json" }")
+    results_json = benchmark.out_dir / "results.json"
+    print(f"RESULTS: {results_json}")
 
   def run(self, argv):
     args = self.parser.parse_args(argv)

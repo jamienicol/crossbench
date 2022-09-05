@@ -2,10 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from crossbench.probes.probe import Probe, ProbeResultDict  # isort:skip
+
 from crossbench.probes.json import JsonResultProbe
 from crossbench.probes.performance_entries import PerformanceEntriesProbe
 from crossbench.probes.power_sampler import PowerSamplerProbe
-from crossbench.probes.probe import Probe, ProbeResultDict
 from crossbench.probes.profiling import ProfilingProbe
 from crossbench.probes.runner import (RunDurationsProbe,
                                       RunResultsSummaryProbe,

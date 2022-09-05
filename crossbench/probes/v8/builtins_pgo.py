@@ -43,7 +43,7 @@ class V8BuiltinsPGOProbe(probes.Probe):
 
     def tear_down(self, run):
       assert self._pgo_counters is not None and self._pgo_counters, (
-          "Chrome didn"t produce any V8 builtins PGO data. "
+          "Chrome didn't produce any V8 builtins PGO data. "
           "Please make sure to set the v8_enable_builtins_profiling=true "
           "gn args.")
       pgo_file = run.get_probe_results_file(self.probe)

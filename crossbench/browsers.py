@@ -17,7 +17,7 @@ import traceback
 import urllib.request
 import zipfile
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Final, Iterable, List, Optional
 
 import selenium
 from selenium import webdriver
@@ -63,9 +63,9 @@ class Browser(abc.ABC):
         f"Binary at bin_path={self.bin_path} is not a file.")
     self.app_name = path.stem
     self.version = self._extract_version()
-    self.version_number = int(self.version.split(".")[0])
-    self.short_name = f"{self.label}_{self.type}_v{self.version_number}"\
-        .lower().replace(" ", "_")
+    self.major_version = int(self.version.split(".")[0])
+    short_name = f"{self.label}_{self.type}_v{self.major_version}".lower()
+    self.short_name = short_name.replace(" ", "_")
     self.width = 1500
     self.height = 1000
     self.x = 10
@@ -119,7 +119,7 @@ class Browser(abc.ABC):
         js_flags=tuple(),
         path=str(self.path),
         clear_cache_dir=self.clear_cache_dir,
-        version_number=self.version_number,
+        major_version=self.major_version,
         log={})
 
   def setup_binary(self, runner: crossbench.runner.Runner):
@@ -133,7 +133,7 @@ class Browser(abc.ABC):
     assert self._is_running
     self._prepare_temperature(run)
 
-  def _extract_major_version_number(self):
+  def _extract_major_major_version(self):
     return 0
 
   def set_log_file(self, path):
@@ -429,7 +429,7 @@ class WebdriverMixin(Browser):
     self._driver.set_window_position(self.x, self.y)
     self._driver.set_window_size(self.width, self.height)
     self._check_driver_version()
-    self.show_url(runner, "about://blank")
+    self.show_url(run.runner, "about://blank")
 
   @abc.abstractmethod
   def _start_driver(self, run: crossbench.runner.Run,
@@ -491,7 +491,10 @@ class WebdriverMixin(Browser):
 
 
 class ChromeDriverFinder:
-  URL = "http://chromedriver.storage.googleapis.com"
+  URL: Final[str] = "http://chromedriver.storage.googleapis.com"
+  OMAHA_PROXY_URL: Final[str] = "https://omahaproxy.appspot.com/deps.json"
+  CHROMIUM_LISTING_URL: Final[str] = (
+    "https://www.googleapis.com/storage/v1/b/chromium-browser-snapshots/o/")
 
   driver_path: Path
 
@@ -508,31 +511,31 @@ class ChromeDriverFinder:
 
   def download(self):
     self.driver_path = (
-        BROWSERS_CACHE / f"chromedriver-{self.browser.version_number}")
+        BROWSERS_CACHE / f"chromedriver-{self.browser.major_version}")
     if not self.driver_path.exists():
       self._find_driver_download()
     return self.driver_path
 
   def _find_driver_download(self):
-    version_number = self.browser.version_number
+    major_version = self.browser.major_version
     logging.info(f"CHROMEDRIVER Downloading from {self.URL} for "
-                 f"{self.browser.type} v{version_number}")
+                 f"{self.browser.type} v{major_version}")
     driver_version = None
     listing_url = None
-    if version_number <= 69:
+    if major_version <= 69:
       with helper.urlopen(f"{self.URL}/2.46/notes.txt") as response:
         lines = response.read().decode("utf-8").split("\n")
         for i, line in enumerate(lines):
           if not line.startswith("---"):
             continue
           [min, max] = map(int, re.findall(r"\d+", lines[i + 1]))
-          if min <= version_number and version_number <= max:
+          if min <= major_version and major_version <= max:
             match = re.search(r"\d\.\d+", line)
             assert match, "Could not parse version number"
             driver_version = match.group(0)
             break
     else:
-      url = f"{self.URL}/LATEST_RELEASE_{version_number}"
+      url = f"{self.URL}/LATEST_RELEASE_{major_version}"
       try:
         with helper.urlopen(url) as response:
           driver_version = response.read().decode("utf-8")
@@ -549,8 +552,7 @@ class ChromeDriverFinder:
     else:
       # Try downloading the canary version
       # Lookup the branch name
-      url = ("https://omahaproxy.appspot.com/deps.json"
-             f"?version={self.browser.version}")
+      url = f"{self.OMAHA_PROXY_URL}?version={self.browser.version}"
       with helper.urlopen(url) as response:
         version_info = json.loads(response.read().decode("utf-8"))
         assert version_info["chromium_version"] == self.browser.version
@@ -561,9 +563,9 @@ class ChromeDriverFinder:
       if helper.platform.is_arm64:
         arch_suffix = "Mac_Arm"
       base_prefix = str(chromium_base_position)[:4]
-      listing_url = ("https://www.googleapis.com"
-                     "/storage/v1/b/chromium-browser-snapshots/o/"
-                     f"?prefix={arch_suffix}/{base_prefix}&maxResults=10000")
+      listing_url = (
+          self.CHROMIUM_LISTING_URL +
+          f"?prefix={arch_suffix}/{base_prefix}&maxResults=10000")
       with helper.urlopen(listing_url) as response:
         listing = json.loads(response.read().decode("utf-8"))
 
@@ -595,7 +597,7 @@ class ChromeDriverFinder:
           f"{self.browser.type} {self.browser.version}")
 
     logging.info("CHROMEDRIVER Downloading for version "
-                 f"{version_number}: {listing_url or url}")
+                 f"{major_version}: {listing_url or url}")
     with tempfile.TemporaryDirectory() as tmp_dir:
       zip_file = Path(tmp_dir) / "download.zip"
       helper.platform.download_to(url, zip_file)
@@ -626,7 +628,7 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
 
   def _find_driver(self):
     finder = ChromeDriverFinder(self)
-    if self.version_number == 0 or (self.path.parent / "args.gn").exists():
+    if self.major_version == 0 or (self.path.parent / "args.gn").exists():
       return finder.find_local_build()
     return finder.download()
 
@@ -634,6 +636,7 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
     assert not self._is_running
     stdout_log_file = self.log_file.with_suffix(".stdout.log")
     options = ChromeOptions()
+    options.set_capability("browserVersion", str(self.major_version))
     args = self._get_chrome_args(run)
     for arg in args:
       options.add_argument(arg)
@@ -765,6 +768,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
     capabilities["safari:diagnose"] = "true"
     if "Technology Preview" in self.app_name:
       capabilities["browserName"] = "Safari Technology Preview"
+    capabilities["browserVersion"] = str(self.major_version)
     driver = webdriver.Safari(
         executable_path=str(driver_path), desired_capabilities=capabilities)
     logs = (
@@ -780,9 +784,9 @@ class SafariWebDriver(WebdriverMixin, Safari):
       if parent == self.path.parent:
         return True
     version = helper.platform.sh_stdout(self._driver_path, "--version")
-    assert str(self.version_number) in version, \
+    assert str(self.major_version) in version, \
         f"safaridriver={self._driver_path} version='{version}' "\
-        f" doesn't match safari version={self.version_number}"
+        f" doesn't match safari version={self.major_version}"
 
   def clear_cache(self, runner):
     pass

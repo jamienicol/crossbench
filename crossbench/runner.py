@@ -235,7 +235,7 @@ class Runner(abc.ABC):
     if suffix:
       suffix = "_" + suffix
     return (cwd / "results" /
-            f"{datetime.now().strftime("%Y-%m-%d_%H%M%S")}{suffix}")
+            f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}{suffix}")
 
   @classmethod
   def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
@@ -481,7 +481,7 @@ class SubStoryRunner(Runner):
         "--stories",
         default="all",
         type=cls.parse_cli_stories,
-        help="Comma-separated list of story names. Use "all" as placeholder.")
+        help="Comma-separated list of story names. Use 'all' as placeholder.")
     is_combined_group = parser.add_mutually_exclusive_group()
     is_combined_group.add_argument(
         "--combined",

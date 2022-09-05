@@ -110,7 +110,8 @@ class CombinedPage(_Page):
       page.run(run)
 
   def __str__(self):
-    return f"CombinedPage({",".join(page.name for page in self._pages)})"
+    combined_name = ",".join(page.name for page in self._pages)
+    return f"CombinedPage({combined_name})"
 
 
 PAGE_LIST = [

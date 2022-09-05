@@ -77,7 +77,7 @@ class ProfilingProbe(probes.Probe):
     if self._sample_js:
       browser.js_flags.update(self.JS_FLAGS_PERF)
     cmd = Path(__file__).parent / "linux-perf-chrome-renderer-cmd.sh"
-    assert cmd.is_file(), f"Didn"t find {cmd}"
+    assert cmd.is_file(), f"Didn't find {cmd}"
     browser.flags["--renderer-cmd-prefix"] = str(cmd)
     # Disable sandbox to write profiling data
     browser.flags.set("--no-sandbox")

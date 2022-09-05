@@ -43,7 +43,7 @@ class V8RCSProbe(probes.Probe):
 
     def tear_down(self, run):
       assert self._rcs_table is not None and self._rcs_table, (
-          "Chrome didn"t produce any RCS data. "
+          "Chrome didn't produce any RCS data. "
           "Please make sure to enable the compile-time flag.")
       rcs_file = run.get_probe_results_file(self.probe)
       with rcs_file.open("a") as f:

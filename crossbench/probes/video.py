@@ -51,7 +51,7 @@ class VideoProbe(probes.Probe):
     IMAGE_FORMAT = "png"
     FFMPEG_TIMELINE_TEXT = "drawtext=" \
         "fontfile=/Library/Fonts/Arial.ttf:" \
-        "text="%{eif\\:t\\:d}.%{eif\\:t*100-floor(t)*100\\:d}s":" \
+        "text='%{eif\\:t\\:d}.%{eif\\:t*100-floor(t)*100\\:d}s':" \
         "fontsize=h/16:" \
         "y=h-line_h-5:x=5:" \
         "box=1:boxborderw=15:boxcolor=white"
@@ -76,10 +76,10 @@ class VideoProbe(probes.Probe):
 
     def _record_cmd(self, x, y, width, height):
       if helper.platform.is_linux:
+        env_display = os.environ.get('DISPLAY', ":0.0")
         return ("ffmpeg", "-hide_banner", "-video_size", f"{width}x{height}",
                 "-f", "x11grab", "-framerate", "60", "-i",
-                f"{os.environ.get("DISPLAY", ":0.0")}+{x},{y}",
-                self.results_file)
+                f"{env_display}+{x},{y}", self.results_file)
       if helper.platform.is_macos:
         return ("/usr/sbin/screencapture", "-v", f"-R{x},{y},{width},{height}",
                 self.results_file)
@@ -110,7 +110,7 @@ class VideoProbe(probes.Probe):
       helper.platform.sh(
           "ffmpeg", "-hide_banner", "-i", self.results_file, "-filter_complex",
           "scale=1000:-2,"
-          "select="gt(scene\\,0.011)"," + self.FFMPEG_TIMELINE_TEXT, "-vsync",
+          "select='gt(scene\\,0.011)'," + self.FFMPEG_TIMELINE_TEXT, "-vsync",
           "vfr", f"{progress_dir}/%02d.{self.IMAGE_FORMAT}")
       # Extract at regular intervals of 100ms, assuming 60fps input
       every_nth_frame = 60 / 20
@@ -152,8 +152,8 @@ class VideoProbe(probes.Probe):
     video_file_inputs = []
     for run in runs:
       video_file_inputs += ["-i", run.results[self][0]]
-    draw_text = ("fontfile="/Library/Fonts/Arial.ttf":"
-                 f"text="{browser.app_name} {browser.label}":"
+    draw_text = ("fontfile='/Library/Fonts/Arial.ttf':"
+                 f"text='{browser.app_name} {browser.label}':"
                  "fontsize=h/15:"
                  "y=h-line_h-10:x=10:"
                  "box=1:boxborderw=20:boxcolor=white")

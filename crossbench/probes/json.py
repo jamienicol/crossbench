@@ -10,7 +10,7 @@ import math
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 
-import crossbench
+import crossbench.runner
 from crossbench import probes
 
 
