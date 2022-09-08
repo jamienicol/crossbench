@@ -32,7 +32,7 @@ class PowerSamplerProbe(probes.Probe):
   def pre_check(self, checklist):
     if not super().pre_check(checklist):
       return False
-    if not helper.platform.is_battery_powered:
+    if not self.browser_platform.is_battery_powered:
       logging.error("ERROR: Power Sampler only works on battery power!")
       return False
     # TODO() warn when external monitors are connected
@@ -41,7 +41,7 @@ class PowerSamplerProbe(probes.Probe):
 
   def is_compatible(self, browser):
     # For now only supported on MacOs
-    return helper.platform.is_macos
+    return self.browser_platform.is_macos
 
   class Scope(probes.Probe.Scope):
 
@@ -55,7 +55,7 @@ class PowerSamplerProbe(probes.Probe):
       self._power_output = self.results_file.with_suffix(".power.json")
 
     def setup(self, run):
-      self._active_user_process = helper.platform.popen(
+      self._active_user_process = self.browser_platform.popen(
           self._bin_path,
           "--no-samplers",
           "--simulate-user-active",
@@ -66,7 +66,7 @@ class PowerSamplerProbe(probes.Probe):
 
     def start(self, run):
       assert self._active_user_process is not None
-      self._battery_process = helper.platform.popen(
+      self._battery_process = self.browser_platform.popen(
           self._bin_path,
           "--sample-on-notification",
           "--samplers=battery",
@@ -74,7 +74,7 @@ class PowerSamplerProbe(probes.Probe):
           stdout=subprocess.DEVNULL)
       assert self._battery_process is not None, (
           "Could not start battery sampler")
-      self._power_process = helper.platform.popen(
+      self._power_process = self.browser_platform.popen(
           self._bin_path,
           "--sample-interval=10",
           "--samplers=smc,user_idle_level,main_display",
@@ -107,10 +107,10 @@ class PowerSamplerProbe(probes.Probe):
       logging.warning("POWER SAMPLER: Waiting for non-100% battery or "
                       "initial sample to synchronize")
       while True:
-        assert helper.platform.is_battery_powered, (
+        assert self.browser_platform.is_battery_powered, (
             "Cannot wait for draining if power is connected.")
 
-        power_sampler_output = helper.platform.sh_stdout(
+        power_sampler_output = self.browser_platform.sh_stdout(
             self._bin_path, "--sample-on-notification", "--samplers=battery",
             "--sample-count=1")
 

@@ -42,9 +42,9 @@ class V8RCSProbe(probes.Probe):
         self._rcs_table = actions.js("return %GetAndResetRuntimeCallStats();")
 
     def tear_down(self, run):
-      assert self._rcs_table is not None and self._rcs_table, (
-          "Chrome didn't produce any RCS data. "
-          "Please make sure to enable the compile-time flag.")
+      if not getattr(self, "_rcs_table", None):
+        raise Exception("Chrome didn't produce any RCS data. "
+                        "Please make sure to enable the compile-time flag.")
       rcs_file = run.get_probe_results_file(self.probe)
       with rcs_file.open("a") as f:
         f.write(self._rcs_table)
@@ -53,8 +53,8 @@ class V8RCSProbe(probes.Probe):
   def merge_repetitions(self, group: crossbench.runner.RepetitionsRunGroup):
     merged_result_path = group.get_probe_results_file(self)
     result_files = (pathlib.Path(run.results[self]) for run in group.runs)
-    return helper.platform.concat_files(inputs=result_files,
-                                        output=merged_result_path)
+    return self.runner_platform.concat_files(
+        inputs=result_files, output=merged_result_path)
 
   def merge_stories(self, group: crossbench.runner.StoriesRunGroup):
     merged_result_path = group.get_probe_results_file(self)

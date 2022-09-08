@@ -26,8 +26,8 @@ class TracingProbe(probes.Probe):
     self._categories = categories
     self._startup_duration = startup_duration
     self._format = output_format
-    assert self._format in ("json", "proto"), \
-        f"Invalid trace output output_format={self._format}"
+    assert self._format in ("json", "proto"), (
+        f"Invalid trace output output_format={self._format}")
 
   def is_compatible(self, browser):
     return browser.type == "chrome"

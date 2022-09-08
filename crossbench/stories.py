@@ -68,8 +68,7 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
         pattern = re.compile(first)
         names = tuple(
             substory for substory in cls.SUBSTORIES if pattern.match(substory))
-        assert names, \
-            f"Regexp '{pattern.pattern}' didn't match any stories."
+        assert names, (f"Regexp '{pattern.pattern}' didn't match any stories.")
         logging.info("FILTERED SUB-STORIES story=%s selected=%s", cls.NAME,
                      names)
     if live:
@@ -141,5 +140,5 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     if self._substories == self.SUBSTORIES:
       return
     for substory in self._substories:
-      assert substory in self.SUBSTORIES, \
-          f"Unknown {self.NAME} substory %s" % substory
+      assert substory in self.SUBSTORIES, (f"Unknown {self.NAME} substory %s" %
+                                           substory)

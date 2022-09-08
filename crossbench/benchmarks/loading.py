@@ -53,8 +53,8 @@ class LivePage(_Page):
         page = LivePage(name, url)
       else:
         # Use the last created page and set the duration on it
-        assert page is not None, \
-            f"Duration '{value}' has to come follow a URL or page-name."
+        assert page is not None, (
+            f"Duration '{value}' has to come follow a URL or page-name.")
         match = cls._DURATION_RE.match(value)
         assert match, f"Duration '{value}' is not a number."
         duration = float(match.group(1))

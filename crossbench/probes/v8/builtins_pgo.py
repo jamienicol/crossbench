@@ -54,12 +54,12 @@ class V8BuiltinsPGOProbe(probes.Probe):
   def merge_repetitions(self, group:  crossbench.runner.RepetitionsRunGroup):
     merged_result_path = group.get_probe_results_file(self)
     result_files = (pathlib.Path(run.results[self]) for run in group.runs)
-    return helper.platform.concat_files(inputs=result_files,
-                                        output=merged_result_path)
+    return self.runner_platform.concat_files(
+        inputs=result_files, output=merged_result_path)
 
   def merge_stories(self, group: crossbench.runner.StoriesRunGroup):
     merged_result_path = group.get_probe_results_file(self)
     result_files = (
         pathlib.Path(group.results[self]) for group in group.repetitions_groups)
-    return helper.platform.concat_files(inputs=result_files,
-                                        output=merged_result_path)
+    return self.runner_platform.concat_files(
+        inputs=result_files, output=merged_result_path)

@@ -102,6 +102,10 @@ class Platform(abc.ABC):
     pass
 
   @property
+  def is_remote(self):
+    return False
+
+  @property
   def machine(self):
     return py_platform.machine()
 
@@ -140,6 +144,10 @@ class Platform(abc.ABC):
       return
     logging.info("WAIT %ss", seconds)
     time.sleep(seconds)
+
+  def which(self, binary):
+    # TODO(cbruni): support remote plaforms
+    return shutil.which(binary)
 
   def sh_stdout(self, *args, shell=False, quiet=False) -> str:
     completed_process = self.sh(
@@ -220,8 +228,8 @@ class Platform(abc.ABC):
     logging.info("DOWNLOAD: %s\n       TO: %s", url, path)
     assert not path.exists(), f"Download destination {path} exists already."
     urllib.request.urlretrieve(url, path)
-    assert path.exists(), \
-        f"Downloading {url} failed. Downloaded file {path} doesn't exist."
+    assert path.exists(), (
+        f"Downloading {url} failed. Downloaded file {path} doesn't exist.")
     return path
 
   def concat_files(self, inputs: Iterable[pathlib.Path],

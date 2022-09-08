@@ -188,8 +188,8 @@ class ChromeFeatures:
 
   def _parse_feature(self, feature: str):
     assert feature, "Cannot parse empty feature"
-    assert "," not in feature, \
-        f"'{feature}' contains multiple features. Please split them first."
+    assert "," not in feature, (
+        f"'{feature}' contains multiple features. Please split them first.")
     parts = feature.split("<")
     if len(parts) == 2:
       return (parts[0], "<" + parts[1])
@@ -202,8 +202,8 @@ class ChromeFeatures:
 
   def enable(self, feature):
     name, value = self._parse_feature(feature)
-    assert name not in self._disabled, \
-        f"Cannot enable previously disabled feature={name}"
+    assert name not in self._disabled, (
+        f"Cannot enable previously disabled feature={name}")
     if name in self._enabled:
       prev_value = self._enabled[name]
       assert value == prev_value, (
@@ -214,8 +214,8 @@ class ChromeFeatures:
 
   def disable(self, feature):
     name, _ = self._parse_feature(feature)
-    assert name not in self._enabled, \
-        f"Cannot disable previously enabled feature={name}"
+    assert name not in self._enabled, (
+        f"Cannot disable previously enabled feature={name}")
     self._disabled.add(name)
 
   def get_list(self):

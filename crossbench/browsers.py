@@ -60,7 +60,7 @@ class Browser(abc.ABC):
     self.label = label
     self.path = path
     assert self.path.exists(), f"Binary at path={self.path} does not exist."
-    if helper.platform.is_macos:
+    if self.platform.is_macos:
       self._resolve_macos_binary()
     assert self.path.is_file(), (
         f"Binary at bin_path={self.bin_path} is not a file.")
@@ -80,7 +80,6 @@ class Browser(abc.ABC):
     self._pid = None
     self._probes = set()
     self._flags = self.default_flags(flags)
-    self.platform = platform or helper.platform
 
   @property
   def is_headless(self):
@@ -510,6 +509,7 @@ class ChromeDriverFinder:
 
   def __init__(self, browser: ChromeWebDriver):
     self.browser = browser
+    self.platform = browser.platform
     assert self.browser.is_local, (
         "Cannot download chromedriver for remote browser yet")
 
@@ -557,10 +557,10 @@ class ChromeDriverFinder:
           raise
     if driver_version is not None:
       arch_suffix = ""
-      if helper.platform.is_arm64:
+      if self.platform.is_arm64:
         arch_suffix = "_m1"
       url = (f"{self.URL}/{driver_version}/"
-             f"chromedriver_{helper.platform.short_name}64{arch_suffix}.zip")
+             f"chromedriver_{self.platform.short_name}64{arch_suffix}.zip")
     else:
       # Try downloading the canary version
       # Lookup the branch name
@@ -572,7 +572,7 @@ class ChromeDriverFinder:
       # Use prefixes to limit listing results and increase changes of finding
       # a matching version
       arch_suffix = "Mac"
-      if helper.platform.is_arm64:
+      if self.platform.is_arm64:
         arch_suffix = "Mac_Arm"
       base_prefix = str(chromium_base_position)[:4]
       listing_url = (
@@ -612,14 +612,14 @@ class ChromeDriverFinder:
                  f"{major_version}: {listing_url or url}")
     with tempfile.TemporaryDirectory() as tmp_dir:
       zip_file = pathlib.Path(tmp_dir) / "download.zip"
-      helper.platform.download_to(url, zip_file)
+      self.platform.download_to(url, zip_file)
       with zipfile.ZipFile(zip_file, "r") as zip_ref:
         zip_ref.extractall(zip_file.parent)
       maybe_driver = zip_file.parent / "chromedriver"
       if not maybe_driver.is_file():
         maybe_driver = zip_file.parent / "chromedriver_mac64" / "chromedriver"
-      assert maybe_driver.is_file(), \
-          f"Extracted driver at {maybe_driver} does not exist."
+      assert maybe_driver.is_file(), (
+          f"Extracted driver at {maybe_driver} does not exist.")
       BROWSERS_CACHE.mkdir(parents=True, exist_ok=True)
       maybe_driver.rename(self.driver_path)
       self.driver_path.chmod(self.driver_path.stat().st_mode | stat.S_IEXEC)
@@ -799,9 +799,9 @@ class SafariWebDriver(WebdriverMixin, Safari):
       if parent == self.path.parent:
         return True
     version = self.platform.sh_stdout(self._driver_path, "--version")
-    assert str(self.major_version) in version, \
-        f"safaridriver={self._driver_path} version='{version}' "\
-        f" doesn't match safari version={self.major_version}"
+    assert str(self.major_version) in version, (
+        f"safaridriver={self._driver_path} version='{version}' "
+        f" doesn't match safari version={self.major_version}")
 
   def clear_cache(self, runner):
     pass

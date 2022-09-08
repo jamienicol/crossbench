@@ -27,7 +27,7 @@ class SystemStatsProbe(probes.Probe):
     return self._interval
 
   def is_compatible(self, browser):
-    return helper.platform.is_linux | helper.platform.is_macos
+    return self.browser_platform.is_linux | self.browser_platform.is_macos
 
   def pre_check(self, checklist):
     if not super().pre_check(checklist):
@@ -41,6 +41,7 @@ class SystemStatsProbe(probes.Probe):
   @classmethod
   def poll(cls, interval, path, event):
     while not event.is_set():
+      # TODO(cbruni): support remote platform
       data = helper.platform.sh_stdout(*cls.CMD)
       out_file = path / f"{time.time()}.txt"
       with out_file.open("w") as f:
@@ -54,6 +55,8 @@ class SystemStatsProbe(probes.Probe):
 
     def start(self, run):
       self._event = threading.Event()
+      assert self.browser_platform == helper.platform, (
+          "Remote platforms are not supported yet")
       self._poller = threading.Thread(
           target=SystemStatsProbe.poll,
           args=(self.probe.interval, self.results_file, self._event))

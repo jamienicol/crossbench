@@ -43,9 +43,13 @@ class JsonResultProbe(probes.Probe, metaclass=ABCMeta):
 
   class Scope(probes.Probe.Scope):
 
-    def __init__(self, *args, **kwargs):
-      super().__init__(*args, *kwargs)
+    def __init__(self, probe: JsonResultProbe, run: crossbench.runner.Runner):
+      super().__init__(probe, run)
       self._json_data = None
+
+    @property
+    def probe(self) -> JsonResultProbe:
+      return super().probe
 
     def to_json(self, actions):
       return self.probe.to_json(actions)

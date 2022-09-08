@@ -8,10 +8,13 @@ import abc
 import logging
 from datetime import datetime
 import pathlib
-from typing import Set
+from typing import Set, TypeVar, Generic
 
 import crossbench.browsers
 from crossbench import helper
+
+
+ProbeT = TypeVar('ProbeT', bound="crossbench.probes.Probe")
 
 
 class Probe(abc.ABC):
@@ -54,6 +57,7 @@ class Probe(abc.ABC):
   BATTERY_ONLY = False
 
   _browsers: Set[crossbench.browsers.Browser]
+  _browser_platform: crossbench.helper.Platform
 
   @classmethod
   def get_subclasses(cls):
@@ -74,6 +78,15 @@ class Probe(abc.ABC):
     self._browsers = set()
 
   @property
+  def browser_platform(self) -> crossbench.helper.Platform:
+    return self._browser_platform
+
+  @property
+  def runner_platform(self):
+    # TODO(cbruni): support remote platforms
+    return helper.platform
+
+  @property
   def name(self):
     return self.NAME
 
@@ -90,13 +103,19 @@ class Probe(abc.ABC):
 
   @property
   def is_attached(self):
-    return self._browsers
+    return len(self._browsers) > 0
 
-  def attach(self, browser):
-    assert self.is_compatible(browser), \
-        f"Probe {self.name} is not compatible with browser {browser.type}"
-    assert browser not in self._browsers, \
-        f"Probe={self.name} is attached multiple times to the same browser"
+  def attach(self, browser: crossbench.browsers.Browser):
+    assert self.is_compatible(browser), (
+        f"Probe {self.name} is not compatible with browser {browser.type}")
+    assert browser not in self._browsers, (
+        f"Probe={self.name} is attached multiple times to the same browser")
+    if not self._browsers:
+      self._browser_platform = browser.platform
+    else:
+      assert self._browser_platform == browser.platform, (
+          "All browsers must run on the same platform"
+          f"existing={self._browser_platform }, new={browser.platform}")
     self._browsers.add(browser)
 
   def pre_check(self, checklist) -> bool:
@@ -133,12 +152,12 @@ class Probe(abc.ABC):
     """
     return None
 
-  def get_scope(self, run):
+  def get_scope(self: ProbeT, run) -> "Scope[ProbeT]":
     assert self.is_attached, (
         f"Probe {self.name} is not properly attached to a browser")
     return self.Scope(self, run)
 
-  class Scope(abc.ABC):
+  class Scope(Generic[ProbeT]):
     """
     A scope during which a probe is actively collecting data.
     Override in Probe subclasses to implement actual performance data
@@ -148,7 +167,8 @@ class Probe(abc.ABC):
       override tear_down() method
     """
 
-    def __init__(self, probe, run):
+    def __init__(self: Scope[ProbeT], probe: ProbeT,
+                 run: crossbench.runner.Run):
       self._probe = probe
       self._run = run
       self._default_results_file = run.get_probe_results_file(probe)
@@ -183,12 +203,28 @@ class Probe(abc.ABC):
         self._stop_time = datetime.now()
 
     @property
-    def probe(self):
+    def probe(self: Probe[ProbeT]) -> ProbeT:
       return self._probe
 
     @property
-    def run(self):
+    def run(self) -> crossbench.runner.Run:
       return self._run
+
+    @property
+    def browser(self) -> crossbench.browsers.Browser:
+      return self._run.browser
+
+    @property
+    def runner(self) -> crossbench.runner.Runner:
+      return self._run.runner
+
+    @property
+    def browser_platform(self) -> crossbench.helper.Platform:
+      return self.browser.platform
+
+    @property
+    def runner_platform(self) -> crossbench.helper.Platform:
+      return self.runner.platform
 
     @property
     def start_time(self):

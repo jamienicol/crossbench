@@ -25,9 +25,10 @@ from crossbench import browsers, flags, helper, probes, stories
 
 class CheckList:
 
-  def __init__(self, runner):
+  def __init__(self, runner, platform: Optional[helper.Platform] = None):
     self._runner = runner
     self._wait_until = datetime.now()
+    self._platform = platform or helper.platform
 
   @property
   def runner(self):
@@ -42,7 +43,7 @@ class CheckList:
     delta = self._wait_until - datetime.now()
     if delta <= timedelta(0):
       return
-    helper.platform.sleep(delta)
+    self._platform.sleep(delta)
 
   def warn(self, message):
     result = input(
@@ -52,10 +53,10 @@ class CheckList:
   def _disable_crowdstrike(self):
     """go/crowdstrike-falcon has quite terrible overhead for each file-access
     disable to prevent flaky numbers """
-    if not helper.platform.is_macos:
+    if not self._platform.is_macos:
       return True
     try:
-      helper.platform.disable_monitoring()
+      self._platform.disable_monitoring()
       self._add_min_delay(5)
       return True
     except Exception as e:
@@ -79,7 +80,7 @@ class CheckList:
     for probe in self._runner.probes:
       if probe.BATTERY_ONLY:
         return True
-    if helper.platform.is_battery_powered:
+    if self._platform.is_battery_powered:
       return self.warn("Running on battery power, continue?")
     return True
 
@@ -90,7 +91,7 @@ class CheckList:
     return self.warn(f"CPU usage is high ({cpu_usage_percent}%), continue?")
 
   def _check_cpu_temperature(self):
-    cpu_speed = helper.platform.get_relative_cpu_speed()
+    cpu_speed = self._platform.get_relative_cpu_speed()
     if cpu_speed == 1:
       return True
     return self.warn(
@@ -102,7 +103,7 @@ class CheckList:
     return True
 
   def _check_running_binaries(self):
-    ps_stats = helper.platform.sh_stdout("ps", "aux")
+    ps_stats = self._platform.sh_stdout("ps", "aux")
     browser_binaries = helper.group_by(
         self.runner.browsers, key=lambda browser: str(browser.path))
     for binary, browsers in browser_binaries.items():
@@ -124,10 +125,10 @@ class CheckList:
     return True
 
   def _check_headless(self):
-    if helper.platform.is_win:
+    if self._platform.is_win:
       return True
     # We only have a $DISPLAY env var on macos if xquartz is installed
-    if helper.platform.is_macos:
+    if self._platform.is_macos:
       return True
     if os.environ.get("DISPLAY", None) is not None:
       return True
@@ -239,8 +240,8 @@ class Runner(abc.ABC):
 
   @classmethod
   def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
-    assert cls.__doc__ and cls.__doc__, \
-        f"Benchmark class {cls} must provide a doc string."
+    assert cls.__doc__ and cls.__doc__, (
+        f"Benchmark class {cls} must provide a doc string.")
     doc_title = cls.__doc__.strip().split("\n")[0]
     parser = subparsers.add_parser(
         cls.NAME,
@@ -325,6 +326,7 @@ class Runner(abc.ABC):
     self._probes = []
     self._runs = []
     self._exceptions = ExceptionHandler(throw)
+    self._platform = helper.platform
     self._attach_default_probes(probes)
     self._validate_stories()
 
@@ -333,13 +335,13 @@ class Runner(abc.ABC):
     first_story_class = first_story.__class__
     expected_probes_cls_list = first_story.PROBES
     for story in self.stories:
-      assert isinstance(story, first_story_class), \
-          f"story={story} has not the same class as {first_story}"
-      assert story.PROBES == expected_probes_cls_list, \
-          f"stroy={story} has different PROBES than {first_story}"
+      assert isinstance(story, first_story_class), (
+          f"story={story} has not the same class as {first_story}")
+      assert story.PROBES == expected_probes_cls_list, (
+          f"stroy={story} has different PROBES than {first_story}")
     for probe_cls in expected_probes_cls_list:
-      assert inspect.isclass(probe_cls), \
-          f"Story.PROBES must contain classes only, but got {type(probe_cls)}"
+      assert inspect.isclass(probe_cls), (
+          f"Story.PROBES must contain classes only, but got {type(probe_cls)}")
       self.attach_probe(probe_cls())
 
   def _attach_default_probes(self, probe_list):
@@ -351,8 +353,8 @@ class Runner(abc.ABC):
       self.attach_probe(probe)
 
   def attach_probe(self, probe, matching_browser_only=False):
-    assert isinstance(probe, probes.Probe), \
-        f"Probe must be an instance of Probe, but got {type(probe)}."
+    assert isinstance(probe, probes.Probe), (
+        f"Probe must be an instance of Probe, but got {type(probe)}.")
     assert probe not in self._probes, "Cannot add the same probe twice"
     self._probes.append(probe)
     for browser in self.browsers:
@@ -378,16 +380,20 @@ class Runner(abc.ABC):
   def is_success(self):
     return self._runs and self._exceptions.is_success
 
+  @property
+  def platform(self):
+    return self._platform
+
   def sh(self, *args, shell=False, stdout=None):
-    return helper.platform.sh(*args, shell=shell, stdout=stdout)
+    return self._platform.sh(*args, shell=shell, stdout=stdout)
 
   def wait(self, seconds):
-    helper.platform.sleep(seconds)
+    self._platform.sleep(seconds)
 
   def collect_hardware_details(self):
     self.out_dir.mkdir(parents=True, exist_ok=True)
     with (self.out_dir / "GetHardwareDetails.details.txt").open("w") as f:
-      details = helper.platform.get_hardware_details()
+      details = self._platform.get_hardware_details()
       f.write(details)
 
   def _setup(self):
@@ -458,12 +464,12 @@ class Runner(abc.ABC):
     # Cool down between runs
     default_wait = default_wait or self.default_wait
     self.wait(default_wait)
-    if not helper.platform.is_thermal_throttled():
+    if not self._platform.is_thermal_throttled():
       return
     logging.info("COOLDOWN")
     for time_spent, time_left in helper.wait_with_backoff(
         helper.wait_range(1, 100)):
-      if not helper.platform.is_thermal_throttled():
+      if not self._platform.is_thermal_throttled():
         break
       logging.info("COOLDOWN: still hot, waiting some more")
 
@@ -578,8 +584,8 @@ class RunGroup:
 
   def get_probe_results_file(self, probe: probes.Probe) -> pathlib.Path:
     new_file = self.path / probe.results_file_name
-    assert not new_file.exists(), \
-        f"Merged file {new_file} for {self.__class__} exists already."
+    assert not new_file.exists(), (
+        f"Merged file {new_file} for {self.__class__} exists already.")
     return new_file
 
   def merge(self, runner: Runner):
@@ -777,6 +783,10 @@ class Run:
     return self._browser
 
   @property
+  def platform(self):
+    return self._browser.platform
+
+  @property
   def story(self):
     return self._story
 
@@ -829,8 +839,8 @@ class Run:
     self._advance_state(self.STATE_INITIAL, self.STATE_PREPARE)
     self._run_success = None
     browser_log_file = self._out_dir / "browser.log"
-    assert not browser_log_file.exists(), \
-        f"Default browser log file {browser_log_file} already exists."
+    assert not browser_log_file.exists(), (
+        f"Default browser log file {browser_log_file} already exists.")
     self._browser.set_log_file(browser_log_file)
 
     with self._durations.measure("runner-cooldown"):
@@ -841,8 +851,8 @@ class Run:
     with self._durations.measure("probes-creation"):
       probe_set = set()
       for probe in self.probes:
-        assert probe not in probe_set, \
-            f"Got duplicate probe name={probe.name}"
+        assert probe not in probe_set, (
+            f"Got duplicate probe name={probe.name}")
         probe_set.add(probe)
         if probe.PRODUCES_DATA:
           self._probe_results[probe] = None
@@ -879,8 +889,7 @@ class Run:
           probe_scope.set_start_time(probe_start_time)
           probe_scope_manager.enter_context(probe_scope)
         with probe_scope_manager:
-          self._durations["probes-start"] = datetime.now() - \
-              probe_start_time
+          self._durations["probes-start"] = (datetime.now() - probe_start_time)
           logging.info("RUN: BROWSER=%s STORY=%s", self._browser.short_name,
                        self.story.name)
           assert self._state == self.STATE_RUN, "Invalid state"
@@ -893,8 +902,8 @@ class Run:
         self.tear_down(probe_scopes)
 
   def _advance_state(self, expected, next):
-    assert self._state == expected, \
-        f"Invalid state got={self._state} expected={expected}"
+    assert self._state == expected, (
+        f"Invalid state got={self._state} expected={expected}")
     self._state = next
 
   def tear_down(self, probe_scopes, is_shutdown=False):
@@ -945,8 +954,12 @@ class Actions(helper.TimeScope):
     self._parent = parent
 
   @property
-  def run(self):
+  def run(self) -> Run:
     return self._run
+
+  @property
+  def platform(self) -> crossbench.helper.Platform:
+    return self._run.platform
 
   def __enter__(self):
     super().__enter__()
@@ -976,8 +989,8 @@ class Actions(helper.TimeScope):
       result = self.js(js_code, timeout=time_left)
       if result:
         return time_spent
-      assert result is False, \
-          f"js_code did not return a bool, but got: {result}"
+      assert result is False, (
+          f"js_code did not return a bool, but got: {result}")
 
   def navigate_to(self, url: str):
     self._assert_is_active()
@@ -985,4 +998,4 @@ class Actions(helper.TimeScope):
 
   def wait(self, seconds=1):
     self._assert_is_active()
-    helper.platform.sleep(seconds)
+    self.platform.sleep(seconds)

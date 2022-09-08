@@ -126,8 +126,8 @@ class BrowserConfig:
   def _parse_flags(self, name, data):
     flags_product = []
     flag_group_names = data["flags"]
-    assert isinstance(flag_group_names, list), \
-        f"'flags' is not a list for browser='{name}'"
+    assert isinstance(flag_group_names,
+                      list), (f"'flags' is not a list for browser='{name}'")
     for flag_group_name in flag_group_names:
       # Use temporary FlagGroupConfig for inline fixed flag definition
       if flag_group_name.startswith("--"):
@@ -320,8 +320,8 @@ class CrossBenchCLI:
       args.browser_config.load_from_args(args)
     args.browsers = args.browser_config.variants
     benchmark_cls = args.benchmark_cls
-    assert issubclass(benchmark_cls, runner.Runner), \
-        f"benchmark_cls={benchmark_cls} is not subclass of Runner"
+    assert issubclass(benchmark_cls, runner.Runner), (
+        f"benchmark_cls={benchmark_cls} is not subclass of Runner")
     kwargs = benchmark_cls.kwargs_from_cli(args)
     benchmark = benchmark_cls(**kwargs)
     for probe_name in args.probe:

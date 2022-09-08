@@ -62,7 +62,7 @@ class V8LogProbe(probes.Probe):
     def results_file(self):
       # Put v8.log files into separate dirs in case we have multiple isolates
       log_dir = super().results_file
-      log_dir.mkdir()
+      log_dir.mkdir(exist_ok=True)
       return log_dir / self.probe.results_file_name
 
     def setup(self, run):
