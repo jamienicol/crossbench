@@ -7,6 +7,7 @@ from __future__ import annotations
 import threading
 import time
 
+import crossbench
 from crossbench import helper, probes
 
 
@@ -16,7 +17,7 @@ class SystemStatsProbe(probes.Probe):
   stats on unix systems.
   """
   NAME = "system.stats"
-  CMD = ("ps", "-a", "-e", "-o pcpu,pmem,args", "-r")
+  CMD = ("ps", "-a", "-e", "-o", "pcpu,pmem,args", "-r")
 
   def __init__(self, *args, interval=1, **kwargs):
     super().__init__(*args, **kwargs)
@@ -27,7 +28,8 @@ class SystemStatsProbe(probes.Probe):
     return self._interval
 
   def is_compatible(self, browser):
-    return self.browser_platform.is_linux | self.browser_platform.is_macos
+    return not browser.platform.is_remote and (browser.platform.is_linux or
+                                               browser.platform.is_macos)
 
   def pre_check(self, checklist):
     if not super().pre_check(checklist):
@@ -64,3 +66,6 @@ class SystemStatsProbe(probes.Probe):
 
     def stop(self, run):
       self._event.set()
+
+    def tear_down(self, run: crossbench.runner.Run):
+      return self.results_file

@@ -41,7 +41,7 @@ class PowerSamplerProbe(probes.Probe):
 
   def is_compatible(self, browser):
     # For now only supported on MacOs
-    return self.browser_platform.is_macos
+    return browser.platform.is_macos
 
   class Scope(probes.Probe.Scope):
 

@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import abc
 import logging
-from datetime import datetime
+import datetime
 import pathlib
-from typing import Set, TypeVar, Generic
+from typing import Set, Dict, Tuple, TypeVar, Generic, Union
 
 import crossbench.browsers
 from crossbench import helper
@@ -47,7 +47,7 @@ class Probe(abc.ABC):
 
   @property
   @abc.abstractmethod
-  def NAME(self):
+  def NAME(self) -> str:
     pass
 
   # Set to False if the Probe cannot be used with arbitrary Stories or Pages
@@ -59,20 +59,6 @@ class Probe(abc.ABC):
   _browsers: Set[crossbench.browsers.Browser]
   _browser_platform: crossbench.helper.Platform
 
-  @classmethod
-  def get_subclasses(cls):
-    for subclass in helper.get_subclasses(cls):
-      if subclass.__abstractmethods__:
-        continue
-      if subclass.__name__.startswith("_"):
-        continue
-      assert isinstance(subclass.NAME, str)
-      yield subclass
-
-  @classmethod
-  def get_names(cls):
-    return (subclass.NAME for subclass in cls.get_subclasses())
-
   def __init__(self):
     assert self.name is not None, "A Probe must define a name"
     self._browsers = set()
@@ -82,19 +68,19 @@ class Probe(abc.ABC):
     return self._browser_platform
 
   @property
-  def runner_platform(self):
+  def runner_platform(self) -> crossbench.helper.Platform:
     # TODO(cbruni): support remote platforms
     return helper.platform
 
   @property
-  def name(self):
+  def name(self) -> str:
     return self.NAME
 
   @property
-  def results_file_name(self):
+  def results_file_name(self) -> str:
     return self.name
 
-  def is_compatible(self, browser):
+  def is_compatible(self, browser: crossbench.browsers.Browser) -> bool:
     """
     Returns a boolean to indicate whether this Probe can be used with the given
     Browser. Override to make browser-specific Probes.
@@ -102,7 +88,7 @@ class Probe(abc.ABC):
     return True
 
   @property
-  def is_attached(self):
+  def is_attached(self) -> bool:
     return len(self._browsers) > 0
 
   def attach(self, browser: crossbench.browsers.Browser):
@@ -118,7 +104,7 @@ class Probe(abc.ABC):
           f"existing={self._browser_platform }, new={browser.platform}")
     self._browsers.add(browser)
 
-  def pre_check(self, checklist) -> bool:
+  def pre_check(self, checklist: crossbench.runner.CheckList) -> bool:
     """
     Part of the Checklist, make sure everything is set up correctly for a probe
     to run.
@@ -152,12 +138,12 @@ class Probe(abc.ABC):
     """
     return None
 
-  def get_scope(self: ProbeT, run) -> "Scope[ProbeT]":
+  def get_scope(self: ProbeT, run) -> crossbench.probes.Probe.Scope[ProbeT]:
     assert self.is_attached, (
         f"Probe {self.name} is not properly attached to a browser")
     return self.Scope(self, run)
 
-  class Scope(Generic[ProbeT]):
+  class Scope(Generic[ProbeT], metaclass=abc.ABCMeta):
     """
     A scope during which a probe is actively collecting data.
     Override in Probe subclasses to implement actual performance data
@@ -167,8 +153,7 @@ class Probe(abc.ABC):
       override tear_down() method
     """
 
-    def __init__(self: Scope[ProbeT], probe: ProbeT,
-                 run: crossbench.runner.Run):
+    def __init__(self, probe: ProbeT, run: crossbench.runner.Run):
       self._probe = probe
       self._run = run
       self._default_results_file = run.get_probe_results_file(probe)
@@ -177,7 +162,7 @@ class Probe(abc.ABC):
       self._start_time = None
       self._stop_time = None
 
-    def set_start_time(self, start_datetime):
+    def set_start_time(self, start_datetime: datetime.datetime):
       assert self._start_time is None
       self._start_time = start_datetime
 
@@ -200,10 +185,10 @@ class Probe(abc.ABC):
       except Exception as e:
         self._run.exceptions.handle(e)
       finally:
-        self._stop_time = datetime.now()
+        self._stop_time = datetime.datetime.now()
 
     @property
-    def probe(self: Probe[ProbeT]) -> ProbeT:
+    def probe(self) -> ProbeT:
       return self._probe
 
     @property
@@ -227,7 +212,7 @@ class Probe(abc.ABC):
       return self.runner.platform
 
     @property
-    def start_time(self):
+    def start_time(self) -> datetime.datetime:
       """
       Returns a unified start time that is the same for all Probe.Scopes
       within a run. This can be to account for startup delays caused by other
@@ -236,15 +221,15 @@ class Probe(abc.ABC):
       return self._start_time
 
     @property
-    def duration(self):
+    def duration(self) -> datetime.timedelta:
       return self._stop_time - self._start_time
 
     @property
-    def is_success(self):
+    def is_success(self) -> bool:
       return self._is_success
 
     @property
-    def results_file(self):
+    def results_file(self) -> pathlib.Path:
       return self._default_results_file
 
     def setup(self, run):
@@ -255,7 +240,7 @@ class Probe(abc.ABC):
       pass
 
     @abc.abstractmethod
-    def start(self, run):
+    def start(self, run: crossbench.runner.Run):
       """
       Called immediately before starting the given Run.
       This method should have as little overhead as possible. If possible,
@@ -264,7 +249,7 @@ class Probe(abc.ABC):
       pass
 
     @abc.abstractmethod
-    def stop(self, run):
+    def stop(self, run: crossbench.runner.Run):
       """
       Called immediately after finishing the given Run.
       This method should have as little overhead as possible. If possible,
@@ -273,7 +258,8 @@ class Probe(abc.ABC):
       return None
 
     @abc.abstractmethod
-    def tear_down(self, run):
+    def tear_down(self,
+                  run: crossbench.runner.Run) -> ProbeResultDict.ResultsType:
       """
       Called after stopping all probes and shutting down the browser.
       Returns
@@ -293,18 +279,22 @@ class ProbeResultDict:
   Maps Probes to their result files Paths.
   """
 
+  BasicResultType = Union[pathlib.Path, str]
+  ResultsType = Union[BasicResultType, Tuple[BasicResultType],
+                      Dict[str, BasicResultType]]
+
   def __init__(self, path: pathlib.Path):
     self._path = path
     self._dict = {}
 
-  def __setitem__(self, probe: Probe, results):
+  def __setitem__(self, probe: Probe, results: ResultsType):
     if results is None:
       self._dict[probe.name] = None
       return
     self._check_result_type(probe, results)
     self._dict[probe.name] = results
 
-  def _check_result_type(self, probe: Probe, results):
+  def _check_result_type(self, probe: Probe, results: ResultsType):
     assert isinstance(results, (pathlib.Path, str, tuple, dict)), (
         f"Probe name={probe.name} should produce Path, URL or tuples/dicts "
         f"thereof, but got: {results}")

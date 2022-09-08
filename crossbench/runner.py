@@ -6,16 +6,18 @@ from __future__ import annotations
 
 import abc
 import argparse
+from audioop import cross
 import contextlib
 import inspect
 import logging
+from optparse import Option
 import os
 import shutil
 import sys
 import traceback
 from datetime import datetime, timedelta
 import pathlib
-from typing import Iterable, List, Optional, Tuple, Type, cast
+from typing import Iterable, Sequence, List, Optional, Tuple, Type, cast
 
 import psutil
 
@@ -149,7 +151,7 @@ class CheckList:
         return False
     return True
 
-  def is_ok(self):
+  def is_ok(self) -> bool:
     ok = True
     ok &= self._disable_crowdstrike()
     ok &= self._check_power()
@@ -179,7 +181,7 @@ class ExceptionHandler:
     self.throw = throw
 
   @property
-  def is_success(self):
+  def is_success(self) -> bool:
     return len(self._exceptions) == 0
 
   @property
@@ -301,9 +303,9 @@ class Runner(abc.ABC):
 
   def __init__(self,
                out_dir,
-               browsers,
-               stories,
-               probes=(),
+               browsers: Sequence[crossbench.browsers.Browser],
+               stories: Sequence[crossbench.stories.Story],
+               probes: Sequence[crossbench.probes.Probe] = (),
                throttle=True,
                repetitions=1,
                use_checklist=True,
@@ -344,7 +346,8 @@ class Runner(abc.ABC):
           f"Story.PROBES must contain classes only, but got {type(probe_cls)}")
       self.attach_probe(probe_cls())
 
-  def _attach_default_probes(self, probe_list):
+  def _attach_default_probes(self,
+                             probe_list: Iterable[crossbench.probes.Probe]):
     assert len(self._probes) == 0
     self.attach_probe(probes.RunResultsSummaryProbe())
     self.attach_probe(probes.RunDurationsProbe())
@@ -352,7 +355,9 @@ class Runner(abc.ABC):
     for probe in probe_list:
       self.attach_probe(probe)
 
-  def attach_probe(self, probe, matching_browser_only=False):
+  def attach_probe(self,
+                   probe: crossbench.probes.Probe,
+                   matching_browser_only=False):
     assert isinstance(probe, probes.Probe), (
         f"Probe must be an instance of Probe, but got {type(probe)}.")
     assert probe not in self._probes, "Cannot add the same probe twice"
@@ -369,19 +374,19 @@ class Runner(abc.ABC):
     return probe
 
   @property
-  def probes(self):
+  def probes(self) -> List[crossbench.probes.Probe]:
     return list(self._probes)
 
   @property
-  def exceptions(self):
+  def exceptions(self) -> ExceptionHandler:
     return self._exceptions
 
   @property
-  def is_success(self):
-    return self._runs and self._exceptions.is_success
+  def is_success(self) -> bool:
+    return len(self._runs) > 0 and self._exceptions.is_success
 
   @property
-  def platform(self):
+  def platform(self) -> crossbench.helper.Platform:
     return self._platform
 
   def sh(self, *args, shell=False, stdout=None):
@@ -405,7 +410,7 @@ class Runner(abc.ABC):
     if len(self.stories) == 0:
       raise Exception("No stories provided: self.stories is empty")
     for browser in self.browsers:
-      browser.setup_binary(self)
+      browser.setup_binary(self)  # pytype: disable=wrong-arg-types
     self._runs = list(self.get_runs())
     assert self._runs, "get_runs() produced no runs"
     if self._use_checklist:
@@ -413,7 +418,7 @@ class Runner(abc.ABC):
         raise Exception("Thou shalt not pass the CheckList")
     self.collect_hardware_details()
 
-  def get_runs(self):
+  def get_runs(self) -> Iterable[Run]:
     """Extension point for subclasses."""
     for iteration in range(self.repetitions):
       for story in self.stories:
@@ -633,7 +638,7 @@ class RepetitionsRunGroup(RunGroup):
     self._runs.append(run)
 
   @property
-  def runs(self) -> Iterable["Run"]:
+  def runs(self) -> Iterable[Run]:
     return self._runs
 
   @property
@@ -679,7 +684,7 @@ class StoriesRunGroup(RunGroup):
     return self._repetitions_groups
 
   @property
-  def runs(self) -> Iterable["Run"]:
+  def runs(self) -> Iterable[Run]:
     for group in self._repetitions_groups:
       yield from group.runs
 
@@ -713,7 +718,7 @@ class BrowsersRunGroup(RunGroup):
       yield from story_group.repetitions_groups
 
   @property
-  def runs(self) -> Iterable["Run"]:
+  def runs(self) -> Iterable[Run]:
     for group in self._story_groups:
       yield from group.runs
 
@@ -733,8 +738,8 @@ class Run:
                story: stories.Story,
                iteration: int,
                root_dir: pathlib.Path,
-               name=None,
-               temperature=None,
+               name: Optional[str] = None,
+               temperature: Optional[int] = None,
                throw=False):
     self._state = self.STATE_INITIAL
     self._run_success = None
@@ -759,7 +764,7 @@ class Run:
   def group_dir(self) -> pathlib.Path:
     return self.out_dir.parent
 
-  def actions(self, name):
+  def actions(self, name) -> Actions:
     return Actions(name, self)
 
   @property
@@ -767,59 +772,59 @@ class Run:
     return self._temperature
 
   @property
-  def durations(self):
+  def durations(self) -> crossbench.helper.Durations:
     return self._durations
 
   @property
-  def iteration(self):
+  def iteration(self) -> int:
     return self._iteration
 
   @property
-  def runner(self):
+  def runner(self) -> Runner:
     return self._runner
 
   @property
-  def browser(self):
+  def browser(self) -> crossbench.browsers.Browser:
     return self._browser
 
   @property
-  def platform(self):
+  def platform(self) -> crossbench.helper.Platform:
     return self._browser.platform
 
   @property
-  def story(self):
+  def story(self) -> crossbench.stories.Story:
     return self._story
 
   @property
-  def name(self):
+  def name(self) -> Optional[str]:
     return self._name
 
   @property
-  def extra_js_flags(self):
+  def extra_js_flags(self) -> crossbench.flags.JSFlags:
     return self._extra_js_flags
 
   @property
-  def out_dir(self):
+  def out_dir(self) -> pathlib.Path:
     return self._out_dir
 
   @property
-  def extra_flags(self):
+  def extra_flags(self) -> crossbench.flags.Flags:
     return self._extra_flags
 
   @property
-  def probes(self):
+  def probes(self) -> Iterable[crossbench.probes.Probe]:
     return self._runner.probes
 
   @property
-  def results(self):
+  def results(self) -> crossbench.probes.ProbeResultDict:
     return self._probe_results
 
   @property
-  def exceptions(self):
+  def exceptions(self) -> ExceptionHandler:
     return self._exceptions
 
   @property
-  def is_success(self):
+  def is_success(self) -> bool:
     return self._exceptions.is_success
 
   def get_browser_details_json(self) -> dict:
