@@ -80,6 +80,9 @@ class ProfilingProbe(probes.Probe):
     if self._sample_js:
       browser.js_flags.update(self.JS_FLAGS_PERF)
     cmd = pathlib.Path(__file__).parent / "linux-perf-chrome-renderer-cmd.sh"
+    assert not self.browser_platform.is_remote, (
+        "Copying renderer command prefix to remote platform is "
+        "not implemented yet")
     assert cmd.is_file(), f"Didn't find {cmd}"
     browser.flags["--renderer-cmd-prefix"] = str(cmd)
     # Disable sandbox to write profiling data
@@ -139,6 +142,11 @@ class ProfilingProbe(probes.Probe):
           "perf", "record", "--call-graph=fp", "--freq=max", "--clockid=mono",
           f"--output={perf_data_file}", f"--pid={run.browser.pid}")
 
+    def setup(self, run):
+      for probe in run.probes:
+        assert not isinstance(probe, crossbench.probes.v8.V8LogProbe), (
+            "Cannot use profiler and v8.log probe in parallel yet")
+
     def stop(self, run):
       if self._perf_process:
         self._perf_process.terminate()
@@ -167,7 +175,7 @@ class ProfilingProbe(probes.Probe):
     def _inject_v8_symbols(self, run, perf_files):
       with run.actions(f"Probe {self.probe.name}: Injecting V8 Symbols"):
         # Filter out empty files
-        perf_files = (file for file in perf_files if file.stat().st_size > 0)
+        perf_files = [file for file in perf_files if file.stat().st_size > 0]
         if self.browser_platform.is_remote:
           # Use loop, as we cannot easily serialize the remote platform.
           perf_jitted_files = [
@@ -177,9 +185,9 @@ class ProfilingProbe(probes.Probe):
         else:
           assert self.browser_platform == helper.platform
           with multiprocessing.Pool() as pool:
-            perf_jitted_files = pool.imap(linux_perf_probe_inject_v8_symbols,
-                                          perf_files)
-        return list(file for file in perf_jitted_files if file is not None)
+            perf_jitted_files = list(pool.imap(linux_perf_probe_inject_v8_symbols,
+                                          perf_files))
+        return [file for file in perf_jitted_files if file is not None]
 
     def _export_to_pprof(self, run, perf_files):
       run_details_json = run.get_browser_details_json()
@@ -189,8 +197,9 @@ class ProfilingProbe(probes.Probe):
         if self.browser_platform.is_remote:
           # Use loop, as we cannot easily serialize the remote platform.
           urls = dict(
-              linux_perf_probe_pprof(item, self.browser_platform)
-              for item in items)
+              linux_perf_probe_pprof(perf_data_file, run_details,
+                                     self.browser_platform)
+              for perf_data_file, run_details in items)
         else:
           assert self.browser_platform == helper.platform
           with multiprocessing.Pool() as pool:
