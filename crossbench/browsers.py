@@ -451,7 +451,7 @@ class WebdriverMixin(Browser):
     return details
 
   def show_url(self, runner, url):
-    logging.info(f"SHOW_URL {url}")
+    logging.info("SHOW_URL %s", url)
     self._driver.switch_to.window(self._driver.window_handles[0])
     try:
       self._driver.get(url)
@@ -462,7 +462,7 @@ class WebdriverMixin(Browser):
       raise
 
   def js(self, runner, script, timeout=None, arguments=()):
-    logging.info(f"RUN SCRIPT timeout={timeout}, script: {script[:100]}")
+    logging.info("RUN SCRIPT timeout=%s, script: %s", timeout, script[:100])
     assert self._is_running
     if timeout is not None:
       assert timeout > 0, f"timeout must be a positive number, got: {timeout}"
@@ -530,8 +530,8 @@ class ChromeDriverFinder:
 
   def _find_driver_download(self):
     major_version = self.browser.major_version
-    logging.info(f"CHROMEDRIVER Downloading from {self.URL} for "
-                 f"{self.browser.type} v{major_version}")
+    logging.info("CHROMEDRIVER Downloading from %s for %s v%s", self.URL,
+                 self.browser.type, major_version)
     driver_version = None
     listing_url = None
     if major_version <= 69:
@@ -654,8 +654,8 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
     for arg in args:
       options.add_argument(arg)
     options.binary_location = str(self.path)
-    logging.info(f"STARTING BROWSER: args: {shlex.join(args)} "
-                 f"browser: {self.path} driver: {driver_path}")
+    logging.info("STARTING BROWSER: args: %s browser: %s driver: %s",
+                 shlex.join(args), self.path, driver_path)
     # pytype: disable=wrong-keyword-args
     service = ChromeService(
         executable_path=str(driver_path),

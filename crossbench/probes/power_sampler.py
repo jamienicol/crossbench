@@ -118,6 +118,6 @@ class PowerSamplerProbe(probes.Probe):
           max_capacity = float(row["battery_max_capacity(Ah)"])
           current_capacity = float(row["battery_current_capacity(Ah)"])
           percent = 100 * current_capacity / max_capacity
-          logging.info(f"POWER SAMPLER: Battery level is {percent:.2f}%")
+          logging.info("POWER SAMPLER: Battery level is %.2f%%", percent)
           if max_capacity != current_capacity:
             return

@@ -116,7 +116,7 @@ class CheckList:
         continue
       # Use the first in the group
       browser = browsers[0]
-      logging.debug(f"Binary={binary}")
+      logging.debug("Binary=%s", binary)
       logging.debug("PS status output:")
       logging.debug(filtered)
       result = self.warn(
@@ -365,8 +365,8 @@ class Runner(abc.ABC):
     for browser in self.browsers:
       if not probe.is_compatible(browser):
         if matching_browser_only:
-          logging.warning(f"Skipping incompatible probe={probe.name} "
-                          f"for browser={browser.short_name}")
+          logging.warning("Skipping incompatible probe=%s for browser=%s",
+                          probe.name, browser.short_name)
           continue
         raise Exception(f"Probe '{probe.name}' is not compatible with browser "
                         f"{browser.type}")
@@ -440,7 +440,7 @@ class Runner(abc.ABC):
           self._exceptions.extend(run.exceptions)
         if not is_dry_run:
           self._tear_down()
-        logging.info(f"RESULTS DIR: {self.out_dir}")
+        logging.info("RESULTS DIR: %s", self.out_dir)
         if not self.is_success:
           self._exceptions.print()
           raise Exception("Runs failed")
@@ -918,12 +918,12 @@ class Run:
         try:
           self._browser.quit(self._runner)
         except Exception as e:
-          logging.warning(f"Error quitting browser: {e}")
+          logging.warning("Error quitting browser: %s", e)
           return
       try:
         self._browser.quit(self._runner)
       except Exception as e:
-        logging.warning(f"Error quitting browser: {e}")
+        logging.warning("Error quitting browser: %s", e)
         self._exceptions.handle(e)
     with self._durations.measure("probes-TearDown"):
       logging.info("TEARDOWN")
@@ -936,8 +936,8 @@ class Run:
         probe_results = probe_scope.tear_down(self)
         probe = probe_scope.probe
         if probe_results is None:
-          logging.warning(
-              f"Probe did not extract any data. probe={probe} run={self}")
+          logging.warning("Probe did not extract any data. probe=%s run=%s",
+                          probe, self)
         self._probe_results[probe] = probe_results
       except Exception as e:
         self._exceptions.handle(e)
@@ -969,12 +969,12 @@ class Actions(helper.TimeScope):
   def __enter__(self):
     super().__enter__()
     self._is_active = True
-    logging.info(f"ACTION START {self._message}")
+    logging.info("ACTION START %s", self._message)
     return self
 
   def __exit__(self, exc_type, exc_value, exc_traceback):
     self._is_active = False
-    logging.info(f"ACTION END {self._message}")
+    logging.info("ACTION END %s", self._message)
     super().__exit__(exc_type, exc_value, exc_traceback)
 
   def _assert_is_active(self):

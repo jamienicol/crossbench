@@ -169,7 +169,7 @@ class ProfilingProbe(probes.Probe):
         urls = self._export_to_pprof(run, perf_files)
       finally:
         self._clean_up_temp_files(run)
-      logging.debug(f"Profliling results: {urls}")
+      logging.debug("Profliling results: %s", urls)
       return urls
 
     def _inject_v8_symbols(self, run, perf_files):
@@ -209,7 +209,7 @@ class ProfilingProbe(probes.Probe):
             # Make this configurable as it is generally too slow.
             # url = urls["combined"] = self.platform.sh_stdout(
             #     "pprof", "-flame", *perf_files).strip()
-            # logging.info(f"PPROF COMBINED {url}")
+            # logging.info("PPROF COMBINED %s", url)
             pass
         except Exception:
           pass
@@ -230,7 +230,7 @@ def linux_perf_probe_inject_v8_symbols(perf_data_file, platform=None):
     platform.sh("perf", "inject", "--jit", f"--input={perf_data_file}",
                 f"--output={output_file}")
   except Exception:
-    logging.warning(f"Failed processing: {perf_data_file}")
+    logging.warning("Failed processing: %s", perf_data_file)
     return None
   return output_file
 
@@ -245,8 +245,8 @@ def linux_perf_probe_pprof(perf_data_file, run_details, platform=None):
   ).strip()
   size = helper.get_file_size(perf_data_file)
   logging.info("PPROF")
-  logging.info(f"  linux-perf:   {perf_data_file.name} {size}")
-  logging.info(f"  pprof result: {url}")
+  logging.info("  linux-perf:   %s %s", perf_data_file.name, size)
+  logging.info("  pprof result: %s", url)
   return (
       perf_data_file.stem,
       url,
