@@ -4,7 +4,8 @@
 
 from __future__ import annotations
 
-from crossbench import flags, helper, probes
+import crossbench as cb
+import crossbench.probes as probes
 
 
 class V8LogProbe(probes.Probe):
@@ -21,7 +22,7 @@ class V8LogProbe(probes.Probe):
 
   def __init__(self, file="v8.log", log_all=True, prof=None, js_flags=None):
     super().__init__()
-    self._js_flags = flags.JSFlags()
+    self._js_flags = cb.flags.JSFlags()
     self._js_flags.set("--log")
     enabled = False
     if log_all:
@@ -76,6 +77,6 @@ class V8LogProbe(probes.Probe):
 
     def tear_down(self, run):
       log_dir = self.results_file.parent
-      log_files = helper.sort_by_file_size(log_dir.glob("*-v8.log"))
+      log_files = cb.helper.sort_by_file_size(log_dir.glob("*-v8.log"))
       # Sort by file size, biggest first
       return tuple(str(f) for f in log_files)

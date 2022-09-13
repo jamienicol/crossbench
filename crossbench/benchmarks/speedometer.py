@@ -6,10 +6,10 @@ import argparse
 import json
 import pathlib
 
-from crossbench import helper, probes, runner, stories
+import crossbench as cb
 
 
-class Speedometer20Probe(probes.JsonResultProbe):
+class Speedometer20Probe(cb.probes.JsonResultProbe):
   """
   Speedometer2-specific probe.
   Extracts all speedometer times and scores.
@@ -24,11 +24,12 @@ class Speedometer20Probe(probes.JsonResultProbe):
   def flatten_json_data(self, json_data):
     # json_data may contain multiple iterations, merge those first
     assert isinstance(json_data, list)
-    merged = probes.json.merge(*json_data, value=lambda values: values.geomean)
-    return probes.json.flatten(merged)
+    merged = cb.probes.json.merge(
+        *json_data, value=lambda values: values.geomean)
+    return cb.probes.json.flatten(merged)
 
-  def merge_stories(self, group: runner.StoriesRunGroup):
-    merged = probes.json.JSONMerger.from_merged_files(
+  def merge_stories(self, group: cb.runner.StoriesRunGroup):
+    merged = cb.probes.json.JSONMerger.from_merged_files(
         story_group.results[self] for story_group in group.repetitions_groups)
     merged_json_file = group.get_probe_results_file(self)
     with merged_json_file.open("w") as f:
@@ -46,7 +47,7 @@ class Speedometer20Probe(probes.JsonResultProbe):
         for k, v in merged_data.items()
     }
     # "suite_name" => (metric_value_path, ...), ...
-    grouped_by_suite = helper.group_by(
+    grouped_by_suite = cb.helper.group_by(
         sorted(merged_data.keys(), key=lambda path: str(path).lower()),
         key=lambda path: path.parts[0])
     # Sort summary metrics ("total"...) last
@@ -67,7 +68,7 @@ class Speedometer20Probe(probes.JsonResultProbe):
           f.write("\n")
 
 
-class Speedometer20Story(stories.PressBenchmarkStory):
+class Speedometer20Story(cb.stories.PressBenchmarkStory):
   NAME = "speedometer_2.0"
   PROBES = (Speedometer20Probe,)
   URL = "https://browserbench.org/Speedometer2.0/InteractiveRunner.html"
@@ -95,19 +96,19 @@ class Speedometer20Story(stories.PressBenchmarkStory):
     super().__init__(is_live=is_live, substories=substories, duration=30)
     self.iterations = iterations or 10
 
-  def run(self, run: runner.Run):
+  def run(self, run: cb.runner.Run):
     with run.actions("Setup") as actions:
       actions.navigate_to(self._url)
       actions.wait_js_condition(
           """
         return globalThis.Suites !== undefined;
-      """, helper.wait_range(0.5, 10))
+      """, cb.helper.wait_range(0.5, 10))
       if self._substories != self.SUBSTORIES:
         actions.js(
             """
         let substories = arguments[0];
         Suites.forEach((suite) => {
-          suite.disabled = substories.indexOf(suite.name) == -1;
+          suite.disabled = subcb.storiesindexOf(suite.name) == -1;
         });
         """,
             arguments=[self._substories])
@@ -127,17 +128,17 @@ class Speedometer20Story(stories.PressBenchmarkStory):
         };
         let runner = new BenchmarkRunner(Suites, benchmarkClient);
         let iterationCount = arguments[0];
-        runner.runMultipleIterations(iterationCount);
+        cb.runner.runMultipleIterations(iterationCount);
         """,
           arguments=[self.iterations])
       actions.wait(1 * len(self._substories))
       actions.wait_js_condition(
           "return globalThis.testDone",
-          helper.wait_range(1,
-                            10 + 2 * len(self._substories) * self.iterations))
+          cb.helper.wait_range(1, 10 +
+                               2 * len(self._substories) * self.iterations))
 
 
-class Speedometer20Runner(runner.PressBenchmarkStoryRunner):
+class Speedometer20Runner(cb.runner.PressBenchmarkStoryRunner):
   """
   Benchmark runner for Speedometer 2.0
   """

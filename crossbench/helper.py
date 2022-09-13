@@ -220,6 +220,12 @@ class Platform(abc.ABC):
   def is_thermal_throttled(self) -> bool:
     return self.get_relative_cpu_speed() < 1
 
+  def disk_usage(self, path: pathlib.Path) -> psutil._common.sdiskusage:
+    return psutil.disk_usage(str(path))
+
+  def cpu_usage(self) -> float:
+    return 1 - psutil.cpu_times_percent().idle / 100
+
   @abc.abstractmethod
   def get_hardware_details(self):
     pass

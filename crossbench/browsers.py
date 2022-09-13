@@ -10,6 +10,7 @@ import logging
 from optparse import Option
 import re
 import shlex
+import shutil
 import stat
 import sys
 import tempfile
@@ -27,13 +28,11 @@ from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
-from crossbench import helper, probes
-import crossbench.flags
-import crossbench.runner
+import crossbench as cb
 
 # =============================================================================
 
-FlagsInitialDataType = crossbench.flags.Flags.InitialDataType
+FlagsInitialDataType = cb.flags.Flags.InitialDataType
 
 BROWSERS_CACHE = pathlib.Path(__file__).parent.parent / ".browsers-cache"
 
@@ -44,7 +43,7 @@ class Browser(abc.ABC):
 
   @classmethod
   def default_flags(cls, initial_data: FlagsInitialDataType = None):
-    return crossbench.flags.Flags(initial_data)
+    return cb.flags.Flags(initial_data)
 
   def __init__(self,
                label: str,
@@ -52,8 +51,8 @@ class Browser(abc.ABC):
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                type: Optional[str] = None,
-               platform: Optional[helper.Platform] = None):
-    self.platform = platform or helper.platform
+               platform: Optional[cb.helper.Platform] = None):
+    self.platform = platform or cb.helper.platform
     # Marked optional to make subclass constructor calls easier with pytype.
     assert type
     self.type = type
@@ -113,7 +112,7 @@ class Browser(abc.ABC):
     )
     self.path = candidates[0]
 
-  def attach_probe(self, probe: probes.Probe):
+  def attach_probe(self, probe: cb.probes.Probe):
     self._probes.add(probe)
     probe.attach(self)
 
@@ -129,10 +128,10 @@ class Browser(abc.ABC):
         major_version=self.major_version,
         log={})
 
-  def setup_binary(self, runner: crossbench.runner.Runner):
+  def setup_binary(self, runner: cb.runner.Runner):
     pass
 
-  def setup(self, run: crossbench.runner.Run):
+  def setup(self, run: cb.runner.Run):
     assert not self._is_running
     runner = run.runner
     self.clear_cache(runner)
@@ -140,20 +139,27 @@ class Browser(abc.ABC):
     assert self._is_running
     self._prepare_temperature(run)
 
-  def _extract_major_major_version(self):
-    return 0
+  @abc.abstractmethod
+  def _extract_version(self) -> str:
+    pass
 
   def set_log_file(self, path):
     pass
 
   def clear_cache(self, runner):
-    if self.clear_cache_dir:
-      runner.sh("/bin/rm", "-rf", self.cache_dir)
+    if self.clear_cache_dir and self.cache_dir.exists():
+      shutil.rmtree(self.cache_dir)
 
+  @abc.abstractmethod
   def start(self, run):
     pass
 
+  @abc.abstractmethod
+  def show_url(self, runner, url):
+    pass
+
   def _prepare_temperature(self, run):
+    """Warms up the browser by loading the page 3 times."""
     runner = run.runner
     if run.temperature == "cold":
       return
@@ -207,11 +213,11 @@ class ChromeMeta(type(Browser)):
 
   @property
   def stable_path(cls):
-    if helper.platform.is_macos:
+    if cb.helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome.app")
-    if helper.platform.is_linux:
+    if cb.helper.platform.is_linux:
       for bin_name in ("google-chrome", "chrome"):
-        binary = helper.platform.search_binary(bin_name)
+        binary = cb.helper.platform.search_binary(bin_name)
         if binary:
           return binary
       raise Exception("Could not find binary")
@@ -219,13 +225,13 @@ class ChromeMeta(type(Browser)):
 
   @property
   def dev_path(cls):
-    if helper.platform.is_macos:
+    if cb.helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome Dev.app")
     raise NotImplementedError()
 
   @property
   def canary_path(cls):
-    if helper.platform.is_macos:
+    if cb.helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome Canary.app")
     raise NotImplementedError()
 
@@ -280,7 +286,7 @@ class Chrome(Browser, metaclass=ChromeMeta):
 
   @classmethod
   def default_flags(cls, initial_data: FlagsInitialDataType = None):
-    return crossbench.flags.ChromeFlags(initial_data)
+    return cb.flags.ChromeFlags(initial_data)
 
   def __init__(self,
                label: str,
@@ -288,7 +294,7 @@ class Chrome(Browser, metaclass=ChromeMeta):
                js_flags: FlagsInitialDataType = None,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
-               platform: Optional[helper.Platform] = None):
+               platform: Optional[cb.helper.Platform] = None):
     super().__init__(label, path, type="chrome", platform=platform)
     assert not isinstance(
         js_flags, str), f"js_flags should be a list, but got: {repr(js_flags)}"
@@ -299,7 +305,8 @@ class Chrome(Browser, metaclass=ChromeMeta):
     self._flags.update(flags)
     self.js_flags.update(js_flags)
     if cache_dir is None:
-      self.cache_dir = tempfile.TemporaryDirectory(prefix="chrome").name
+      self.cache_dir = pathlib.Path(
+          tempfile.TemporaryDirectory(prefix="chrome").name)
       self.clear_cache_dir = True
     else:
       self.cache_dir = cache_dir
@@ -441,7 +448,7 @@ class WebdriverMixin(Browser):
     self.show_url(run.runner, "about://blank")
 
   @abc.abstractmethod
-  def _start_driver(self, run: crossbench.runner.Run,
+  def _start_driver(self, run: cb.runner.Run,
                     driver_path: pathlib.Path) -> webdriver.Remote:
     pass
 
@@ -535,7 +542,7 @@ class ChromeDriverFinder:
     driver_version = None
     listing_url = None
     if major_version <= 69:
-      with helper.urlopen(f"{self.URL}/2.46/notes.txt") as response:
+      with cb.helper.urlopen(f"{self.URL}/2.46/notes.txt") as response:
         lines = response.read().decode("utf-8").split("\n")
         for i, line in enumerate(lines):
           if not line.startswith("---"):
@@ -549,7 +556,7 @@ class ChromeDriverFinder:
     else:
       url = f"{self.URL}/LATEST_RELEASE_{major_version}"
       try:
-        with helper.urlopen(url) as response:
+        with cb.helper.urlopen(url) as response:
           driver_version = response.read().decode("utf-8")
         listing_url = f"{self.URL}/index.html?path={driver_version}/"
       except urllib.error.HTTPError as e:
@@ -565,7 +572,7 @@ class ChromeDriverFinder:
       # Try downloading the canary version
       # Lookup the branch name
       url = f"{self.OMAHA_PROXY_URL}?version={self.browser.version}"
-      with helper.urlopen(url) as response:
+      with cb.helper.urlopen(url) as response:
         version_info = json.loads(response.read().decode("utf-8"))
         assert version_info["chromium_version"] == self.browser.version
         chromium_base_position = int(version_info["chromium_base_position"])
@@ -578,7 +585,7 @@ class ChromeDriverFinder:
       listing_url = (
           self.CHROMIUM_LISTING_URL +
           f"?prefix={arch_suffix}/{base_prefix}&maxResults=10000")
-      with helper.urlopen(listing_url) as response:
+      with cb.helper.urlopen(listing_url) as response:
         listing = json.loads(response.read().decode("utf-8"))
 
       versions = []
@@ -634,7 +641,7 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                driver_path: Optional[pathlib.Path] = None,
-               platform: Optional[helper.Platform] = None):
+               platform: Optional[cb.helper.Platform] = None):
     super().__init__(label, path, js_flags, flags, cache_dir, platform)
     self._driver = None
     self._driver_path = driver_path
@@ -699,7 +706,7 @@ class Safari(Browser, metaclass=SafariMeta):
                path: pathlib.Path,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
-               platform: Optional[helper.MacOSPlatform] = None):
+               platform: Optional[cb.helper.MacOSPlatform] = None):
     super().__init__(label, path, flags, type="safari", platform=platform)
     assert self.platform.is_macos, "Safari only works on MacOS"
     bundle_name = self.path.stem.replace(" ", "")
@@ -763,7 +770,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
                path: pathlib.Path,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
-               platform: Optional[helper.MacOSPlatform] = None):
+               platform: Optional[cb.helper.MacOSPlatform] = None):
     super().__init__(label, path, flags, cache_dir, platform)
 
   def _find_driver(self):

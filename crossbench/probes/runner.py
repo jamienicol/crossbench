@@ -8,8 +8,8 @@ import json
 import logging
 import pathlib
 
-import crossbench
-from crossbench import probes
+import crossbench as cb
+import crossbench.probes as probes
 from crossbench.probes.json import JsonResultProbe
 
 
@@ -18,7 +18,7 @@ class RunRunnerLogProbe(probes.Probe):
   Runner-internal meta-probe: Collects the python logging data from the runner
   itself.
   """
-  NAME = "runner.log"
+  NAME = "cb.runner.log"
   IS_GENERAL_PURPOSE = False
   FLATTEN = False
 
@@ -99,7 +99,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
         "errors": run.exceptions.to_json()
     }
 
-  def merge_repetitions(self, group: crossbench.runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: cb.runner.RepetitionsRunGroup):
     iterations = []
     browser = None
 
@@ -127,7 +127,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
     }
     return self.write_group_result(group, merged_data)
 
-  def merge_stories(self, group: crossbench.runner.StoriesRunGroup):
+  def merge_stories(self, group: cb.runner.StoriesRunGroup):
     stories = {}
     browser = None
 

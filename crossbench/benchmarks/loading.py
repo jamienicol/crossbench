@@ -3,18 +3,20 @@
 # found in the LICENSE file.
 
 import logging
+import pathlib
 import re
 from abc import ABCMeta
+from typing import Iterable, Optional, Sequence, Union
 from urllib.parse import urlparse
 
-from crossbench import runner, stories
+import crossbench as cb
 
 
-class _Page(stories.Story, metaclass=ABCMeta):
+class Page(cb.stories.Story, metaclass=ABCMeta):
   pass
 
 
-class LivePage(_Page):
+class LivePage(Page):
   _DURATION_RE = re.compile(r"((\d*[.])?\d+)s?")
 
   @classmethod
@@ -54,7 +56,7 @@ class LivePage(_Page):
       else:
         # Use the last created page and set the duration on it
         assert page is not None, (
-            f"Duration '{value}' has to come follow a URL or page-name.")
+            f"Duration '{value}' has to follow a URL or page-name.")
         match = cls._DURATION_RE.match(value)
         assert match, f"Duration '{value}' is not a number."
         duration = float(match.group(1))
@@ -83,7 +85,7 @@ class LivePage(_Page):
     return f"Page(name={self.name}, url={self.url})"
 
 
-class CombinedPage(_Page):
+class CombinedPage(Page):
 
   @classmethod
   def story_names(cls):
@@ -99,6 +101,7 @@ class CombinedPage(_Page):
     self._pages = pages
     duration = sum(page.duration for page in pages)
     super().__init__(name, duration)
+    self.url = None
 
   def details_json(self):
     result = super().details_json()
@@ -132,7 +135,7 @@ PAGE_LIST = [
 PAGES = {page.name: page for page in PAGE_LIST}
 
 
-class PageLoadRunner(runner.SubStoryRunner):
+class PageLoadRunner(cb.runner.SubStoryRunner):
   """
   Benchmark runner for loading pages.
 
@@ -160,11 +163,14 @@ class PageLoadRunner(runner.SubStoryRunner):
         help="List of urls and durations to load: url,seconds,...")
     return parser
 
-  def __init__(self, *args, stories=None, duration=None, **kwargs):
-    if isinstance(stories, _Page):
+  def __init__(self, out_dir: pathlib.Path,
+               browsers: Sequence[cb.browsers.Browser],
+               stories: Union[Page, Iterable[Page]], *args, **kwargs):
+    if isinstance(stories, Page):
       stories = [stories]
+    duration: Optional[int] = kwargs.pop('duration', None)
     for story in stories:
-      assert isinstance(story, _Page)
+      assert isinstance(story, Page)
       if duration is not None:
         story.duration = duration
-    super().__init__(*args, stories=stories, **kwargs)
+    super().__init__(out_dir, browsers, stories, *args, **kwargs)

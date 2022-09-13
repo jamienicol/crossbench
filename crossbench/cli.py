@@ -11,8 +11,7 @@ import logging
 import pathlib
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 
-import crossbench
-from crossbench import benchmarks, browsers, flags, helper, probes, runner
+import crossbench as cb
 
 try:
   import hjson
@@ -27,10 +26,13 @@ class FlagGroupConfig:
   from flag-names to multiple values.
   """
 
+  _variants: Dict[str, Iterable[Optional[str]]]
+  name: str
+
   def __init__(self, name: str,
                variants: Dict[str, Union[Iterable[Optional[str]], str]]):
     self.name = name
-    self._variants: Dict[str, Iterable[Optional[str]]] = {}
+    self._variants = {}
     for flag_name, flag_variants_or_value in variants.items():
       assert flag_name not in self._variants
       assert flag_name
@@ -60,7 +62,7 @@ class FlagGroupConfig:
 class BrowserConfig:
 
   @classmethod
-  def load(cls, f, lookup={}):
+  def load(cls, f, browser_lookup_override={}):
     try:
       if hjson:
         config = hjson.load(f)
@@ -68,23 +70,28 @@ class BrowserConfig:
         config = json.load(f)
     except ValueError as e:
       raise ValueError(f"Failed to parse config file: {f}") from e
-    return cls(config, lookup)
+    return cls(config, browser_lookup_override)
+
+  flag_groups: Dict[str, FlagGroupConfig]
+  variants: List[cb.browsers.Browser]
 
   def __init__(self,
-               config_data: Optional[Dict] = None,
-               lookup: Dict[str, Type[browsers.Browser]] = {}):
-    self.flag_groups: Dict[str, FlagGroupConfig] = {}
-    self.variants: List[browsers.Browser] = []
-    if config_data:
-      for flag_name, group_config in config_data["flags"].items():
+               raw_config_data: Optional[Dict] = None,
+               browser_lookup_override: Dict[
+                   str, Tuple[Type[cb.browsers.Browser], pathlib.Path]] = {}):
+    self.flag_groups = {}
+    self.variants = []
+    self._browser_lookup_override = browser_lookup_override
+    if raw_config_data:
+      for flag_name, group_config in raw_config_data["flags"].items():
         self._parse_flag_group(flag_name, group_config)
-      for name, browser_config in config_data["browsers"].items():
-        self._parse_browser(name, browser_config, lookup)
+      for name, browser_config in raw_config_data["browsers"].items():
+        self._parse_browser(name, browser_config)
 
-  def _parse_flag_group(self, name, data):
+  def _parse_flag_group(self, name, raw_flag_group_data):
     assert name not in self.flag_groups, (f"flag-group='{name}' exists already")
     variants = {}
-    for flag_name, values in data.items():
+    for flag_name, values in raw_flag_group_data.items():
       if not flag_name.startswith("-"):
         raise Exception(f"Invalid flag name: '{flag_name}'")
       if flag_name not in variants:
@@ -100,28 +107,30 @@ class BrowserConfig:
         flag_values.add(value)
     self.flag_groups[name] = FlagGroupConfig(name, variants)
 
-  def _parse_browser(self, name, data,
-                     lookup: Dict[str, Type[browsers.Browser]]):
-    if name in lookup:
-      path = data["path"]
-      cls = lookup[path]
+  def _parse_browser(self, name, raw_browser_data):
+    path_or_identifier = raw_browser_data["path"]
+    if path_or_identifier in self._browser_lookup_override:
+      cls, path = self._browser_lookup_override[path_or_identifier]
     else:
-      path = self._get_browser_path(data["path"])
-      assert path.exists(), f"Browser='{name}' path='{path}' does not exist."
+      path = self._get_browser_path(path_or_identifier)
       cls = self._get_browser_cls_from_path(path)
+    assert path.exists(), f"Browser='{name}' path='{path}' does not exist."
     variants_flags = tuple(
-        cls.default_flags(flags) for flags in self._parse_flags(name, data))
-    logging.info(
-        f"Running browser '{name}' with {len(variants_flags)} flag variants:")
+        cls.default_flags(flags)
+        for flags in self._parse_flags(name, raw_browser_data))
+    logging.info("Running browser '%s' with %s flag variants:", name,
+                 len(variants_flags))
     for i in range(len(variants_flags)):
       logging.info("   %s: %s", i, variants_flags[i])
+    # pytype: disable=not-instantiable
     self.variants += [
         cls(label=self._flags_to_label(name, flags), path=path, flags=flags)
         for flags in variants_flags
     ]
+    # pytype: enable=not-instantiable
 
-  def _flags_to_label(self, name: str, flags: flags.Flags) -> str:
-    return f"{name}_{browsers.convert_flags_to_label(*flags.get_list())}"
+  def _flags_to_label(self, name: str, flags: cb.flags.Flags) -> str:
+    return f"{name}_{cb.browsers.convert_flags_to_label(*flags.get_list())}"
 
   def _parse_flags(self, name, data):
     flags_product = []
@@ -131,7 +140,7 @@ class BrowserConfig:
     for flag_group_name in flag_group_names:
       # Use temporary FlagGroupConfig for inline fixed flag definition
       if flag_group_name.startswith("--"):
-        flag_name, flag_value = flags.Flags.split(flag_group_name)
+        flag_name, flag_value = cb.flags.Flags.split(flag_group_name)
         flag_group = FlagGroupConfig("temporary", {flag_name: flag_value})
         assert flag_group_name not in self.flag_groups
       else:
@@ -152,13 +161,13 @@ class BrowserConfig:
     assert flags_product
     return flags_product
 
-  def _get_browser_cls_from_path(self, path) -> Type[browsers.Browser]:
-    cls = browsers.ChromeWebDriver
-    if "Safari" in str(path):
-      return browsers.SafariWebDriver
-    else:
-      assert "chrome" in str(path).lower(), f"Unsupported browser='{path}'"
-    return cls
+  def _get_browser_cls_from_path(self, path):
+    path_str = str(path).lower()
+    if "safari" in path_str:
+      return cb.browsers.SafariWebDriver
+    if "chrome" in path_str:
+      return cb.browsers.ChromeWebDriver
+    raise Exception(f"Unsupported browser='{path}'")
 
   def load_from_args(self, args):
     path = self._get_browser_path(args.browser or "chrome")
@@ -174,25 +183,27 @@ class BrowserConfig:
     if args.js_flags:
       flags.js_flags.update(args.js_flags.split(","))
     for flag_str in args.other_browser_args:
-      flags.set(*crossbench.flags.Flags.split(flag_str))
+      flags.set(*cb.flags.Flags.split(flag_str))
 
-    label = browsers.convert_flags_to_label(*flags.get_list())
+    label = cb.browsers.convert_flags_to_label(*flags.get_list())
     browser = cls(label=label, path=path, flags=flags)
     self.variants.append(browser)
 
-  def _get_browser_path(self, path_or_short_name: str) -> pathlib.Path:
-    short_name = path_or_short_name.lower()
-    if short_name == "chrome" or short_name == "stable":
-      return browsers.Chrome.stable_path
-    if short_name == "chrome dev" or short_name == "dev":
-      return browsers.Chrome.dev_path
-    if short_name == "chrome canary" or short_name == "canary":
-      return browsers.Chrome.canary_path
-    if short_name == "safari":
-      return browsers.Safari.default_path
-    if short_name == "safari technology preview" or short_name == "tp":
-      return browsers.Safari.technology_preview_path
-    path = pathlib.Path(path_or_short_name)
+  def _get_browser_path(self, path_or_identifier: str) -> pathlib.Path:
+    identifier = path_or_identifier.lower()
+    # We're not using a dict-based lookup here, since not all browsers are
+    # available on all platforms
+    if identifier == "chrome" or identifier == "stable":
+      return cb.browsers.Chrome.stable_path
+    if identifier == "chrome dev" or identifier == "dev":
+      return cb.browsers.Chrome.dev_path
+    if identifier == "chrome canary" or identifier == "canary":
+      return cb.browsers.Chrome.canary_path
+    if identifier == "safari":
+      return cb.browsers.Safari.default_path
+    if identifier == "safari technology preview" or identifier == "tp":
+      return cb.browsers.Safari.technology_preview_path
+    path = pathlib.Path(path_or_identifier)
     if path.exists():
       return path
     path = path.expanduser()
@@ -201,20 +212,20 @@ class BrowserConfig:
     if len(path.parts) > 1:
       raise Exception(f"Browser at '{path}' does not exist.")
     raise Exception(
-        f"Unknown browser path or short name: '{path_or_short_name}'")
+        f"Unknown browser path or short name: '{path_or_identifier}'")
 
 
 class CrossBenchCLI:
 
   BENCHMARKS = (
-      benchmarks.Speedometer20Runner,
-      benchmarks.JetStream2Runner,
-      benchmarks.MotionMark12Runner,
-      benchmarks.PageLoadRunner,
+      cb.benchmarks.Speedometer20Runner,
+      cb.benchmarks.JetStream2Runner,
+      cb.benchmarks.MotionMark12Runner,
+      cb.benchmarks.PageLoadRunner,
   )
 
   GENERAL_PURPOSE_PROBES_BY_NAME = {
-      cls.NAME: cls for cls in probes.GENERAL_PURPOSE_PROBES
+      cls.NAME: cls for cls in cb.probes.GENERAL_PURPOSE_PROBES
   }
 
   def __init__(self):
@@ -248,7 +259,7 @@ class CrossBenchCLI:
         },
         "probes": {
             probe_cls.NAME: probe_cls.__doc__.strip()
-            for probe_cls in probes.GENERAL_PURPOSE_PROBES
+            for probe_cls in cb.probes.GENERAL_PURPOSE_PROBES
         }
     }
     print(json.dumps(data, indent=2))
@@ -284,7 +295,7 @@ class CrossBenchCLI:
         action="append",
         default=[],
         choices=self.GENERAL_PURPOSE_PROBES_BY_NAME.keys(),
-        help="Enable general purpose probes to measure data on all stories. "
+        help="Enable general purpose probes to measure data on all cb.stories "
         "This argument can be specified multiple times to add more probes")
     subparser.add_argument("other_browser_args", nargs="*")
     chrome_args = subparser.add_argument_group(
@@ -320,7 +331,7 @@ class CrossBenchCLI:
       args.browser_config.load_from_args(args)
     args.browsers = args.browser_config.variants
     benchmark_cls = args.benchmark_cls
-    assert issubclass(benchmark_cls, runner.Runner), (
+    assert issubclass(benchmark_cls, cb.runner.Runner), (
         f"benchmark_cls={benchmark_cls} is not subclass of Runner")
     kwargs = benchmark_cls.kwargs_from_cli(args)
     benchmark = benchmark_cls(**kwargs)

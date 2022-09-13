@@ -7,8 +7,8 @@ from __future__ import annotations
 import threading
 import time
 
-import crossbench
-from crossbench import helper, probes
+import crossbench as cb
+import crossbench.probes as probes
 
 
 class SystemStatsProbe(probes.Probe):
@@ -44,7 +44,7 @@ class SystemStatsProbe(probes.Probe):
   def poll(cls, interval, path, event):
     while not event.is_set():
       # TODO(cbruni): support remote platform
-      data = helper.platform.sh_stdout(*cls.CMD)
+      data = cb.helper.platform.sh_stdout(*cls.CMD)
       out_file = path / f"{time.time()}.txt"
       with out_file.open("w") as f:
         f.write(data)
@@ -57,7 +57,7 @@ class SystemStatsProbe(probes.Probe):
 
     def start(self, run):
       self._event = threading.Event()
-      assert self.browser_platform == helper.platform, (
+      assert self.browser_platform == cb.helper.platform, (
           "Remote platforms are not supported yet")
       self._poller = threading.Thread(
           target=SystemStatsProbe.poll,
@@ -67,5 +67,5 @@ class SystemStatsProbe(probes.Probe):
     def stop(self, run):
       self._event.set()
 
-    def tear_down(self, run: crossbench.runner.Run):
+    def tear_down(self, run: cb.runner.Run):
       return self.results_file

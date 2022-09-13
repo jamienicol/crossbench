@@ -11,8 +11,8 @@ import subprocess
 import tempfile
 import pathlib
 
-import crossbench
-from crossbench import helper, probes
+import crossbench as cb
+import crossbench.probes as probes
 
 
 class VideoProbe(probes.Probe):
@@ -20,7 +20,7 @@ class VideoProbe(probes.Probe):
   General-purpose Probe that collects screen-recordings.
 
   It also produces a timestrip pang and creates merged versions of these files
-  for visually comparing various browsers / variants / stories.
+  for visually comparing various browsers / variants / cb.stories
   """
   NAME = "video"
   VIDEO_QUALITY = ["-vcodec", "libx264", "-crf", "20"]
@@ -134,7 +134,7 @@ class VideoProbe(probes.Probe):
                               "x100", timeline_strip_file)
       return timeline_strip_file
 
-  def merge_repetitions(self, group: crossbench.runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: cb.runner.RepetitionsRunGroup):
     result_file = group.get_probe_results_file(self)
     timeline_strip_file = result_file.with_suffix(self.TIMESTRIP_FILE_SUFFIX)
     runs = tuple(group.runs)
@@ -167,12 +167,12 @@ class VideoProbe(probes.Probe):
         "scale=3000:-2", *self.VIDEO_QUALITY, result_file)
     return (result_file, timeline_strip_file)
 
-  def merge_browsers(self, group: crossbench.runner.BrowsersRunGroup):
+  def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
     """Merge story videos from multiple browser/configurations"""
     groups = list(group.repetitions_groups)
     if len(groups) <= 1:
       return None
-    groups = helper.group_by(
+    groups = cb.helper.group_by(
         groups, key=lambda repetitions_group: repetitions_group.story)
 
     result_dir = group.get_probe_results_file(self)

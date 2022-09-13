@@ -7,7 +7,7 @@ import logging
 import subprocess
 import pathlib
 
-from crossbench import helper, probes
+import crossbench.probes as probes
 
 
 class PowerSamplerProbe(probes.Probe):

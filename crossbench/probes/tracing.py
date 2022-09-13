@@ -4,7 +4,8 @@
 
 from __future__ import annotations
 
-from crossbench import probes
+import crossbench as cb
+import crossbench.probes as probes
 
 
 class TracingProbe(probes.Probe):

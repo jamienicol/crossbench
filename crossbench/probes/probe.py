@@ -10,11 +10,9 @@ import datetime
 import pathlib
 from typing import Set, Dict, Tuple, TypeVar, Generic, Union
 
-import crossbench.browsers
-from crossbench import helper
+import crossbench as cb
 
-
-ProbeT = TypeVar('ProbeT', bound="crossbench.probes.Probe")
+ProbeT = TypeVar('ProbeT', bound="cb.probes.Probe")
 
 
 class Probe(abc.ABC):
@@ -22,7 +20,7 @@ class Probe(abc.ABC):
   Abstract Probe class.
 
   Probes are responsible for extracting performance numbers from websites
-  / stories.
+  / cb.stories
 
   Probe interface:
   - scope(): Return a custom Probe.Scope (see below)
@@ -56,21 +54,21 @@ class Probe(abc.ABC):
   # Set to True if the probe only works on battery power
   BATTERY_ONLY = False
 
-  _browsers: Set[crossbench.browsers.Browser]
-  _browser_platform: crossbench.helper.Platform
+  _browsers: Set[cb.browsers.Browser]
+  _browser_platform: cb.helper.Platform
 
   def __init__(self):
     assert self.name is not None, "A Probe must define a name"
     self._browsers = set()
 
   @property
-  def browser_platform(self) -> crossbench.helper.Platform:
+  def browser_platform(self) -> cb.helper.Platform:
     return self._browser_platform
 
   @property
-  def runner_platform(self) -> crossbench.helper.Platform:
+  def runner_platform(self) -> cb.helper.Platform:
     # TODO(cbruni): support remote platforms
-    return helper.platform
+    return cb.helper.platform
 
   @property
   def name(self) -> str:
@@ -80,7 +78,7 @@ class Probe(abc.ABC):
   def results_file_name(self) -> str:
     return self.name
 
-  def is_compatible(self, browser: crossbench.browsers.Browser) -> bool:
+  def is_compatible(self, browser: cb.browsers.Browser) -> bool:
     """
     Returns a boolean to indicate whether this Probe can be used with the given
     Browser. Override to make browser-specific Probes.
@@ -91,7 +89,7 @@ class Probe(abc.ABC):
   def is_attached(self) -> bool:
     return len(self._browsers) > 0
 
-  def attach(self, browser: crossbench.browsers.Browser):
+  def attach(self, browser: cb.browsers.Browser):
     assert self.is_compatible(browser), (
         f"Probe {self.name} is not compatible with browser {browser.type}")
     assert browser not in self._browsers, (
@@ -104,7 +102,7 @@ class Probe(abc.ABC):
           f"existing={self._browser_platform }, new={browser.platform}")
     self._browsers.add(browser)
 
-  def pre_check(self, checklist: crossbench.runner.CheckList) -> bool:
+  def pre_check(self, checklist: cb.runner.CheckList) -> bool:
     """
     Part of the Checklist, make sure everything is set up correctly for a probe
     to run.
@@ -117,28 +115,28 @@ class Probe(abc.ABC):
       assert self.is_compatible(browser)
     return True
 
-  def merge_repetitions(self, group: crossbench.runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: cb.runner.RepetitionsRunGroup):
     """
     Can be used to merge probe data from multiple repetitions of the same story.
     Return None, a result file Path (or a list of Paths)
     """
     return None
 
-  def merge_stories(self, group: crossbench.runner.StoriesRunGroup):
+  def merge_stories(self, group: cb.runner.StoriesRunGroup):
     """
     Can be used to merge probe data from multiple stories for the same browser.
     Return None, a result file Path (or a list of Paths)
     """
     return None
 
-  def merge_browsers(self, group: crossbench.runner.BrowsersRunGroup):
+  def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
     """
     Can be used to merge all probe data (from multiple stories and browsers.)
     Return None, a result file Path (or a list of Paths)
     """
     return None
 
-  def get_scope(self: ProbeT, run) -> crossbench.probes.Probe.Scope[ProbeT]:
+  def get_scope(self: ProbeT, run) -> cb.probes.Probe.Scope[ProbeT]:
     assert self.is_attached, (
         f"Probe {self.name} is not properly attached to a browser")
     return self.Scope(self, run)
@@ -153,7 +151,7 @@ class Probe(abc.ABC):
       override tear_down() method
     """
 
-    def __init__(self, probe: ProbeT, run: crossbench.runner.Run):
+    def __init__(self, probe: ProbeT, run: cb.runner.Run):
       self._probe = probe
       self._run = run
       self._default_results_file = run.get_probe_results_file(probe)
@@ -192,23 +190,23 @@ class Probe(abc.ABC):
       return self._probe
 
     @property
-    def run(self) -> crossbench.runner.Run:
+    def run(self) -> cb.runner.Run:
       return self._run
 
     @property
-    def browser(self) -> crossbench.browsers.Browser:
+    def browser(self) -> cb.browsers.Browser:
       return self._run.browser
 
     @property
-    def runner(self) -> crossbench.runner.Runner:
+    def runner(self) -> cb.runner.Runner:
       return self._run.runner
 
     @property
-    def browser_platform(self) -> crossbench.helper.Platform:
+    def browser_platform(self) -> cb.helper.Platform:
       return self.browser.platform
 
     @property
-    def runner_platform(self) -> crossbench.helper.Platform:
+    def runner_platform(self) -> cb.helper.Platform:
       return self.runner.platform
 
     @property
@@ -240,7 +238,7 @@ class Probe(abc.ABC):
       pass
 
     @abc.abstractmethod
-    def start(self, run: crossbench.runner.Run):
+    def start(self, run: cb.runner.Run):
       """
       Called immediately before starting the given Run.
       This method should have as little overhead as possible. If possible,
@@ -249,7 +247,7 @@ class Probe(abc.ABC):
       pass
 
     @abc.abstractmethod
-    def stop(self, run: crossbench.runner.Run):
+    def stop(self, run: cb.runner.Run):
       """
       Called immediately after finishing the given Run.
       This method should have as little overhead as possible. If possible,
@@ -258,8 +256,7 @@ class Probe(abc.ABC):
       return None
 
     @abc.abstractmethod
-    def tear_down(self,
-                  run: crossbench.runner.Run) -> ProbeResultDict.ResultsType:
+    def tear_down(self, run: cb.runner.Run) -> ProbeResultDict.ResultsType:
       """
       Called after stopping all probes and shutting down the browser.
       Returns

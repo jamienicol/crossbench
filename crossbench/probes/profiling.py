@@ -10,8 +10,8 @@ import signal
 import time
 import pathlib
 
-import crossbench
-from crossbench import helper, probes
+import crossbench as cb
+import crossbench.probes as probes
 
 
 class ProfilingProbe(probes.Probe):
@@ -67,7 +67,7 @@ class ProfilingProbe(probes.Probe):
       try:
         self.browser_platform.sh(self.browser_platform.which("gcertstatus"))
         return True
-      except helper.SubprocessError:
+      except cb.helper.SubprocessError:
         return checklist.warn("Please run gcert for generating pprof results")
     # Only Linux-perf results can be merged
     if self.browser_platform.is_macos and checklist.runner.repetitions > 1:
@@ -126,7 +126,7 @@ class ProfilingProbe(probes.Probe):
         "jit-*.dump",
     )
 
-    def __init__(self, probe: ProfilingProbe, run: crossbench.runner.Run):
+    def __init__(self, probe: ProfilingProbe, run: cb.runner.Run):
       super().__init__(probe, run)
       self._perf_process = None
 
@@ -144,7 +144,7 @@ class ProfilingProbe(probes.Probe):
 
     def setup(self, run):
       for probe in run.probes:
-        assert not isinstance(probe, crossbench.probes.v8.V8LogProbe), (
+        assert not isinstance(probe, probes.v8.V8LogProbe), (
             "Cannot use profiler and v8.log probe in parallel yet")
 
     def stop(self, run):
@@ -157,11 +157,11 @@ class ProfilingProbe(probes.Probe):
         time.sleep(3)
       time.sleep(1)
 
-      perf_files = helper.sort_by_file_size(
+      perf_files = cb.helper.sort_by_file_size(
           run.out_dir.glob(self.PERF_DATA_PATTERN))
       if self.probe._sample_js:
         perf_files = self._inject_v8_symbols(run, perf_files)
-      perf_files = helper.sort_by_file_size(perf_files)
+      perf_files = cb.helper.sort_by_file_size(perf_files)
       if not self.probe._run_pprof or not self.browser_platform.which("gcert"):
         return map(str, perf_files)
 
@@ -183,7 +183,7 @@ class ProfilingProbe(probes.Probe):
               for file in perf_files
           ]
         else:
-          assert self.browser_platform == helper.platform
+          assert self.browser_platform == cb.helper.platform
           with multiprocessing.Pool() as pool:
             perf_jitted_files = list(pool.imap(linux_perf_probe_inject_v8_symbols,
                                           perf_files))
@@ -201,7 +201,7 @@ class ProfilingProbe(probes.Probe):
                                      self.browser_platform)
               for perf_data_file, run_details in items)
         else:
-          assert self.browser_platform == helper.platform
+          assert self.browser_platform == cb.helper.platform
           with multiprocessing.Pool() as pool:
             urls = dict(pool.starmap(linux_perf_probe_pprof, items))
         try:
@@ -226,7 +226,7 @@ def linux_perf_probe_inject_v8_symbols(perf_data_file, platform=None):
   output_file = perf_data_file.with_suffix(".data.jitted")
   assert not output_file.exists()
   try:
-    platform = platform or helper.platform
+    platform = platform or cb.helper.platform
     platform.sh("perf", "inject", "--jit", f"--input={perf_data_file}",
                 f"--output={output_file}")
   except Exception:
@@ -236,14 +236,14 @@ def linux_perf_probe_inject_v8_symbols(perf_data_file, platform=None):
 
 
 def linux_perf_probe_pprof(perf_data_file, run_details, platform=None):
-  platform = platform or helper.platform
+  platform = platform or cb.helper.platform
   url = platform.sh_stdout(
       "pprof",
       "-flame",
       f"-add_comment={run_details}",
       perf_data_file,
   ).strip()
-  size = helper.get_file_size(perf_data_file)
+  size = cb.helper.get_file_size(perf_data_file)
   logging.info("PPROF")
   logging.info("  linux-perf:   %s %s", perf_data_file.name, size)
   logging.info("  pprof result: %s", url)

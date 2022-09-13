@@ -11,9 +11,9 @@ from typing import Dict, Optional
 
 import pyfakefs.fake_filesystem_unittest
 
-import crossbench
-import crossbench.flags
-from crossbench import browsers, helper
+import tests.mockbenchmark as mockbenchmark
+
+import crossbench as cb
 from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig
 
 
@@ -62,67 +62,34 @@ class TestCLI(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertGreater(len(stdout), 0)
 
 
-FlagsInitialDataType = crossbench.flags.Flags.InitialDataType
-
-
-class MockBrowser(browsers.Browser):
-  BIN_PATH = None
-
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               flags: FlagsInitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None):
-    path = pathlib.Path(self.BIN_PATH)
-    super().__init__(label, path, flags, cache_dir, type="test")
-
-  def _extract_version(self):
-    return "100.22.33.44"
-
-
-class MockBrowserStable(MockBrowser):
-  if helper.platform.is_macos:
-    BIN_PATH = pathlib.Path("/Applications/Chrome.app")
-  else:
-    BIN_PATH = pathlib.Path("/usr/bin/chrome")
-
-
-class MockBrowserDev(MockBrowser):
-  if helper.platform.is_macos:
-    BIN_PATH = pathlib.Path("/Applications/ChromeDev.app")
-  else:
-    BIN_PATH = pathlib.Path("/usr/bin/chrome-dev")
-
-
 class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
   EXAMPLE_CONFIG_PATH = pathlib.Path(
       __file__).parent.parent / "browser.config.example.hjson"
 
-  BROWSER_LOOKUP = {
-      "stable": MockBrowserStable,
-      "dev": MockBrowserDev,
-      "chrome-stable": MockBrowserStable,
-      "chrome-dev": MockBrowserDev,
-  }
 
   def setUp(self):
     # TODO: Move to separate common helper class
-    self.setUpPyfakefs(modules_to_reload=[crossbench])
-    if helper.platform.is_macos:
-      self.fs.create_file(MockBrowserStable.BIN_PATH / "Contents" / "MacOS" /
-                          "Chrome")
-      self.fs.create_file(MockBrowserDev.BIN_PATH / "Contents" / "MacOS" /
-                          "Chrome")
-    else:
-      self.fs.create_file(MockBrowserStable.BIN_PATH)
-      self.fs.create_file(MockBrowserDev.BIN_PATH)
+    self.setUpPyfakefs(modules_to_reload=[cb, mockbenchmark])
+    mockbenchmark.MockBrowserStable.setup_fs(self.fs)
+    mockbenchmark.MockBrowserDev.setup_fs(self.fs)
+    self.BROWSER_LOOKUP = {
+        "stable": (mockbenchmark.MockBrowserStable,
+                   mockbenchmark.MockBrowserStable.BIN_PATH),
+        "dev": (mockbenchmark.MockBrowserDev,
+                mockbenchmark.MockBrowserDev.BIN_PATH),
+        "chrome-stable": (mockbenchmark.MockBrowserStable,
+                          mockbenchmark.MockBrowserStable.BIN_PATH),
+        "chrome-dev": (mockbenchmark.MockBrowserDev,
+                       mockbenchmark.MockBrowserDev.BIN_PATH),
+    }
 
   def test_load_browser_config_template(self):
     if not self.EXAMPLE_CONFIG_PATH.exists():
       return
     self.fs.add_real_file(self.EXAMPLE_CONFIG_PATH)
     with self.EXAMPLE_CONFIG_PATH.open() as f:
-      config = BrowserConfig.load(f, lookup=self.BROWSER_LOOKUP)
+      config = BrowserConfig.load(
+          f, browser_lookup_override=self.BROWSER_LOOKUP)
     self.assertIn("default", config.flag_groups)
     self.assertGreaterEqual(len(config.flag_groups), 1)
     self.assertGreaterEqual(len(config.variants), 1)
@@ -146,7 +113,7 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
                   }
               }
           },
-          lookup=self.BROWSER_LOOKUP)
+          browser_lookup_override=self.BROWSER_LOOKUP)
 
   def test_flag_combination(self):
     config = BrowserConfig(
@@ -164,7 +131,7 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
                 }
             }
         },
-        lookup=self.BROWSER_LOOKUP)
+        browser_lookup_override=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3)
 
   def test_flag_combination_with_fixed(self):
@@ -186,7 +153,7 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
                 }
             }
         },
-        lookup=self.BROWSER_LOOKUP)
+        browser_lookup_override=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3)
 
   def test_flag_group_combination(self):
@@ -210,7 +177,7 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
                 }
             }
         },
-        lookup=self.BROWSER_LOOKUP)
+        browser_lookup_override=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3 * 2)
 
 
