@@ -11,7 +11,7 @@ from typing import Dict, Optional
 
 import pyfakefs.fake_filesystem_unittest
 
-import tests.mockbenchmark as mockbenchmark
+from . import mockbenchmark as mockbenchmark
 
 import crossbench as cb
 from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig

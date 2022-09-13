@@ -7,7 +7,7 @@ from unittest import mock
 import pyfakefs.fake_filesystem_unittest
 import pathlib
 
-import tests.mockbenchmark as mockbenchmark
+from . import mockbenchmark as mockbenchmark
 
 import crossbench as cb
 import crossbench.benchmarks as bm
