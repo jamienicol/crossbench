@@ -4,8 +4,8 @@
 
 import csv
 import logging
-import subprocess
 import pathlib
+import subprocess
 
 import crossbench.probes as probes
 

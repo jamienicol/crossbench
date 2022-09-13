@@ -6,20 +6,16 @@ from __future__ import annotations
 
 import abc
 import argparse
-from audioop import cross
 import contextlib
+import datetime as dt
 import inspect
 import logging
-from optparse import Option
 import os
+import pathlib
 import shutil
 import sys
 import traceback
-from datetime import datetime, timedelta
-import pathlib
-from typing import Iterable, Sequence, List, Optional, Tuple, Type, cast
-
-import psutil
+from typing import Iterable, Sequence, List, Optional, Tuple
 
 import crossbench as cb
 
@@ -28,7 +24,7 @@ class CheckList:
 
   def __init__(self, runner, platform: Optional[cb.helper.Platform] = None):
     self._runner = runner
-    self._wait_until = datetime.now()
+    self._wait_until = dt.datetime.now()
     self._platform = platform or cb.helper.platform
 
   @property
@@ -36,13 +32,13 @@ class CheckList:
     return self._runner
 
   def _add_min_delay(self, seconds):
-    end_time = datetime.now() + timedelta(seconds=seconds)
+    end_time = dt.datetime.now() + dt.timedelta(seconds=seconds)
     if end_time > self._wait_until:
       self._wait_until = end_time
 
   def _wait_min_time(self):
-    delta = self._wait_until - datetime.now()
-    if delta <= timedelta(0):
+    delta = self._wait_until - dt.datetime.now()
+    if delta <= dt.timedelta(0):
       return
     self._platform.sleep(delta)
 
@@ -237,7 +233,7 @@ class Runner(abc.ABC):
     if suffix:
       suffix = "_" + suffix
     return (cwd / "results" /
-            f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}{suffix}")
+            f"{dt.datetime.now().strftime('%Y-%m-%d_%H%M%S')}{suffix}")
 
   @classmethod
   def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
@@ -896,13 +892,14 @@ class Run:
       self._run_success = False
       logging.debug("CWD %s", self._out_dir)
       try:
-        probe_start_time = datetime.now()
+        probe_start_time = dt.datetime.now()
         probe_scope_manager = contextlib.ExitStack()
         for probe_scope in probe_scopes:
           probe_scope.set_start_time(probe_start_time)
           probe_scope_manager.enter_context(probe_scope)
         with probe_scope_manager:
-          self._durations["probes-start"] = (datetime.now() - probe_start_time)
+          self._durations["probes-start"] = (
+              dt.datetime.now() - probe_start_time)
           logging.info("RUN: BROWSER=%s STORY=%s", self._browser.short_name,
                        self.story.name)
           assert self._state == self.STATE_RUN, "Invalid state"

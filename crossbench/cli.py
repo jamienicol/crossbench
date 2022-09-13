@@ -9,7 +9,7 @@ import itertools
 import json
 import logging
 import pathlib
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import crossbench as cb
 

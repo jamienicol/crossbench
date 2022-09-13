@@ -7,7 +7,6 @@ from __future__ import annotations
 import abc
 import json
 import logging
-from optparse import Option
 import re
 import shlex
 import shutil
@@ -198,7 +197,7 @@ _FLAG_TO_PATH_RE = re.compile(r"[-/\\:\.]")
 
 def convert_flags_to_label(*flags, index=None):
   label = "default"
-  if len(flags) != 0:
+  if flags:
     label = _FLAG_TO_PATH_RE.sub("_", "_".join(flags).replace("--", ""))
   if index is None:
     return label
@@ -263,7 +262,7 @@ class Chrome(Browser, metaclass=ChromeMeta):
           assert isinstance(binary,
                             pathlib.Path), "Expected browser binary path"
           index = len(browsers)
-          # Don"t print a browser/binary index if there is only one
+          # Don't print a browser/binary index if there is only one
           label = convert_flags_to_label(*js_flags, *browser_flags, index=index)
           browser = cls(
               label,
@@ -510,7 +509,7 @@ class ChromeDriverFinder:
   URL: Final[str] = "http://chromedriver.storage.googleapis.com"
   OMAHA_PROXY_URL: Final[str] = "https://omahaproxy.appspot.com/deps.json"
   CHROMIUM_LISTING_URL: Final[str] = (
-    "https://www.googleapis.com/storage/v1/b/chromium-browser-snapshots/o/")
+      "https://www.googleapis.com/storage/v1/b/chromium-browser-snapshots/o/")
 
   driver_path: pathlib.Path
 
@@ -521,7 +520,7 @@ class ChromeDriverFinder:
         "Cannot download chromedriver for remote browser yet")
 
   def find_local_build(self):
-    # assume it"s a local build
+    # assume it's a local build
     self.driver_path = self.browser.path.parent / "chromedriver"
     if not self.driver_path.exists():
       raise Exception(f"Driver '{self.driver_path}' does not exist. "
@@ -782,8 +781,8 @@ class SafariWebDriver(WebdriverMixin, Safari):
 
   def _start_driver(self, run, driver_path):
     assert not self._is_running
-    logging.info(
-        f"STARTING BROWSER: browser: {self.path} driver: {driver_path}")
+    logging.info("STARTING BROWSER: browser: %s driver: %s", self.path,
+                 driver_path)
     capabilities = DesiredCapabilities.SAFARI.copy()
     capabilities["safari.cleanSession"] = "true"
     # Enable browser logging

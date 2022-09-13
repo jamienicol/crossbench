@@ -5,8 +5,10 @@
 from __future__ import annotations
 
 import abc
+import datetime as dt
 import logging
 import os
+import pathlib
 import platform as py_platform
 import shlex
 import shutil
@@ -16,8 +18,6 @@ import time
 import traceback
 import urllib
 import urllib.request
-from datetime import datetime, timedelta
-import pathlib
 from typing import Dict, Iterable, Optional
 
 import psutil
@@ -138,7 +138,7 @@ class Platform(abc.ABC):
     return app_path
 
   def sleep(self, seconds):
-    if isinstance(seconds, timedelta):
+    if isinstance(seconds, dt.timedelta):
       seconds = seconds.total_seconds()
     if seconds == 0:
       return
@@ -432,10 +432,10 @@ class TimeScope:
     self._start = None
 
   def __enter__(self):
-    self._start = datetime.now()
+    self._start = dt.datetime.now()
 
   def __exit__(self, exc_type, exc_value, exc_traceback):
-    diff = datetime.now() - self._start
+    diff = dt.datetime.now() - self._start
     log(f"{self._message} duration={diff}", level=self._level)
 
 
@@ -448,13 +448,13 @@ class wait_range:
                max=10,
                max_iterations=None):
     assert 0 < min
-    self.min = timedelta(seconds=min)
+    self.min = dt.timedelta(seconds=min)
     assert min <= max
-    self.max = timedelta(seconds=max)
+    self.max = dt.timedelta(seconds=max)
     assert 1.0 < factor
     self.factor = factor
     assert 0 < timeout
-    self.timeout = timedelta(seconds=timeout)
+    self.timeout = dt.timedelta(seconds=timeout)
     self.current = self.min
     assert max_iterations is None or max_iterations > 0
     self.max_iterations = max_iterations
@@ -469,11 +469,11 @@ class wait_range:
 
 def wait_with_backoff(range):
   assert isinstance(range, wait_range)
-  start = datetime.now()
+  start = dt.datetime.now()
   timeout = range.timeout
   duration = 0
   for sleep_for in range:
-    duration = datetime.now() - start
+    duration = dt.datetime.now() - start
     if duration > range.timeout:
       raise TimeoutError(f"Waited for {duration}")
     time_left = timeout - duration
@@ -487,12 +487,12 @@ class Durations:
   """
 
   def __init__(self):
-    self._durations: Dict[str, timedelta] = {}
+    self._durations: Dict[str, dt.timedelta] = {}
 
-  def __getitem__(self, name) -> timedelta:
+  def __getitem__(self, name) -> dt.timedelta:
     return self._durations[name]
 
-  def __setitem__(self, name, duration: timedelta):
+  def __setitem__(self, name, duration: dt.timedelta):
     assert name not in self._durations, (f"Cannot set '{name}' duration twice!")
     self._durations[name] = duration
 
@@ -504,10 +504,10 @@ class Durations:
       self._name = name
 
     def __enter__(self):
-      self._start_time = datetime.now()
+      self._start_time = dt.datetime.now()
 
     def __exit__(self, exc_type, exc_value, traceback):
-      delta = datetime.now() - self._start_time
+      delta = dt.datetime.now() - self._start_time
       self._durations[self._name] = delta
 
   def measure(self, name) -> "_DurationMeasureContext":

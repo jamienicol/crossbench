@@ -4,17 +4,17 @@
 
 from __future__ import annotations
 
+import abc
 import json
 import logging
 import math
-from abc import ABCMeta, abstractmethod
 import pathlib
 
 import crossbench as cb
 import crossbench.probes as probes
 
 
-class JsonResultProbe(probes.Probe, metaclass=ABCMeta):
+class JsonResultProbe(probes.Probe, metaclass=abc.ABCMeta):
   """
   Abstract Probe that stores a JSON result extracted by the `to_json` method
 
@@ -30,7 +30,7 @@ class JsonResultProbe(probes.Probe, metaclass=ABCMeta):
   def results_file_name(self):
     return f"{self.name}.json"
 
-  @abstractmethod
+  @abc.abstractmethod
   def to_json(self, actions):
     """
     Override in subclasses.
@@ -150,7 +150,7 @@ class Values:
   @property
   def stddev(self):
     """
-    We"re ignoring here any actual distribution of the data and use this as a
+    We're ignoring here any actual distribution of the data and use this as a
     rough estimate of the quality of the data
     """
     average = self.average

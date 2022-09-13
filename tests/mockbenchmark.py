@@ -4,10 +4,9 @@
 
 from __future__ import annotations
 
-import psutil
 import pathlib
+import psutil
 from typing import Optional
-from unittest import mock
 
 import crossbench as cb
 

@@ -2,17 +2,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import abc
 import logging
 import pathlib
 import re
-from abc import ABCMeta
 from typing import Iterable, Optional, Sequence, Union
 from urllib.parse import urlparse
 
 import crossbench as cb
 
 
-class Page(cb.stories.Story, metaclass=ABCMeta):
+class Page(cb.stories.Story, metaclass=abc.ABCMeta):
   pass
 
 

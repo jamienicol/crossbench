@@ -110,7 +110,7 @@ class ProfilingProbe(probes.Probe):
       time.sleep(3)
 
     def stop(self, run):
-      # Needs to be SIGINT for xctrace, terminate won"t work.
+      # Needs to be SIGINT for xctrace, terminate won't work.
       self._process.send_signal(signal.SIGINT)
 
     def tear_down(self, run):

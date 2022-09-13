@@ -4,10 +4,9 @@
 
 import io
 import json
+import pathlib
 import unittest
 import unittest.mock as mock
-import pathlib
-from typing import Dict, Optional
 
 import pyfakefs.fake_filesystem_unittest
 

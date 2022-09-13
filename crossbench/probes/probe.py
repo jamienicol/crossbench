@@ -5,8 +5,8 @@
 from __future__ import annotations
 
 import abc
+import datetime as dt
 import logging
-import datetime
 import pathlib
 from typing import Set, Dict, Tuple, TypeVar, Generic, Union
 
@@ -160,7 +160,7 @@ class Probe(abc.ABC):
       self._start_time = None
       self._stop_time = None
 
-    def set_start_time(self, start_datetime: datetime.datetime):
+    def set_start_time(self, start_datetime: dt.datetime):
       assert self._start_time is None
       self._start_time = start_datetime
 
@@ -183,7 +183,7 @@ class Probe(abc.ABC):
       except Exception as e:
         self._run.exceptions.handle(e)
       finally:
-        self._stop_time = datetime.datetime.now()
+        self._stop_time = dt.datetime.now()
 
     @property
     def probe(self) -> ProbeT:
@@ -210,7 +210,7 @@ class Probe(abc.ABC):
       return self.runner.platform
 
     @property
-    def start_time(self) -> datetime.datetime:
+    def start_time(self) -> dt.datetime:
       """
       Returns a unified start time that is the same for all Probe.Scopes
       within a run. This can be to account for startup delays caused by other
@@ -219,7 +219,7 @@ class Probe(abc.ABC):
       return self._start_time
 
     @property
-    def duration(self) -> datetime.timedelta:
+    def duration(self) -> dt.timedelta:
       return self._stop_time - self._start_time
 
     @property

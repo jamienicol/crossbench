@@ -2,17 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from typing import Sequence
-from unittest import mock
-import pyfakefs.fake_filesystem_unittest
+import abc
 import pathlib
+import pyfakefs.fake_filesystem_unittest
 
 from . import mockbenchmark as mockbenchmark
 
 import crossbench as cb
 import crossbench.benchmarks as bm
 
-import abc
 
 
 class BaseRunnerTest(

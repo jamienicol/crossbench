@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import itertools
-import json
 import pathlib
 
 import crossbench as cb
