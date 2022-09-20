@@ -83,8 +83,12 @@ class BrowserConfig:
     self.variants = []
     self._browser_lookup_override = browser_lookup_override
     if raw_config_data:
-      for flag_name, group_config in raw_config_data["flags"].items():
-        self._parse_flag_group(flag_name, group_config)
+      if "flags" in raw_config_data:
+        for flag_name, group_config in raw_config_data["flags"].items():
+          self._parse_flag_group(flag_name, group_config)
+      assert "browsers" in raw_config_data, (
+          "Config does not provide a 'browsers' dict.")
+      assert len(raw_config_data["browsers"]), ("Config contains empty 'browsers' dict.")
       for name, browser_config in raw_config_data["browsers"].items():
         self._parse_browser(name, browser_config)
 
@@ -325,7 +329,8 @@ class CrossBenchCLI:
             f"Given path '{path.absolute}' does not exist")
       assert args.browser is None, (
           "Cannot specify --browser and --browser-config at the same time")
-      args.browser_config = BrowserConfig(path)
+      with path.open() as f:
+        args.browser_config = BrowserConfig.load(f)
     else:
       args.browser_config = BrowserConfig()
       args.browser_config.load_from_args(args)

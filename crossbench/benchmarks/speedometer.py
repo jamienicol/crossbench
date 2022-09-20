@@ -108,7 +108,7 @@ class Speedometer20Story(cb.stories.PressBenchmarkStory):
             """
         let substories = arguments[0];
         Suites.forEach((suite) => {
-          suite.disabled = subcb.storiesindexOf(suite.name) == -1;
+          suite.disabled = substories.indexOf(suite.name) == -1;
         });
         """,
             arguments=[self._substories])
@@ -118,17 +118,18 @@ class Speedometer20Story(cb.stories.PressBenchmarkStory):
           """
         // Store all the results in the benchmarkClient
         globalThis.testDone = false;
-        let benchmarkClient = {};
         globalThis.suiteValues = [];
-        benchmarkClient.didRunSuites = function(measuredValues) {
-          globalThis.suiteValues.push(measuredValues);
+        const benchmarkClient = {
+          didRunSuites(measuredValues) {
+            globalThis.suiteValues.push(measuredValues);
+          },
+          didFinishLastIteration() {
+            globalThis.testDone = true;
+          }
         };
-        benchmarkClient.didFinishLastIteration = function () {
-          globalThis.testDone = true;
-        };
-        let runner = new BenchmarkRunner(Suites, benchmarkClient);
-        let iterationCount = arguments[0];
-        cb.runner.runMultipleIterations(iterationCount);
+        const runner = new BenchmarkRunner(Suites, benchmarkClient);
+        const iterationCount = arguments[0];
+        runner.runMultipleIterations(iterationCount);
         """,
           arguments=[self.iterations])
       actions.wait(1 * len(self._substories))
