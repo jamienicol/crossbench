@@ -10,8 +10,10 @@ import shutil
 import subprocess
 import tempfile
 import pathlib
+from typing import List, TYPE_CHECKING
 
-import crossbench as cb
+if TYPE_CHECKING:
+  import crossbench as cb
 import crossbench.probes as probes
 
 
@@ -35,7 +37,7 @@ class VideoProbe(probes.Probe):
   def results_file_name(self):
     return f"{self.name}.mp4"
 
-  def pre_check(self, checklist):
+  def pre_check(self, checklist: cb.runner.CheckList):
     if not super().pre_check(checklist):
       return False
     if checklist.runner.repetitions > 10:
@@ -62,7 +64,7 @@ class VideoProbe(probes.Probe):
       self._record_process = None
       self._recorder_log_file = None
 
-    def start(self, run):
+    def start(self, run: cb.runner.Run):
       browser = run.browser
       cmd = self._record_cmd(browser.x, browser.y, browser.width,
                              browser.height)
@@ -86,14 +88,14 @@ class VideoProbe(probes.Probe):
                 self.results_file)
       raise Exception("Invalid platform")
 
-    def stop(self, run):
+    def stop(self, run: cb.runner.Run):
       if self.platform.is_macos:
         # The mac screencapture stops on the first (arbitrary) input.
         self._record_process.communicate(input=b"stop")
       else:
         self._record_process.terminate()
 
-    def tear_down(self, run):
+    def tear_down(self, run: cb.runner.Run):
       self._recorder_log_file.close()
       if self._record_process.poll() is not None:
         self._record_process.wait(timeout=5)
@@ -101,7 +103,7 @@ class VideoProbe(probes.Probe):
         timestrip_file = self._create_time_strip(pathlib.Path(tmp_dir))
       return (self.results_file, timestrip_file)
 
-    def _create_time_strip(self, tmpdir):
+    def _create_time_strip(self, tmpdir: pathlib.Path):
       logging.info("TIMESTRIP")
       progress_dir = tmpdir / "progress"
       progress_dir.mkdir(parents=True, exist_ok=True)
@@ -182,7 +184,9 @@ class VideoProbe(probes.Probe):
         self._merge_stories_for_browser(result_dir, story, repetitions_groups)
         for story, repetitions_groups in groups.items())
 
-  def _merge_stories_for_browser(self, result_dir, story, repetitions_groups):
+  def _merge_stories_for_browser(
+      self, result_dir: pathlib.Path, story: cb.stories.Story,
+      repetitions_groups: List[cb.runner.RepetitionsRunGroup]):
     input_files = []
     story = repetitions_groups[0].story
     for repetitions_group in repetitions_groups:

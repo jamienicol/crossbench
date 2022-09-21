@@ -3,8 +3,10 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+from typing import Iterable, TYPE_CHECKING
 
-import crossbench as cb
+if TYPE_CHECKING:
+  import crossbench as cb
 import crossbench.probes as probes
 
 
@@ -22,7 +24,10 @@ class TracingProbe(probes.Probe):
       "--danger-disable-safebrowsing-for-crossbench",
   )
 
-  def __init__(self, categories, startup_duration=0, output_format="json"):
+  def __init__(self,
+               categories: Iterable[str],
+               startup_duration: float = 0,
+               output_format="json"):
     super().__init__()
     self._categories = categories
     self._startup_duration = startup_duration
@@ -30,10 +35,10 @@ class TracingProbe(probes.Probe):
     assert self._format in ("json", "proto"), (
         f"Invalid trace output output_format={self._format}")
 
-  def is_compatible(self, browser):
+  def is_compatible(self, browser: cb.browsers.Browser):
     return browser.type == "chrome"
 
-  def attach(self, browser):
+  def attach(self, browser: cb.browsers.Browser):
     super().attach(browser)
     # "--trace-startup-format"
     # --trace-startup-duration=

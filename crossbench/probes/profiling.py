@@ -9,8 +9,10 @@ import multiprocessing
 import signal
 import time
 import pathlib
+from typing import List, Optional, TYPE_CHECKING
 
-import crossbench as cb
+if TYPE_CHECKING:
+  import crossbench as cb
 import crossbench.probes as probes
 
 
@@ -50,12 +52,26 @@ class ProfilingProbe(probes.Probe):
       return True
     return False
 
-  def attach(self, browser):
+  @property
+  def sample_js(self) -> bool:
+    return self._sample_js
+
+  @property
+  def sample_browser_process(self) -> bool:
+    return self._sample_browser_process
+
+  @property
+  def run_pprof(self) -> bool:
+    return self._run_pprof
+
+  def attach(self, browser: cb.browsers.Browser):
     super().attach(browser)
     if self.browser_platform.is_linux:
+      assert isinstance(browser, cb.browsers.Chrome), (
+          f"Expected Chrome, found {type(browser)}.")
       self._attach_linux(browser)
 
-  def pre_check(self, checklist):
+  def pre_check(self, checklist: cb.runner.CheckList):
     if not super().pre_check(checklist):
       return False
     if self.browser_platform.is_linux:
@@ -76,7 +92,7 @@ class ProfilingProbe(probes.Probe):
           f"repetitions={checklist.runner.repetitions}. Continue?")
     return True
 
-  def _attach_linux(self, browser):
+  def _attach_linux(self, browser: cb.browsers.Chrome):
     if self._sample_js:
       browser.js_flags.update(self.JS_FLAGS_PERF)
     cmd = pathlib.Path(__file__).parent / "linux-perf-chrome-renderer-cmd.sh"
@@ -88,7 +104,7 @@ class ProfilingProbe(probes.Probe):
     # Disable sandbox to write profiling data
     browser.flags.set("--no-sandbox")
 
-  def get_scope(self, run):
+  def get_scope(self, run: cb.runner.Run):
     if self.browser_platform.is_linux:
       return self.LinuxProfilingScope(self, run)
     if self.browser_platform.is_macos:
@@ -109,11 +125,11 @@ class ProfilingProbe(probes.Probe):
       # xctrace takes some time to start up
       time.sleep(3)
 
-    def stop(self, run):
+    def stop(self, run: cb.runner.Run):
       # Needs to be SIGINT for xctrace, terminate won't work.
       self._process.send_signal(signal.SIGINT)
 
-    def tear_down(self, run):
+    def tear_down(self, run: cb.runner.Run):
       while self._process.poll() is None:
         time.sleep(1)
       return self.results_file
@@ -142,27 +158,27 @@ class ProfilingProbe(probes.Probe):
           "perf", "record", "--call-graph=fp", "--freq=max", "--clockid=mono",
           f"--output={perf_data_file}", f"--pid={run.browser.pid}")
 
-    def setup(self, run):
+    def setup(self, run: cb.runner.Run):
       for probe in run.probes:
         assert not isinstance(probe, probes.v8.V8LogProbe), (
             "Cannot use profiler and v8.log probe in parallel yet")
 
-    def stop(self, run):
+    def stop(self, run: cb.runner.Run):
       if self._perf_process:
         self._perf_process.terminate()
 
-    def tear_down(self, run):
+    def tear_down(self, run: cb.runner.Run):
       # Waiting for linux-perf to flush all perf data
-      if self.probe._sample_browser_process:
+      if self.probe.sample_browser_process:
         time.sleep(3)
       time.sleep(1)
 
       perf_files = cb.helper.sort_by_file_size(
           run.out_dir.glob(self.PERF_DATA_PATTERN))
-      if self.probe._sample_js:
+      if self.probe.sample_js:
         perf_files = self._inject_v8_symbols(run, perf_files)
       perf_files = cb.helper.sort_by_file_size(perf_files)
-      if not self.probe._run_pprof or not self.browser_platform.which("gcert"):
+      if not self.probe.run_pprof or not self.browser_platform.which("gcert"):
         return map(str, perf_files)
 
       try:
@@ -172,7 +188,8 @@ class ProfilingProbe(probes.Probe):
       logging.debug("Profliling results: %s", urls)
       return urls
 
-    def _inject_v8_symbols(self, run, perf_files):
+    def _inject_v8_symbols(self, run: cb.runner.Run,
+                           perf_files: List[pathlib.Path]):
       with run.actions(f"Probe {self.probe.name}: Injecting V8 Symbols"):
         # Filter out empty files
         perf_files = [file for file in perf_files if file.stat().st_size > 0]
@@ -189,7 +206,8 @@ class ProfilingProbe(probes.Probe):
                                           perf_files))
         return [file for file in perf_jitted_files if file is not None]
 
-    def _export_to_pprof(self, run, perf_files):
+    def _export_to_pprof(self, run: cb.runner.Run,
+                         perf_files: List[pathlib.Path]):
       run_details_json = run.get_browser_details_json()
       with run.actions(f"Probe {self.probe.name}: exporting to pprof"):
         self.browser_platform.sh("gcertstatus >&/dev/null || gcert", shell=True)
@@ -215,13 +233,15 @@ class ProfilingProbe(probes.Probe):
           pass
         return urls
 
-    def _clean_up_temp_files(self, run):
+    def _clean_up_temp_files(self, run: cb.runner.Run):
       for pattern in self.TEMP_FILE_PATTERNS:
         for file in run.out_dir.glob(pattern):
           file.unlink()
 
 
-def linux_perf_probe_inject_v8_symbols(perf_data_file, platform=None):
+def linux_perf_probe_inject_v8_symbols(
+    perf_data_file: pathlib.Path,
+    platform: Optional[cb.helper.Platform] = None):
   assert perf_data_file.is_file()
   output_file = perf_data_file.with_suffix(".data.jitted")
   assert not output_file.exists()
@@ -235,7 +255,9 @@ def linux_perf_probe_inject_v8_symbols(perf_data_file, platform=None):
   return output_file
 
 
-def linux_perf_probe_pprof(perf_data_file, run_details, platform=None):
+def linux_perf_probe_pprof(perf_data_file: pathlib.Path,
+                           run_details: str,
+                           platform: Optional[cb.helper.Platform] = None):
   platform = platform or cb.helper.platform
   url = platform.sh_stdout(
       "pprof",

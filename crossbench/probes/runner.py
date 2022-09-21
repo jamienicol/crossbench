@@ -7,8 +7,10 @@ from __future__ import annotations
 import json
 import logging
 import pathlib
+from typing import TYPE_CHECKING
 
-import crossbench as cb
+if TYPE_CHECKING:
+  import crossbench as cb
 import crossbench.probes as probes
 from crossbench.probes.json import JsonResultProbe
 
@@ -28,7 +30,7 @@ class RunRunnerLogProbe(probes.Probe):
       super().__init__(*args, **kwargs)
       self._log_handler = None
 
-    def setup(self, run):
+    def setup(self, run: cb.runner.Run):
       log_formatter = logging.Formatter(
           "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s] "
           "[%(name)s]  %(message)s")
@@ -36,13 +38,13 @@ class RunRunnerLogProbe(probes.Probe):
       self._log_handler.setFormatter(log_formatter)
       logging.getLogger().addHandler(self._log_handler)
 
-    def start(self, run):
+    def start(self, run: cb.runner.Run):
       pass
 
-    def stop(self, run):
+    def stop(self, run: cb.runner.Run):
       pass
 
-    def tear_down(self, run):
+    def tear_down(self, run: cb.runner.Run):
       logging.getLogger().removeHandler(self._log_handler)
       self._log_handler = None
       return self.results_file
@@ -57,16 +59,16 @@ class RunDurationsProbe(JsonResultProbe):
   IS_GENERAL_PURPOSE = False
   FLATTEN = False
 
-  def to_json(self, actions):
+  def to_json(self, actions: cb.runner.Actions):
     return actions.run.durations.to_json()
 
   class Scope(JsonResultProbe.Scope):
 
-    def stop(self, run):
+    def stop(self, run: cb.runner.Run):
       # Only extract data in the late TearDown phase.
       pass
 
-    def tear_down(self, run):
+    def tear_down(self, run: cb.runner.Run):
       json_data = self.extract_json(run)
       return self.write_json(run, json_data)
 
@@ -87,7 +89,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
   def is_attached(self):
     return True
 
-  def to_json(self, actions):
+  def to_json(self, actions: cb.runner.Actions):
     run = actions.run
     return {
         "name": run.name,

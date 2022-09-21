@@ -10,7 +10,7 @@ import unittest.mock as mock
 
 import pyfakefs.fake_filesystem_unittest
 
-from . import mockbenchmark as mockbenchmark
+from . import mockbenchmark
 
 import crossbench as cb
 from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig

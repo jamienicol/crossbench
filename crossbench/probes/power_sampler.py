@@ -2,11 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import csv
 import logging
 import pathlib
 import subprocess
+from typing import Optional, TYPE_CHECKING
 
+if TYPE_CHECKING:
+  import crossbench as cb
 import crossbench.probes as probes
 
 
@@ -19,7 +24,7 @@ class PowerSamplerProbe(probes.Probe):
   NAME = "powersampler"
   BATTERY_ONLY = True
 
-  def __init__(self, power_sampler_bin_path=None):
+  def __init__(self, power_sampler_bin_path: Optional[pathlib.Path] = None):
     super().__init__()
     # TODO(fix)
     power_sampler_bin_path = pathlib.Path.home(
@@ -39,13 +44,13 @@ class PowerSamplerProbe(probes.Probe):
     # TODO() warn about open terminals
     return True
 
-  def is_compatible(self, browser):
+  def is_compatible(self, browser: cb.browsers.Browser):
     # For now only supported on MacOs
     return browser.platform.is_macos
 
   class Scope(probes.Probe.Scope):
 
-    def __init__(self, probe, run):
+    def __init__(self, probe: probes.Probe, run: cb.runner.Run):
       super().__init__(probe, run)
       self._bin_path = probe._power_sampler_bin_path
       self._active_user_process = None
@@ -54,7 +59,7 @@ class PowerSamplerProbe(probes.Probe):
       self._battery_output = self.results_file.with_suffix(".battery.json")
       self._power_output = self.results_file.with_suffix(".power.json")
 
-    def setup(self, run):
+    def setup(self, run: cb.runner.Run):
       self._active_user_process = self.browser_platform.popen(
           self._bin_path,
           "--no-samplers",
@@ -64,7 +69,7 @@ class PowerSamplerProbe(probes.Probe):
           "Could not start active user background sa")
       self._wait_for_battery_not_full(run)
 
-    def start(self, run):
+    def start(self, run: cb.runner.Run):
       assert self._active_user_process is not None
       self._battery_process = self.browser_platform.popen(
           self._bin_path,
@@ -82,11 +87,11 @@ class PowerSamplerProbe(probes.Probe):
           stdout=subprocess.DEVNULL)
       assert self._power_process is not None, "Could not start power sampler"
 
-    def stop(self, run):
+    def stop(self, run: cb.runner.Run):
       self._power_process.terminate()
       self._battery_process.terminate()
 
-    def tear_down(self, run):
+    def tear_down(self, run: cb.runner.Run):
       self._power_process.kill()
       self._battery_process.kill()
       self._active_user_process.terminate()
@@ -95,7 +100,7 @@ class PowerSamplerProbe(probes.Probe):
           "battery": self._battery_output
       }.values())
 
-    def _wait_for_battery_not_full(self, run):
+    def _wait_for_battery_not_full(self, run: cb.runner.Run):
       """
       Empirical evidence has shown that right after a full battery charge, the
       current capacity stays equal to the maximum capacity for several minutes,

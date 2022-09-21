@@ -9,8 +9,11 @@ import json
 import logging
 import math
 import pathlib
+from re import A
+from typing import TYPE_CHECKING
 
-import crossbench as cb
+if TYPE_CHECKING:
+  import crossbench as cb
 import crossbench.probes as probes
 
 

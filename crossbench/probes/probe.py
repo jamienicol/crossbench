@@ -8,9 +8,10 @@ import abc
 import datetime as dt
 import logging
 import pathlib
-from typing import Set, Dict, Tuple, TypeVar, Generic, Union
+from typing import Set, Dict, Tuple, TypeVar, Generic, Union, TYPE_CHECKING
 
-import crossbench as cb
+if TYPE_CHECKING:
+  import crossbench as cb
 
 ProbeT = TypeVar('ProbeT', bound="cb.probes.Probe")
 

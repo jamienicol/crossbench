@@ -1,7 +1,12 @@
 # Copyright 2022 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+  import crossbench as cb
 from crossbench.probes import json
 
 
@@ -14,10 +19,10 @@ class PerformanceEntriesProbe(json.JsonResultProbe):
   """
   NAME = "performance.entries"
 
-  def is_compatible(self, browser):
+  def is_compatible(self, browser: cb.browsers.Browser):
     return hasattr(browser, "js")
 
-  def to_json(self, actions):
+  def to_json(self, actions: cb.runner.Actions):
     return actions.js("""
       let data = { __proto__: null, paint: {}, mark: {}};
       for (let entryType of Object.keys(data)) {

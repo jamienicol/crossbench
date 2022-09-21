@@ -57,10 +57,11 @@ class MockBrowser(cb.browsers.Browser):
   def __init__(self,
                label: str,
                path: Optional[pathlib.Path] = None,
+               browser_name:str = "chrome",
                *args,
                **kwargs):
     path = path or pathlib.Path(self.BIN_PATH)
-    kwargs["type"] = "test"
+    kwargs["type"] = browser_name
     super().__init__(label, path, *args, **kwargs)
     self.url_list = []
     self.js_list = []
@@ -69,11 +70,19 @@ class MockBrowser(cb.browsers.Browser):
     self.did_run = False
     self.clear_cache_dir = False
 
+  def clear_cache(self, runner: cb.runner.Runner):
+    pass
+
   def start(self, run: cb.runner.Run):
     assert not self._is_running
     self._is_running = True
     self.did_run = True
     self.run_js_side_effect = list(self.js_side_effect)
+
+  def force_quit(self):
+    # Assert that start() was called before force_quit()
+    assert self._is_running
+    self._is_running = False
 
   def _extract_version(self):
     return self.VERSION

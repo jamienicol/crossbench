@@ -6,7 +6,7 @@ import abc
 import pathlib
 import pyfakefs.fake_filesystem_unittest
 
-from . import mockbenchmark as mockbenchmark
+from . import mockbenchmark
 
 import crossbench as cb
 import crossbench.benchmarks as bm
