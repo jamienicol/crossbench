@@ -5,11 +5,18 @@
 from __future__ import annotations
 
 import pathlib
+from typing import TYPE_CHECKING
 
-import crossbench as cb
+if TYPE_CHECKING:
+  import crossbench as cb
+
+import crossbench.probes as probes
+import crossbench.stories as stories
+import crossbench.helper as helper
+import crossbench.benchmarks.base as benchmarks
 
 
-class JetStream2Probe(cb.probes.JsonResultProbe):
+class JetStream2Probe(probes.JsonResultProbe):
   """
   JetStream2-specific Probe.
   Extracts all JetStream2 times and scores.
@@ -40,7 +47,7 @@ class JetStream2Probe(cb.probes.JsonResultProbe):
     return data
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup):
-    merged = cb.probes.json.JSONMerger.from_merged_files(
+    merged = probes.json.JSONMerger.from_merged_files(
         story_group.results[self] for story_group in group.repetitions_groups)
     merged_json_file = self.write_group_result(group, merged.to_json())
     merged_csv_file = merged_json_file.with_suffix(".csv")
@@ -50,11 +57,11 @@ class JetStream2Probe(cb.probes.JsonResultProbe):
   def _json_to_csv(self, merged_data, out_file):
     assert not out_file.exists()
     # "story_name" => [ metric_value_path, ...], ...
-    grouped_by_story = cb.helper.group_by(
+    grouped_by_story = helper.group_by(
         sorted(merged_data.keys(), key=lambda path: str(path).lower()),
         key=lambda path: path.parts[0])
     # ("metric_name", ...) => [ "story_name", ... ], ...
-    grouped_by_metrics = cb.helper.group_by(
+    grouped_by_metrics = helper.group_by(
         grouped_by_story.items(),
         key=lambda item: tuple(sorted(path.name for path in item[1])),
         value=lambda item: item[0])
@@ -78,7 +85,7 @@ class JetStream2Probe(cb.probes.JsonResultProbe):
           f.write("\n")
 
 
-class JetStream2Story(cb.stories.PressBenchmarkStory):
+class JetStream2Story(stories.PressBenchmarkStory):
   NAME = "jetstream_2"
   PROBES = (JetStream2Probe,)
   URL = "https://browserbench.org/JetStream/"
@@ -157,7 +164,7 @@ class JetStream2Story(cb.stories.PressBenchmarkStory):
       if self._substories != self.SUBSTORIES:
         actions.wait_js_condition(("return JetStream && JetStream.benchmarks "
                                    "&& JetStream.benchmarks.length > 0;"),
-                                  cb.helper.wait_range(0.1, 10))
+                                  helper.wait_range(0.1, 10))
         actions.js(
             """
         let benchmarks = arguments[0];
@@ -168,7 +175,7 @@ class JetStream2Story(cb.stories.PressBenchmarkStory):
       actions.wait_js_condition(
           """
         return document.querySelectorAll("#results>.benchmark").length > 0;
-      """, cb.helper.wait_range(0.5, 10))
+      """, helper.wait_range(0.5, 10))
     with run.actions("Run") as actions:
       actions.js("JetStream.start()")
       actions.wait(2 * len(self._substories))
@@ -176,10 +183,10 @@ class JetStream2Story(cb.stories.PressBenchmarkStory):
           """
         let summaryElement = document.getElementById("result-summary");
         return (summaryElement.classList.contains("done"));
-        """, cb.helper.wait_range(1, 60 * 20))
+        """, helper.wait_range(1, 60 * 20))
 
 
-class JetStream2Runner(cb.runner.PressBenchmarkStoryRunner):
+class JetStream2Benchmark(benchmarks.PressBenchmark):
   """
   Benchmark runner for JetStream 2.
 

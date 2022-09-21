@@ -29,8 +29,8 @@ class BaseRunnerTest(
     ]
 
 
-class TestPageLoadRunner(BaseRunnerTest):
-  BENCHMARK = bm.loading.PageLoadRunner
+class TestPageLoadBenchmark(BaseRunnerTest):
+  BENCHMARK = bm.loading.PageLoadBenchmark
 
   def test_default_stories(self):
     stories = bm.loading.LivePage.from_names(["all"])
@@ -76,10 +76,12 @@ class TestPageLoadRunner(BaseRunnerTest):
 
   def test_run(self):
     stories = bm.loading.PAGE_LIST
-    runner = self.BENCHMARK(
+    benchmark = self.BENCHMARK(stories)
+    self.assertTrue(len(benchmark.describe()) > 0)
+    runner = cb.runner.Runner(
         self.out_dir,
         self.browsers,
-        stories,
+        benchmark,
         use_checklist=False,
         platform=self.platform)
     runner.run()
@@ -92,7 +94,7 @@ class TestPageLoadRunner(BaseRunnerTest):
 
 
 class JetStream2Test(BaseRunnerTest):
-  BENCHMARK = bm.jetstream.JetStream2Runner
+  BENCHMARK = bm.jetstream.JetStream2Benchmark
 
   def test_run(self):
     stories = bm.jetstream.JetStream2Story.from_names(['WSL'])
@@ -110,10 +112,12 @@ class JetStream2Test(BaseRunnerTest):
           jetstream_probe_results,
       ]
     repetitions = 3
-    runner = self.BENCHMARK(
+    benchmark = self.BENCHMARK(stories)
+    self.assertTrue(len(benchmark.describe()) > 0)
+    runner = cb.runner.Runner(
         self.out_dir,
         self.browsers,
-        stories,
+        benchmark,
         use_checklist=False,
         platform=self.platform,
         repetitions=repetitions)

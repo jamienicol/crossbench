@@ -2,13 +2,21 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import itertools
 import pathlib
+from typing import TYPE_CHECKING
 
-import crossbench as cb
+if TYPE_CHECKING:
+  import crossbench as cb
 
+import crossbench.probes as probes
+import crossbench.stories as stories
+import crossbench.helper as helper
+import crossbench.benchmarks.base as benchmarks
 
-class MotionMark12Probe(cb.probes.JsonResultProbe):
+class MotionMark12Probe(probes.JsonResultProbe):
   """
   MotionMark-specific Probe.
   Extracts all MotionMark times and scores.
@@ -31,14 +39,14 @@ class MotionMark12Probe(cb.probes.JsonResultProbe):
     return True
 
   def flatten_json_data(self, json_data):
-    flat_data = cb.probes.json.flatten(*json_data)
+    flat_data = probes.json.flatten(*json_data)
     flat_data = {
         k: v for k, v in flat_data.items() if MotionMark12Probe.filter(k, v)
     }
     return flat_data
 
 
-class MotionMark12Story(cb.stories.PressBenchmarkStory):
+class MotionMark12Story(stories.PressBenchmarkStory):
   NAME = "motionmark_1.2"
   PROBES = (MotionMark12Probe,)
   URL = "https://browserbench.org/MotionMark1.2/developer.html"
@@ -143,7 +151,7 @@ class MotionMark12Story(cb.stories.PressBenchmarkStory):
       actions.navigate_to(self._url)
       actions.wait_js_condition(
           """return document.querySelector("tree > li") !== undefined""",
-          cb.helper.wait_range(0.1, 10))
+          helper.wait_range(0.1, 10))
       num_enabled = actions.js(
           """
         let benchmarks = arguments[0];
@@ -171,10 +179,10 @@ class MotionMark12Story(cb.stories.PressBenchmarkStory):
       actions.wait_js_condition(
           """
           return window.benchmarkRunnerClient.results._results != undefined
-          """, cb.helper.wait_range(5, 20 * len(self._substories)))
+          """, helper.wait_range(5, 20 * len(self._substories)))
 
 
-class MotionMark12Runner(cb.runner.PressBenchmarkStoryRunner):
+class MotionMark12Benchmark(benchmarks.PressBenchmark):
   """
   Benchmark runner for MotionMark 1.2.
 
@@ -183,10 +191,3 @@ class MotionMark12Runner(cb.runner.PressBenchmarkStoryRunner):
 
   NAME = "motionmark_1.2"
   DEFAULT_STORY_CLS = MotionMark12Story
-
-  def __init__(self, *args, stories=None, **kwargs):
-    if isinstance(stories, self.DEFAULT_STORY_CLS):
-      stories = [stories]
-    for story in stories:
-      assert isinstance(story, self.DEFAULT_STORY_CLS)
-    super().__init__(*args, stories=stories, **kwargs)

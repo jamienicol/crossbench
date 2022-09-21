@@ -1,18 +1,23 @@
 # Copyright 2022 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+from __future__ import annotations
 
 import abc
 import logging
 import pathlib
 import re
-from typing import Iterable, Optional, Sequence, Union
+from typing import Iterable, Optional, Union, TYPE_CHECKING
 from urllib.parse import urlparse
 
-import crossbench as cb
+if TYPE_CHECKING:
+  import crossbench as cb
+
+import crossbench.stories as stories
+import crossbench.benchmarks.base as benchmarks
 
 
-class Page(cb.stories.Story, metaclass=abc.ABCMeta):
+class Page(stories.Story, metaclass=abc.ABCMeta):
   pass
 
 
@@ -135,7 +140,7 @@ PAGE_LIST = [
 PAGES = {page.name: page for page in PAGE_LIST}
 
 
-class PageLoadRunner(cb.runner.SubStoryRunner):
+class PageLoadBenchmark(benchmarks.SubStoryBenchmark):
   """
   Benchmark runner for loading pages.
 
@@ -163,14 +168,14 @@ class PageLoadRunner(cb.runner.SubStoryRunner):
         help="List of urls and durations to load: url,seconds,...")
     return parser
 
-  def __init__(self, out_dir: pathlib.Path,
-               browsers: Sequence[cb.browsers.Browser],
-               stories: Union[Page, Iterable[Page]], *args, **kwargs):
+  def __init__(self,
+               stories: Union[Page, Iterable[Page]],
+               duration: Optional[float] = None):
     if isinstance(stories, Page):
       stories = [stories]
-    duration: Optional[int] = kwargs.pop('duration', None)
     for story in stories:
       assert isinstance(story, Page)
       if duration is not None:
+        assert duration > 0, f"Invalid page duration={duration}s"
         story.duration = duration
-    super().__init__(out_dir, browsers, stories, *args, **kwargs)
+    super().__init__(stories)

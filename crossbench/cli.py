@@ -223,14 +223,16 @@ class CrossBenchCLI:
 
   BENCHMARKS = (
       cb.benchmarks.Speedometer20Runner,
-      cb.benchmarks.JetStream2Runner,
-      cb.benchmarks.MotionMark12Runner,
-      cb.benchmarks.PageLoadRunner,
+      cb.benchmarks.JetStream2Benchmark,
+      cb.benchmarks.MotionMark12Benchmark,
+      cb.benchmarks.PageLoadBenchmark,
   )
 
   GENERAL_PURPOSE_PROBES_BY_NAME = {
       cls.NAME: cls for cls in cb.probes.GENERAL_PURPOSE_PROBES
   }
+
+  RUNNER_CLS =  cb.runner.Runner
 
   def __init__(self):
     self.parser = argparse.ArgumentParser()
@@ -270,6 +272,7 @@ class CrossBenchCLI:
 
   def _setup_benchmark_subparser(self, benchmark_cls):
     subparser = benchmark_cls.add_cli_parser(self.subparsers)
+    self.RUNNER_CLS.add_cli_parser(subparser)
     assert isinstance(subparser, argparse.ArgumentParser), (
         f"Benchmark class {benchmark_cls}.add_cli_parser did not return "
         f"an ArgumentParser: {subparser}")
@@ -335,16 +338,19 @@ class CrossBenchCLI:
       args.browser_config = BrowserConfig()
       args.browser_config.load_from_args(args)
     args.browsers = args.browser_config.variants
+
     benchmark_cls = args.benchmark_cls
-    assert issubclass(benchmark_cls, cb.runner.Runner), (
+    assert issubclass(benchmark_cls, cb.benchmarks.Benchmark), (
         f"benchmark_cls={benchmark_cls} is not subclass of Runner")
-    kwargs = benchmark_cls.kwargs_from_cli(args)
-    benchmark = benchmark_cls(**kwargs)
+    benchmark = benchmark_cls(**benchmark_cls.kwargs_from_cli(args))
+
+    runner_kwargs = self.RUNNER_CLS.kwargs_from_cli(args)
+    runner  = self.RUNNER_CLS(benchmark=benchmark, **runner_kwargs)
     for probe_name in args.probe:
       probe = self.GENERAL_PURPOSE_PROBES_BY_NAME[probe_name]()
-      benchmark.attach_probe(probe, matching_browser_only=True)
-    benchmark.run(is_dry_run=args.dry_run)
-    results_json = benchmark.out_dir / "results.json"
+      runner.attach_probe(probe, matching_browser_only=True)
+    runner.run(is_dry_run=args.dry_run)
+    results_json = runner.out_dir / "results.json"
     print(f"RESULTS: {results_json}")
 
   def run(self, argv):

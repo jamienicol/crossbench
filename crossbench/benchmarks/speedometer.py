@@ -2,14 +2,23 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import argparse
 import json
 import pathlib
+from typing import TYPE_CHECKING
 
-import crossbench as cb
+if TYPE_CHECKING:
+  import crossbench as cb
+
+import crossbench.probes as probes
+import crossbench.stories as stories
+import crossbench.helper as helper
+import crossbench.benchmarks.base as benchmarks
 
 
-class Speedometer20Probe(cb.probes.JsonResultProbe):
+class Speedometer20Probe(probes.JsonResultProbe):
   """
   Speedometer2-specific probe.
   Extracts all speedometer times and scores.
@@ -24,12 +33,12 @@ class Speedometer20Probe(cb.probes.JsonResultProbe):
   def flatten_json_data(self, json_data):
     # json_data may contain multiple iterations, merge those first
     assert isinstance(json_data, list)
-    merged = cb.probes.json.merge(
+    merged = probes.json.merge(
         *json_data, value=lambda values: values.geomean)
-    return cb.probes.json.flatten(merged)
+    return probes.json.flatten(merged)
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup):
-    merged = cb.probes.json.JSONMerger.from_merged_files(
+    merged = probes.json.JSONMerger.from_merged_files(
         story_group.results[self] for story_group in group.repetitions_groups)
     merged_json_file = group.get_probe_results_file(self)
     with merged_json_file.open("w") as f:
@@ -47,7 +56,7 @@ class Speedometer20Probe(cb.probes.JsonResultProbe):
         for k, v in merged_data.items()
     }
     # "suite_name" => (metric_value_path, ...), ...
-    grouped_by_suite = cb.helper.group_by(
+    grouped_by_suite = helper.group_by(
         sorted(merged_data.keys(), key=lambda path: str(path).lower()),
         key=lambda path: path.parts[0])
     # Sort summary metrics ("total"...) last
@@ -68,7 +77,7 @@ class Speedometer20Probe(cb.probes.JsonResultProbe):
           f.write("\n")
 
 
-class Speedometer20Story(cb.stories.PressBenchmarkStory):
+class Speedometer20Story(stories.PressBenchmarkStory):
   NAME = "speedometer_2.0"
   PROBES = (Speedometer20Probe,)
   URL = "https://browserbench.org/Speedometer2.0/InteractiveRunner.html"
@@ -102,7 +111,7 @@ class Speedometer20Story(cb.stories.PressBenchmarkStory):
       actions.wait_js_condition(
           """
         return globalThis.Suites !== undefined;
-      """, cb.helper.wait_range(0.5, 10))
+      """, helper.wait_range(0.5, 10))
       if self._substories != self.SUBSTORIES:
         actions.js(
             """
@@ -135,11 +144,11 @@ class Speedometer20Story(cb.stories.PressBenchmarkStory):
       actions.wait(1 * len(self._substories))
       actions.wait_js_condition(
           "return globalThis.testDone",
-          cb.helper.wait_range(1, 10 +
+          helper.wait_range(1, 10 +
                                2 * len(self._substories) * self.iterations))
 
 
-class Speedometer20Runner(cb.runner.PressBenchmarkStoryRunner):
+class Speedometer20Runner(benchmarks.PressBenchmark):
   """
   Benchmark runner for Speedometer 2.0
   """
@@ -166,7 +175,7 @@ class Speedometer20Runner(cb.runner.PressBenchmarkStoryRunner):
     kwargs["iterations"] = args.iterations
     return kwargs
 
-  def __init__(self, *args, stories=None, iterations=None, **kwargs):
+  def __init__(self, stories=None, iterations=None):
     if isinstance(stories, self.DEFAULT_STORY_CLS):
       stories = [stories]
     elif stories is None:
@@ -175,4 +184,4 @@ class Speedometer20Runner(cb.runner.PressBenchmarkStoryRunner):
       assert isinstance(story, self.DEFAULT_STORY_CLS)
       if iterations:
         story.iterations = int(iterations)
-    super().__init__(*args, stories=stories, **kwargs)
+    super().__init__(stories)

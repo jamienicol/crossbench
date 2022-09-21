@@ -208,24 +208,7 @@ class ExceptionHandler:
     return [dict(title=str(e), trace=str(tb)) for tb, e in self._exceptions]
 
 
-class Benchmark:
-  pass
-
-
-class Runner(abc.ABC):
-  NAME = None
-  DEFAULT_STORY_CLS = None
-
-  # @property
-  # @classmethod
-  # def NAME(self) -> str:
-  #   pass
-
-  # @property
-  # @classmethod
-  # def DEFAULT_STORY_CLS(self) -> Type[cb.stories.Story]:
-  #   pass
-
+class Runner:
   @staticmethod
   def get_out_dir(cwd, suffix="", test=False) -> pathlib.Path:
     if test:
@@ -236,15 +219,7 @@ class Runner(abc.ABC):
             f"{dt.datetime.now().strftime('%Y-%m-%d_%H%M%S')}{suffix}")
 
   @classmethod
-  def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
-    assert cls.__doc__ and cls.__doc__, (
-        f"Benchmark class {cls} must provide a doc string.")
-    doc_title = cls.__doc__.strip().split("\n")[0]
-    parser = subparsers.add_parser(
-        cls.NAME,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        help=doc_title,
-        description=cls.__doc__.strip())
+  def add_cli_parser(cls, parser) -> argparse.ArgumentParser:
     parser.add_argument(
         "--repeat",
         default=1,
@@ -274,7 +249,7 @@ class Runner(abc.ABC):
   @classmethod
   def kwargs_from_cli(cls, args):
     if args.out_dir is None:
-      label = args.label or cls.NAME
+      label = args.label or args.benchmark_cls.NAME
       cli_dir = pathlib.Path(__file__).parent.parent
       args.out_dir = cls.get_out_dir(cli_dir, label)
     return dict(
@@ -284,29 +259,17 @@ class Runner(abc.ABC):
         use_checklist=args.use_checklist,
         throw=args.throw)
 
-  @classmethod
-  def describe(cls):
-    return {
-        "name": cls.NAME,
-        "description": cls.__doc__.strip(),
-        "stories": [],
-        "probes-default": {
-            probe_cls.NAME: probe_cls.__doc__.strip()
-            for probe_cls in cls.DEFAULT_STORY_CLS.PROBES
-        }
-    }
 
   def __init__(self,
                out_dir: pathlib.Path,
                browsers: Sequence[cb.browsers.Browser],
-               stories: Sequence[cb.stories.Story],
-               probes: Sequence[cb.probes.Probe] = (),
+               benchmark: cb.benchmarks.Benchmark,
+               additional_probes: Iterable[cb.probes.Probe] = (),
                platform: cb.helper.Platform = cb.helper.platform,
                throttle=True,
                repetitions=1,
                use_checklist=True,
                throw=False):
-    assert self.NAME is not None, f"{self} has no .NAME property"
     self.out_dir = out_dir
     assert not self.out_dir.exists(), f"out_dir={self.out_dir} exists already"
     self.out_dir.mkdir(parents=True)
@@ -314,10 +277,7 @@ class Runner(abc.ABC):
     self.browsers = browsers
     self._validate_browsers()
     self._browser_platform = browsers[0].platform
-    self.stories = stories
-    assert stories, "No stories provided"
-    if isinstance(stories, self.DEFAULT_STORY_CLS):
-      stories = [stories]
+    self.stories = benchmark.stories
     self.repetitions = repetitions
     assert self.repetitions > 0, f"Invalid repetitions={self.repetitions}"
     self.throttle = throttle
@@ -326,18 +286,11 @@ class Runner(abc.ABC):
     self._runs = []
     self._exceptions = ExceptionHandler(throw)
     self._platform = platform
-    self._attach_default_probes(probes)
+    self._attach_default_probes(additional_probes)
     self._validate_stories()
 
   def _validate_stories(self):
-    first_story = self.stories[0]
-    expected_probes_cls_list = first_story.PROBES
-    for story in self.stories:
-      assert isinstance(story, self.DEFAULT_STORY_CLS), (
-          f"story={story} has not the same class as {self.DEFAULT_STORY_CLS}")
-      assert story.PROBES == expected_probes_cls_list, (
-          f"stroy={story} has different PROBES than {first_story}")
-    for probe_cls in expected_probes_cls_list:
+    for probe_cls in self.stories[0].PROBES:
       assert inspect.isclass(probe_cls), (
           f"Story.PROBES must contain classes only, but got {type(probe_cls)}")
       self.attach_probe(probe_cls())
@@ -424,7 +377,6 @@ class Runner(abc.ABC):
     self.collect_hardware_details()
 
   def get_runs(self) -> Iterable[Run]:
-    """Extension point for subclasses."""
     for iteration in range(self.repetitions):
       for story in self.stories:
         for browser in self.browsers:
@@ -483,89 +435,6 @@ class Runner(abc.ABC):
         break
       logging.info("COOLDOWN: still hot, waiting some more")
 
-
-class SubStoryRunner(Runner):
-
-  @classmethod
-  def parse_cli_stories(cls, values):
-    return tuple(story.strip() for story in values.split(","))
-
-  @classmethod
-  def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
-    parser = super().add_cli_parser(subparsers)
-    parser.add_argument(
-        "--stories",
-        default="all",
-        type=cls.parse_cli_stories,
-        help="Comma-separated list of story names. Use 'all' as placeholder.")
-    is_combined_group = parser.add_mutually_exclusive_group()
-    is_combined_group.add_argument(
-        "--combined",
-        dest="separate",
-        default=False,
-        action="store_false",
-        help="Run each story in the same session. (default)")
-    is_combined_group.add_argument(
-        "--separate",
-        action="store_true",
-        help="Run each story in a fresh browser.")
-    return parser
-
-  @classmethod
-  def kwargs_from_cli(cls, args) -> dict:
-    kwargs = super().kwargs_from_cli(args)
-    kwargs["stories"] = cls.stories_from_cli(args)
-    return kwargs
-
-  @classmethod
-  def stories_from_cli(cls, args) -> Iterable[cb.stories.Story]:
-    assert issubclass(cls.DEFAULT_STORY_CLS, cb.stories.Story), (
-        f"{cls.__name__}.DEFAULT_STORY_CLS is not a Story class. "
-        f"Got '{cls.DEFAULT_STORY_CLS}' instead.")
-    return cls.DEFAULT_STORY_CLS.from_names(args.stories, args.separate)
-
-  @classmethod
-  def describe(cls) -> dict:
-    data = super().describe()
-    data["stories"] = cls.story_names()
-    return data
-
-  @classmethod
-  def story_names(cls) -> Iterable[str]:
-    return cls.DEFAULT_STORY_CLS.story_names()
-
-
-class PressBenchmarkStoryRunner(SubStoryRunner):
-
-  @classmethod
-  def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
-    parser = super().add_cli_parser(subparsers)
-    is_live_group = parser.add_mutually_exclusive_group()
-    is_live_group.add_argument(
-        "--live",
-        default=True,
-        action="store_true",
-        help="Use live/online benchmark url.")
-    is_live_group.add_argument(
-        "--local",
-        dest="live",
-        action="store_false",
-        help="Use locally hosted benchmark url.")
-    return parser
-
-  @classmethod
-  def stories_from_cli(cls, args) -> Iterable[cb.stories.PressBenchmarkStory]:
-    assert issubclass(cls.DEFAULT_STORY_CLS, cb.stories.PressBenchmarkStory)
-    return cls.DEFAULT_STORY_CLS.from_names(args.stories, args.separate,
-                                            args.live)
-
-  @classmethod
-  def describe(cls) -> dict:
-    data = super().describe()
-    assert issubclass(cls.DEFAULT_STORY_CLS, cb.stories.PressBenchmarkStory)
-    data["url"] = cls.DEFAULT_STORY_CLS.URL
-    data["url-local"] = cls.DEFAULT_STORY_CLS.URL_LOCAL
-    return data
 
 
 class RunGroup:
