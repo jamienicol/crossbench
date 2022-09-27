@@ -148,7 +148,7 @@ class Speedometer20Story(stories.PressBenchmarkStory):
                                2 * len(self._substories) * self.iterations))
 
 
-class Speedometer20Runner(benchmarks.PressBenchmark):
+class Speedometer20Benchmark(benchmarks.PressBenchmark):
   """
   Benchmark runner for Speedometer 2.0
   """

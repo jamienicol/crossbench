@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import re
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Tuple
+from typing import List, Optional, Sequence, Tuple, Union
 
 
 class Story(ABC):
@@ -15,7 +15,7 @@ class Story(ABC):
 
   @classmethod
   @abstractmethod
-  def story_names(cls):
+  def story_names(cls) -> Sequence[str]:
     pass
 
   @classmethod
@@ -23,7 +23,7 @@ class Story(ABC):
   def from_names(cls, names, separate=False):
     pass
 
-  def __init__(self, name: str, duration=15):
+  def __init__(self, name: str, duration: float = 15):
     assert name, "Invalid page name"
     self._name = name
     assert duration > 0, (
@@ -31,13 +31,13 @@ class Story(ABC):
     self.duration = duration
 
   @property
-  def name(self):
+  def name(self) -> str:
     return self._name
 
   def details_json(self):
     return dict(name=self.name, duration=self.duration)
 
-  def is_done(self, _):
+  def is_done(self, _) -> bool:
     return True
 
   @abstractmethod
@@ -59,9 +59,12 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     return cls.SUBSTORIES
 
   @classmethod
-  def from_names(cls, names, separate=False, live=True):
-    if len(names) == 1:
-      first = names[0]
+  def from_names(cls, names:Union[Sequence[str], str], separate=False, live=True):
+    if len(names) == 1 or isinstance(names, str):
+      if isinstance(names, str):
+        first = names
+      else:
+        first = names[0]
       if first == "all":
         names = cls.SUBSTORIES
       elif first not in cls.SUBSTORIES:
@@ -97,13 +100,21 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     ]
 
   @classmethod
-  def get_substories(cls, separate, substories):
+  def get_substories(cls, separate:bool, substories:Sequence[str]):
     substories = substories or cls.SUBSTORIES
     if separate:
       return substories
     return [substories]
 
-  def __init__(self, *args, is_live=True, substories=None, **kwargs):
+
+  _substories : List[str]
+  is_live : bool
+
+  def __init__(self,
+               *args,
+               is_live: bool = True,
+               substories: Optional[Union[str, List[str]]] = None,
+               **kwargs):
     cls = self.__class__
     assert self.SUBSTORIES, f"{cls}.SUBSTORIES is not set."
     assert self.NAME is not None, f"{cls}.NAME is not set."
@@ -125,7 +136,7 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
       self._url = self.URL_LOCAL
     assert self._url is not None, f"Invalid URL for {self.NAME}"
 
-  def _verify_url(self, url, property_name):
+  def _verify_url(self, url:str, property_name:str):
     cls = self.__class__
     assert url is not None, f"{cls}.{property_name} is not set."
 

@@ -223,7 +223,7 @@ class BrowserConfig:
 class CrossBenchCLI:
 
   BENCHMARKS = (
-      cb.benchmarks.Speedometer20Runner,
+      cb.benchmarks.Speedometer20Benchmark,
       cb.benchmarks.JetStream2Benchmark,
       cb.benchmarks.MotionMark12Benchmark,
       cb.benchmarks.PageLoadBenchmark,

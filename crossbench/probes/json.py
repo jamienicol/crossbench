@@ -30,7 +30,7 @@ class JsonResultProbe(probes.Probe, metaclass=abc.ABCMeta):
   FLATTEN = True
 
   @property
-  def results_file_name(self):
+  def results_file_name(self) -> str:
     return f"{self.name}.json"
 
   @abc.abstractmethod
@@ -144,14 +144,14 @@ class Values:
     return sum(self.values) / len(self.values)
 
   @property
-  def geomean(self):
+  def geomean(self) -> float:
     product = 1
     for value in self.values:
       product *= value
     return product**(1 / len(self.values))
 
   @property
-  def stddev(self):
+  def stddev(self) -> float:
     """
     We're ignoring here any actual distribution of the data and use this as a
     rough estimate of the quality of the data
