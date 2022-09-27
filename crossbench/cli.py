@@ -9,6 +9,7 @@ import itertools
 import json
 import logging
 import pathlib
+from tabulate import tabulate
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import crossbench as cb
@@ -251,10 +252,22 @@ class CrossBenchCLI:
   def _setup_subparser(self):
     self.subparsers = self.parser.add_subparsers(
         title="Subcommands", dest="subcommand", required=True)
+
     for benchmark_cls in self.BENCHMARKS:
       self._setup_benchmark_subparser(benchmark_cls)
+
     describe_parser = self.subparsers.add_parser(
-        "describe", help="Print all benchmarks and stories")
+        "describe", aliases=["desc"], help="Print all benchmarks and stories")
+    describe_parser.add_argument(
+        "filter",
+        nargs="?",
+        choices=["all", "benchmarks", "probes"],
+        default="all",
+        help="Limit output to the given category, defaults to 'all'")
+    describe_parser.add_argument("--json",
+                                 default=False,
+                                 action="store_true",
+                                 help="Print the data as json data")
     describe_parser.set_defaults(subcommand=self.describe_subcommand)
 
   def describe_subcommand(self, args):
@@ -268,7 +281,33 @@ class CrossBenchCLI:
             for probe_cls in cb.probes.GENERAL_PURPOSE_PROBES
         }
     }
-    print(json.dumps(data, indent=2))
+    if args.json:
+      if args.filter == "probes":
+        data = data["probes"]
+      elif args.filter == "benchmarks":
+        data = data["benchmarks"]
+      else:
+        assert args.filter == "all"
+      print(json.dumps(data, indent=2))
+      return
+    # Create tabular format
+    if args.filter == "all" or args.filter == "benchmarks":
+      table = [["Benchmark", "Property", "Value"]]
+      for benchmark_name, values in data['benchmarks'].items():
+        table.append([benchmark_name, ])
+        for name, value in values.items():
+          if isinstance(value, (tuple, list)):
+            value = "\n".join(value)
+          elif isinstance(value, dict):
+            value = tabulate(value.items(), tablefmt="plain")
+          table.append([None, name, value])
+      print(tabulate(table, tablefmt="grid"))
+    if args.filter == "all" or args.filter == "probes":
+      print(
+          tabulate(data["probes"].items(),
+                   headers=["Probe", "Help"],
+                   tablefmt="grid"))
+
 
   def _setup_benchmark_subparser(self, benchmark_cls):
     subparser = benchmark_cls.add_cli_parser(self.subparsers)
