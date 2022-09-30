@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import abc
+import ctypes
 import datetime as dt
 import logging
 import os
@@ -247,6 +248,12 @@ class Platform(abc.ABC):
           shutil.copyfileobj(input_f, output_f)
     return output
 
+  def set_main_display_brightness(self, brightness_level: int):
+    raise NotImplementedError("Implemention is only available on MacOS for now")
+
+  def get_main_display_brightness(self):
+    raise NotImplementedError("Implemention is only available on MacOS for now")
+
 
 class SubprocessError(subprocess.CalledProcessError):
   """ Custom version that also prints stderr for debugging"""
@@ -325,6 +332,65 @@ class MacOSPlatform(UnixPlatform):
                     falconctl)
     else:
       self.sh("sudo", falconctl, "unload")
+
+  def set_main_display_brightness(self, brightness_level: int):
+    """Sets the main display brightness at the specified percentage by brightness_level.
+    
+    This function imitates the open-source "brightness" tool at
+    https://github.com/nriley/brightness.
+    Since the benchmark doesn't care about older MacOSen, multiple displays
+    or other complications that tool has to consider, setting the brightness
+    level boils down to calling this function for the main display.
+
+    Args:
+      brightness_level: Percentage at which we want to set screen brightness.
+
+    Raises:
+      AssertionError: An error occused when we tried to set the brightness
+    """
+    CoreGraphics = ctypes.CDLL(
+        "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
+    main_display = CoreGraphics.CGMainDisplayID()
+    DisplayServices = ctypes.CDLL(
+        "/System/Library/PrivateFrameworks/DisplayServices.framework"
+        "/DisplayServices")
+    DisplayServices.DisplayServicesSetBrightness.argtypes = [
+        ctypes.c_int, ctypes.c_float
+    ]
+    ret = DisplayServices.DisplayServicesSetBrightness(main_display,
+                                                       brightness_level / 100)
+    assert ret == 0
+
+  def get_main_display_brightness(self):
+    """Gets the current brightness level of the main display .
+    
+    This function imitates the open-source "brightness" tool at
+    https://github.com/nriley/brightness.
+    Since the benchmark doesn't care about older MacOSen, multiple displays
+    or other complications that tool has to consider, setting the brightness
+    level boils down to calling this function for the main display.
+
+    Returns:
+      An int of the current percentage value of the main screen brightness
+
+    Raises:
+      AssertionError: An error occused when we tried to set the brightness
+    """
+    CoreGraphics = ctypes.CDLL(
+        "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
+    main_display = CoreGraphics.CGMainDisplayID()
+    display_brightness = ctypes.c_float()
+    DisplayServices = ctypes.CDLL(
+        "/System/Library/PrivateFrameworks/DisplayServices.framework"
+        "/DisplayServices")
+    DisplayServices.DisplayServicesGetBrightness.argtypes = [
+        ctypes.c_int, ctypes.POINTER(ctypes.c_float)
+    ]
+    ret = DisplayServices.DisplayServicesGetBrightness(
+        main_display, ctypes.byref(display_brightness))
+
+    assert ret == 0
+    return round(display_brightness.value * 100)
 
 
 class LinuxPlatform(UnixPlatform):

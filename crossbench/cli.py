@@ -350,6 +350,13 @@ class CrossBenchCLI:
         "directly to chrome. Any other browser option can be passed "
         "after the '--' arguments separator.")
     chrome_args.add_argument("--js-flags", dest="js_flags")
+    subparser.add_argument(
+        "--set-brightness",
+        dest="brightness",
+        type=int,
+        help="Use this to set the brightness of the main screen to specific "
+        "value between 0-100. Setting the screen to a constant value stops the "
+        "OS from adapting the screen's brightness.")
 
     DOC = "See chrome's base/feature_list.h source file for more details"
     chrome_args.add_argument(
@@ -364,6 +371,9 @@ class CrossBenchCLI:
         subcommand=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
 
   def benchmark_subcommand(self, args):
+    # Currently set_main_display_brightness is only available on MACOS
+    if args.brightness and cb.helper.platform.is_macos:
+      cb.helper.platform.set_main_display_brightness(args.brightness)
     if args.browser_config:
       path = args.browser_config.expanduser()
       if not path.exists():
