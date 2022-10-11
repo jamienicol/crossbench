@@ -11,6 +11,13 @@ to setup the correct environment for testing and debugging.
 pip3 install poetry
 ```
 
+Install the necessary dependencies from lock file via poetry
+
+```
+poetry install
+```
+
+
 ## Basic usage:
 
 ```
@@ -19,6 +26,11 @@ poetry run crossbench speedometer_2.0 \
     --stories=VanillaJS.* \
     --probe=profiling \
     --probe=v8.log
+```
+
+## Run Unit tests
+```
+poetry run python -m unittest
 ```
 
 ## Main Components
