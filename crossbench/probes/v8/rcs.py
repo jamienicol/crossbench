@@ -12,7 +12,7 @@ import crossbench.probes as probes
 
 class V8RCSProbe(probes.Probe):
   """
-  Chromium-only Probe to extract runtime-call-stats data that can be used by
+  Chromium-only Probe to extract runtime-call-stats data that can be used
   to analyze precise counters and time spent in various VM components in V8:
   https://v8.github.io/tools/head/callstats.html
   """

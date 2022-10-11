@@ -13,6 +13,8 @@ from typing import Set, Dict, Tuple, TypeVar, Generic, Union, TYPE_CHECKING
 if TYPE_CHECKING:
   import crossbench as cb
 
+import crossbench.helper as helper
+
 ProbeT = TypeVar('ProbeT', bound="cb.probes.Probe")
 
 
@@ -69,7 +71,7 @@ class Probe(abc.ABC):
   @property
   def runner_platform(self) -> cb.helper.Platform:
     # TODO(cbruni): support remote platforms
-    return cb.helper.platform
+    return helper.platform
 
   @property
   def name(self) -> str:

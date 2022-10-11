@@ -25,8 +25,8 @@ class ProfilingProbe(probes.Probe):
   - Uses xctrace on MacOS (currently only system-wide)
 
   For linux-based Chromium browsers it also injects JS stack samples with names
-  from V8. For Googlers it additionally it can auto-uploads symbolized profiles
-  to pprof.
+  from V8. For Googlers it additionally can auto-upload symbolized profiles to
+  pprof.
   """
   NAME = "profiling"
 
