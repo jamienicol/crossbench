@@ -4,11 +4,14 @@
 
 from __future__ import annotations
 
+import abc
 import pathlib
 import psutil
 from typing import List, Optional
+import pyfakefs.fake_filesystem_unittest
 
 import crossbench as cb
+import crossbench.cli as cli
 
 FlagsInitialDataType = cb.flags.Flags.InitialDataType
 
@@ -26,7 +29,7 @@ class MockPlatform(ActivePlatformClass):
   def is_battery_powered(self):
     return self._is_battery_powered
 
-  def disk_usage(self, path):
+  def disk_usage(self, path: pathlib.Path):
     return psutil._common.sdiskusage(
         total=GiB * 100, used=20 * GiB, free=80 * GiB, percent=20)
 
@@ -70,6 +73,7 @@ class MockBrowser(cb.browsers.Browser):
     self.run_js_side_effect = []
     self.did_run = False
     self.clear_cache_dir = False
+    self.js_flags = cb.flags.JSFlags()
 
   def clear_cache(self, runner: cb.runner.Runner):
     pass
@@ -133,3 +137,35 @@ class MockSafari(MockBrowser):
   @classmethod
   def setup_fs(cls, fs):
     return super().setup_fs(fs, bin_name="Safari")
+
+
+class MockStory(cb.stories.Story):
+  pass
+
+
+class MockBenchmark(cb.benchmarks.base.SubStoryBenchmark):
+  DEFAULT_STORY_CLS = MockStory
+
+
+class MockCLI(cli.CrossBenchCLI):
+
+  def _get_runner(self, args, benchmark):
+    runner_kwargs = self.RUNNER_CLS.kwargs_from_cli(args)
+    return self.RUNNER_CLS(
+        benchmark=benchmark, **runner_kwargs, platform=mock_platform)
+
+
+class BaseCrossbenchTestCase(
+    pyfakefs.fake_filesystem_unittest.TestCase, metaclass=abc.ABCMeta):
+
+  def setUp(self):
+    self.setUpPyfakefs(modules_to_reload=[cb])
+    MockChromeDev.setup_fs(self.fs)
+    MockChromeStable.setup_fs(self.fs)
+    self.platform = mock_platform
+    self.out_dir = pathlib.Path("tmp/results/test")
+    self.out_dir.parent.mkdir(parents=True)
+    self.browsers = [
+        MockChromeDev("dev", platform=self.platform),
+        MockChromeStable("stable", platform=self.platform)
+    ]

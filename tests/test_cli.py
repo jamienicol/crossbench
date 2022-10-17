@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import argparse
 import io
 import json
 import pathlib
@@ -22,20 +23,22 @@ class SysExitException(Exception):
     super().__init__("sys.exit")
 
 
-class TestCLI(pyfakefs.fake_filesystem_unittest.TestCase):
-
-  def setUp(self):
-    self.setUpPyfakefs()
+class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
 
   def run_cli(self, *args, raises=None):
     with mock.patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
-      cli = CrossBenchCLI()
+      cli = mockbenchmark.MockCLI()
       if raises:
         with self.assertRaises(raises):
           cli.run(args)
       else:
         cli.run(args)
       return mock_stdout.getvalue()
+
+  def test_invalid(self):
+    with mock.patch("sys.exit", side_effect=SysExitException) as exit_mock:
+      self.run_cli(
+          "unknown subcommand", "--invalid flag", raises=SysExitException)
 
   def test_describe(self):
     stdout = self.run_cli("describe", "--json")
@@ -59,6 +62,80 @@ class TestCLI(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertTrue(exit_mock.called)
         exit_mock.assert_called_with(0)
         self.assertGreater(len(stdout), 0)
+
+  def test_invalid_probe(self):
+    with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
+      self.run_cli(
+          "loading", "--probe=invalid_probe_name", raises=SysExitException)
+
+  def test_basic_probe_setting(self):
+    with mock.patch.object(
+        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      url = "http://test.com"
+      self.run_cli("loading", "--probe=v8.log", f"--urls={url}",
+                   "--skip-checklist")
+      for browser in self.browsers:
+        self.assertListEqual([url], browser.url_list)
+        self.assertIn("--log", browser.js_flags)
+
+  def test_invalid_empty_probe_config_file(self):
+    config_file = pathlib.Path("/config.hjson")
+    config_file.touch()
+    with mock.patch.object(
+        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      url = "http://test.com"
+      with self.assertRaises(ValueError):
+        self.run_cli("loading", f"--probe-config={config_file}",
+                     f"--urls={url}", "--skip-checklist")
+      for browser in self.browsers:
+        self.assertListEqual([], browser.url_list)
+        self.assertNotIn("--log", browser.js_flags)
+
+  def test_empty_probe_config_file(self):
+    config_file = pathlib.Path("/config.hjson")
+    config_data = {"probes": {}}
+    with config_file.open("w") as f:
+      json.dump(config_data, f)
+    with mock.patch.object(
+        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      url = "http://test.com"
+      self.run_cli("loading", f"--probe-config={config_file}", f"--urls={url}",
+                   "--skip-checklist")
+      for browser in self.browsers:
+        self.assertListEqual([url], browser.url_list)
+        self.assertNotIn("--log", browser.js_flags)
+
+  def test_invalid_probe_config_file(self):
+    config_file = pathlib.Path("/config.hjson")
+    config_data = {"probes": {"invalid probe name": {}}}
+    with config_file.open("w") as f:
+      json.dump(config_data, f)
+    with mock.patch.object(
+        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      url = "http://test.com"
+      with self.assertRaises(ValueError):
+        self.run_cli("loading", f"--probe-config={config_file}",
+                     f"--urls={url}", "--skip-checklist")
+      for browser in self.browsers:
+        self.assertListEqual([], browser.url_list)
+        self.assertEqual(len(browser.js_flags), 0)
+
+  def test_probe_config_file(self):
+    config_file = pathlib.Path("/config.hjson")
+    js_flags = ["--log-foo", "--log-bar"]
+    config_data = {"probes": {"v8.log": {"js_flags": js_flags}}}
+    with config_file.open("w", encoding="utf-8") as f:
+      json.dump(config_data, f)
+
+    with mock.patch.object(
+        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      url = "http://test.com"
+      self.run_cli("loading", f"--probe-config={config_file}", f"--urls={url}",
+                   "--skip-checklist")
+      for browser in self.browsers:
+        self.assertListEqual([url], browser.url_list)
+        for flag in js_flags:
+          self.assertIn(flag, browser.js_flags)
 
 
 class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):

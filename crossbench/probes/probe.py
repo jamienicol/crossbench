@@ -51,6 +51,10 @@ class Probe(abc.ABC):
   def NAME(self) -> str:
     pass
 
+  @classmethod
+  def from_config(cls, config_data: Dict) -> Probe:
+    return cls()
+
   # Set to False if the Probe cannot be used with arbitrary Stories or Pages
   IS_GENERAL_PURPOSE: bool = True
   PRODUCES_DATA: bool = True

@@ -10,7 +10,7 @@ import json
 import logging
 import pathlib
 from tabulate import tabulate
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import crossbench as cb
 
@@ -62,6 +62,16 @@ class FlagGroupConfig:
 
 
 class BrowserConfig:
+
+  @classmethod
+  def from_cli_args(cls, args):
+    if args.browser_config:
+      path = args.browser_config.expanduser()
+      with path.open() as f:
+        return cls.load(f)
+    browser_config = BrowserConfig()
+    browser_config.load_from_args(args)
+    return browser_config
 
   @classmethod
   def load(cls, f, browser_lookup_override={}):
@@ -221,6 +231,65 @@ class BrowserConfig:
         f"Unknown browser path or short name: '{path_or_identifier}'")
 
 
+class ProbeConfig:
+
+  LOOKUP: Dict[str, Type[cb.probes.Probe]] = {
+      cls.NAME: cls for cls in cb.probes.GENERAL_PURPOSE_PROBES
+  }
+
+  @classmethod
+  def from_cli_args(cls, args):
+    if args.probe_config:
+      with args.probe_config.open() as f:
+        return cls.load(f)
+    return cls(args.probe)
+
+  @classmethod
+  def load(cls, file):
+    probe_config = cls()
+    probe_config.load_config_file(file)
+    return probe_config
+
+  def __init__(self, probe_names: Optional[Iterable[str]] = None):
+    self._probes: List[cb.probes.Probe] = []
+    if probe_names:
+      for probe_name in probe_names:
+        self.add_probe(probe_name)
+
+  @property
+  def probes(self) -> List[cb.probes.Probe]:
+    return self._probes
+
+  def add_probe(self, name):
+    if name not in self.LOOKUP:
+      raise ValueError(f"Unknown probe name: '{name}'")
+    probe_cls = self.LOOKUP[name]
+    self._probes.append(probe_cls())
+
+  def load_config_file(self, file):
+    data = hjson.load(file)
+    if "probes" not in data:
+      raise ValueError(
+          "Probe config file does not contain a 'probes' dict value.")
+    for probe_name, config_data in data['probes'].items():
+      if probe_name not in self.LOOKUP:
+        raise ValueError(f"Unknown probe name: '{probe_name}'")
+      probe_cls = self.LOOKUP[probe_name]
+      self._probes.append(probe_cls.from_config(config_data))
+
+
+def existing_file_type(str_value):
+  try:
+    path = pathlib.Path(str_value).expanduser()
+  except RuntimeError as e:
+    raise argparse.ArgumentTypeError(f"Invalid Path '{str_value}': {e}") from e
+  if not path.exists():
+    raise argparse.ArgumentTypeError(f"Path '{path}', does not exist.")
+  if not path.is_file():
+    raise argparse.ArgumentTypeError(f"Path '{path}', is not a file.")
+  return path
+
+
 class CrossBenchCLI:
 
   BENCHMARKS = (
@@ -229,10 +298,6 @@ class CrossBenchCLI:
       cb.benchmarks.MotionMark12Benchmark,
       cb.benchmarks.PageLoadBenchmark,
   )
-
-  GENERAL_PURPOSE_PROBES_BY_NAME = {
-      cls.NAME: cls for cls in cb.probes.GENERAL_PURPOSE_PROBES
-  }
 
   RUNNER_CLS =  cb.runner.Runner
 
@@ -321,6 +386,7 @@ class CrossBenchCLI:
         action="store_true",
         default=False,
         help="Don't run any browsers or probes")
+
     browser_group = subparser.add_mutually_exclusive_group()
     browser_group.add_argument(
         "--browser",
@@ -331,19 +397,31 @@ class CrossBenchCLI:
         "Cannot be used with --browser-config")
     browser_group.add_argument(
         "--browser-config",
-        type=pathlib.Path,
+        type=existing_file_type,
         help="Browser configuration.json file. "
         "Use this to run multiple browsers and/or multiple flag configurations."
         "See browser.config.example.hjson on how to set up a complex "
         "configuration file. "
         "Cannot be used together with --browser.")
-    subparser.add_argument(
+
+    probe_group = subparser.add_mutually_exclusive_group()
+    probe_group.add_argument(
         "--probe",
         action="append",
         default=[],
-        choices=self.GENERAL_PURPOSE_PROBES_BY_NAME.keys(),
+        choices=ProbeConfig.LOOKUP.keys(),
         help="Enable general purpose probes to measure data on all cb.stories "
-        "This argument can be specified multiple times to add more probes")
+        "This argument can be specified multiple times to add more probes"
+        "Cannot be used together with --probe-config")
+    probe_group.add_argument(
+        "--probe-config",
+        type=existing_file_type,
+        help="Browser configuration.json file. "
+        "Use this config file to specify more complex Probe settings."
+        "See probe.config.example.hjson on how to set up a complex "
+        "configuration file. "
+        "Cannot be used together with --probe.")
+
     subparser.add_argument("other_browser_args", nargs="*")
     chrome_args = subparser.add_argument_group(
         "Chrome-forwarded Options",
@@ -375,33 +453,37 @@ class CrossBenchCLI:
     # Currently set_main_display_brightness is only available on MACOS
     if args.brightness and cb.helper.platform.is_macos:
       cb.helper.platform.set_main_display_brightness(args.brightness)
-    if args.browser_config:
-      path = args.browser_config.expanduser()
-      if not path.exists():
-        raise argparse.ArgumentTypeError(
-            f"Browser config file '{path.absolute()}' does not exist")
-      assert args.browser is None, (
-          "Cannot specify --browser and --browser-config at the same time")
-      with path.open() as f:
-        args.browser_config = BrowserConfig.load(f)
-    else:
-      args.browser_config = BrowserConfig()
-      args.browser_config.load_from_args(args)
-    args.browsers = args.browser_config.variants
 
-    benchmark_cls = args.benchmark_cls
-    assert issubclass(benchmark_cls, cb.benchmarks.Benchmark), (
-        f"benchmark_cls={benchmark_cls} is not subclass of Runner")
-    benchmark = benchmark_cls(**benchmark_cls.kwargs_from_cli(args))
-
-    runner_kwargs = self.RUNNER_CLS.kwargs_from_cli(args)
-    runner  = self.RUNNER_CLS(benchmark=benchmark, **runner_kwargs)
-    for probe_name in args.probe:
-      probe = self.GENERAL_PURPOSE_PROBES_BY_NAME[probe_name]()
+    benchmark = self._get_benchmark(args)
+    args.browsers = self._get_browsers(args)
+    probes = self._get_probes(args)
+    runner = self._get_runner(args, benchmark)
+    for probe in probes:
       runner.attach_probe(probe, matching_browser_only=True)
     runner.run(is_dry_run=args.dry_run)
     results_json = runner.out_dir / "results.json"
     print(f"RESULTS: {results_json}")
+
+  def _get_browsers(self, args) -> Sequence[cb.browsers.Browser]:
+    args.browser_config = BrowserConfig.from_cli_args(args)
+    return args.browser_config.variants
+
+  def _get_probes(self, args) -> Sequence[cb.probes.Probe]:
+    args.probe_config = ProbeConfig.from_cli_args(args)
+    return args.probe_config.probes
+
+  def _get_benchmark(self, args) -> cb.benchmarks.Benchmark:
+    benchmark_cls = self._get_benchmark_cls(args)
+    assert issubclass(benchmark_cls, cb.benchmarks.Benchmark), (
+        f"benchmark_cls={benchmark_cls} is not subclass of Runner")
+    return benchmark_cls.from_cli_args(args)
+
+  def _get_benchmark_cls(self, args) -> Type[cb.benchmarks.Benchmark]:
+    return args.benchmark_cls
+
+  def _get_runner(self, args, benchmark) -> cb.runner.Runner:
+    runner_kwargs = self.RUNNER_CLS.kwargs_from_cli(args)
+    return self.RUNNER_CLS(benchmark=benchmark, **runner_kwargs)
 
   def run(self, argv):
     args = self.parser.parse_args(argv)
@@ -410,13 +492,13 @@ class CrossBenchCLI:
 
   def _initialize_logging(self, args):
     logging.getLogger().setLevel(logging.INFO)
-    consoleHandler = logging.StreamHandler()
+    console_handler = logging.StreamHandler()
     if args.verbosity == 0:
-      consoleHandler.setLevel(logging.WARNING)
+      console_handler.setLevel(logging.WARNING)
     elif args.verbosity == 1:
-      consoleHandler.setLevel(logging.INFO)
+      console_handler.setLevel(logging.INFO)
     elif args.verbosity > 1:
-      consoleHandler.setLevel(logging.DEBUG)
+      console_handler.setLevel(logging.DEBUG)
       logging.getLogger().setLevel(logging.DEBUG)
-    consoleHandler.addFilter(logging.Filter("root"))
-    logging.getLogger().addHandler(consoleHandler)
+    console_handler.addFilter(logging.Filter("root"))
+    logging.getLogger().addHandler(console_handler)

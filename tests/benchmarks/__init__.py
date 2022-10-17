@@ -12,7 +12,7 @@ import crossbench as cb
 
 
 class BaseBenchmarkTestCase(
-    pyfakefs.fake_filesystem_unittest.TestCase, metaclass=abc.ABCMeta):
+    mockbenchmark.BaseCrossbenchTestCase, metaclass=abc.ABCMeta):
 
   @property
   @abc.abstractmethod
@@ -24,19 +24,10 @@ class BaseBenchmarkTestCase(
     return self.benchmark_cls.DEFAULT_STORY_CLS
 
   def setUp(self):
-    self.setUpPyfakefs(modules_to_reload=[cb, mockbenchmark])
+    super().setUp()
     self.assertTrue(
         issubclass(self.benchmark_cls, cb.benchmarks.Benchmark),
         f"Expected Benchmark subclass, but got: BENCHMARK={self.benchmark_cls}")
-    mockbenchmark.MockChromeDev.setup_fs(self.fs)
-    mockbenchmark.MockChromeStable.setup_fs(self.fs)
-    self.platform = mockbenchmark.mock_platform
-    self.out_dir = pathlib.Path("tmp/results/test")
-    self.out_dir.parent.mkdir(parents=True)
-    self.browsers = [
-        mockbenchmark.MockChromeDev("dev", platform=self.platform),
-        mockbenchmark.MockChromeStable("stable", platform=self.platform)
-    ]
 
 
 class BenchmarkTestCaseMixin:

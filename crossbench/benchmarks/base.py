@@ -41,6 +41,15 @@ class Benchmark(abc.ABC):
         }
     }
 
+  @classmethod
+  def kwargs_from_cli(cls, args) -> dict:
+    return {}
+
+  @classmethod
+  def from_cli_args(cls, args) -> Benchmark:
+    kwargs = cls.kwargs_from_cli(args)
+    return cls(**kwargs)
+
   def __init__(self,
                stories: Union[cb_stories.Story, Sequence[cb_stories.Story]]):
     assert self.NAME is not None, f"{self} has no .NAME property"
@@ -55,7 +64,8 @@ class Benchmark(abc.ABC):
     assert self.stories, "No stories provided"
     for story in self.stories:
       assert isinstance(story, self.DEFAULT_STORY_CLS), (
-          f"story={story} has not the same class as {self.DEFAULT_STORY_CLS}")
+          f"story={story} should be a subclass/the same "
+          f"class as {self.DEFAULT_STORY_CLS}")
     first_story = self.stories[0]
     expected_probes_cls_list = first_story.PROBES
     for story in self.stories:
@@ -92,14 +102,16 @@ class SubStoryBenchmark(Benchmark):
 
   @classmethod
   def kwargs_from_cli(cls, args) -> dict:
-    return dict(stories=cls.stories_from_cli(args))
+    kwargs = super().kwargs_from_cli(args)
+    kwargs["stories"] = cls.stories_from_cli(args)
+    return kwargs
 
   @classmethod
   def stories_from_cli(cls, args) -> Iterable[cb_stories.Story]:
     assert issubclass(cls.DEFAULT_STORY_CLS, cb_stories.Story), (
         f"{cls.__name__}.DEFAULT_STORY_CLS is not a Story class. "
         f"Got '{cls.DEFAULT_STORY_CLS}' instead.")
-    return cls.DEFAULT_STORY_CLS.from_names(args.stories, args.separate)
+    return cls.DEFAULT_STORY_CLS.from_cli_args(args)
 
   @classmethod
   def describe(cls) -> dict:

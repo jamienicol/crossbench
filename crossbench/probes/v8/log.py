@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+from typing import Iterable, Optional
 
 import crossbench as cb
 import crossbench.probes as probes
@@ -17,28 +18,30 @@ class V8LogProbe(probes.Probe):
   NAME = "v8.log"
 
   @classmethod
-  def all(cls):
-    pass
+  def from_config(cls, config_data) -> V8LogProbe:
+    log_all = config_data.get('log_all', True)
+    prof = config_data.get('prof', False)
+    js_flags = config_data.get('js_flags', [])
+    return cls(log_all, prof, js_flags)
 
-  def __init__(self, file="v8.log", log_all=True, prof=None, js_flags=None):
+  def __init__(self,
+               log_all: bool = True,
+               prof: bool = False,
+               js_flags: Optional[Iterable[str]] = None):
     super().__init__()
     self._js_flags = cb.flags.JSFlags()
-    self._js_flags.set("--log")
-    enabled = False
     if log_all:
       self._js_flags.set("--log-all")
-      enabled = True
-    enabled |= self._enable_js_flag("prof", prof)
-    assert enabled, "V8LogProbe has no effect"
-
-  def _enable_js_flag(self, flag_name, value):
-    if value is None:
-      return False
-    if value:
-      self._js_flags.set(f"--{flag_name}")
-    else:
-      self._js_flags.set(f"--no-{flag_name}")
-    return value
+    if prof:
+      self._js_flags.set("--prof")
+    if js_flags:
+      for flag in js_flags:
+        if flag == "--prof" or flag.startswith("--log"):
+          self._js_flags.set(flag)
+        else:
+          raise ValueError("None v8.log related flag detected: {flag}")
+    assert len(self._js_flags) > 0, "V8LogProbe has no effect"
+    self._js_flags.set("--log")
 
   def is_compatible(self, browser):
     return browser.type == "chrome"

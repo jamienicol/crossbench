@@ -12,15 +12,11 @@ from urllib.parse import urlparse
 if TYPE_CHECKING:
   import crossbench as cb
 
-import crossbench.stories as stories
+import crossbench.stories as cb_stories
 import crossbench.benchmarks.base as benchmarks
 
 
-class Page(stories.Story, metaclass=abc.ABCMeta):
-  pass
-
-
-class LivePage(Page):
+class Page(cb_stories.Story, metaclass=abc.ABCMeta):
   _DURATION_RE = re.compile(r"((\d*[.])?\d+)s?")
 
   @classmethod
@@ -71,6 +67,9 @@ class LivePage(Page):
       pages.append(page)
     return pages
 
+
+class LivePage(Page):
+
   def __init__(self, name, url, duration=15):
     super().__init__(name, duration)
     assert url, "Invalid page url"
@@ -90,14 +89,6 @@ class LivePage(Page):
 
 
 class CombinedPage(Page):
-
-  @classmethod
-  def story_names(cls):
-    raise NotImplementedError()
-
-  @classmethod
-  def from_names(cls, names, separate=False):
-    raise NotImplementedError()
 
   def __init__(self, pages, name="combined"):
     assert len(pages), "No sub-pages provided for CombinedPage"
@@ -155,7 +146,7 @@ class PageLoadBenchmark(benchmarks.SubStoryBenchmark):
     --urls=http://twitter.com,5s,http://cnn.com,10s
   """
   NAME = "loading"
-  DEFAULT_STORY_CLS = LivePage
+  DEFAULT_STORY_CLS = Page
 
   @classmethod
   def add_cli_parser(cls, subparsers):

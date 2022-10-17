@@ -23,8 +23,13 @@ class Story(ABC):
 
   @classmethod
   @abstractmethod
-  def from_names(cls, names, separate=False):
+  def from_names(cls, names, separate=False) -> Sequence[Story]:
     pass
+
+  @classmethod
+  def from_cli_args(cls, args) -> Sequence[Story]:
+    # TODO: make this more uniform with other args-parsing APIs
+    return cls.from_names(args.stories, args.separate)
 
   def __init__(self, name: str, duration: float = 15):
     assert name, "Invalid page name"
