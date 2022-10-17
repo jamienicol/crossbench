@@ -52,36 +52,6 @@ class JetStream2Probe(probes.JsonResultProbe):
         story_group.results[self] for story_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 
-  def _json_to_csv(self, merged_data, out_file):
-    assert not out_file.exists()
-    # "story_name" => [ metric_value_path, ...], ...
-    grouped_by_story = helper.group_by(
-        sorted(merged_data.keys(), key=lambda path: str(path).lower()),
-        key=lambda path: path.parts[0])
-    # ("metric_name", ...) => [ "story_name", ... ], ...
-    grouped_by_metrics = helper.group_by(
-        grouped_by_story.items(),
-        key=lambda item: tuple(sorted(path.name for path in item[1])),
-        value=lambda item: item[0])
-
-    with out_file.open("w") as f:
-      important_fields = ("score", "average")
-      for field_names, story_names in grouped_by_metrics.items():
-        # Make field_names mutable again.
-        field_names = list(field_names)
-        # Rearrange fields to have the important ones first.
-        for important_field in reversed(important_fields):
-          if important_field in field_names:
-            field_names.remove(important_field)
-            field_names.insert(0, important_field)
-        f.write("Name\t" + ("\t".join(field_names)) + "\n")
-        for suite_name in story_names:
-          fields = (suite_name,
-                    *(merged_data[pathlib.Path(suite_name) / field_name].geomean
-                      for field_name in field_names))
-          f.write("\t".join(map(str, fields)))
-          f.write("\n")
-
 
 class JetStream2Story(stories.PressBenchmarkStory):
   NAME = "jetstream_2"

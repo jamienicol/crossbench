@@ -90,12 +90,6 @@ def get_file_size(file, digits=2) -> str:
   return f"{size:.{digits}f} {SIZE_UNITS[unit_index]}"
 
 
-def get_subclasses(cls):
-  for subclass in cls.__subclasses__():
-    yield subclass
-    yield from get_subclasses(subclass)
-
-
 class Platform(abc.ABC):
 
   @abc.abstractproperty
@@ -562,6 +556,9 @@ class Durations:
   def __setitem__(self, name, duration: dt.timedelta):
     assert name not in self._durations, (f"Cannot set '{name}' duration twice!")
     self._durations[name] = duration
+
+  def __len__(self):
+    return len(self._durations)
 
   class _DurationMeasureContext:
 

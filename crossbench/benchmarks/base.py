@@ -53,13 +53,14 @@ class Benchmark(abc.ABC):
 
   def _validate_stories(self):
     assert self.stories, "No stories provided"
-    first_story = self.stories[0]
-    expected_probes_cls_list = first_story.PROBES
     for story in self.stories:
       assert isinstance(story, self.DEFAULT_STORY_CLS), (
           f"story={story} has not the same class as {self.DEFAULT_STORY_CLS}")
+    first_story = self.stories[0]
+    expected_probes_cls_list = first_story.PROBES
+    for story in self.stories:
       assert story.PROBES == expected_probes_cls_list, (
-          f"stroy={story} has different PROBES than {first_story}")
+          f"story={story} has different PROBES than {first_story}")
 
 
 class SubStoryBenchmark(Benchmark):

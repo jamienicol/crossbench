@@ -17,14 +17,14 @@ class BaseRunnerTest(
 
   def setUp(self):
     self.setUpPyfakefs(modules_to_reload=[cb, mockbenchmark])
-    mockbenchmark.MockBrowserDev.setup_fs(self.fs)
-    mockbenchmark.MockBrowserStable.setup_fs(self.fs)
+    mockbenchmark.MockChromeDev.setup_fs(self.fs)
+    mockbenchmark.MockChromeStable.setup_fs(self.fs)
     self.platform = mockbenchmark.mock_platform
     self.out_dir = pathlib.Path("tmp/results/test")
     self.out_dir.parent.mkdir(parents=True)
     self.browsers = [
-        mockbenchmark.MockBrowserDev("dev", platform=self.platform),
-        mockbenchmark.MockBrowserStable("stable", platform=self.platform)
+        mockbenchmark.MockChromeDev("dev", platform=self.platform),
+        mockbenchmark.MockChromeStable("stable", platform=self.platform)
     ]
 
 

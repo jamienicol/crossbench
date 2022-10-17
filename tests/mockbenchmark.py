@@ -48,9 +48,9 @@ class MockBrowser(cb.browsers.Browser):
   VERSION = "100.22.33.44"
 
   @classmethod
-  def setup_fs(cls, fs):
+  def setup_fs(cls, fs, bin_name="Chrome"):
     if cb.helper.platform.is_macos:
-      fs.create_file(cls.BIN_PATH / "Contents" / "MacOS" / "Chrome")
+      fs.create_file(cls.BIN_PATH / "Contents" / "MacOS" / bin_name)
     else:
       fs.create_file(cls.BIN_PATH)
 
@@ -103,15 +103,33 @@ class MockBrowser(cb.browsers.Browser):
     return self.run_js_side_effect.pop(0)
 
 
-class MockBrowserStable(MockBrowser):
+class MockChromeStable(MockBrowser):
   if cb.helper.platform.is_macos:
-    BIN_PATH = pathlib.Path("/Applications/Chrome.app")
+    BIN_PATH = pathlib.Path("/Applications/Google Chrome.app")
   else:
     BIN_PATH = pathlib.Path("/usr/bin/chrome")
 
 
-class MockBrowserDev(MockBrowser):
+class MockChromeDev(MockBrowser):
   if cb.helper.platform.is_macos:
-    BIN_PATH = pathlib.Path("/Applications/ChromeDev.app")
+    BIN_PATH = pathlib.Path("/Applications/Google Chrome Dev.app")
   else:
     BIN_PATH = pathlib.Path("/usr/bin/chrome-dev")
+
+
+class MockChromeCanary(MockBrowser):
+  if cb.helper.platform.is_macos:
+    BIN_PATH = pathlib.Path("/Applications/Google Chrome Canary.app")
+  else:
+    BIN_PATH = pathlib.Path("/usr/bin/chrome-dev")
+
+
+class MockSafari(MockBrowser):
+  if cb.helper.platform.is_macos:
+    BIN_PATH = pathlib.Path("/Applications/Safari.app")
+  else:
+    raise Exception("Unsupported Platform")
+
+  @classmethod
+  def setup_fs(cls, fs):
+    return super().setup_fs(fs, bin_name="Safari")

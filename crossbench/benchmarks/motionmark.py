@@ -31,7 +31,6 @@ class MotionMark12Probe(probes.JsonResultProbe):
   """
   NAME = "motionmark_1.2"
   IS_GENERAL_PURPOSE = False
-  FLATTEN = False
   JS = """
     return window.benchmarkRunnerClient.results.results;
   """
