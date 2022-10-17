@@ -11,6 +11,7 @@ if TYPE_CHECKING:
   import crossbench as cb
 
 import crossbench.probes as probes
+import crossbench.probes.helper as probes_helper
 import crossbench.stories as stories
 import crossbench.helper as helper
 import crossbench.benchmarks.base as benchmarks
@@ -47,12 +48,9 @@ class JetStream2Probe(probes.JsonResultProbe):
     return data
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup):
-    merged = probes.json.JSONMerger.from_merged_files(
+    merged = probes_helper.ValuesMerger.merge_json_files(
         story_group.results[self] for story_group in group.repetitions_groups)
-    merged_json_file = self.write_group_result(group, merged.to_json())
-    merged_csv_file = merged_json_file.with_suffix(".csv")
-    self._json_to_csv(merged.data, merged_csv_file)
-    return (merged_json_file, merged_csv_file)
+    return self.write_group_result(group, merged, write_csv=True)
 
   def _json_to_csv(self, merged_data, out_file):
     assert not out_file.exists()

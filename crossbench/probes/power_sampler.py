@@ -50,12 +50,12 @@ class PowerSamplerProbe(probes.Probe):
 
   class Scope(probes.Probe.Scope):
 
-    def __init__(self, probe: probes.Probe, run: cb.runner.Run):
+    def __init__(self, probe: PowerSamplerProbe, run: cb.runner.Run):
       super().__init__(probe, run)
       self._bin_path = probe._power_sampler_bin_path
-      self._active_user_process = None
-      self._battery_process = None
-      self._power_process = None
+      self._active_user_process: Optional[subprocess.Popen] = None
+      self._battery_process: Optional[subprocess.Popen] = None
+      self._power_process: Optional[subprocess.Popen] = None
       self._battery_output = self.results_file.with_suffix(".battery.json")
       self._power_output = self.results_file.with_suffix(".power.json")
 
@@ -88,13 +88,18 @@ class PowerSamplerProbe(probes.Probe):
       assert self._power_process is not None, "Could not start power sampler"
 
     def stop(self, run: cb.runner.Run):
-      self._power_process.terminate()
-      self._battery_process.terminate()
+      if self._power_process:
+        self._power_process.terminate()
+      if self._battery_process:
+        self._battery_process.terminate()
 
     def tear_down(self, run: cb.runner.Run):
-      self._power_process.kill()
-      self._battery_process.kill()
-      self._active_user_process.terminate()
+      if self._power_process:
+        self._power_process.kill()
+      if self._battery_process:
+        self._battery_process.kill()
+      if self._active_user_process:
+        self._active_user_process.terminate()
       return tuple({
           "power": self._power_output,
           "battery": self._battery_output

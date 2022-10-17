@@ -22,7 +22,9 @@ import crossbench as cb
 
 class CheckList:
 
-  def __init__(self, runner, platform: Optional[cb.helper.Platform] = None):
+  def __init__(self,
+               runner: cb.runner.Runner,
+               platform: Optional[cb.helper.Platform] = None):
     self._runner = runner
     self._wait_until = dt.datetime.now()
     self._platform = platform or cb.helper.platform
@@ -31,7 +33,7 @@ class CheckList:
   def runner(self):
     return self._runner
 
-  def _add_min_delay(self, seconds):
+  def _add_min_delay(self, seconds: float):
     end_time = dt.datetime.now() + dt.timedelta(seconds=seconds)
     if end_time > self._wait_until:
       self._wait_until = end_time
@@ -42,7 +44,7 @@ class CheckList:
       return
     self._platform.sleep(delta)
 
-  def warn(self, message):
+  def warn(self, message: str):
     result = input(
         f"{cb.helper.TTYColor.RED}{message}{cb.helper.TTYColor.RESET} [Yn]")
     return result.lower() != "n"
@@ -168,19 +170,16 @@ class CheckList:
 
 class ExceptionHandler:
 
-  _exceptions: List[Tuple[str, BaseException]]
-  throw: bool
-
   def __init__(self, throw=False):
-    self._exceptions = []
-    self.throw = throw
+    self._exceptions: List[Tuple[str, BaseException]] = []
+    self.throw: bool = throw
 
   @property
   def is_success(self) -> bool:
     return len(self._exceptions) == 0
 
   @property
-  def exceptions(self):
+  def exceptions(self) -> List[Tuple[str, BaseException]]:
     return self._exceptions
 
   def extend(self, handler: ExceptionHandler):
@@ -209,8 +208,10 @@ class ExceptionHandler:
 
 
 class Runner:
-  @staticmethod
-  def get_out_dir(cwd, suffix="", test=False) -> pathlib.Path:
+
+  @classmethod
+  def get_out_dir(cls, cwd: pathlib.Path, suffix="",
+                  test=False) -> pathlib.Path:
     if test:
       return cwd / "results" / "test"
     if suffix:
@@ -266,10 +267,10 @@ class Runner:
                benchmark: cb.benchmarks.Benchmark,
                additional_probes: Iterable[cb.probes.Probe] = (),
                platform: cb.helper.Platform = cb.helper.platform,
-               throttle=True,
-               repetitions=1,
-               use_checklist=True,
-               throw=False):
+               throttle: bool = True,
+               repetitions: int = 1,
+               use_checklist: bool = True,
+               throw: bool = False):
     self.out_dir = out_dir
     assert not self.out_dir.exists(), f"out_dir={self.out_dir} exists already"
     self.out_dir.mkdir(parents=True)
@@ -282,8 +283,8 @@ class Runner:
     assert self.repetitions > 0, f"Invalid repetitions={self.repetitions}"
     self.throttle = throttle
     self._use_checklist = use_checklist
-    self._probes = []
-    self._runs = []
+    self._probes: List[cb.probes.Probe] = []
+    self._runs: List[Run] = []
     self._exceptions = ExceptionHandler(throw)
     self._platform = platform
     self._attach_default_probes(additional_probes)
@@ -372,7 +373,7 @@ class Runner:
     self._runs = list(self.get_runs())
     assert self._runs, "get_runs() produced no runs"
     if self._use_checklist:
-      if not CheckList(self, self.browser_platform).is_ok():
+      if not CheckList(self, self.browser_platform).is_ok():  # pytype: disable=wrong-arg-types
         raise Exception("Thou shalt not fail the CheckList")
     self.collect_hardware_details()
 
@@ -523,8 +524,9 @@ class RepetitionsRunGroup(RunGroup):
   def browser(self) -> cb.browsers.Browser:
     return self._browser
 
-  def _merge_probe_results(self, probe: cb.probes.Probe):
-    return probe.merge_repetitions(self)  # pytype: disable=wrong-arg-types
+  def _merge_probe_results(self, probe: cb.probes.Probe
+                          ) -> Optional[cb.probes.ProbeResultType]:
+    return probe.merge_repetitions(self)
 
 
 class StoriesRunGroup(RunGroup):
@@ -570,8 +572,9 @@ class StoriesRunGroup(RunGroup):
   def stories(self) -> Iterable[cb.stories.Story]:
     return (group.story for group in self._repetitions_groups)
 
-  def _merge_probe_results(self, probe: cb.probes.Probe):
-    return probe.merge_stories(self)  # pytype: disable=wrong-arg-types
+  def _merge_probe_results(self, probe: cb.probes.Probe
+                          ) -> Optional[cb.probes.ProbeResultType]:
+    return probe.merge_stories(self)
 
 
 class BrowsersRunGroup(RunGroup):
@@ -596,8 +599,9 @@ class BrowsersRunGroup(RunGroup):
     for group in self._story_groups:
       yield from group.runs
 
-  def _merge_probe_results(self, probe: cb.probes.Probe):
-    return probe.merge_browsers(self)  # pytype: disable=wrong-arg-types
+  def _merge_probe_results(self, probe: cb.probes.Probe
+                          ) -> Optional[cb.probes.ProbeResultType]:
+    return probe.merge_browsers(self)
 
 
 class Run:
@@ -712,7 +716,7 @@ class Run:
     assert not file.exists(), f"Probe results file exists already. file={file}"
     return file
 
-  def setup(self):
+  def setup(self) -> List[cb.probes.Probe.Scope]:
     logging.info("PREPARE")
     self._advance_state(self.STATE_INITIAL, self.STATE_PREPARE)
     self._run_success = None
@@ -725,7 +729,7 @@ class Run:
       # self._runner.cool_down()
       self._runner.wait(self._runner.default_wait)
 
-    probe_run_scopes = []
+    probe_run_scopes: List[cb.probes.Probe.Scope] = []
     with self._durations.measure("probes-creation"):
       probe_set = set()
       for probe in self.probes:
@@ -785,17 +789,19 @@ class Run:
         f"Invalid state got={self._state} expected={expected}")
     self._state = next
 
-  def tear_down(self, probe_scopes, is_shutdown=False):
+  def tear_down(self,
+                probe_scopes: List[cb.probes.Probe.Scope],
+                is_shutdown=False):
     self._advance_state(self.STATE_RUN, self.STATE_DONE)
     with self._durations.measure("browser-TearDown"):
       if is_shutdown:
         try:
-          self._browser.quit(self._runner)
+          self._browser.quit(self._runner)  # pytype: disable=wrong-arg-types
         except Exception as e:
           logging.warning("Error quitting browser: %s", e)
           return
       try:
-        self._browser.quit(self._runner)
+        self._browser.quit(self._runner)  # pytype: disable=wrong-arg-types
       except Exception as e:
         logging.warning("Error quitting browser: %s", e)
         self._exceptions.handle(e)
@@ -803,11 +809,12 @@ class Run:
       logging.info("TEARDOWN")
       self._tear_down_probe_scopes(probe_scopes)
 
-  def _tear_down_probe_scopes(self, probe_scopes):
+  def _tear_down_probe_scopes(self, probe_scopes: List[cb.probes.Probe.Scope]):
     for probe_scope in reversed(probe_scopes):
       try:
         assert probe_scope.run == self
-        probe_results = probe_scope.tear_down(self)
+        probe_results: Optional[
+            cb.probes.ProbeResultType] = probe_scope.tear_down(self)
         probe = probe_scope.probe
         if probe_results is None:
           logging.warning("Probe did not extract any data. probe=%s run=%s",
@@ -818,19 +825,20 @@ class Run:
 
 
 class Actions(cb.helper.TimeScope):
-  _run: Run
-  _browser: cb.browsers.Browser
-  _runner: Runner
-  _parent: Actions
-  _is_active: bool = False
 
-  def __init__(self, message, run: Run, runner=None, browser=None, parent=None):
+  def __init__(self,
+               message: str,
+               run: Run,
+               runner: Optional[cb.runner.Runner] = None,
+               browser: Optional[cb.browsers.Browser] = None,
+               parent: Optional[cb.runner.Actions] = None):
     assert message, "Actions need a name"
     super().__init__(message)
     self._run = run
-    self._browser = browser or (run and run.browser)
+    self._browser = browser or run.browser
     self._runner = runner or run.runner
     self._parent = parent
+    self._is_active: bool = False
 
   @property
   def run(self) -> Run:
@@ -861,7 +869,7 @@ class Actions(cb.helper.TimeScope):
       js_code = js_code.format(**kwargs)
     return self._browser.js(self._runner, js_code, timeout, arguments=arguments)
 
-  def wait_js_condition(self, js_code: str, wait_range):
+  def wait_js_condition(self, js_code: str, wait_range: cb.helper.wait_range):
     assert "return" in js_code, (
         f"Missing return statement in js-wait code: {js_code}")
     for time_spent, time_left in cb.helper.wait_with_backoff(wait_range):
@@ -875,6 +883,6 @@ class Actions(cb.helper.TimeScope):
     self._assert_is_active()
     self._browser.show_url(self._runner, url)
 
-  def wait(self, seconds=1):
+  def wait(self, seconds: float = 1):
     self._assert_is_active()
     self.platform.sleep(seconds)

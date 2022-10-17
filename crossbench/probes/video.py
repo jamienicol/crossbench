@@ -70,7 +70,7 @@ class VideoProbe(probes.Probe):
                              browser.height)
       self._recorder_log_file = self.results_file.with_suffix(
           ".recorder.log").open("w")
-      self._record_process = self.platform.popen(
+      self._record_process = self.browser_platform.popen(
           *cmd,
           stdin=subprocess.PIPE,
           stderr=subprocess.STDOUT,
@@ -78,18 +78,18 @@ class VideoProbe(probes.Probe):
       assert self._record_process is not None, "Could not start screen recorder"
 
     def _record_cmd(self, x, y, width, height):
-      if self.platform.is_linux:
+      if self.browser_platform.is_linux:
         env_display = os.environ.get('DISPLAY', ":0.0")
         return ("ffmpeg", "-hide_banner", "-video_size", f"{width}x{height}",
                 "-f", "x11grab", "-framerate", "60", "-i",
                 f"{env_display}+{x},{y}", self.results_file)
-      if self.platform.is_macos:
+      if self.browser_platform.is_macos:
         return ("/usr/sbin/screencapture", "-v", f"-R{x},{y},{width},{height}",
                 self.results_file)
       raise Exception("Invalid platform")
 
     def stop(self, run: cb.runner.Run):
-      if self.platform.is_macos:
+      if self.browser_platform.is_macos:
         # The mac screencapture stops on the first (arbitrary) input.
         self._record_process.communicate(input=b"stop")
       else:
@@ -110,7 +110,7 @@ class VideoProbe(probes.Probe):
       timeline_dir = tmpdir / "timeline"
       timeline_dir.mkdir(exist_ok=True)
       # Try detect scene changes / steps
-      self.runner.platform.sh(
+      self.runner_platform.sh(
           "ffmpeg", "-hide_banner", "-i", self.results_file, "-filter_complex",
           "scale=1000:-2,"
           "select='gt(scene\\,0.011)'," + self.FFMPEG_TIMELINE_TEXT, "-vsync",
@@ -120,7 +120,7 @@ class VideoProbe(probes.Probe):
       # TODO
       safe_duration = 10
       safe_duration = 2
-      self.runner.platform.sh(
+      self.runner_platform.sh(
           "ffmpeg", "-hide_banner", "-i", self.results_file, "-filter_complex",
           f"trim=duration={safe_duration},"
           "scale=1000:-2,"
@@ -148,7 +148,7 @@ class VideoProbe(probes.Probe):
       return (result_file, timeline_strip_file)
     logging.info("TIMESTRIP merge page iterations")
     timeline_strips = (run.results[self][1] for run in runs)
-    self.runner.platform.sh("montage", *timeline_strips, "-tile", "1x",
+    self.runner_platform.sh("montage", *timeline_strips, "-tile", "1x",
                             "-gravity", "NorthWest", "-geometry", "x100",
                             timeline_strip_file)
 
@@ -162,7 +162,7 @@ class VideoProbe(probes.Probe):
                  "fontsize=h/15:"
                  "y=h-line_h-10:x=10:"
                  "box=1:boxborderw=20:boxcolor=white")
-    self.runner.platform.sh(
+    self.runner_platform.sh(
         "ffmpeg", "-hide_banner", *video_file_inputs, "-filter_complex",
         f"hstack=inputs={len(runs)},"
         f"drawtext={draw_text},"
@@ -174,7 +174,7 @@ class VideoProbe(probes.Probe):
     groups = list(group.repetitions_groups)
     if len(groups) <= 1:
       return None
-    groups = cb.helper.group_by(
+    grouped = cb.helper.group_by(
         groups, key=lambda repetitions_group: repetitions_group.story)
 
     result_dir = group.get_probe_results_file(self)
@@ -182,7 +182,7 @@ class VideoProbe(probes.Probe):
     result_dir.mkdir(parents=True)
     return tuple(
         self._merge_stories_for_browser(result_dir, story, repetitions_groups)
-        for story, repetitions_groups in groups.items())
+        for story, repetitions_groups in grouped.items())
 
   def _merge_stories_for_browser(
       self, result_dir: pathlib.Path, story: cb.stories.Story,
@@ -192,7 +192,7 @@ class VideoProbe(probes.Probe):
     for repetitions_group in repetitions_groups:
       input_files += ["-i", repetitions_group.results[self][0]]
     result_file = result_dir / f"{story.name}_combined.mp4"
-    self.runner.platform.sh("ffmpeg", "-hide_banner", *input_files,
+    self.runner_platform.sh("ffmpeg", "-hide_banner", *input_files,
                             "-filter_complex",
                             f"vstack=inputs={len(repetitions_groups)}",
                             *self.VIDEO_QUALITY, result_file)

@@ -5,16 +5,24 @@
 from __future__ import annotations
 
 import itertools
-import pathlib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Tuple, Optional
 
 if TYPE_CHECKING:
   import crossbench as cb
 
 import crossbench.probes as probes
+import crossbench.probes.helper as probes_helper
 import crossbench.stories as stories
 import crossbench.helper as helper
 import crossbench.benchmarks.base as benchmarks
+
+
+def _probe_skip_data_segments(path: Tuple[str, ...]) -> Optional[str]:
+  name = path[-1]
+  if name.startswith("segment") or name == "data":
+    return None
+  return "/".join(path)
+
 
 class MotionMark12Probe(probes.JsonResultProbe):
   """
@@ -31,19 +39,12 @@ class MotionMark12Probe(probes.JsonResultProbe):
   def to_json(self, actions):
     return actions.js(self.JS)
 
-  @staticmethod
-  def filter(key, value):
-    name = pathlib.Path(key).name
-    if name.startswith("segment") or name == "data":
-      return False
-    return True
 
-  def flatten_json_data(self, json_data):
-    flat_data = probes.json.flatten(*json_data)
-    flat_data = {
-        k: v for k, v in flat_data.items() if MotionMark12Probe.filter(k, v)
-    }
-    return flat_data
+  def flatten_json_data(self, json_data: List):
+    assert isinstance(json_data, list) and len(json_data) == 1, (
+      "Motion12MarkProbe requires a results list.")
+    return probes_helper.Flatten(
+        json_data[0], key_fn=_probe_skip_data_segments).data
 
 
 class MotionMark12Story(stories.PressBenchmarkStory):
@@ -144,7 +145,7 @@ class MotionMark12Story(stories.PressBenchmarkStory):
           "Canvas ellipses, fill",
       )
   }
-  SUBSTORIES = list(itertools.chain.from_iterable(ALL_STORIES.values()))
+  SUBSTORIES = tuple(itertools.chain.from_iterable(ALL_STORIES.values()))
 
   def run(self, run):
     with run.actions("Setup") as actions:

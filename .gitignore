@@ -1,7 +1,5 @@
 *.pyc
-.browsers-cache
-.pytype
-.vscode
+.*
 __pycache__
 dist
 results

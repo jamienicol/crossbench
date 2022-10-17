@@ -2,9 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import crossbench as cb
+from crossbench.probes.probe import Probe, ProbeResultDict, ProbeResultType  # isort:skip
 
-from crossbench.probes.probe import Probe, ProbeResultDict  # isort:skip
 
 from crossbench.probes.json import JsonResultProbe
 

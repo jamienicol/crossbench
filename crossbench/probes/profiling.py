@@ -9,6 +9,7 @@ import multiprocessing
 import signal
 import time
 import pathlib
+import json
 from typing import List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -208,7 +209,7 @@ class ProfilingProbe(probes.Probe):
 
     def _export_to_pprof(self, run: cb.runner.Run,
                          perf_files: List[pathlib.Path]):
-      run_details_json = run.get_browser_details_json()
+      run_details_json = json.dumps(run.get_browser_details_json())
       with run.actions(f"Probe {self.probe.name}: exporting to pprof"):
         self.browser_platform.sh("gcertstatus >&/dev/null || gcert", shell=True)
         items = zip(perf_files, [run_details_json] * len(perf_files))

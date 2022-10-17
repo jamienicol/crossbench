@@ -10,14 +10,10 @@ import unittest.mock as mock
 
 import pyfakefs.fake_filesystem_unittest
 
-try:
-  from . import mockbenchmark
-except ImportError:
-  # VSCode has issues discovering tests code
-  from tests import mockbenchmark
-
 import crossbench as cb
 from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig
+
+from . import mockbenchmark
 
 
 class SysExitException(Exception):
@@ -42,7 +38,7 @@ class TestCLI(pyfakefs.fake_filesystem_unittest.TestCase):
       return mock_stdout.getvalue()
 
   def test_describe(self):
-    stdout = self.run_cli("describe")
+    stdout = self.run_cli("describe", "--json")
     data = json.loads(stdout)
     self.assertIn("benchmarks", data)
     self.assertIn("probes", data)

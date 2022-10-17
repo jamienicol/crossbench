@@ -7,15 +7,21 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-from typing import TYPE_CHECKING
+import csv
+from typing import TYPE_CHECKING, Sequence, Tuple
 
 if TYPE_CHECKING:
   import crossbench as cb
 
 import crossbench.probes as probes
+import crossbench.probes.helper as probes_helper
 import crossbench.stories as stories
 import crossbench.helper as helper
 import crossbench.benchmarks.base as benchmarks
+
+
+def _probe_remove_tests_segments(path: Tuple[str, ...]):
+  return "/".join(segment for segment in path if segment != "tests")
 
 
 class Speedometer20Probe(probes.JsonResultProbe):
@@ -30,51 +36,34 @@ class Speedometer20Probe(probes.JsonResultProbe):
   def to_json(self, actions):
     return actions.js(self.JS)
 
-  def flatten_json_data(self, json_data):
+  def flatten_json_data(self, json_data: Sequence):
     # json_data may contain multiple iterations, merge those first
     assert isinstance(json_data, list)
-    merged = probes.json.merge(
-        *json_data, value=lambda values: values.geomean)
-    return probes.json.flatten(merged)
+    merged = probes_helper.ValuesMerger(
+        json_data, key_fn=_probe_remove_tests_segments).to_json(
+            value_fn=lambda values: values.geomean)
+    return probes_helper.Flatten(merged).data
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup):
-    merged = probes.json.JSONMerger.from_merged_files(
-        story_group.results[self] for story_group in group.repetitions_groups)
-    merged_json_file = group.get_probe_results_file(self)
-    with merged_json_file.open("w") as f:
-      json.dump(merged.to_json(), f, indent=2)
-    merged_csv_file = merged_json_file.with_suffix(".csv")
-    self._json_to_csv(merged.data, merged_csv_file)
-    return (merged_json_file, merged_csv_file)
+    merged = probes_helper.ValuesMerger.merge_json_files(
+        repetitions_group.results[self]
+        for repetitions_group in group.repetitions_groups)
+    return self.write_group_result(group, merged, write_csv=True)
 
-  def _json_to_csv(self, merged_data, out_file):
-    assert not out_file.exists()
-    # In: "tests/Angular2-TypeScript-TodoMVC/tests/Adding100Items/tests/Async"
-    # Out: "Angular2-TypeScript-TodoMVC/Adding100Items/Async"
-    merged_data = {
-        pathlib.Path(str(k).replace("tests/", "")): v
-        for k, v in merged_data.items()
-    }
-    # "suite_name" => (metric_value_path, ...), ...
-    grouped_by_suite = helper.group_by(
-        sorted(merged_data.keys(), key=lambda path: str(path).lower()),
-        key=lambda path: path.parts[0])
-    # Sort summary metrics ("total"...) last
-    grouped_by_suite = dict(
-        sorted(
-            grouped_by_suite.items(),
-            key=lambda item: ("-" not in item[0], item[0].lower())))
+  def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
+    csv_files = []
+    headers = []
+    for story_group in group.story_groups:
+      csv_files.append(story_group.results[self]["csv"])
+      headers.append(story_group.browser.label)
 
-    with out_file.open("w") as f:
-      for suite_name, metric_paths in grouped_by_suite.items():
-        f.write(suite_name)
-        if len(metric_paths) > 1:
-          f.write("\n")
-        for path in metric_paths:
-          f.write(" ".join(path.parts[1:]))
-          f.write("\t")
-          f.write(str(merged_data[path].geomean))
-          f.write("\n")
+    merged_table = probes_helper.merge_csv(csv_files)
+
+    merged_json_path = group.get_probe_results_file(self)
+    merged_csv_path = merged_json_path.with_suffix(".csv")
+    assert not merged_csv_path.exists()
+    with merged_csv_path.open("w") as f:
+      csv.writer(f, delimiter="\t").writerows(merged_table)
 
 
 class Speedometer20Story(stories.PressBenchmarkStory):

@@ -8,7 +8,7 @@ import abc
 import datetime as dt
 import logging
 import pathlib
-from typing import Set, Dict, Tuple, TypeVar, Generic, Union, TYPE_CHECKING
+from typing import Any, Iterable, Optional, Set, Dict, Tuple, TypeVar, Generic, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
   import crossbench as cb
@@ -52,10 +52,10 @@ class Probe(abc.ABC):
     pass
 
   # Set to False if the Probe cannot be used with arbitrary Stories or Pages
-  IS_GENERAL_PURPOSE = True
-  PRODUCES_DATA = True
+  IS_GENERAL_PURPOSE: bool = True
+  PRODUCES_DATA: bool = True
   # Set to True if the probe only works on battery power
-  BATTERY_ONLY = False
+  BATTERY_ONLY: bool = False
 
   _browsers: Set[cb.browsers.Browser]
   _browser_platform: cb.helper.Platform
@@ -118,21 +118,24 @@ class Probe(abc.ABC):
       assert self.is_compatible(browser)
     return True
 
-  def merge_repetitions(self, group: cb.runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: cb.runner.RepetitionsRunGroup
+                       ) -> Optional[ProbeResultType]:
     """
     Can be used to merge probe data from multiple repetitions of the same story.
     Return None, a result file Path (or a list of Paths)
     """
     return None
 
-  def merge_stories(self, group: cb.runner.StoriesRunGroup):
+  def merge_stories(self, group: cb.runner.StoriesRunGroup
+                   ) -> Optional[ProbeResultType]:
     """
     Can be used to merge probe data from multiple stories for the same browser.
     Return None, a result file Path (or a list of Paths)
     """
     return None
 
-  def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
+  def merge_browsers(self, group: cb.runner.BrowsersRunGroup
+                    ) -> Optional[ProbeResultType]:
     """
     Can be used to merge all probe data (from multiple stories and browsers.)
     Return None, a result file Path (or a list of Paths)
@@ -160,8 +163,8 @@ class Probe(abc.ABC):
       self._default_results_file = run.get_probe_results_file(probe)
       self._is_active = False
       self._is_success = False
-      self._start_time = None
-      self._stop_time = None
+      self._start_time: Optional[dt.datetime] = None
+      self._stop_time: Optional[dt.datetime] = None
 
     def set_start_time(self, start_datetime: dt.datetime):
       assert self._start_time is None
@@ -219,10 +222,12 @@ class Probe(abc.ABC):
       within a run. This can be to account for startup delays caused by other
       Probes.
       """
+      assert self._start_time
       return self._start_time
 
     @property
     def duration(self) -> dt.timedelta:
+      assert self._start_time and self._stop_time
       return self._stop_time - self._start_time
 
     @property
@@ -259,7 +264,7 @@ class Probe(abc.ABC):
       return None
 
     @abc.abstractmethod
-    def tear_down(self, run: cb.runner.Run) -> ProbeResultDict.ResultsType:
+    def tear_down(self, run: cb.runner.Run) -> Optional[ProbeResultType]:
       """
       Called after stopping all probes and shutting down the browser.
       Returns
@@ -273,50 +278,51 @@ class Probe(abc.ABC):
 
 # ------------------------------------------------------------------------------
 
+BasicProbeResultType = Union[pathlib.Path, str]
+ProbeResultType = Union[None, BasicProbeResultType, Tuple[BasicProbeResultType],
+                        Dict[str, BasicProbeResultType]]
+
 
 class ProbeResultDict:
   """
   Maps Probes to their result files Paths.
   """
 
-  BasicResultType = Union[pathlib.Path, str]
-  ResultsType = Union[BasicResultType, Tuple[BasicResultType],
-                      Dict[str, BasicResultType]]
-
   def __init__(self, path: pathlib.Path):
     self._path = path
-    self._dict = {}
+    self._dict: Dict[str, ProbeResultType] = {}
 
-  def __setitem__(self, probe: Probe, results: ResultsType):
+  def __setitem__(self, probe: Probe, results: ProbeResultType):
     if results is None:
       self._dict[probe.name] = None
       return
     self._check_result_type(probe, results)
     self._dict[probe.name] = results
 
-  def _check_result_type(self, probe: Probe, results: ResultsType):
+  def _check_result_type(self, probe: Probe, results: ProbeResultType):
     assert isinstance(results, (pathlib.Path, str, tuple, dict)), (
         f"Probe name={probe.name} should produce Path, URL or tuples/dicts "
         f"thereof, but got: {results}")
-    check_items = None
+    check_items: Iterable[Union[pathlib.Path, str]] = ()
     if isinstance(results, tuple):
       check_items = results
     elif isinstance(results, dict):
       check_items = results.values()
-    if check_items:
-      for result in check_items:
-        assert isinstance(result, (pathlib.Path, str)), (
-            f"Expected probe={probe.name} tuple results to contain Paths or "
-            f"strings, but got: {result}")
+    else:
+      return
+    for result in check_items:
+      assert isinstance(result, (pathlib.Path, str)), (
+          f"Expected probe={probe.name} tuple results to contain Paths or "
+          f"strings, but got: {result}")
 
-  def __getitem__(self, probe: Probe):
+  def __getitem__(self, probe: Probe) -> ProbeResultType:
     return self._dict[probe.name]
 
-  def __contains__(self, probe: Probe):
+  def __contains__(self, probe: Probe) -> bool:
     return probe.name in self._dict
 
   def to_json(self):
-    data = {}
+    data: Dict[str, Any] = {}
     for probe_name, results in self._dict.items():
       if isinstance(results, (pathlib.Path, str)):
         data[probe_name] = str(results)

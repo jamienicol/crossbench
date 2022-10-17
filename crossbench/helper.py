@@ -492,15 +492,16 @@ class TimeScope:
   Measures and logs the time spend during the lifetime of the TimeScope.
   """
 
-  def __init__(self, message: str, level=3):
+  def __init__(self, message: str, level: int = 3):
     self._message = message
     self._level = level
-    self._start = None
+    self._start: Optional[dt.datetime] = None
 
   def __enter__(self):
     self._start = dt.datetime.now()
 
   def __exit__(self, exc_type, exc_value, exc_traceback):
+    assert self._start
     diff = dt.datetime.now() - self._start
     log(f"{self._message} duration={diff}", level=self._level)
 

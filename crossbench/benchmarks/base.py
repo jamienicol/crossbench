@@ -5,17 +5,17 @@
 from __future__ import annotations
 
 import abc
-from typing import Iterable, Sequence, TYPE_CHECKING
+from typing import Iterable, Sequence, TYPE_CHECKING, Type, Union
 import argparse
 
 if TYPE_CHECKING:
   import crossbench as cb
-import crossbench.stories as stories
+import crossbench.stories as cb_stories
 
 
 class Benchmark(abc.ABC):
-  NAME = None
-  DEFAULT_STORY_CLS  = None
+  NAME: str = ""
+  DEFAULT_STORY_CLS: Type[cb_stories.Story] = cb_stories.Story
 
   @classmethod
   def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
@@ -41,11 +41,14 @@ class Benchmark(abc.ABC):
         }
     }
 
-  def __init__(self, stories: Sequence[cb.stories.Story]):
+  def __init__(self,
+               stories: Union[cb_stories.Story, Sequence[cb_stories.Story]]):
     assert self.NAME is not None, f"{self} has no .NAME property"
-    self.stories = stories
-    if isinstance(stories, self.DEFAULT_STORY_CLS):
+    assert self.DEFAULT_STORY_CLS != cb_stories.Story, (
+        f"{self} has no .DEFAULT_STORY_CLS property")
+    if isinstance(stories, cb_stories.Story):
       stories = [stories]
+    self.stories: Sequence[cb_stories.Story] = stories
     self._validate_stories()
 
   def _validate_stories(self):
@@ -91,8 +94,8 @@ class SubStoryBenchmark(Benchmark):
     return dict(stories=cls.stories_from_cli(args))
 
   @classmethod
-  def stories_from_cli(cls, args) -> Iterable[cb.stories.Story]:
-    assert issubclass(cls.DEFAULT_STORY_CLS, stories.Story), (
+  def stories_from_cli(cls, args) -> Iterable[cb_stories.Story]:
+    assert issubclass(cls.DEFAULT_STORY_CLS, cb_stories.Story), (
         f"{cls.__name__}.DEFAULT_STORY_CLS is not a Story class. "
         f"Got '{cls.DEFAULT_STORY_CLS}' instead.")
     return cls.DEFAULT_STORY_CLS.from_names(args.stories, args.separate)
@@ -127,15 +130,15 @@ class PressBenchmark(SubStoryBenchmark):
     return parser
 
   @classmethod
-  def stories_from_cli(cls, args) -> Iterable[cb.stories.PressBenchmarkStory]:
-    assert issubclass(cls.DEFAULT_STORY_CLS, stories.PressBenchmarkStory)
+  def stories_from_cli(cls, args) -> Iterable[cb_stories.PressBenchmarkStory]:
+    assert issubclass(cls.DEFAULT_STORY_CLS, cb_stories.PressBenchmarkStory)
     return cls.DEFAULT_STORY_CLS.from_names(args.stories, args.separate,
                                             args.live)
 
   @classmethod
   def describe(cls) -> dict:
     data = super().describe()
-    assert issubclass(cls.DEFAULT_STORY_CLS, stories.PressBenchmarkStory)
+    assert issubclass(cls.DEFAULT_STORY_CLS, cb_stories.PressBenchmarkStory)
     data["url"] = cls.DEFAULT_STORY_CLS.URL
     data["url-local"] = cls.DEFAULT_STORY_CLS.URL_LOCAL
     return data

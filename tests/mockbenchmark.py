@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pathlib
 import psutil
-from typing import Optional
+from typing import List, Optional
 
 import crossbench as cb
 
@@ -60,11 +60,12 @@ class MockBrowser(cb.browsers.Browser):
                browser_name:str = "chrome",
                *args,
                **kwargs):
+    assert self.BIN_PATH
     path = path or pathlib.Path(self.BIN_PATH)
     kwargs["type"] = browser_name
     super().__init__(label, path, *args, **kwargs)
-    self.url_list = []
-    self.js_list = []
+    self.url_list: List[str] = []
+    self.js_list: List[str] = []
     self.js_side_effect = []
     self.run_js_side_effect = []
     self.did_run = False

@@ -5,9 +5,8 @@ from __future__ import annotations
 
 import abc
 import logging
-import pathlib
 import re
-from typing import Iterable, Optional, Union, TYPE_CHECKING
+from typing import Sequence, Optional, Union, TYPE_CHECKING
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
@@ -169,7 +168,7 @@ class PageLoadBenchmark(benchmarks.SubStoryBenchmark):
     return parser
 
   def __init__(self,
-               stories: Union[Page, Iterable[Page]],
+               stories: Union[Page, Sequence[Page]],
                duration: Optional[float] = None):
     if isinstance(stories, Page):
       stories = [stories]

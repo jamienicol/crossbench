@@ -7,11 +7,14 @@ from __future__ import annotations
 import logging
 import re
 from abc import ABC, ABCMeta, abstractmethod
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Type, Union
+
+if TYPE_CHECKING:
+  import crossbench as cb
 
 
 class Story(ABC):
-  PROBES = ()
+  PROBES: Tuple[Type[cb.probes.Probe], ...] = ()
 
   @classmethod
   @abstractmethod
@@ -52,10 +55,11 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
   NAME: str = ""
   URL: str = ""
   URL_LOCAL: str = ""
-  SUBSTORIES = None
+  SUBSTORIES: Tuple[str, ...] = ()
 
   @classmethod
   def story_names(cls) -> Tuple[str, ...]:
+    assert cls.SUBSTORIES
     return cls.SUBSTORIES
 
   @classmethod
@@ -66,11 +70,11 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
       else:
         first = names[0]
       if first == "all":
-        names = cls.SUBSTORIES
-      elif first not in cls.SUBSTORIES:
+        names = cls.story_names()
+      elif first not in cls.story_names():
         pattern = re.compile(first)
-        names = tuple(
-            substory for substory in cls.SUBSTORIES if pattern.match(substory))
+        names = tuple(substory for substory in cls.story_names()
+                      if pattern.match(substory))
         assert names, (
             f"Regexp '{pattern.pattern}' didn't match any cb.stories")
         logging.info("FILTERED SUB-STORIES story=%s selected=%s", cls.NAME,
@@ -101,14 +105,15 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
 
   @classmethod
   def get_substories(cls, separate:bool, substories:Sequence[str]):
-    substories = substories or cls.SUBSTORIES
+    substories = substories or cls.story_names()
     if separate:
       return substories
     return [substories]
 
 
-  _substories : List[str]
+  _substories: Sequence[str]
   is_live : bool
+  _url: str
 
   def __init__(self,
                *args,
@@ -123,12 +128,13 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     if isinstance(substories, str):
       self._substories = [substories]
     else:
-      self._substories = substories or self.SUBSTORIES
+      self._substories = substories or self.story_names()
     self._verify_substories()
     name = self.NAME
-    if self._substories != self.SUBSTORIES:
+    if self._substories != self.story_names():
       name += "_" + ("_".join(self._substories))
-    super().__init__(*args, name=name, **kwargs)
+    kwargs["name"] = name
+    super().__init__(*args, **kwargs)
     self.is_live = is_live
     if is_live:
       self._url = self.URL
@@ -145,7 +151,7 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
       # Beware of the O(n**2):
       duplicates = set(
           substory for substory in self._substories
-          if self._subcb.storiescount(substory) > 1)
+          if self._substories.count(substory) > 1)
       assert duplicates, (
           f"substories='{self._substories}' contains duplicate entries: "
           f"{duplicates}")

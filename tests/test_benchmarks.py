@@ -6,14 +6,10 @@ import abc
 import pathlib
 import pyfakefs.fake_filesystem_unittest
 
-try:
-  from . import mockbenchmark
-except ImportError:
-  # VSCode has issues discovering tests code
-  from tests import mockbenchmark
-
 import crossbench as cb
 import crossbench.benchmarks as bm
+
+from . import mockbenchmark
 
 
 class BaseRunnerTest(
@@ -168,8 +164,7 @@ class Speedometer2Test(BaseRunnerTest):
           True,  # Page is ready
           None,  # filter benchmarks
           None,  # Start running benchmark
-          False, # Wait,  ...
-          True,  # until done
+          True,  # Wait until done
           speedometer_probe_results,
       ]
     benchmark = self.BENCHMARK(stories)

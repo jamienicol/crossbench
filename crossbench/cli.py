@@ -21,6 +21,14 @@ except ModuleNotFoundError:
   hjson = None
 
 
+def _map_flag_group_item(flag_name: str, flag_value: Optional[str]):
+  if flag_value is None:
+    return None
+  if flag_value == "":
+    return (flag_name, None)
+  return (flag_name, flag_value)
+
+
 class FlagGroupConfig:
   """
   This object is create from configuration files and mainly contains a mapping
@@ -49,15 +57,8 @@ class FlagGroupConfig:
   def get_variant_items(self) -> Iterable[Optional[Tuple[str, Optional[str]]]]:
     for flag_name, flag_values in self._variants.items():
       yield tuple(
-          self._map(flag_name, flag_value) for flag_value in flag_values)
-
-  @staticmethod
-  def _map(flag_name: str, flag_value: Optional[str]):
-    if flag_value is None:
-      return None
-    if flag_value == "":
-      return (flag_name, None)
-    return (flag_name, flag_value)
+          _map_flag_group_item(flag_name, flag_value)
+          for flag_value in flag_values)
 
 
 class BrowserConfig:
@@ -139,7 +140,7 @@ class BrowserConfig:
 
   def _parse_flags(self, name, data):
     flags_product = []
-    flag_group_names = data["flags"]
+    flag_group_names = data.get("flags", [])
     assert isinstance(flag_group_names,
                       list), (f"'flags' is not a list for browser='{name}'")
     for flag_group_name in flag_group_names:
@@ -378,7 +379,7 @@ class CrossBenchCLI:
       path = args.browser_config.expanduser()
       if not path.exists():
         raise argparse.ArgumentTypeError(
-            f"Given path '{path.absolute}' does not exist")
+            f"Browser config file '{path.absolute()}' does not exist")
       assert args.browser is None, (
           "Cannot specify --browser and --browser-config at the same time")
       with path.open() as f:

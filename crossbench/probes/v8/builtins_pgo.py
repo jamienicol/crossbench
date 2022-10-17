@@ -17,10 +17,11 @@ class V8BuiltinsPGOProbe(probes.Probe):
   """
   NAME = "v8.builtins.pgo"
 
-  def is_compatible(self, browser):
+  def is_compatible(self, browser: cb.browsers.Browser):
     return browser.type == "chrome"
 
-  def attach(self, browser: cb.browsers.Chrome):
+  def attach(self, browser: cb.browsers.Browser):
+    assert isinstance(browser, cb.browsers.Chrome)
     super().attach(browser)
     browser.js_flags.set("--allow-natives-syntax")
 
@@ -30,18 +31,18 @@ class V8BuiltinsPGOProbe(probes.Probe):
       super().__init__(*args, *kwargs)
       self._pgo_counters = None
 
-    def setup(self, run):
+    def setup(self, run: cb.runner.Run):
       pass
 
-    def start(self, run):
+    def start(self, run: cb.runner.Run):
       pass
 
-    def stop(self, run):
+    def stop(self, run: cb.runner.Run):
       with run.actions("Extract Builtins PGO DATA") as actions:
         self._pgo_counters = actions.js(
             "return %GetAndResetTurboProfilingData();")
 
-    def tear_down(self, run):
+    def tear_down(self, run: cb.runner.Run):
       assert self._pgo_counters is not None and self._pgo_counters, (
           "Chrome didn't produce any V8 builtins PGO data. "
           "Please make sure to set the v8_enable_builtins_profiling=true "

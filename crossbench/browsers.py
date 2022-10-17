@@ -18,7 +18,8 @@ import traceback
 import urllib.request
 import zipfile
 import pathlib
-from typing import Dict, Final, Iterable, List, Optional
+import typing
+from typing import Dict, Final, Iterable, List, Optional, Sequence, Set
 
 import selenium
 from selenium import webdriver
@@ -41,7 +42,8 @@ BROWSERS_CACHE = pathlib.Path(__file__).parent.parent / ".browsers-cache"
 class Browser(abc.ABC):
 
   @classmethod
-  def default_flags(cls, initial_data: FlagsInitialDataType = None):
+  def default_flags(cls, initial_data: FlagsInitialDataType = None
+                   ) -> cb.flags.Flags:
     return cb.flags.Flags(initial_data)
 
   def __init__(self,
@@ -54,30 +56,29 @@ class Browser(abc.ABC):
     self.platform = platform or cb.helper.platform
     # Marked optional to make subclass constructor calls easier with pytype.
     assert type
-    self.type = type
-    self.label = label
-    self.path = path
+    self.type: str = type
+    self.label: str = label
+    self.path: pathlib.Path = path
     assert self.path.exists(), f"Binary at path={self.path} does not exist."
     if self.platform.is_macos:
       self._resolve_macos_binary()
-    assert self.path.is_file(), (
-        f"Binary at bin_path={self.bin_path} is not a file.")
-    self.app_name = path.stem
-    self.version = self._extract_version()
-    self.major_version = int(self.version.split(".")[0])
+    assert self.path.is_file(), (f"Binary at path={self.path} is not a file.")
+    self.app_name: str = path.stem
+    self.version: str = self._extract_version()
+    self.major_version: int = int(self.version.split(".")[0])
     short_name = f"{self.label}_{self.type}_v{self.major_version}".lower()
-    self.short_name = short_name.replace(" ", "_")
-    self.width = 1500
-    self.height = 1000
-    self.x = 10
+    self.short_name: str = short_name.replace(" ", "_")
+    self.width: int = 1500
+    self.height: int = 1000
+    self.x: int = 10
     # Move down to avoid menu bars
-    self.y = 50
-    self._is_running = False
+    self.y: int = 50
+    self._is_running: bool = False
     self.cache_dir = cache_dir
-    self.clear_cache_dir = True
+    self.clear_cache_dir: bool = True
     self._pid = None
-    self._probes = set()
-    self._flags = self.default_flags(flags)
+    self._probes: Set[cb.probes.Probe] = set()
+    self._flags: cb.flags.Flags = self.default_flags(flags)
 
   @property
   def is_headless(self):
@@ -142,22 +143,18 @@ class Browser(abc.ABC):
   def _extract_version(self) -> str:
     pass
 
-  def set_log_file(self, path):
+  def set_log_file(self, path: pathlib.Path):
     pass
 
-  def clear_cache(self, runner):
-    if self.clear_cache_dir and self.cache_dir.exists():
+  def clear_cache(self, runner: cb.runner.Runner):
+    if self.clear_cache_dir and self.cache_dir and self.cache_dir.exists():
       shutil.rmtree(self.cache_dir)
 
   @abc.abstractmethod
-  def start(self, run):
+  def start(self, run: cb.runner.Run):
     pass
 
-  @abc.abstractmethod
-  def show_url(self, runner, url):
-    pass
-
-  def _prepare_temperature(self, run):
+  def _prepare_temperature(self, run: cb.runner.Run):
     """Warms up the browser by loading the page 3 times."""
     runner = run.runner
     if run.temperature == "cold":
@@ -165,14 +162,15 @@ class Browser(abc.ABC):
     if run.temperature is None:
       return
     for _ in range(3):
-      self.show_url(runner, run.page.url)
-      runner.wait(run.page.duration / 2)
+      # TODO(cbruni): add no_collect argument
+      run.story.run(run)
+      runner.wait(run.story.duration / 2)
       self.show_url(runner, "about://version")
       runner.wait(runner.default_wait)
-    self.show_url(runner, self.default_page)
+    self.show_url(runner, "about://blank")
     runner.wait(runner.default_wait * 3)
 
-  def quit(self, runner):
+  def quit(self, runner: cb.runner.Runner):
     assert self._is_running
     try:
       self.force_quit()
@@ -190,6 +188,18 @@ class Browser(abc.ABC):
     elif self._pid:
       self.platform.terminate(self._pid)
     self._is_running = False
+
+  @abc.abstractmethod
+  def js(self,
+         runner: cb.runner.Runner,
+         script: str,
+         timeout: Optional[float] = None,
+         arguments: Sequence[object] = ()):
+    pass
+
+  @abc.abstractmethod
+  def show_url(self, runner: cb.runner.Runner, url):
+    pass
 
 
 _FLAG_TO_PATH_RE = re.compile(r"[-/\\:\.]")
@@ -248,14 +258,15 @@ class Chrome(Browser, metaclass=ChromeMeta):
       binaries = [
           binaries,
       ]
-    browsers = []
-    empty_flags = tuple(tuple())
+    browsers: List[Chrome] = []
+    empty_flags: Iterable[FlagsInitialDataType] = tuple(tuple())
     for browser_flags in browser_flags_list or empty_flags:
-      assert not isinstance(browser_flags_list, FlagsInitialDataType), (
-          f"browser_flags should be a {FlagsInitialDataType}  but got: "
-          f"{repr(browser_flags)}")
+      assert not isinstance(
+          browser_flags_list, typing.get_args(FlagsInitialDataType)), (
+              f"browser_flags should be a {FlagsInitialDataType}  but got: "
+              f"{repr(browser_flags)}")
       for js_flags in js_flags_list or empty_flags:
-        assert isinstance(js_flags, FlagsInitialDataType), (
+        assert isinstance(js_flags, typing.get_args(FlagsInitialDataType)), (
             f"js_flags should be an {FlagsInitialDataType}, but got type={type(js_flags)}: "
             f"{repr(js_flags)}")
         for binary in binaries:
@@ -294,6 +305,13 @@ class Chrome(Browser, metaclass=ChromeMeta):
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                platform: Optional[cb.helper.Platform] = None):
+    if cache_dir is None:
+      self.cache_dir = pathlib.Path(
+          tempfile.TemporaryDirectory(prefix="chrome").name)
+      self.clear_cache_dir = True
+    else:
+      self.cache_dir = cache_dir
+      self.clear_cache_dir = False
     super().__init__(label, path, type="chrome", platform=platform)
     assert not isinstance(
         js_flags, str), f"js_flags should be a list, but got: {repr(js_flags)}"
@@ -303,13 +321,6 @@ class Chrome(Browser, metaclass=ChromeMeta):
     self._flags = self.default_flags(Chrome.DEFAULT_FLAGS)
     self._flags.update(flags)
     self.js_flags.update(js_flags)
-    if cache_dir is None:
-      self.cache_dir = pathlib.Path(
-          tempfile.TemporaryDirectory(prefix="chrome").name)
-      self.clear_cache_dir = True
-    else:
-      self.cache_dir = cache_dir
-      self.clear_cache_dir = False
     self.log_file = None
     self._stdout_log_file = None
 
@@ -414,14 +425,14 @@ end tell
 
 class WebdriverMixin(Browser):
   _driver: webdriver.Remote
-  _driver_path: pathlib.Path
+  _driver_path: Optional[pathlib.Path]
   _driver_pid: int
 
   @property
   def driver_log_file(self):
     return self.log_file.with_suffix(".driver.log")
 
-  def setup_binary(self, runner):
+  def setup_binary(self, runner: cb.runner.Runner):
     self._driver_path = self._find_driver()
     assert self._driver_path.exists(), (
         f"Webdriver path '{self._driver_path}' does not exist")
@@ -434,8 +445,9 @@ class WebdriverMixin(Browser):
   def _check_driver_version(self):
     pass
 
-  def start(self, run):
+  def start(self, run: cb.runner.Run):
     assert not self._is_running
+    assert self._driver_path
     self._check_driver_version()
     self._driver = self._start_driver(run, self._driver_path)
     if hasattr(self._driver, "service"):
@@ -456,18 +468,22 @@ class WebdriverMixin(Browser):
     details["log"]["driver"] = str(self.driver_log_file)
     return details
 
-  def show_url(self, runner, url):
+  def show_url(self, runner: cb.runner.Runner, url):
     logging.info("SHOW_URL %s", url)
     self._driver.switch_to.window(self._driver.window_handles[0])
     try:
       self._driver.get(url)
     except selenium.common.exceptions.WebDriverException as e:
-      if "net::ERR_CONNECTION_REFUSED" in e.msg:
+      if e.msg and "net::ERR_CONNECTION_REFUSED" in e.msg:
         raise Exception(f"Browser failed to load URL={url}. "
                         "The URL is likely unreachable.") from e
       raise
 
-  def js(self, runner, script, timeout=None, arguments=()):
+  def js(self,
+         runner: cb.runner.Runner,
+         script: str,
+         timeout: Optional[float] = None,
+         arguments: Sequence[object] = ()):
     logging.info("RUN SCRIPT timeout=%s, script: %s", timeout, script[:100])
     assert self._is_running
     if timeout is not None:
@@ -476,7 +492,7 @@ class WebdriverMixin(Browser):
       return self._driver.execute_script(script, *arguments)
     return self._driver.execute_script(script, *arguments)
 
-  def quit(self, runner):
+  def quit(self, runner: cb.runner.Runner):
     assert self._is_running
     self.force_quit()
 
@@ -642,7 +658,6 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
                driver_path: Optional[pathlib.Path] = None,
                platform: Optional[cb.helper.Platform] = None):
     super().__init__(label, path, js_flags, flags, cache_dir, platform)
-    self._driver = None
     self._driver_path = driver_path
 
   def _find_driver(self):
@@ -651,8 +666,9 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
       return finder.find_local_build()
     return finder.download()
 
-  def _start_driver(self, run, driver_path):
+  def _start_driver(self, run: cb.runner.Run, driver_path: pathlib.Path):
     assert not self._is_running
+    assert self.log_file
     stdout_log_file = self.log_file.with_suffix(".stdout.log")
     options = ChromeOptions()
     options.set_capability("browserVersion", str(self.major_version))
@@ -708,10 +724,10 @@ class Safari(Browser, metaclass=SafariMeta):
                platform: Optional[cb.helper.MacOSPlatform] = None):
     super().__init__(label, path, flags, type="safari", platform=platform)
     assert self.platform.is_macos, "Safari only works on MacOS"
-    bundle_name = self.path.stem.replace(" ", "")
+    self.bundle_name = self.path.stem.replace(" ", "")
     assert cache_dir is None, "Cannot set custom cache dir for Safari"
     self.cache_dir = pathlib.Path(
-        f"~/Library/Containers/com.apple.{bundle_name}/Data/Library/Caches"
+        f"~/Library/Containers/com.apple.{self.bundle_name}/Data/Library/Caches"
     ).expanduser()
     self.default_page = "about://blank"
 
@@ -722,21 +738,21 @@ class Safari(Browser, metaclass=SafariMeta):
     # Sample output: "kMDItemVersion = "14.1"" => "14.1"
     return re.findall(r"[\d\.]+", version_string)[0]
 
-  def start(self, run):
-    runner = run.runner
+  def start(self, run: cb.runner.Run):
+    assert self.platform.is_macos
     assert not self._is_running
-    runner.exec_apple_script(f"""
+    self.platform.exec_apple_script(f"""
 tell application '{self.app_name}'
   activate
 end tell
     """)
-    runner.wait(1)
-    runner.exec_apple_script(f"""
+    self.platform.sleep(1)
+    self.platform.exec_apple_script(f"""
 tell application '{self.app_name}'
   tell application "System Events"
       to click menu item "New Private Window"
       of menu "File" of menu bar 1
-      of process '{self.bin_name}'
+      of process '{self.bundle_name}'
   set URL of current tab of front window to '{self.default_page}'
   set the bounds of the first window
       to {{{self.x},{self.y},{self.width},{self.height}}}
@@ -744,17 +760,17 @@ tell application '{self.app_name}'
       to keystroke "e" using {{command down, option down}}
   tell application "System Events"
       to click menu item 1 of menu 2 of menu bar 1
-      of process '{self.bin_name}'
+      of process '{self.bundle_name}'
   tell application "System Events"
       to set position of window 1
-      of process '{self.bin_name}' to {400, 400}
+      of process '{self.bundle_name}' to {400, 400}
 end tell
     """)
-    runner.wait(2)
+    self.platform.sleep(2)
     self._is_running = True
 
-  def show_url(self, runner, url):
-    runner.exec_apple_script(f"""
+  def show_url(self, runner: cb.runner.Runner, url):
+    self.platform.exec_apple_script(f"""
 tell application '{self.app_name}'
     activate
     set URL of current tab of front window to '{url}'
@@ -779,7 +795,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
       driver_path = pathlib.Path("/usr/bin/safaridriver")
     return driver_path
 
-  def _start_driver(self, run, driver_path):
+  def _start_driver(self, run: cb.runner.Run, driver_path: pathlib.Path):
     assert not self._is_running
     logging.info("STARTING BROWSER: browser: %s driver: %s", self.path,
                  driver_path)
@@ -792,6 +808,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
     capabilities["browserVersion"] = str(self.major_version)
     driver = webdriver.Safari(
         executable_path=str(driver_path), desired_capabilities=capabilities)
+    assert driver.session_id, "Could not start webdriver"
     logs = (
         pathlib.Path("~/Library/Logs/com.apple.WebDriver/").expanduser() /
         driver.session_id)
@@ -809,10 +826,10 @@ class SafariWebDriver(WebdriverMixin, Safari):
         f"safaridriver={self._driver_path} version='{version}' "
         f" doesn't match safari version={self.major_version}")
 
-  def clear_cache(self, runner):
+  def clear_cache(self, runner: cb.runner.Runner):
     pass
 
-  def quit(self, runner):
+  def quit(self, runner: cb.runner.Runner):
     super().quit(runner)
     # Safari needs some additional push to quit properly
     self.platform.exec_apple_script(f"""
