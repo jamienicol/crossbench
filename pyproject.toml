@@ -25,13 +25,14 @@ tabulate = "^0.8.10"
 [tool.poetry.scripts]
 crossbench = 'scripts:crossbench'
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pyfakefs = "^4.6.3"
 isort = "^5.10.1"
-pytype = "^2022.8.30"
+pytype = "^2022.10.13"
 pytest-cov = "^3.0.0"
 debugpy = "^1.6.3"
 mypy = "^0.981"
+
 
 [build-system]
 requires = ["poetry_core>=1.1.5"]
