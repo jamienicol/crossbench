@@ -8,7 +8,7 @@ import argparse
 import json
 import pathlib
 import csv
-from typing import TYPE_CHECKING, Sequence, Tuple
+from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 
 if TYPE_CHECKING:
   import crossbench as cb
@@ -161,16 +161,17 @@ class Speedometer20Benchmark(benchmarks.PressBenchmark):
   @classmethod
   def kwargs_from_cli(cls, args) -> dict:
     kwargs = super().kwargs_from_cli(args)
-    kwargs["iterations"] = args.iterations
+    kwargs["iterations"] = int(args.iterations)
     return kwargs
 
-  def __init__(self, stories=None, iterations=None):
-    if isinstance(stories, self.DEFAULT_STORY_CLS):
-      stories = [stories]
-    elif stories is None:
+  def __init__(self,
+               stories: Optional[Sequence[Speedometer20Story]] = None,
+               iterations: Optional[int] = None):
+    if stories is None:
       stories = self.DEFAULT_STORY_CLS.default()
     for story in stories:
       assert isinstance(story, self.DEFAULT_STORY_CLS)
-      if iterations:
-        story.iterations = int(iterations)
+      if iterations is not None:
+        assert iterations > 1
+        story.iterations = iterations
     super().__init__(stories)

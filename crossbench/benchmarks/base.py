@@ -5,12 +5,14 @@
 from __future__ import annotations
 
 import abc
-from typing import Iterable, Sequence, TYPE_CHECKING, Type, Union
+from typing import Any, Dict, Iterable, Sequence, TYPE_CHECKING, Type, List
 import argparse
 
 if TYPE_CHECKING:
   import crossbench as cb
 import crossbench.stories as cb_stories
+
+from typing import TypeVar, Generic
 
 
 class Benchmark(abc.ABC):
@@ -30,7 +32,7 @@ class Benchmark(abc.ABC):
     return parser
 
   @classmethod
-  def describe(cls):
+  def describe(cls) -> Dict[str, Any]:
     return {
         "name": cls.NAME,
         "description": cls.__doc__.strip(),
@@ -50,27 +52,25 @@ class Benchmark(abc.ABC):
     kwargs = cls.kwargs_from_cli(args)
     return cls(**kwargs)
 
-  def __init__(self,
-               stories: Union[cb_stories.Story, Sequence[cb_stories.Story]]):
+  def __init__(self, stories: Sequence[cb_stories.Story]):
     assert self.NAME is not None, f"{self} has no .NAME property"
     assert self.DEFAULT_STORY_CLS != cb_stories.Story, (
         f"{self} has no .DEFAULT_STORY_CLS property")
-    if isinstance(stories, cb_stories.Story):
-      stories = [stories]
-    self.stories: Sequence[cb_stories.Story] = stories
-    self._validate_stories()
+    self.stories = self._validate_stories(stories)
 
-  def _validate_stories(self):
-    assert self.stories, "No stories provided"
-    for story in self.stories:
+  def _validate_stories(self, stories: Sequence[cb_stories.Story]
+                       ) -> List[cb_stories.Story]:
+    assert stories, "No stories provided"
+    for story in stories:
       assert isinstance(story, self.DEFAULT_STORY_CLS), (
           f"story={story} should be a subclass/the same "
           f"class as {self.DEFAULT_STORY_CLS}")
-    first_story = self.stories[0]
+    first_story = stories[0]
     expected_probes_cls_list = first_story.PROBES
-    for story in self.stories:
+    for story in stories:
       assert story.PROBES == expected_probes_cls_list, (
           f"story={story} has different PROBES than {first_story}")
+    return list(stories)
 
 
 class SubStoryBenchmark(Benchmark):
@@ -101,7 +101,7 @@ class SubStoryBenchmark(Benchmark):
     return parser
 
   @classmethod
-  def kwargs_from_cli(cls, args) -> dict:
+  def kwargs_from_cli(cls, args) -> Dict[str, Any]:
     kwargs = super().kwargs_from_cli(args)
     kwargs["stories"] = cls.stories_from_cli(args)
     return kwargs
@@ -114,7 +114,7 @@ class SubStoryBenchmark(Benchmark):
     return cls.DEFAULT_STORY_CLS.from_cli_args(args)
 
   @classmethod
-  def describe(cls) -> dict:
+  def describe(cls) -> Dict[str, Any]:
     data = super().describe()
     data["stories"] = cls.story_names()
     return data

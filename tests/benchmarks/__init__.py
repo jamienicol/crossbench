@@ -3,8 +3,6 @@
 # found in the LICENSE file.
 
 import abc
-import pathlib
-import pyfakefs.fake_filesystem_unittest
 
 from .. import mockbenchmark
 
@@ -53,7 +51,8 @@ class BenchmarkTestCaseMixin:
     any_story_name = self.story_cls.story_names()[0]
     any_story = self.story_cls.from_names([any_story_name])[0]
     # Instantiate with single story,
-    self.benchmark_cls(any_story)
+    with self.assertRaises(TypeError):
+      self.benchmark_cls(any_story)
     # with single story array
     self.benchmark_cls([any_story])
     with self.assertRaises(AssertionError):
