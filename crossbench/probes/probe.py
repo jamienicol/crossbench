@@ -52,6 +52,10 @@ class Probe(abc.ABC):
     pass
 
   @classmethod
+  def kwargs_from_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+    return {}
+
+  @classmethod
   def from_config(cls, config_data: Dict) -> Probe:
     kwargs = cls.kwargs_from_config(config_data)
     if config_data:

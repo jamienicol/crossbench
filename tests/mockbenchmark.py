@@ -8,7 +8,7 @@ import abc
 import pathlib
 import psutil
 from typing import List, Optional
-import pyfakefs.fake_filesystem_unittest
+from pyfakefs import fake_filesystem_unittest
 
 import crossbench as cb
 import crossbench.cli as cli
@@ -156,7 +156,7 @@ class MockCLI(cli.CrossBenchCLI):
 
 
 class BaseCrossbenchTestCase(
-    pyfakefs.fake_filesystem_unittest.TestCase, metaclass=abc.ABCMeta):
+    fake_filesystem_unittest.TestCase, metaclass=abc.ABCMeta):
 
   def setUp(self):
     self.setUpPyfakefs(modules_to_reload=[cb])

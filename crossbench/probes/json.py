@@ -113,9 +113,6 @@ class JsonResultProbe(probes.Probe, metaclass=abc.ABCMeta):
                          merged_data: Union[Dict, helper.ValuesMerger],
                          write_csv=False,
                          value_fn=None) -> cb.probes.ProbeResultType:
-    assert isinstance(merged_data, helper.ValuesMerger) or not write_csv, (
-        "If 'write_csv == True', 'merged_data' must be of type 'ValuesMerger', "
-        f"but found {type(merged_data)}'.")
     merged_json_path = group.get_probe_results_file(self)
     with merged_json_path.open("w") as f:
       if isinstance(merged_data, dict):
@@ -126,10 +123,13 @@ class JsonResultProbe(probes.Probe, metaclass=abc.ABCMeta):
     if not write_csv:
       return merged_json_path
 
+    if not isinstance(merged_data, helper.ValuesMerger):
+      raise ValueError("write_csv is only supported for ValuesMerger, "
+                       f"but found {type(merged_data)}'.")
+
     if not value_fn:
       value_fn = lambda value: value.geomean
 
-    assert isinstance(merged_data, helper.ValuesMerger)
     merged_csv_path = merged_json_path.with_suffix(".csv")
     assert not merged_csv_path.exists()
     with merged_csv_path.open("w") as f:
