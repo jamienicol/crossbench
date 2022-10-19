@@ -47,7 +47,7 @@ mock_platform = MockPlatform()
 
 
 class MockBrowser(cb.browsers.Browser):
-  BIN_PATH = None
+  BIN_PATH: pathlib.Path = pathlib.Path("/")
   VERSION = "100.22.33.44"
 
   @classmethod
@@ -69,11 +69,11 @@ class MockBrowser(cb.browsers.Browser):
     super().__init__(label, path, *args, **kwargs)
     self.url_list: List[str] = []
     self.js_list: List[str] = []
-    self.js_side_effect = []
-    self.run_js_side_effect = []
-    self.did_run = False
-    self.clear_cache_dir = False
-    self.js_flags = cb.flags.JSFlags()
+    self.js_side_effect: List[str] = []
+    self.run_js_side_effect: List[str] = []
+    self.did_run: bool = False
+    self.clear_cache_dir: bool = False
+    self.js_flags: cb.flags.JSFlags = cb.flags.JSFlags()
 
   def clear_cache(self, runner: cb.runner.Runner):
     pass

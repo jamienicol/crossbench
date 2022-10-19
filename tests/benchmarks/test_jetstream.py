@@ -5,10 +5,10 @@
 import crossbench as cb
 import crossbench.benchmarks as bm
 
-from . import BaseBenchmarkTestCase, PressBenchmarkTestCaseMixin
+from . import helper
 
 
-class JetStream2Test(BaseBenchmarkTestCase, PressBenchmarkTestCaseMixin):
+class JetStream2Test(helper.PressBaseBenchmarkTestCase):
 
   @property
   def benchmark_cls(self):

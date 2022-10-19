@@ -5,10 +5,11 @@
 import crossbench as cb
 import crossbench.benchmarks as bm
 
-from . import BaseBenchmarkTestCase, PressBenchmarkTestCaseMixin
+from . import helper
 
 
-class Speedometer2Test(BaseBenchmarkTestCase, PressBenchmarkTestCaseMixin):
+class Speedometer2Test(helper.PressBaseBenchmarkTestCase):
+
 
   @property
   def benchmark_cls(self):

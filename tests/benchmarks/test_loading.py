@@ -5,10 +5,10 @@
 import crossbench as cb
 import crossbench.benchmarks as bm
 
-from . import BaseBenchmarkTestCase
+from . import helper
 
 
-class TestPageLoadBenchmark(BaseBenchmarkTestCase):
+class TestPageLoadBenchmark(helper.SubStoryTestCase):
 
   @property
   def benchmark_cls(self):

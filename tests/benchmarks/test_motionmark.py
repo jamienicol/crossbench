@@ -5,10 +5,10 @@
 import crossbench as cb
 import crossbench.benchmarks as bm
 
-from . import BaseBenchmarkTestCase, PressBenchmarkTestCaseMixin
+from . import helper
 
 
-class MotionMark2Test(BaseBenchmarkTestCase, PressBenchmarkTestCaseMixin):
+class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
 
   @property
   def benchmark_cls(self):
