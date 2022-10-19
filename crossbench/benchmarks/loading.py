@@ -161,8 +161,6 @@ class PageLoadBenchmark(benchmarks.SubStoryBenchmark):
   def __init__(self,
                stories: Union[Page, Sequence[Page]],
                duration: Optional[float] = None):
-    if isinstance(stories, Page):
-      stories = [stories]
     for story in stories:
       assert isinstance(story, Page)
       if duration is not None:

@@ -112,8 +112,13 @@ class FileSizeTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
 class TestMacOSPlatformHelper(unittest.TestCase):
 
   def test_set_main_screen_brightness(self):
-    if cb.helper.platform.is_macos:
-      brightness_level = 32
-      cb.helper.platform.set_main_display_brightness(brightness_level)
-      self.assertEqual(brightness_level,
-                       cb.helper.platform.get_main_display_brightness())
+    if not cb.helper.platform.is_macos:
+      return
+    prev_level = cb.helper.platform.get_main_display_brightness()
+    brightness_level = 32
+    cb.helper.platform.set_main_display_brightness(brightness_level)
+    self.assertEqual(brightness_level,
+                     cb.helper.platform.get_main_display_brightness())
+    cb.helper.platform.set_main_display_brightness(prev_level)
+    self.assertEqual(prev_level,
+                     cb.helper.platform.get_main_display_brightness())

@@ -130,6 +130,10 @@ class JsonResultProbe(probes.Probe, metaclass=abc.ABCMeta):
     if not value_fn:
       value_fn = lambda value: value.geomean
 
+    return self.write_group_csv_result(merged_data, merged_json_path, value_fn)
+
+  def write_group_csv_result(self, merged_data: helper.ValuesMerger,
+                             merged_json_path: pathlib.Path, value_fn):
     merged_csv_path = merged_json_path.with_suffix(".csv")
     assert not merged_csv_path.exists()
     with merged_csv_path.open("w") as f:
