@@ -132,7 +132,7 @@ class Values:
     self.values.append(value)
 
   def to_json(self):
-    json_data = dict(values=self.values)
+    json_data = {"values": self.values}
     if self.is_numeric():
       json_data["min"] = self.min
       average = json_data["average"] = self.average

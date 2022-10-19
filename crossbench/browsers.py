@@ -117,16 +117,17 @@ class Browser(abc.ABC):
     probe.attach(self)
 
   def details_json(self):
-    return dict(
-        label=self.label,
-        app_name=self.app_name,
-        version=self.version,
-        flags=tuple(self.flags.get_list()),
-        js_flags=tuple(),
-        path=str(self.path),
-        clear_cache_dir=self.clear_cache_dir,
-        major_version=self.major_version,
-        log={})
+    return {
+        "label": self.label,
+        "app_name": self.app_name,
+        "version": self.version,
+        "flags": tuple(self.flags.get_list()),
+        "js_flags": tuple(),
+        "path": str(self.path),
+        "clear_cache_dir": self.clear_cache_dir,
+        "major_version": self.major_version,
+        "log": {}
+    }
 
   def setup_binary(self, runner: cb.runner.Runner):
     pass
@@ -687,7 +688,7 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
     driver = webdriver.Chrome(options=options, service=service)
     # pytype: enable=wrong-keyword-args
     # Prevent debugging overhead.
-    driver.execute_cdp_cmd("Runtime.setMaxCallStackSizeToCapture", dict(size=0))
+    driver.execute_cdp_cmd("Runtime.setMaxCallStackSizeToCapture", {"size": 0})
     return driver
 
   def _check_driver_version(self):

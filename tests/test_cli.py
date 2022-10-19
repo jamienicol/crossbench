@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import argparse
 import io
 import json
 import pathlib
@@ -12,7 +11,7 @@ import unittest.mock as mock
 import pyfakefs.fake_filesystem_unittest
 
 import crossbench as cb
-from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig
+from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig, ProbeConfig
 
 from . import mockbenchmark
 
@@ -76,7 +75,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
                    "--skip-checklist")
       for browser in self.browsers:
         self.assertListEqual([url], browser.url_list)
-        self.assertIn("--log", browser.js_flags)
+        self.assertIn("--log-all", browser.js_flags)
 
   def test_invalid_empty_probe_config_file(self):
     config_file = pathlib.Path("/config.hjson")
@@ -136,6 +135,69 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         self.assertListEqual([url], browser.url_list)
         for flag in js_flags:
           self.assertIn(flag, browser.js_flags)
+
+
+class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
+
+  def setUp(self):
+    # TODO: Move to separate common helper class
+    self.setUpPyfakefs(modules_to_reload=[cb, mockbenchmark])
+
+  def parse_config(self, config_data) -> ProbeConfig:
+    probe_config_file = pathlib.Path("/probe.config.hjson")
+    with probe_config_file.open("w") as f:
+      json.dump(config_data, f)
+    with probe_config_file.open() as f:
+      return ProbeConfig.load(f)
+
+  def test_invalid_empty(self):
+    with self.assertRaises(ValueError):
+      self.parse_config({})
+    with self.assertRaises(ValueError):
+      self.parse_config({"foo": {}})
+
+  def test_invalid_names(self):
+    with self.assertRaises(ValueError):
+      self.parse_config({"probes": {"invalid probe name": {}}})
+
+  def test_empty(self):
+    config = self.parse_config({"probes": {}})
+    self.assertListEqual(config.probes, [])
+
+  def test_single_c8_log(self):
+    js_flags = ["--log-maps", "--log-function-events"]
+    config = self.parse_config(
+        {"probes": {
+            "v8.log": {
+                "prof": True,
+                "js_flags": js_flags,
+            }
+        }})
+    self.assertTrue(len(config.probes), 1)
+    probe = config.probes[0]
+    self.assertTrue(isinstance(probe, cb.probes.V8LogProbe))
+    for flag in js_flags + ["--prof"]:
+      self.assertIn(flag, probe.js_flags)
+
+  def test_multiple_probes(self):
+    powersampler_bin = pathlib.Path("/powersampler.bin")
+    powersampler_bin.touch()
+    config = self.parse_config({
+        "probes": {
+            "v8.log": {
+                "log_all": True,
+            },
+            "powersampler": {
+                "bin_path": str(powersampler_bin)
+            }
+        }
+    })
+    self.assertTrue(len(config.probes), 2)
+    log_probe = config.probes[0]
+    self.assertTrue(isinstance(log_probe, cb.probes.V8LogProbe))
+    powersampler_probe = config.probes[1]
+    self.assertTrue(isinstance(powersampler_probe, cb.probes.PowerSamplerProbe))
+    self.assertEqual(powersampler_probe.bin_path, powersampler_bin)
 
 
 class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):

@@ -204,7 +204,7 @@ class ExceptionHandler:
       logging.error(exception)
 
   def to_json(self) -> list:
-    return [dict(title=str(e), trace=str(tb)) for tb, e in self._exceptions]
+    return [{"title": str(e), "trace": str(tb)} for tb, e in self._exceptions]
 
 
 class Runner:
@@ -253,12 +253,13 @@ class Runner:
       label = args.label or args.benchmark_cls.NAME
       cli_dir = pathlib.Path(__file__).parent.parent
       args.out_dir = cls.get_out_dir(cli_dir, label)
-    return dict(
-        out_dir=args.out_dir,
-        browsers=args.browsers,
-        repetitions=args.repeat,
-        use_checklist=args.use_checklist,
-        throw=args.throw)
+    return {
+        "out_dir": args.out_dir,
+        "browsers": args.browsers,
+        "repetitions": args.repeat,
+        "use_checklist": args.use_checklist,
+        "throw": args.throw
+    }
 
 
   def __init__(self,

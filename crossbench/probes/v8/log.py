@@ -3,7 +3,9 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-from typing import Iterable, Optional
+
+import re
+from typing import Any, Iterable, Optional, Dict
 
 import crossbench as cb
 import crossbench.probes as probes
@@ -14,15 +16,23 @@ class V8LogProbe(probes.Probe):
   Chromium-only probe that produces a v8.log file with detailed internal V8
   performance and logging information.
   This file can be used by tools hosted on <http://v8.dev/tools>.
+
+  Config values:
+    log_all: bool = True      Enable all v8 logging (equivalent to --log-all)
+    prof: bool = False        Enable v8-profiling (equivalent to --prof)
+    js_flags: List[str] = []  Manually pass --log-* flags to V8
   """
   NAME = "v8.log"
 
+  _FLAG_RE = re.compile("^--(prof|log-.*|no-log-.*|)$")
+
   @classmethod
-  def from_config(cls, config_data) -> V8LogProbe:
-    log_all = config_data.get('log_all', True)
-    prof = config_data.get('prof', False)
-    js_flags = config_data.get('js_flags', [])
-    return cls(log_all, prof, js_flags)
+  def kwargs_from_config(cls, config_data) -> Dict[str, Any]:
+    return {
+        "log_all": config_data.pop('log_all', True),
+        "prof": config_data.pop('prof', False),
+        "js_flags": config_data.pop('js_flags', []),
+    }
 
   def __init__(self,
                log_all: bool = True,
@@ -30,18 +40,24 @@ class V8LogProbe(probes.Probe):
                js_flags: Optional[Iterable[str]] = None):
     super().__init__()
     self._js_flags = cb.flags.JSFlags()
+    assert isinstance(log_all,
+                      bool), (f"Expected bool value, got log_all={log_all}")
+    assert isinstance(prof, bool), f"Expected bool value, got log_all={prof}"
     if log_all:
       self._js_flags.set("--log-all")
     if prof:
       self._js_flags.set("--prof")
-    if js_flags:
-      for flag in js_flags:
-        if flag == "--prof" or flag.startswith("--log"):
-          self._js_flags.set(flag)
-        else:
-          raise ValueError("None v8.log related flag detected: {flag}")
+    js_flags = js_flags or []
+    for flag in js_flags:
+      if self._FLAG_RE.match(flag):
+        self._js_flags.set(flag)
+      else:
+        raise ValueError(f"Non-v8.log-related flag detected: {flag}")
     assert len(self._js_flags) > 0, "V8LogProbe has no effect"
-    self._js_flags.set("--log")
+
+  @property
+  def js_flags(self):
+    return self._js_flags.copy()
 
   def is_compatible(self, browser):
     return browser.type == "chrome"

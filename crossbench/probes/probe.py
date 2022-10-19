@@ -53,7 +53,11 @@ class Probe(abc.ABC):
 
   @classmethod
   def from_config(cls, config_data: Dict) -> Probe:
-    return cls()
+    kwargs = cls.kwargs_from_config(config_data)
+    if config_data:
+      raise ValueError(
+          f"Config contains unused properties: {', '.join(config_data.keys())}")
+    return cls(**kwargs)
 
   # Set to False if the Probe cannot be used with arbitrary Stories or Pages
   IS_GENERAL_PURPOSE: bool = True

@@ -43,7 +43,7 @@ class Story(ABC):
     return self._name
 
   def details_json(self):
-    return dict(name=self.name, duration=self.duration)
+    return {"name": self.name, "duration": self.duration}
 
   def is_done(self, _) -> bool:
     return True

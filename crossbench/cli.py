@@ -166,7 +166,7 @@ class BrowserConfig:
       flags_product += flag_group.get_variant_items()
     if len(flags_product) == 0:
       # use empty default
-      return (dict(),)
+      return ({},)
     flags_product = itertools.product(*flags_product)
     # Filter out (.., None) value
     flags_product = list(
@@ -410,9 +410,9 @@ class CrossBenchCLI:
         action="append",
         default=[],
         choices=ProbeConfig.LOOKUP.keys(),
-        help="Enable general purpose probes to measure data on all cb.stories "
-        "This argument can be specified multiple times to add more probes"
-        "Cannot be used together with --probe-config")
+        help="Enable general purpose probes to measure data on all cb.stories. "
+        "This argument can be specified multiple times to add more probes. "
+        "Cannot be used together with --probe-config.")
     probe_group.add_argument(
         "--probe-config",
         type=existing_file_type,

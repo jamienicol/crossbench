@@ -8,31 +8,44 @@ import csv
 import logging
 import pathlib
 import subprocess
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Dict, Any
 
 if TYPE_CHECKING:
   import crossbench as cb
 import crossbench.probes as probes
 
-
 class PowerSamplerProbe(probes.Probe):
   """
   Probe for chrome's power_sampler helper binary to collect MacOS specific
   battery and system usage metrics.
+
+  Config values:
+    bin_path            Custom path of the power_sampler
+    sampling_interval   Sampling interval in seconds
   """
 
   NAME = "powersampler"
   BATTERY_ONLY = True
 
-  def __init__(self, power_sampler_bin_path: Optional[pathlib.Path] = None):
+  @classmethod
+  def kwargs_from_config(cls, config_data) -> Dict[str, Any]:
+    return {
+        "bin_path": pathlib.Path(config_data.pop("bin_path")),
+        "sampling_interval": config_data.pop("sampling_interval", 10),
+    }
+
+  def __init__(self, bin_path: pathlib.Path, sampling_interval: int = 10):
     super().__init__()
-    # TODO(fix)
-    power_sampler_bin_path = pathlib.Path.home(
-    ) / "Documents/chrome/src/out/release/power_sampler"
-    self._power_sampler_bin_path = power_sampler_bin_path
-    assert self._power_sampler_bin_path.exists(), (
-        "Could not find power_sampler binary at "
-        f"'{self._power_sampler_bin_path}'")
+    self._bin_path = bin_path
+    assert self._bin_path.exists(), ("Could not find power_sampler binary at "
+                                     f"'{self._bin_path}'")
+    self._sampling_interval = sampling_interval
+    assert sampling_interval > 0, (
+        f"Invalid sampling_interval={sampling_interval}")
+
+  @property
+  def bin_path(self) -> pathlib.Path:
+    return self._bin_path
 
   def pre_check(self, checklist):
     if not super().pre_check(checklist):
@@ -52,7 +65,7 @@ class PowerSamplerProbe(probes.Probe):
 
     def __init__(self, probe: PowerSamplerProbe, run: cb.runner.Run):
       super().__init__(probe, run)
-      self._bin_path = probe._power_sampler_bin_path
+      self._bin_path = probe.bin_path
       self._active_user_process: Optional[subprocess.Popen] = None
       self._battery_process: Optional[subprocess.Popen] = None
       self._power_process: Optional[subprocess.Popen] = None
@@ -81,7 +94,7 @@ class PowerSamplerProbe(probes.Probe):
           "Could not start battery sampler")
       self._power_process = self.browser_platform.popen(
           self._bin_path,
-          "--sample-interval=10",
+          f"--sample-interval={self.probe.sampling_interval}",
           "--samplers=smc,user_idle_level,main_display",
           f"--json-output-file={self._power_output}",
           stdout=subprocess.DEVNULL)
