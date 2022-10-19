@@ -30,8 +30,19 @@ poetry run crossbench speedometer_2.0 \
 
 ## Run Unit tests
 ```
-poetry run python -m unittest
+poetry run pytest
 ```
+
+Run detailed test coverage:
+```
+poetry run pytest --cov=crossbench --cov-report=html
+```
+
+Run [pytype](https://github.com/google/pytype) type checker:
+```
+poetry run pytype -j auto crossbench
+```
+
 
 ## Main Components
 
@@ -45,8 +56,8 @@ You can specify a single browser with `--browser=<name>`
 poetry run crossbench speedometer_2.0 \
     --browser=/path/to/chromium  \
     -- \
-    --browser-flag-foo \
-    --browser-flag-bar \
+        --browser-flag-foo \
+        --browser-flag-bar \
 ```
 
 For more complex scenarios you can use a
