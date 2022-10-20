@@ -14,11 +14,11 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import crossbench as cb
 
+hjson = None
 try:
   import hjson
 except ModuleNotFoundError:
   logging.debug("hjson module not found")
-  hjson = None
 
 
 def _map_flag_group_item(flag_name: str, flag_value: Optional[str]):
