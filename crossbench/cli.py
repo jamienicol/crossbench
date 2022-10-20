@@ -14,7 +14,6 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import crossbench as cb
 
-hjson = None
 try:
   import hjson
 except ModuleNotFoundError:
