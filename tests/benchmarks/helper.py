@@ -5,7 +5,7 @@
 import abc
 from typing import Sequence, Type
 
-from .. import mockbenchmark
+from tests import mockbenchmark
 
 import crossbench as cb
 

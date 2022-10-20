@@ -5,7 +5,7 @@
 import crossbench as cb
 import crossbench.benchmarks as bm
 
-from . import helper
+from tests.benchmarks import helper
 
 
 class Speedometer2Test(helper.PressBaseBenchmarkTestCase):

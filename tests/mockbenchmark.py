@@ -125,14 +125,14 @@ class MockChromeCanary(MockBrowser):
   if cb.helper.platform.is_macos:
     BIN_PATH = pathlib.Path("/Applications/Google Chrome Canary.app")
   else:
-    BIN_PATH = pathlib.Path("/usr/bin/chrome-dev")
+    BIN_PATH = pathlib.Path("/usr/bin/chrome-canary")
 
 
 class MockSafari(MockBrowser):
   if cb.helper.platform.is_macos:
     BIN_PATH = pathlib.Path("/Applications/Safari.app")
   else:
-    raise Exception("Unsupported Platform")
+    BIN_PATH = pathlib.Path('/unsupported-platform/Safari')
 
   @classmethod
   def setup_fs(cls, fs):

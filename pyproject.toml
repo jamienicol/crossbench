@@ -31,8 +31,7 @@ isort = "^5.10.1"
 pytype = "^2022.10.13"
 pytest-cov = "^3.0.0"
 debugpy = "^1.6.3"
-mypy = "^0.981"
-
+mypy = "^0.982"
 
 [build-system]
 requires = ["poetry_core>=1.1.5"]

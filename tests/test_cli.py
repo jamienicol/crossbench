@@ -13,7 +13,7 @@ import pyfakefs.fake_filesystem_unittest
 import crossbench as cb
 from crossbench.cli import BrowserConfig, CrossBenchCLI, FlagGroupConfig, ProbeConfig
 
-from . import mockbenchmark
+from tests import mockbenchmark
 
 
 class SysExitException(Exception):
