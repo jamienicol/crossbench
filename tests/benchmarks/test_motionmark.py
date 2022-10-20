@@ -27,7 +27,11 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
                           "median": 1180.8987652049277,
                           "mean": 1163.0061487765158,
                           "confidencePercentage": 0.8
-                      }
+                      },
+                      "segment1": [[1, 16.666666666666668],
+                                   [1, 16.666666666666668]],
+                      "segment2": [[1, 6.728874992470971],
+                                   [3105, 13.858528114770454]]
                   },
                   "controller": {
                       "score": 1168.106104032434,
