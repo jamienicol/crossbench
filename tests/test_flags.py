@@ -80,6 +80,20 @@ class TestFlags(unittest.TestCase):
     self.assertEqual(flags["--foo"], "v1")
     self.assertEqual(flags["--bar"], "v2")
 
+  def test_str_basic(self):
+    flags = self.CLASS({"--foo": None})
+    self.assertEqual(str(flags), "--foo")
+    flags = self.CLASS({"--foo": "bar"})
+    self.assertEqual(str(flags), "--foo=bar")
+
+  def test_str_multiple(self):
+    flags = self.CLASS({
+        "--flag1": "value1",
+        "--flag2": None,
+        "--flag3": "value3"
+    })
+    self.assertEqual(str(flags), "--flag1=value1 --flag2 --flag3=value3")
+
 
 class TestChromeFlags(TestFlags):
 
@@ -159,3 +173,11 @@ class TestJSFlags(TestFlags):
     self.assertIn("--no-foo", flags)
     self.assertNotIn("--bar", flags)
     self.assertIn("--no-bar", flags)
+
+  def test_str_multiple(self):
+    flags = self.CLASS({
+        "--flag1": "value1",
+        "--flag2": None,
+        "--flag3": "value3"
+    })
+    self.assertEqual(str(flags), "--flag1=value1,--flag2,--flag3=value3")
