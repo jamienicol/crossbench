@@ -117,6 +117,10 @@ class Platform(abc.ABC):
     return False
 
   @property
+  def is_posix(self) -> bool:
+    return self.is_macos or self.is_linux
+
+  @property
   def is_win(self) -> bool:
     return False
 
@@ -263,11 +267,11 @@ class SubprocessError(subprocess.CalledProcessError):
     return f"{super_str}\nstderr:{self.stderr.decode()}"
 
 
-class UnixPlatform(Platform, metaclass=abc.ABCMeta):
+class PosixPlatform(Platform, metaclass=abc.ABCMeta):
   pass
 
 
-class MacOSPlatform(UnixPlatform):
+class MacOSPlatform(PosixPlatform):
 
   @property
   def is_macos(self):
@@ -275,10 +279,13 @@ class MacOSPlatform(UnixPlatform):
 
   @property
   def short_name(self):
-    return "mac"
+    return "macos"
 
   def find_app_binary_path(self, app_path) -> pathlib.Path:
-    binaries = (app_path / "Contents" / "MacOS").iterdir()
+    bin_path = app_path / "Contents" / "MacOS" / app_path.stem
+    if bin_path.exists():
+      return bin_path
+    binaries = bin_path.parent.iterdir()
     binaries = [path for path in binaries if path.is_file()]
     if len(binaries) != 1:
       raise Exception(f"Invalid number of binaries found: {binaries}")
@@ -387,7 +394,7 @@ class MacOSPlatform(UnixPlatform):
     return round(display_brightness.value * 100)
 
 
-class LinuxPlatform(UnixPlatform):
+class LinuxPlatform(PosixPlatform):
   SEARCH_PATHS = (
       pathlib.Path("/usr/local/sbin"),
       pathlib.Path("/usr/local/bin"),
