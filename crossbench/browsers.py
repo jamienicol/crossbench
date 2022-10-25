@@ -337,10 +337,7 @@ class Chrome(Browser, metaclass=ChromeMeta):
     self._stdout_log_file = None
 
   def _extract_version(self):
-    if self.platform.is_win:
-      version_string = self.platform.product_version(self.path)
-    else:
-      version_string = self.platform.sh_stdout(self.path, "--version")
+    version_string = self.platform.app_version(self.path)
     # Sample output: "Google Chrome 90.0.4430.212 dev" => "90.0.4430.212"
     return re.findall(r"[\d\.]+", version_string)[0]
 
@@ -597,15 +594,26 @@ class ChromeDriverFinder:
         if e.status != 404:
           raise
     if driver_version is not None:
-      arch_suffix = ""
-      bitness = "64"
-      if self.platform.is_arm64:
-        arch_suffix = "_m1"
-      if self.platform.is_win:
-        bitness = "32"
-      url = (
-          f"{self.URL}/{driver_version}/"
-          f"chromedriver_{self.platform.short_name}{bitness}{arch_suffix}.zip")
+      if self.platform.is_linux:
+        arch_suffix = "linux64"
+      elif self.platform.is_macos:
+        arch_suffix = "mac64"
+        if self.platform.is_arm64:
+          # The uploaded chromedriver archives changed the naming scheme after
+          # chrome version 106.0.5249.21 for Arm64 (previously m1):
+          #   before: chromedriver_mac64_m1.zip
+          #   after:  chromedriver_mac_arm64.zip
+          LAST_OLD_NAMING_VERSION = (106, 0, 5249, 21)
+          version_tuple = tuple(map(int, driver_version.split(".")))
+          if version_tuple <= LAST_OLD_NAMING_VERSION:
+            arch_suffix = "mac64_m1"
+          else:
+            arch_suffix = "mac_arm64"
+      elif self.platform.is_win:
+        arch_suffix = "win32"
+      else:
+        raise NotImplementedError("Unsupported chromedriver platform")
+      url = (f"{self.URL}/{driver_version}/" f"chromedriver_{arch_suffix}.zip")
     else:
       # Try downloading the canary version
       # Lookup the branch name
@@ -767,10 +775,7 @@ class Safari(Browser, metaclass=SafariMeta):
 
   def _extract_version(self):
     app_path = self.path.parents[2]
-    version_string = self.platform.sh_stdout("mdls", "-name", "kMDItemVersion",
-                                             app_path)
-    # Sample output: "kMDItemVersion = "14.1"" => "14.1"
-    return re.findall(r"[\d\.]+", version_string)[0]
+    return self.platform.app_version(app_path)
 
   def start(self, run: cb.runner.Run):
     assert self.platform.is_macos

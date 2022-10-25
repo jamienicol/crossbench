@@ -20,7 +20,7 @@ import time
 import traceback
 import urllib
 import urllib.request
-from typing import Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional
 
 import psutil
 
@@ -149,10 +149,10 @@ class Platform(abc.ABC):
     # TODO(cbruni): support remote plaforms
     return shutil.which(binary)
 
-  def sh_stdout(self, *args, shell=False, quiet=False) -> str:
+  def sh_stdout(self, *args, shell=False, quiet=False, encoding="utf-8") -> str:
     completed_process = self.sh(
         *args, shell=shell, capture_output=True, quiet=quiet)
-    return completed_process.stdout.decode()
+    return completed_process.stdout.decode(encoding)
 
   def popen(self,
             *args,
@@ -226,30 +226,36 @@ class Platform(abc.ABC):
   def cpu_usage(self) -> float:
     return 1 - psutil.cpu_times_percent().idle / 100
 
-  def cpu_details(self):
-    cpu_freq = psutil.cpu_freq()
+  def cpu_details(self) -> Dict[str, Any]:
     details = {
         "physical cores": psutil.cpu_count(logical=False),
         "logical cores": psutil.cpu_count(logical=True),
-        "max frequency": f"{cpu_freq.max:.2f}Mhz",
-        "min frequency": f"{cpu_freq.min:.2f}Mhz",
-        "current frequency": f"{cpu_freq.current:.2f}Mhz",
-        "CPU usage": [
+        "usage": [
             cpu_percent
             for cpu_percent in psutil.cpu_percent(percpu=True, interval=0.1)
         ],
-        "total CPU usage": psutil.cpu_percent(),
+        "total usage": psutil.cpu_percent(),
         "system load": psutil.getloadavg(),
     }
+    try:
+      cpu_freq = psutil.cpu_freq()
+    except FileNotFoundError:
+      # MacOS M1 fail for this some times
+      return details
+    details.update({
+        "max frequency": f"{cpu_freq.max:.2f}Mhz",
+        "min frequency": f"{cpu_freq.min:.2f}Mhz",
+        "current frequency": f"{cpu_freq.current:.2f}Mhz",
+    })
     return details
 
-  def hardware_details(self):
-    details = {
+  def system_details(self) -> Dict[str, Any]:
+    return {
         "machine": py_platform.machine(),
         "system": py_platform.system(),
         "python_version": py_platform.python_version(),
+        "CPU": self.cpu_details()
     }
-    return json.dumps(details)
 
   def download_to(self, url, path):
     logging.info("DOWNLOAD: %s\n       TO: %s", url, path)
@@ -318,14 +324,17 @@ class WinPlatform(Platform):
         return bin_path
     return None
 
-  def product_version(self, bin: pathlib.Path) -> str:
+  def app_version(self, bin: pathlib.Path) -> str:
     assert bin.exists(), f"Binary {bin} does not exist."
     return self.sh_stdout("powershell", "-command",
                           f"(Get-Item '{bin}').VersionInfo.ProductVersion")
 
 
 class PosixPlatform(Platform, metaclass=abc.ABCMeta):
-  pass
+
+  def app_version(self, bin: pathlib.Path) -> str:
+    assert bin.exists(), f"Binary {bin} does not exist."
+    return self.sh_stdout(self.path, "--version")
 
 
 class MacOSPlatform(PosixPlatform):
@@ -358,6 +367,27 @@ class MacOSPlatform(PosixPlatform):
     except Exception as e:
       return None
 
+  def app_version(self, bin_path: pathlib.Path) -> str:
+    assert bin_path.exists(), f"Binary {bin} does not exist."
+
+    app_path = None
+    current = bin_path
+    while current != bin_path.root:
+      if current.suffix == ".app":
+        app_path = current
+        break
+      current = current.parent
+
+    if not app_path:
+      # Most likely just a cli tool"
+      return self.sh_stdout(self.path, "--version")
+
+    version_string = self.sh_stdout("mdls", "-name", "kMDItemVersion", app_path)
+    # Filter output: "kMDItemVersion = "14.1"" => "14.1"
+    prefix, version_string = version_string.split(" = ", maxsplit=1)
+    assert version_string != "(null)", f"Didn't find app at {bin_path}"
+    return version_string[1:-1]
+
   def exec_apple_script(self, script, quiet=False):
     if not quiet:
       logging.debug("AppleScript: %s", script)
@@ -373,12 +403,17 @@ class MacOSPlatform(PosixPlatform):
       traceback.print_exc(file=sys.stdout)
     return 1
 
-  def hardware_details(self):
-    details = super().hardware_details()
-    system_profiler = self.sh_stdout("system_profiler", "SPHardwareDataType")
-    sysctl_machdep_cpu = self.sh_stdout("sysctl", "machdep.cpu")
-    sysctl_hw = self.sh_stdout("sysctl", "hw")
-    return details + system_profiler + sysctl_machdep_cpu + sysctl_hw
+  def system_details(self) -> Dict[str, Any]:
+    details = super().system_details()
+    details.update({
+        "system_profiler":
+            self.sh_stdout("system_profiler", "SPHardwareDataType"),
+        "sysctl_machdep_cpu":
+            self.sh_stdout("sysctl", "machdep.cpu"),
+        "sysctl_hw":
+            self.sh_stdout("sysctl", "hw"),
+    })
+    return details
 
   def disable_monitoring(self):
     self.disable_crowdstrike()
@@ -390,6 +425,7 @@ class MacOSPlatform(PosixPlatform):
       logging.debug("You're fine, falconctl or %s are not installed.",
                     falconctl)
     else:
+      logging.warn("Disabling crowdstrike monitoring:")
       self.sh("sudo", falconctl, "unload")
 
   def set_main_display_brightness(self, brightness_level: int):
@@ -474,14 +510,14 @@ class LinuxPlatform(PosixPlatform):
   def disable_monitoring(self):
     pass
 
-  def hardware_details(self):
-    lscpu = self.sh_stdout("lscpu")
-    inxi = ""
+  def system_details(self) -> Dict[str, Any]:
+    details = super().system_details()
+    details["lscpu"] = self.sh_stdout("lscpu")
     try:
-      inxi = self.sh_stdout("inxi")
+      details["inxi"] = self.sh_stdout("inxi")
     except Exception:
-      return lscpu
-    return f"{inxi}\n{lscpu}"
+      pass
+    return details
 
   def search_binary(self, bin_name) -> Optional[pathlib.Path]:
     for path in self.SEARCH_PATHS:

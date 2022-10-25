@@ -172,7 +172,7 @@ class GroupByTestCase(unittest.TestCase):
         }, grouped)
 
 
-class PlatformTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
+class ConcatFilesTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
 
   def setUp(self):
     self.setUpPyfakefs()
@@ -193,6 +193,12 @@ class PlatformTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     output = pathlib.Path('ouput')
     self.platform.concat_files([input_a, input_b], output)
     self.assertEqual(output.read_text(), "AAABBB")
+
+
+class PlatformTestCase(unittest.TestCase):
+
+  def setUp(self):
+    self.platform = helper.platform
 
   def test_sleep(self):
     self.platform.sleep(0)
@@ -216,8 +222,8 @@ class PlatformTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
   def test_cpu_usage(self):
     self.assertGreaterEqual(self.platform.cpu_usage(), 0)
 
-  def test_hardware_details(self):
-    self.assertIsNotNone(self.platform.hardware_details())
+  def test_system_details(self):
+    self.assertIsNotNone(self.platform.system_details())
 
 
 @unittest.skipIf(not helper.platform.is_win, "Incompatible platform")
@@ -238,11 +244,11 @@ class WinxPlatformUnittest(unittest.TestCase):
         pathlib.Path("Windows NT/Accessories/wordpad.exe"))
     self.assertTrue(path.exists())
 
-  def test_product_version(self):
+  def test_app_version(self):
     path = self.platform.search_binary(
         pathlib.Path("Windows NT/Accessories/wordpad.exe"))
     self.assertTrue(path.exists())
-    version = self.platform.product_version(path)
+    version = self.platform.app_version(path)
     self.assertIsNotNone(version)
 
   def test_is_macos(self):
@@ -272,8 +278,8 @@ class PosixPlatformUnittest(unittest.TestCase):
     self.assertTrue(pathlib.Path(ls_bin).exists())
     self.assertTrue(pathlib.Path(bash_bin).exists())
 
-  def test_hardware_details(self):
-    details = self.platform.hardware_details()
+  def test_system_details(self):
+    details = self.platform.system_details()
     self.assertTrue(details)
 
 

@@ -36,8 +36,8 @@ class MockPlatform(ActivePlatformClass):
   def cpu_usage(self):
     return 0.1
 
-  def hardware_details(self):
-    return "CPU: 20-core 3.1 GHz"
+  def system_details(self):
+    return {"CPU": "20-core 3.1 GHz"}
 
   def sleep(self, duration):
     pass

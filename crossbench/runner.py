@@ -9,6 +9,7 @@ import argparse
 import contextlib
 import datetime as dt
 import inspect
+import json
 import logging
 import os
 import pathlib
@@ -357,10 +358,10 @@ class Runner:
   def wait(self, seconds):
     self._platform.sleep(seconds)
 
-  def collect_hardware_details(self):
-    with (self.out_dir / "GetHardwareDetails.details.txt").open("w") as f:
-      details = self._platform.hardware_details()
-      f.write(details)
+  def collect_system_details(self):
+    with (self.out_dir / "system_details.json").open("w") as f:
+      details = self._platform.system_details()
+      json.dump(details, f)
 
   def _setup(self):
     if self.repetitions <= 0:
@@ -376,7 +377,7 @@ class Runner:
     if self._use_checklist:
       if not CheckList(self, self.browser_platform).is_ok():  # pytype: disable=wrong-arg-types
         raise Exception("Thou shalt not fail the CheckList")
-    self.collect_hardware_details()
+    self.collect_system_details()
 
   def get_runs(self) -> Iterable[Run]:
     for iteration in range(self.repetitions):
