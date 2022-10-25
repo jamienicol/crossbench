@@ -231,18 +231,29 @@ class ChromeMeta(type(Browser)):
         if binary:
           return binary
       raise Exception("Could not find binary")
+    if cb.helper.platform.is_win:
+      return cb.helper.platform.search_binary(
+          "Google\Chrome\Application\chrome.exe")
     raise NotImplementedError()
 
   @property
   def dev_path(cls):
     if cb.helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome Dev.app")
+    if cb.helper.platform.is_win:
+      return cb.helper.platform.search_binary(
+          "Google\Chrome Dev\Application\chrome.exe")
+    if cb.helper.platform.is_linux:
+      return cb.helper.platform.search_binary("google-chrome-unstable")
     raise NotImplementedError()
 
   @property
   def canary_path(cls):
     if cb.helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome Canary.app")
+    if cb.helper.platform.is_win:
+      return cb.helper.platform.search_binary(
+          "Google\Chrome SxS\Application\chrome.exe")
     raise NotImplementedError()
 
 
@@ -314,10 +325,10 @@ class Chrome(Browser, metaclass=ChromeMeta):
       self.cache_dir = cache_dir
       self.clear_cache_dir = False
     super().__init__(label, path, type="chrome", platform=platform)
+    assert not isinstance(js_flags, str), (
+        f"js_flags should be a list, but got: {repr(js_flags)}")
     assert not isinstance(
-        js_flags, str), f"js_flags should be a list, but got: {repr(js_flags)}"
-    assert not isinstance(
-        flags, str), f"flags should be a list, but got: {repr(flags)}"
+        flags, str), (f"flags should be a list, but got: {repr(flags)}")
     self.default_page = "about://version"
     self._flags = self.default_flags(Chrome.DEFAULT_FLAGS)
     self._flags.update(flags)
@@ -326,7 +337,10 @@ class Chrome(Browser, metaclass=ChromeMeta):
     self._stdout_log_file = None
 
   def _extract_version(self):
-    version_string = self.platform.sh_stdout(self.path, "--version")
+    if self.platform.is_win:
+      version_string = self.platform.product_version(self.path)
+    else:
+      version_string = self.platform.sh_stdout(self.path, "--version")
     # Sample output: "Google Chrome 90.0.4430.212 dev" => "90.0.4430.212"
     return re.findall(r"[\d\.]+", version_string)[0]
 
@@ -498,7 +512,7 @@ class WebdriverMixin(Browser):
     self.force_quit()
 
   def force_quit(self):
-    if self._driver is None:
+    if getattr(self, "_driver", None) is None:
       return
     logging.info("QUIT")
     try:
@@ -545,8 +559,12 @@ class ChromeDriverFinder:
     return self.driver_path
 
   def download(self):
+    extension = ""
+    if self.platform.is_win:
+      extension = ".exe"
     self.driver_path = (
-        BROWSERS_CACHE / f"chromedriver-{self.browser.major_version}")
+        BROWSERS_CACHE /
+        f"chromedriver-{self.browser.major_version}{extension}")
     if not self.driver_path.exists():
       self._find_driver_download()
     return self.driver_path
@@ -580,10 +598,14 @@ class ChromeDriverFinder:
           raise
     if driver_version is not None:
       arch_suffix = ""
+      bitness = "64"
       if self.platform.is_arm64:
         arch_suffix = "_m1"
-      url = (f"{self.URL}/{driver_version}/"
-             f"chromedriver_{self.platform.short_name}64{arch_suffix}.zip")
+      if self.platform.is_win:
+        bitness = "32"
+      url = (
+          f"{self.URL}/{driver_version}/"
+          f"chromedriver_{self.platform.short_name}{bitness}{arch_suffix}.zip")
     else:
       # Try downloading the canary version
       # Lookup the branch name
@@ -594,9 +616,13 @@ class ChromeDriverFinder:
         chromium_base_position = int(version_info["chromium_base_position"])
       # Use prefixes to limit listing results and increase changes of finding
       # a matching version
-      arch_suffix = "Mac"
-      if self.platform.is_arm64:
-        arch_suffix = "Mac_Arm"
+      arch_suffix = "Linux"
+      if self.platform.is_macos:
+        arch_suffix = "Mac"
+        if self.platform.is_arm64:
+          arch_suffix = "Mac_Arm"
+      elif self.platform.is_win:
+        arch_suffix = "Win"
       base_prefix = str(chromium_base_position)[:4]
       listing_url = (
           self.CHROMIUM_LISTING_URL +
@@ -638,11 +664,16 @@ class ChromeDriverFinder:
       self.platform.download_to(url, zip_file)
       with zipfile.ZipFile(zip_file, "r") as zip_ref:
         zip_ref.extractall(zip_file.parent)
-      maybe_driver = zip_file.parent / "chromedriver"
-      if not maybe_driver.is_file():
-        maybe_driver = zip_file.parent / "chromedriver_mac64" / "chromedriver"
-      assert maybe_driver.is_file(), (
-          f"Extracted driver at {maybe_driver} does not exist.")
+      zip_file.unlink()
+      maybe_driver = None
+      maybe_drivers = [
+          path for path in zip_file.parent.glob("**/*")
+          if path.is_file() and "chromedriver" in path.name
+      ]
+      if len(maybe_drivers) > 0:
+        maybe_driver = maybe_drivers[0]
+      assert maybe_driver and maybe_driver.is_file(), (
+        f"Extracted driver at {maybe_driver} does not exist.")
       BROWSERS_CACHE.mkdir(parents=True, exist_ok=True)
       maybe_driver.rename(self.driver_path)
       self.driver_path.chmod(self.driver_path.stat().st_mode | stat.S_IEXEC)
@@ -677,8 +708,9 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
     for arg in args:
       options.add_argument(arg)
     options.binary_location = str(self.path)
-    logging.info("STARTING BROWSER: args: %s browser: %s driver: %s",
-                 shlex.join(args), self.path, driver_path)
+    logging.info("STARTING BROWSER: %s", self.path)
+    logging.info("STARTING BROWSER: driver: %s", driver_path)
+    logging.info("STARTING BROWSER: args: %s", shlex.join(args))
     # pytype: disable=wrong-keyword-args
     service = ChromeService(
         executable_path=str(driver_path),
@@ -692,8 +724,9 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
     return driver
 
   def _check_driver_version(self):
-    version = self.platform.sh_stdout(self._driver_path, "--version")
     # TODO
+    # version = self.platform.sh_stdout(self._driver_path, "--version")
+    pass
 
 
 class SafariMeta(type(Browser)):

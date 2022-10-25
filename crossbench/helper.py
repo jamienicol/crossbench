@@ -12,6 +12,7 @@ import os
 import pathlib
 import platform as py_platform
 import shlex
+import json
 import shutil
 import subprocess
 import sys
@@ -225,14 +226,38 @@ class Platform(abc.ABC):
   def cpu_usage(self) -> float:
     return 1 - psutil.cpu_times_percent().idle / 100
 
-  @abc.abstractmethod
-  def get_hardware_details(self):
-    pass
+  def cpu_details(self):
+    cpu_freq = psutil.cpu_freq()
+    details = {
+        "physical cores": psutil.cpu_count(logical=False),
+        "logical cores": psutil.cpu_count(logical=True),
+        "max frequency": f"{cpu_freq.max:.2f}Mhz",
+        "min frequency": f"{cpu_freq.min:.2f}Mhz",
+        "current frequency": f"{cpu_freq.current:.2f}Mhz",
+        "CPU usage": [
+            cpu_percent
+            for cpu_percent in psutil.cpu_percent(percpu=True, interval=0.1)
+        ],
+        "total CPU usage": psutil.cpu_percent(),
+        "system load": psutil.getloadavg(),
+    }
+    return details
+
+  def hardware_details(self):
+    details = {
+        "machine": py_platform.machine(),
+        "system": py_platform.system(),
+        "python_version": py_platform.python_version(),
+    }
+    return json.dumps(details)
 
   def download_to(self, url, path):
     logging.info("DOWNLOAD: %s\n       TO: %s", url, path)
     assert not path.exists(), f"Download destination {path} exists already."
-    urllib.request.urlretrieve(url, path)
+    try:
+      urllib.request.urlretrieve(url, path)
+    except urllib.error.HTTPError as e:
+      raise OSError(f"Could not load {url}") from e
     assert path.exists(), (
         f"Downloading {url} failed. Downloaded file {path} doesn't exist.")
     return path
@@ -265,6 +290,38 @@ class SubprocessError(subprocess.CalledProcessError):
     if not self.stderr:
       return super_str
     return f"{super_str}\nstderr:{self.stderr.decode()}"
+
+
+class WinPlatform(Platform):
+  SEARCH_PATHS = [
+      pathlib.Path(os.path.expandvars("%ProgramFiles%")),
+      pathlib.Path(os.path.expandvars("%ProgramFiles(x86)%")),
+      pathlib.Path(os.path.expandvars("%APPDATA%")),
+      pathlib.Path(os.path.expandvars("%LOCALAPPDATA%"))
+  ]
+
+  @property
+  def is_win(self):
+    return True
+
+  @property
+  def short_name(self):
+    return "win"
+
+  def disable_monitoring(self):
+    pass
+
+  def search_binary(self, bin_name) -> Optional[pathlib.Path]:
+    for path in self.SEARCH_PATHS:
+      bin_path = path / bin_name
+      if bin_path.exists():
+        return bin_path
+    return None
+
+  def product_version(self, bin: pathlib.Path) -> str:
+    assert bin.exists(), f"Binary {bin} does not exist."
+    return self.sh_stdout("powershell", "-command",
+                          f"(Get-Item '{bin}').VersionInfo.ProductVersion")
 
 
 class PosixPlatform(Platform, metaclass=abc.ABCMeta):
@@ -316,11 +373,12 @@ class MacOSPlatform(PosixPlatform):
       traceback.print_exc(file=sys.stdout)
     return 1
 
-  def get_hardware_details(self):
+  def hardware_details(self):
+    details = super().hardware_details()
     system_profiler = self.sh_stdout("system_profiler", "SPHardwareDataType")
     sysctl_machdep_cpu = self.sh_stdout("sysctl", "machdep.cpu")
     sysctl_hw = self.sh_stdout("sysctl", "hw")
-    return system_profiler + sysctl_machdep_cpu + sysctl_hw
+    return details + system_profiler + sysctl_machdep_cpu + sysctl_hw
 
   def disable_monitoring(self):
     self.disable_crowdstrike()
@@ -416,7 +474,7 @@ class LinuxPlatform(PosixPlatform):
   def disable_monitoring(self):
     pass
 
-  def get_hardware_details(self):
+  def hardware_details(self):
     lscpu = self.sh_stdout("lscpu")
     inxi = ""
     try:
@@ -432,11 +490,12 @@ class LinuxPlatform(PosixPlatform):
         return bin_path
     return None
 
-
 if sys.platform == "linux":
   platform = LinuxPlatform()
 elif sys.platform == "darwin":
   platform = MacOSPlatform()
+elif sys.platform == "win32":
+  platform = WinPlatform()
 else:
   raise Exception("Unsupported Platform")
 

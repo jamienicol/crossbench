@@ -136,7 +136,7 @@ class JsonResultProbe(probes.Probe, metaclass=abc.ABCMeta):
                              merged_json_path: pathlib.Path, value_fn):
     merged_csv_path = merged_json_path.with_suffix(".csv")
     assert not merged_csv_path.exists()
-    with merged_csv_path.open("w") as f:
+    with merged_csv_path.open("w", newline='', encoding='utf-8') as f:
       csv.writer(f, delimiter="\t").writerows(merged_data.to_csv(value_fn))
 
     return {"json": merged_json_path, "csv": merged_csv_path}

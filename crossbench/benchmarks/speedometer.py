@@ -62,7 +62,7 @@ class Speedometer20Probe(probes.JsonResultProbe):
     merged_json_path = group.get_probe_results_file(self)
     merged_csv_path = merged_json_path.with_suffix(".csv")
     assert not merged_csv_path.exists()
-    with merged_csv_path.open("w") as f:
+    with merged_csv_path.open("w", newline='', encoding='utf-8') as f:
       csv.writer(f, delimiter="\t").writerows(merged_table)
 
 

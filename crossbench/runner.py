@@ -359,7 +359,7 @@ class Runner:
 
   def collect_hardware_details(self):
     with (self.out_dir / "GetHardwareDetails.details.txt").open("w") as f:
-      details = self._platform.get_hardware_details()
+      details = self._platform.hardware_details()
       f.write(details)
 
   def _setup(self):

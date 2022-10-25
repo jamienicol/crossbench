@@ -102,7 +102,7 @@ class ChangeCWDTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
 
   def test_basic(self):
     old_cwd = pathlib.Path.cwd()
-    new_cwd = pathlib.Path("/foo/bar")
+    new_cwd = pathlib.Path("/foo/bar").absolute()
     new_cwd.mkdir(parents=True)
     with helper.ChangeCWD(new_cwd):
       self.assertNotEqual(old_cwd, pathlib.Path.cwd())
@@ -200,13 +200,63 @@ class PlatformTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     self.platform.sleep(dt.timedelta())
     self.platform.sleep(dt.timedelta(seconds=0.1))
 
+  def test_cpu_details(self):
+    details = self.platform.cpu_details()
+    self.assertLess(0, details["physical cores"])
+
+  def test_get_relative_cpu_speed(self):
+    self.assertGreater(self.platform.get_relative_cpu_speed(), 0)
+
+  def test_is_thermal_throttled(self):
+    self.assertIsInstance(self.platform.is_thermal_throttled(), bool)
+
+  def test_is_battery_powered(self):
+    self.assertIsInstance(self.platform.is_battery_powered, bool)
+
+  def test_cpu_usage(self):
+    self.assertGreaterEqual(self.platform.cpu_usage(), 0)
+
+  def test_hardware_details(self):
+    self.assertIsNotNone(self.platform.hardware_details())
+
+
+@unittest.skipIf(not helper.platform.is_win, "Incompatible platform")
+class WinxPlatformUnittest(unittest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.platform: helper.WinPlatform = helper.platform
+
+  def test_sh(self):
+    ls = self.platform.sh_stdout("ls")
+    self.assertTrue(ls)
+
+  def test_search_binary(self):
+    path = self.platform.search_binary("does not exist")
+    self.assertIsNone(path)
+    path = self.platform.search_binary(
+        pathlib.Path("Windows NT/Accessories/wordpad.exe"))
+    self.assertTrue(path.exists())
+
+  def test_product_version(self):
+    path = self.platform.search_binary(
+        pathlib.Path("Windows NT/Accessories/wordpad.exe"))
+    self.assertTrue(path.exists())
+    version = self.platform.product_version(path)
+    self.assertIsNotNone(version)
+
+  def test_is_macos(self):
+    self.assertFalse(self.platform.is_macos)
+    self.assertFalse(self.platform.is_linux)
+    self.assertTrue(self.platform.is_win)
+    self.assertFalse(self.platform.is_remote)
 
 @unittest.skipIf(not helper.platform.is_posix, "Incompatible platform")
 class PosixPlatformUnittest(unittest.TestCase):
 
   def setUp(self):
     super().setUp()
-    self.platform = helper.platform
+    self.platform: helper.PosixPlatform = helper.platform
 
   def test_sh(self):
     ls = self.platform.sh_stdout("ls")
@@ -222,21 +272,10 @@ class PosixPlatformUnittest(unittest.TestCase):
     self.assertTrue(pathlib.Path(ls_bin).exists())
     self.assertTrue(pathlib.Path(bash_bin).exists())
 
-  def test_get_hardware_details(self):
-    details = self.platform.get_hardware_details()
+  def test_hardware_details(self):
+    details = self.platform.hardware_details()
     self.assertTrue(details)
 
-  def test_get_relative_cpu_speed(self):
-    self.assertGreater(self.platform.get_relative_cpu_speed(), 0)
-
-  def test_is_thermal_throttled(self):
-    self.assertIsInstance(self.platform.is_thermal_throttled(), bool)
-
-  def test_is_battery_powered(self):
-    self.assertIsInstance(self.platform.is_battery_powered, bool)
-
-  def test_cpu_usage(self):
-    self.assertGreaterEqual(self.platform.cpu_usage(), 0)
 
 
 @unittest.skipIf(not helper.platform.is_macos, "Incompatible platform")

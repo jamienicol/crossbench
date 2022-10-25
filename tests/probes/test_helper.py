@@ -23,7 +23,7 @@ class TestMergeCSV(pyfakefs.fake_filesystem_unittest.TestCase):
         ["Total", "200"],
     ]
     for delimiter in ["\t", ","]:
-      with file.open("w") as f:
+      with file.open("w", newline='', encoding='utf-8') as f:
         csv.writer(f, delimiter=delimiter).writerows(data)
       merged = helper.merge_csv([file], delimiter=delimiter)
       self.assertListEqual(merged, data)
@@ -35,7 +35,7 @@ class TestMergeCSV(pyfakefs.fake_filesystem_unittest.TestCase):
         ["marker"],
         ["Total", "200", "300"],
     ]
-    with file.open("w") as f:
+    with file.open("w", newline='', encoding='utf-8') as f:
       csv.writer(f, delimiter="\t").writerows(data)
     merged = helper.merge_csv([file], headers=None)
     self.assertListEqual(merged, [
@@ -50,7 +50,7 @@ class TestMergeCSV(pyfakefs.fake_filesystem_unittest.TestCase):
         ["Total", "200"],
     ]
     for delimiter in ["\t", ","]:
-      with file.open("w") as f:
+      with file.open("w", newline='', encoding='utf-8') as f:
         csv.writer(f, delimiter=delimiter).writerows(data)
       merged = helper.merge_csv([file],
                                 delimiter=delimiter,
@@ -71,9 +71,9 @@ class TestMergeCSV(pyfakefs.fake_filesystem_unittest.TestCase):
         ["marker"],
         ["Total", "201"],
     ]
-    with file_1.open("w") as f:
+    with file_1.open("w", newline='', encoding='utf-8') as f:
       csv.writer(f, delimiter="\t").writerows(data_1)
-    with file_2.open("w") as f:
+    with file_2.open("w", newline='', encoding='utf-8') as f:
       csv.writer(f, delimiter="\t").writerows(data_2)
     merged = helper.merge_csv([file_1, file_2], headers=["col_1", "col_2"])
     self.assertListEqual(merged, [
