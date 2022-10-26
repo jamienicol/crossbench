@@ -360,7 +360,7 @@ class Runner:
   def collect_system_details(self):
     with (self.out_dir / "system_details.json").open("w") as f:
       details = self._platform.system_details()
-      json.dump(details, f)
+      json.dump(details, f, indent=2)
 
   def _setup(self):
     if self.repetitions <= 0:

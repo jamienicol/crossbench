@@ -252,9 +252,17 @@ class Platform(abc.ABC):
   def system_details(self) -> Dict[str, Any]:
     return {
         "machine": py_platform.machine(),
-        "system": py_platform.system(),
-        "python_version": py_platform.python_version(),
-        "CPU": self.cpu_details()
+        "os": {
+            "system": py_platform.system(),
+            "release": py_platform.release(),
+            "version": py_platform.version(),
+            "platform": py_platform.platform(),
+        },
+        "python": {
+            "version": py_platform.python_version(),
+            "bits": "64" if sys.maxsize > 2**32 else "32",
+        },
+        "CPU": self.cpu_details(),
     }
 
   @abc.abstractmethod
@@ -516,11 +524,9 @@ class LinuxPlatform(PosixPlatform):
 
   def system_details(self) -> Dict[str, Any]:
     details = super().system_details()
-    details["lscpu"] = self.sh_stdout("lscpu")
-    try:
-      details["inxi"] = self.sh_stdout("inxi")
-    except Exception:
-      pass
+    for info_bin in ("lscpu", "inxi"):
+      if self.which(info_bin):
+        details[info_bin] = self.sh_stdout(info_bin)
     return details
 
   def search_binary(self, bin_name) -> Optional[pathlib.Path]:
