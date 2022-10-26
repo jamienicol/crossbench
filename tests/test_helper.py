@@ -228,10 +228,12 @@ class PlatformTestCase(unittest.TestCase):
 
 @unittest.skipIf(not helper.platform.is_win, "Incompatible platform")
 class WinxPlatformUnittest(unittest.TestCase):
+  platform: helper.WinPlatform
 
   def setUp(self):
     super().setUp()
-    self.platform: helper.WinPlatform = helper.platform
+    assert isinstance(helper.platform, helper.WinPlatform)
+    self.platform = helper.platform
 
   def test_sh(self):
     ls = self.platform.sh_stdout("ls")
@@ -242,12 +244,12 @@ class WinxPlatformUnittest(unittest.TestCase):
     self.assertIsNone(path)
     path = self.platform.search_binary(
         pathlib.Path("Windows NT/Accessories/wordpad.exe"))
-    self.assertTrue(path.exists())
+    self.assertTrue(path and path.exists())
 
   def test_app_version(self):
     path = self.platform.search_binary(
         pathlib.Path("Windows NT/Accessories/wordpad.exe"))
-    self.assertTrue(path.exists())
+    self.assertTrue(path and path.exists())
     version = self.platform.app_version(path)
     self.assertIsNotNone(version)
 
@@ -297,7 +299,7 @@ class MacOSPlatformHelperTestCase(unittest.TestCase):
 
   def test_search_binary(self):
     bin = self.platform.search_binary("Safari")
-    self.assertTrue(bin.exists())
+    self.assertTrue(bin and bin.exists())
 
   def test_find_app_binary_path(self):
     bin = self.platform.find_app_binary_path(

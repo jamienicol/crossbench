@@ -230,7 +230,7 @@ class Platform(abc.ABC):
     details = {
         "physical cores": psutil.cpu_count(logical=False),
         "logical cores": psutil.cpu_count(logical=True),
-        "usage": [
+        "usage": [  # pytype: disable=attribute-error
             cpu_percent
             for cpu_percent in psutil.cpu_percent(percpu=True, interval=0.1)
         ],
@@ -256,6 +256,10 @@ class Platform(abc.ABC):
         "python_version": py_platform.python_version(),
         "CPU": self.cpu_details()
     }
+
+  @abc.abstractmethod
+  def app_version(self, bin_path: pathlib.Path) -> str:
+    pass
 
   def download_to(self, url, path):
     logging.info("DOWNLOAD: %s\n       TO: %s", url, path)
@@ -334,7 +338,7 @@ class PosixPlatform(Platform, metaclass=abc.ABCMeta):
 
   def app_version(self, bin: pathlib.Path) -> str:
     assert bin.exists(), f"Binary {bin} does not exist."
-    return self.sh_stdout(self.path, "--version")
+    return self.sh_stdout(bin, "--version")
 
 
 class MacOSPlatform(PosixPlatform):
@@ -380,7 +384,7 @@ class MacOSPlatform(PosixPlatform):
 
     if not app_path:
       # Most likely just a cli tool"
-      return self.sh_stdout(self.path, "--version")
+      return self.sh_stdout(app_path, "--version")
 
     version_string = self.sh_stdout("mdls", "-name", "kMDItemVersion", app_path)
     # Filter output: "kMDItemVersion = "14.1"" => "14.1"
