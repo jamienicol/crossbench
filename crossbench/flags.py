@@ -142,11 +142,11 @@ class ChromeFlags(Flags):
       return super()._set(flag_name, flag_value, override)
 
   @property
-  def features(self):
+  def features(self) -> ChromeFeatures:
     return self._features
 
   @property
-  def js_flags(self):
+  def js_flags(self) -> JSFlags:
     return self._js_flags
 
   def get_list(self):

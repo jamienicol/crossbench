@@ -3,13 +3,12 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-from ast import Tuple
 
 import csv
 import logging
 import pathlib
 import subprocess
-from typing import List, Optional, TYPE_CHECKING, Dict, Any, Sequence
+from typing import Optional, TYPE_CHECKING, Sequence, Tuple
 
 if TYPE_CHECKING:
   import crossbench as cb
@@ -64,7 +63,7 @@ class PowerSamplerProbe(probes.Probe):
   def samplers(self) -> Tuple[str, ...]:
     return self._samplers
 
-  def pre_check(self, checklist):
+  def pre_check(self, checklist) -> bool:
     if not super().pre_check(checklist):
       return False
     if not self.browser_platform.is_battery_powered:
@@ -74,7 +73,7 @@ class PowerSamplerProbe(probes.Probe):
     # TODO() warn about open terminals
     return True
 
-  def is_compatible(self, browser: cb.browsers.Browser):
+  def is_compatible(self, browser: cb.browsers.Browser) -> bool:
     # For now only supported on MacOs
     return browser.platform.is_macos
 

@@ -60,10 +60,13 @@ class FlagGroupConfig:
           for flag_value in flag_values)
 
 
+BrowserLookupTable = Dict[str, Tuple[Type[cb.browsers.Browser], pathlib.Path]]
+
+
 class BrowserConfig:
 
   @classmethod
-  def from_cli_args(cls, args):
+  def from_cli_args(cls, args) -> BrowserConfig:
     if args.browser_config:
       path = args.browser_config.expanduser()
       with path.open() as f:
@@ -73,7 +76,8 @@ class BrowserConfig:
     return browser_config
 
   @classmethod
-  def load(cls, f, browser_lookup_override={}):
+  def load(cls, f,
+           browser_lookup_override: BrowserLookupTable = {}) -> BrowserConfig:
     try:
       if hjson:
         config = hjson.load(f)
@@ -88,8 +92,7 @@ class BrowserConfig:
 
   def __init__(self,
                raw_config_data: Optional[Dict] = None,
-               browser_lookup_override: Dict[
-                   str, Tuple[Type[cb.browsers.Browser], pathlib.Path]] = {}):
+               browser_lookup_override: BrowserLookupTable = {}):
     self.flag_groups = {}
     self.variants = []
     self._browser_lookup_override = browser_lookup_override
@@ -176,7 +179,8 @@ class BrowserConfig:
     assert flags_product
     return flags_product
 
-  def _get_browser_cls_from_path(self, path):
+  def _get_browser_cls_from_path(self, path: pathlib.Path
+                                ) -> Type[cb.browsers.Browser]:
     path_str = str(path).lower()
     if "safari" in path_str:
       return cb.browsers.SafariWebDriver

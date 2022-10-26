@@ -186,7 +186,7 @@ class ProfilingProbe(probes.Probe):
         urls = self._export_to_pprof(run, perf_files)
       finally:
         self._clean_up_temp_files(run)
-      logging.debug("Profliling results: %s", urls)
+      logging.debug("Profiling results: %s", urls)
       return urls
 
     def _inject_v8_symbols(self, run: cb.runner.Run,

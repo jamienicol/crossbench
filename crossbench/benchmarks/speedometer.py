@@ -88,7 +88,10 @@ class Speedometer20Story(stories.PressBenchmarkStory):
       "Flight-TodoMVC",
   )
 
-  def __init__(self, is_live=True, substories=None, iterations=None):
+  def __init__(self,
+               is_live=True,
+               substories: Sequence[str] = (),
+               iterations=10):
     super().__init__(is_live=is_live, substories=substories, duration=30)
     self.iterations = iterations or 10
 

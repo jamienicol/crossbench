@@ -64,7 +64,7 @@ class V8LogProbe(probes.Probe):
     assert len(self._js_flags) > 0, "V8LogProbe has no effect"
 
   @property
-  def js_flags(self):
+  def js_flags(self) -> cb.flags.JSFlags:
     return self._js_flags.copy()
 
   def is_compatible(self, browser):

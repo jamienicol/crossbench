@@ -146,7 +146,7 @@ class Platform(abc.ABC):
     time.sleep(seconds)
 
   def which(self, binary):
-    # TODO(cbruni): support remote plaforms
+    # TODO(cbruni): support remote platforms
     return shutil.which(binary)
 
   def sh_stdout(self, *args, shell=False, quiet=False, encoding="utf-8") -> str:
@@ -290,10 +290,12 @@ class Platform(abc.ABC):
     return output
 
   def set_main_display_brightness(self, brightness_level: int):
-    raise NotImplementedError("Implemention is only available on MacOS for now")
+    raise NotImplementedError(
+        "Implementation is only available on MacOS for now")
 
   def get_main_display_brightness(self):
-    raise NotImplementedError("Implemention is only available on MacOS for now")
+    raise NotImplementedError(
+        "Implementation is only available on MacOS for now")
 
 
 class SubprocessError(subprocess.CalledProcessError):
@@ -468,7 +470,7 @@ class MacOSPlatform(PosixPlatform):
                                                        brightness_level / 100)
     assert ret == 0
 
-  def get_main_display_brightness(self):
+  def get_main_display_brightness(self) -> int:
     """Gets the current brightness level of the main display .
 
     This function imitates the open-source "brightness" tool at
@@ -481,7 +483,7 @@ class MacOSPlatform(PosixPlatform):
       An int of the current percentage value of the main screen brightness
 
     Raises:
-      AssertionError: An error occused when we tried to set the brightness
+      AssertionError: An error occurred when we tried to set the brightness
     """
     CoreGraphics = ctypes.CDLL(
         "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")

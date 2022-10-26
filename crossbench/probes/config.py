@@ -3,13 +3,14 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-from multiprocessing.sharedctypes import Value
 import tabulate
 
-from typing import Any, Dict, Optional, Sequence, Type, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Sequence, Type, TYPE_CHECKING
 
 if TYPE_CHECKING:
   import crossbench as cb
+
+ArgParserType = Callable[[Any], Any]
 
 
 class _ConfigArg:
@@ -17,7 +18,7 @@ class _ConfigArg:
   def __init__(self,
                parser: ProbeConfigParser,
                name: str,
-               type: Type,
+               type: Optional[ArgParserType],
                default: Any = None,
                choices: Optional[Sequence[Any]] = None,
                help: Optional[str] = None,
@@ -36,10 +37,10 @@ class _ConfigArg:
 
   @property
   def help_text(self):
-    items = []
+    items: List[str] = []
     if self.help:
       items.append(self.help)
-    if self.type:
+    if self.type is None:
       if self.is_list:
         items.append(f" type = List[{self.type}]")
       else:
@@ -66,32 +67,33 @@ class _ConfigArg:
       return self.parse_list_data(data)
     return self.parse_data(data)
 
-  def parse_list_data(self, data):
+  def parse_list_data(self, data: Any) -> List[Any]:
     if not isinstance(data, (list, tuple)):
       raise ValueError(f"Probe {self.probe_name}.{self.name}: "
                        f"Expected sequence got {type(data)}")
     return [self.parse_data(value) for value in data]
 
-  def parse_data(self, data):
-    if self.type is bool:
+  def parse_data(self, data: Any) -> Any:
+    if self.type is None:
+      return data
+    elif self.type is bool:
       if not isinstance(data, bool):
         raise ValueError(f"Expected bool, but got {data}")
     elif self.type in (float, int):
       if not isinstance(data, (float, int)):
         raise ValueError(f"Expected number, got {data}")
-    result = self.type(data)
-    return result
+    return self.type(data)
 
 
 class ProbeConfigParser:
 
   def __init__(self, probe_cls: Type[cb.probes.Probe]):
     self.probe_cls = probe_cls
-    self._args = dict()
+    self._args: Dict[str, _ConfigArg] = dict()
 
   def add_argument(self,
                    name: str,
-                   type: Type,
+                   type: ArgParserType,
                    default: Any = None,
                    choices: Optional[Sequence[Any]] = None,
                    help: Optional[str] = None,
@@ -102,10 +104,11 @@ class ProbeConfigParser:
 
   @property
   def doc(self) -> str:
+    assert self.probe_cls.__doc__
     return self.probe_cls.__doc__.strip()
 
-  def kwargs_from_config(self, config_data: Dict) -> Dict[str, Any]:
-    kwargs = {}
+  def kwargs_from_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+    kwargs: Dict[str, Any] = {}
     for arg in self._args.values():
       kwargs[arg.name] = arg.parse(config_data)
     return kwargs

@@ -90,8 +90,8 @@ class LoadingPageFilter(benchmarks.StoryFilter):
     "name"            Include LivePage with the given name from predefined list.
     "name", 10        Include predefined page with given 10s timeout.
     "http://..."      Include custom page at the given URL with a default
-                      timout of 15 seconds.
-    "http://...", 12  Include custom page at the given URL with a 12s timout
+                      timeout of 15 seconds.
+    "http://...", 12  Include custom page at the given URL with a 12s timeout
 
   These patterns can be combined:
     ["http://foo.com", 5, "http://bar.co.jp", "amazon"]
