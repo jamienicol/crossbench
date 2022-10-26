@@ -3,12 +3,13 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+from ast import Tuple
 
 import csv
 import logging
 import pathlib
 import subprocess
-from typing import Optional, TYPE_CHECKING, Dict, Any
+from typing import List, Optional, TYPE_CHECKING, Dict, Any, Sequence
 
 if TYPE_CHECKING:
   import crossbench as cb
@@ -18,23 +19,29 @@ class PowerSamplerProbe(probes.Probe):
   """
   Probe for chrome's power_sampler helper binary to collect MacOS specific
   battery and system usage metrics.
-
-  Config values:
-    bin_path            Custom path of the power_sampler
-    sampling_interval   Sampling interval in seconds
   """
 
   NAME = "powersampler"
   BATTERY_ONLY = True
+  SAMPLERS = ("smc", "user_idle_level", "main_display")
 
   @classmethod
-  def kwargs_from_config(cls, config_data) -> Dict[str, Any]:
-    return {
-        "bin_path": pathlib.Path(config_data.pop("bin_path")),
-        "sampling_interval": config_data.pop("sampling_interval", 10),
-    }
+  def config_parser(cls):
+    parser = super().config_parser()
+    parser.add_argument("bin_path", type=pathlib.Path)
+    parser.add_argument("sampling_interval", type=int, default=10)
+    parser.add_argument(
+        "samplers",
+        type=str,
+        choices=cls.SAMPLERS,
+        default=cls.SAMPLERS,
+        is_list=True)
+    return parser
 
-  def __init__(self, bin_path: pathlib.Path, sampling_interval: int = 10):
+  def __init__(self,
+               bin_path: pathlib.Path,
+               sampling_interval: int = 10,
+               samplers: Sequence[str] = SAMPLERS):
     super().__init__()
     self._bin_path = bin_path
     assert self._bin_path.exists(), ("Could not find power_sampler binary at "
@@ -42,10 +49,20 @@ class PowerSamplerProbe(probes.Probe):
     self._sampling_interval = sampling_interval
     assert sampling_interval > 0, (
         f"Invalid sampling_interval={sampling_interval}")
+    assert 'battery' not in samplers
+    self._samplers = tuple(samplers)
 
   @property
   def bin_path(self) -> pathlib.Path:
     return self._bin_path
+
+  @property
+  def sampling_interval(self) -> int:
+    return self._sampling_interval
+
+  @property
+  def samplers(self) -> Tuple[str, ...]:
+    return self._samplers
 
   def pre_check(self, checklist):
     if not super().pre_check(checklist):
@@ -95,7 +112,7 @@ class PowerSamplerProbe(probes.Probe):
       self._power_process = self.browser_platform.popen(
           self._bin_path,
           f"--sample-interval={self.probe.sampling_interval}",
-          "--samplers=smc,user_idle_level,main_display",
+          f"--samplers={','.join(self.probe.samplers)}",
           f"--json-output-file={self._power_output}",
           stdout=subprocess.DEVNULL)
       assert self._power_process is not None, "Could not start power sampler"

@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 import crossbench.helper as helper
 
+from crossbench.probes.config import ProbeConfigParser
+
 ProbeT = TypeVar('ProbeT', bound="cb.probes.Probe")
 
 
@@ -52,16 +54,21 @@ class Probe(abc.ABC):
     pass
 
   @classmethod
-  def kwargs_from_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
-    return {}
+  def config_parser(cls) -> ProbeConfigParser:
+    return ProbeConfigParser(cls)
 
   @classmethod
   def from_config(cls, config_data: Dict) -> Probe:
-    kwargs = cls.kwargs_from_config(config_data)
+    kwargs = cls.config_parser().kwargs_from_config(config_data)
     if config_data:
       raise ValueError(
           f"Config contains unused properties: {', '.join(config_data.keys())}")
     return cls(**kwargs)
+
+  @classmethod
+  def help_text(cls) -> str:
+    return str(cls.config_parser())
+
 
   # Set to False if the Probe cannot be used with arbitrary Stories or Pages
   IS_GENERAL_PURPOSE: bool = True

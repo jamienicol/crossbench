@@ -16,23 +16,31 @@ class V8LogProbe(probes.Probe):
   Chromium-only probe that produces a v8.log file with detailed internal V8
   performance and logging information.
   This file can be used by tools hosted on <http://v8.dev/tools>.
-
-  Config values:
-    log_all: bool = True      Enable all v8 logging (equivalent to --log-all)
-    prof: bool = False        Enable v8-profiling (equivalent to --prof)
-    js_flags: List[str] = []  Manually pass --log-* flags to V8
   """
   NAME = "v8.log"
 
   _FLAG_RE = re.compile("^--(prof|log-.*|no-log-.*|)$")
 
   @classmethod
-  def kwargs_from_config(cls, config_data) -> Dict[str, Any]:
-    return {
-        "log_all": config_data.pop('log_all', True),
-        "prof": config_data.pop('prof', False),
-        "js_flags": config_data.pop('js_flags', []),
-    }
+  def config_parser(cls):
+    parser = super().config_parser()
+    parser.add_argument(
+        "log_all",
+        type=bool,
+        default=True,
+        help="Enable all v8 logging (equivalent to --log-all)")
+    parser.add_argument(
+        "prof",
+        type=bool,
+        default=False,
+        help="Enable v8-profiling (equivalent to --prof)")
+    parser.add_argument(
+        "js_flags",
+        type=str,
+        default=[],
+        is_list=True,
+        help="Manually pass --log-.* flags to V8")
+    return parser
 
   def __init__(self,
                log_all: bool = True,

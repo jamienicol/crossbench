@@ -63,9 +63,11 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         self.assertGreater(len(stdout), 0)
 
   def test_invalid_probe(self):
-    with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
-      self.run_cli(
-          "loading", "--probe=invalid_probe_name", raises=SysExitException)
+    with (self.assertRaises(ValueError),
+          mock.patch.object(
+              cb.cli.CrossBenchCLI, "_get_browsers",
+              return_value=self.browsers)):
+      self.run_cli("loading", "--probe=invalid_probe_name")
 
   def test_basic_probe_setting(self):
     with mock.patch.object(
@@ -130,6 +132,39 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", f"--probe-config={config_file}", f"--urls={url}",
+                   "--skip-checklist")
+      for browser in self.browsers:
+        self.assertListEqual([url], browser.url_list)
+        for flag in js_flags:
+          self.assertIn(flag, browser.js_flags)
+
+  def test_probe_invalid_inline_json_config(self):
+    with (self.assertRaises(ValueError),
+          mock.patch.object(
+              cb.cli.CrossBenchCLI, "_get_browsers",
+              return_value=self.browsers)):
+      self.run_cli("loading", "--probe=v8.log{invalid json: d a t a}",
+                   f"--urls=cnn", "--skip-checklist")
+
+  def test_probe_empty_inline_json_config(self):
+    js_flags = ["--log-foo", "--log-bar"]
+    with mock.patch.object(
+        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      url = "http://test.com"
+      self.run_cli("loading", "--probe=v8.log{}", f"--urls={url}",
+                   "--skip-checklist")
+      for browser in self.browsers:
+        self.assertListEqual([url], browser.url_list)
+        for flag in js_flags:
+          self.assertNotIn(flag, browser.js_flags)
+
+  def test_probe_inline_json_config(self):
+    js_flags = ["--log-foo", "--log-bar"]
+    json_config = json.dumps({"js_flags": js_flags})
+    with mock.patch.object(
+        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      url = "http://test.com"
+      self.run_cli("loading", f"--probe=v8.log{json_config}", f"--urls={url}",
                    "--skip-checklist")
       for browser in self.browsers:
         self.assertListEqual([url], browser.url_list)

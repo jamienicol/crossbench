@@ -249,21 +249,30 @@ class ProbeConfig:
     probe_config.load_config_file(file)
     return probe_config
 
-  def __init__(self, probe_names: Optional[Iterable[str]] = None):
+  def __init__(self, probe_names_with_args: Optional[Iterable[str]] = None):
     self._probes: List[cb.probes.Probe] = []
-    if probe_names:
-      for probe_name in probe_names:
-        self.add_probe(probe_name)
+    if probe_names_with_args:
+      for probe_name_with_args in probe_names_with_args:
+        self.add_probe(probe_name_with_args)
 
   @property
   def probes(self) -> List[cb.probes.Probe]:
     return self._probes
 
-  def add_probe(self, name):
-    if name not in self.LOOKUP:
-      raise ValueError(f"Unknown probe name: '{name}'")
-    probe_cls = self.LOOKUP[name]
-    self._probes.append(probe_cls())
+  def add_probe(self, probe_name_with_args: str):
+    # look for "ProbeName{json_key:json_value, ...}"
+    inline_config = {}
+    if probe_name_with_args[-1] == "}":
+      probe_name, json_args = probe_name_with_args.split("{", maxsplit=1)
+      assert json_args[-1] == "}"
+      inline_config = hjson.loads("{" + json_args)
+    else:
+      # Default case without the additional hjson payload
+      probe_name = probe_name_with_args
+    if probe_name not in self.LOOKUP:
+      raise ValueError(f"Unknown probe name: '{probe_name}'")
+    probe_cls: Type[cb.probes.Probe] = self.LOOKUP[probe_name]
+    self._probes.append(probe_cls.from_config(inline_config))
 
   def load_config_file(self, file):
     data = hjson.load(file)
@@ -342,7 +351,7 @@ class CrossBenchCLI:
             for benchmark_cls in self.BENCHMARKS
         },
         "probes": {
-            probe_cls.NAME: probe_cls.__doc__.strip()
+            probe_cls.NAME: probe_cls.help_text()
             for probe_cls in cb.probes.GENERAL_PURPOSE_PROBES
         }
     }
@@ -408,10 +417,10 @@ class CrossBenchCLI:
         "--probe",
         action="append",
         default=[],
-        choices=ProbeConfig.LOOKUP.keys(),
         help="Enable general purpose probes to measure data on all cb.stories. "
         "This argument can be specified multiple times to add more probes. "
-        "Cannot be used together with --probe-config.")
+        "Cannot be used together with --probe-config."
+        f"\n\nChoices: {', '.join(ProbeConfig.LOOKUP.keys())}")
     probe_group.add_argument(
         "--probe-config",
         type=existing_file_type,
