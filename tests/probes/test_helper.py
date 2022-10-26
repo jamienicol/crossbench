@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import csv
+import json
 import pathlib
 import unittest
 
@@ -185,3 +186,191 @@ class TestFlatten(unittest.TestCase):
         "c": 3,
         "d": 4,
     })
+
+
+class ValuesTestCase(unittest.TestCase):
+
+  def test_empty(self):
+    values = helper.Values()
+    self.assertTrue(values.is_numeric)
+    self.assertEqual(len(values), 0)
+
+  def test_is_numeric(self):
+    values = helper.Values([1, 2, 3, 4])
+    self.assertTrue(values.is_numeric)
+    values.append(5)
+    self.assertTrue(values.is_numeric)
+    values.append("6")
+    self.assertFalse(values.is_numeric)
+
+    values = helper.Values([1, 2, 3, "4"])
+    self.assertFalse(values.is_numeric)
+
+  def test_to_json_empty(self):
+    json_data = helper.Values().to_json()
+    self.assertDictEqual(json_data, {"values": []})
+
+  def test_to_json_any(self):
+    json_data = helper.Values(["a", "b", "c"]).to_json()
+    self.assertDictEqual(json_data, {"values": ["a", "b", "c"]})
+
+  def test_to_json_repeated(self):
+    json_data = helper.Values(["a", "a", "a"]).to_json()
+    self.assertEqual(json_data, "a")
+
+  def test_to_json_numeric_repeated(self):
+    json_data = helper.Values([1, 1, 1]).to_json()
+    self.assertListEqual(json_data["values"], [1, 1, 1])
+    self.assertEqual(json_data["min"], 1)
+    self.assertEqual(json_data["max"], 1)
+    self.assertEqual(json_data["geomean"], 1)
+    self.assertEqual(json_data["average"], 1)
+    self.assertEqual(json_data["stddevPercent"], 0)
+
+  def test_to_json_numeric_average_0(self):
+    json_data = helper.Values([-1, 0, 1]).to_json()
+    self.assertListEqual(json_data["values"], [-1, 0, 1])
+    self.assertEqual(json_data["min"], -1)
+    self.assertEqual(json_data["max"], 1)
+    self.assertEqual(json_data["geomean"], 0)
+    self.assertEqual(json_data["average"], 0)
+    self.assertEqual(json_data["stddevPercent"], 0)
+
+
+class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
+
+  def setUp(self):
+    self.setUpPyfakefs()
+
+  def test_empty(self):
+    merger = helper.ValuesMerger()
+    self.assertDictEqual(merger.to_json(), {})
+    self.assertListEqual(merger.to_csv(), [])
+
+  def test_add_flat(self):
+    input = {"a": 1, "b": 2}
+    merger = helper.ValuesMerger()
+    merger.add(input)
+    data = merger.data
+    self.assertEqual(len(data), 2)
+    self.assertIsInstance(data["a"], helper.Values)
+    self.assertIsInstance(data["b"], helper.Values)
+    self.assertListEqual(data["a"].values, [1])
+    self.assertListEqual(data["b"].values, [2])
+
+    merger.add(input)
+    data = merger.data
+    self.assertEqual(len(data), 2)
+    self.assertListEqual(data["a"].values, [1, 1])
+    self.assertListEqual(data["b"].values, [2, 2])
+
+  def test_add_hierarchical(self):
+    input = {
+        "a": {
+            "a": {
+                "a": 1,
+                "b": 2
+            }
+        },
+        "b": 2,
+    }
+    merger = helper.ValuesMerger()
+    merger.add(input)
+    data = merger.data
+    self.assertListEqual(list(data.keys()), ["a/a/a", "a/a/b", "b"])
+    self.assertIsInstance(data["a/a/a"], helper.Values)
+    self.assertIsInstance(data["a/a/b"], helper.Values)
+    self.assertIsInstance(data["b"], helper.Values)
+
+  def test_repeated_numeric(self):
+    merger = helper.ValuesMerger()
+    input = {
+        "a": {
+            "aa": 1,
+            "ab": 2
+        },
+        "b": 3,
+        "c": {
+            "cc": {
+                "ccc": 4
+            }
+        },
+    }
+    merger.add(input)
+    merger.add(input)
+    data = merger.data
+    self.assertEqual(len(data), 4)
+    self.assertListEqual(data["a/aa"].values, [1, 1])
+    self.assertListEqual(data["a/ab"].values, [2, 2])
+    self.assertListEqual(data["b"].values, [3, 3])
+    self.assertListEqual(data["c/cc/ccc"].values, [4, 4])
+
+  def test_custom_key_fn(self):
+    input = {
+        "a": {
+            "a": {
+                "a": 1,
+                "b": 2
+            }
+        },
+        "b": 2,
+    }
+    merger = helper.ValuesMerger(key_fn=lambda path: "_".join(path))
+    merger.add(input)
+    data = merger.data
+    self.assertListEqual(list(data.keys()), ["a_a_a", "a_a_b", "b"])
+
+  def test_merge_serialized_same(self):
+    input = {
+        "a": {
+            "a": {
+                "a": 1,
+                "b": 2
+            }
+        },
+        "b": 3,
+    }
+    merger = helper.ValuesMerger()
+    merger.add(input)
+    self.assertListEqual(list(merger.data.keys()), ["a/a/a", "a/a/b", "b"])
+    path_a = pathlib.Path("merged_a.json")
+    path_b = pathlib.Path("merged_b.json")
+    with path_a.open("w") as f:
+      json.dump(merger.to_json(), f)
+    with path_b.open("w") as f:
+      json.dump(merger.to_json(), f)
+
+    merger = helper.ValuesMerger.merge_json_files([path_a, path_b],
+                                                  merge_duplicate_paths=True)
+    data = merger.data
+    self.assertListEqual(list(data.keys()), ["a/a/a", "a/a/b", "b"])
+    self.assertListEqual(data["a/a/a"].values, [1, 1])
+    self.assertListEqual(data["a/a/b"].values, [2, 2])
+    self.assertListEqual(data["b"].values, [3, 3])
+
+    # All duplicate entries are ignored
+    merger = helper.ValuesMerger.merge_json_files([path_a, path_b],
+                                                  merge_duplicate_paths=False)
+    self.assertListEqual(list(merger.data.keys()), [])
+
+  def test_merge_serialized_different_data(self):
+    merger_a = helper.ValuesMerger({"a": {"a": 1}})
+    merger_b = helper.ValuesMerger({"a": {"b": 2}})
+    path_a = pathlib.Path("merged_a.json")
+    path_b = pathlib.Path("merged_b.json")
+    with path_a.open("w") as f:
+      json.dump(merger_a.to_json(), f)
+    with path_b.open("w") as f:
+      json.dump(merger_b.to_json(), f)
+
+    merger = helper.ValuesMerger.merge_json_files([path_a, path_b],
+                                                  merge_duplicate_paths=True)
+    data = merger.data
+    self.assertListEqual(list(data.keys()), ["a/a", "a/b"])
+    self.assertListEqual(data["a/a"].values, [1])
+    self.assertListEqual(data["a/b"].values, [2])
+
+    merger = helper.ValuesMerger.merge_json_files([path_a, path_b],
+                                                  merge_duplicate_paths=False)
+    data = merger.data
+    self.assertListEqual(list(data.keys()), ["a/a", "a/b"])

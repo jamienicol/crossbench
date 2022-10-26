@@ -9,7 +9,7 @@ import json
 import logging
 import math
 import pathlib
-from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Set, Tuple, Union
 
 _KeyFnType = Callable[[Tuple[str, ...]], Optional[str]]
 
@@ -78,6 +78,10 @@ class Flatten:
         self._flatten(path, item)
 
 
+def is_number(value: Any) -> bool:
+  return isinstance(value, (int, float))
+
+
 class Values:
   """
   A collection of values that is use as an accumulator in the ValuesMerger.
@@ -92,24 +96,33 @@ class Values:
 
   def __init__(self, values=None):
     self.values = values or []
+    self._is_numeric: bool = all(map(is_number, self.values))
 
-  def is_numeric(self):
-    return all(isinstance(v, (int, float)) for v in self.values)
+  def __len__(self) -> int:
+    return len(self.values)
 
   @property
-  def min(self):
+  def is_numeric(self) -> bool:
+    return self._is_numeric
+
+  @property
+  def min(self) -> float:
+    assert self._is_numeric
     return min(self.values)
 
   @property
-  def max(self):
+  def max(self) -> float:
+    assert self._is_numeric
     return max(self.values)
 
   @property
-  def average(self):
+  def average(self) -> float:
+    assert self._is_numeric
     return sum(self.values) / len(self.values)
 
   @property
   def geomean(self) -> float:
+    assert self._is_numeric
     product = 1
     for value in self.values:
       product *= value
@@ -117,6 +130,7 @@ class Values:
 
   @property
   def stddev(self) -> float:
+    assert self._is_numeric
     """
     We're ignoring here any actual distribution of the data and use this as a
     rough estimate of the quality of the data
@@ -128,12 +142,15 @@ class Values:
     variance /= len(self.values)
     return math.sqrt(variance)
 
-  def append(self, value):
+  def append(self, value: Any):
     self.values.append(value)
+    self._is_numeric = self._is_numeric and is_number(value)
 
   def to_json(self):
     json_data = {"values": self.values}
-    if self.is_numeric():
+    if not self.values:
+      return json_data
+    if self.is_numeric:
       json_data["min"] = self.min
       average = json_data["average"] = self.average
       json_data["geomean"] = self.geomean
@@ -183,11 +200,13 @@ class ValuesMerger:
   @classmethod
   def merge_json_files(cls,
                        files: Iterator[pathlib.Path],
-                       key_fn: Optional[_KeyFnType] = None):
+                       key_fn: Optional[_KeyFnType] = None,
+                       merge_duplicate_paths: bool = False):
     merger = cls(key_fn=key_fn)
     for file in files:
       with file.open() as f:
-        merger.merge_values(json.load(f))
+        merger.merge_values(
+            json.load(f), merge_duplicate_paths=merge_duplicate_paths)
     return merger
 
   def __init__(self,
