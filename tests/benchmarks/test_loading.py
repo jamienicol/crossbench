@@ -15,27 +15,27 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
     return bm.loading.PageLoadBenchmark
 
   def test_default_stories(self):
-    stories = bm.loading.LivePage.from_names(["all"])
+    stories = self.story_filter(["all"]).stories
     self.assertGreater(len(stories), 1)
     for story in stories:
       self.assertIsInstance(story, bm.loading.LivePage)
 
   def test_combined_stories(self):
-    stories = bm.loading.LivePage.from_names(["all"], separate=False)
+    stories = self.story_filter(["all"], separate=False).stories
     self.assertEqual(len(stories), 1)
     combined = stories[0]
     self.assertIsInstance(combined, bm.loading.CombinedPage)
 
   def test_filter_by_name(self):
     for page in bm.loading.PAGE_LIST:
-      stories = bm.loading.LivePage.from_names([page.name])
+      stories = self.story_filter([page.name]).stories
       self.assertListEqual(stories, [page])
-    self.assertListEqual(bm.loading.LivePage.from_names([]), [])
+    self.assertListEqual(self.story_filter([]).stories, [])
 
   def test_filter_by_name_with_duration(self):
     pages = bm.loading.PAGE_LIST
-    filtered_pages = bm.loading.LivePage.from_names(
-        [pages[0].name, pages[1].name, '1001'])
+    filtered_pages = self.story_filter([pages[0].name, pages[1].name,
+                                        '1001']).stories
     self.assertListEqual(filtered_pages, [pages[0], pages[1]])
     self.assertEqual(filtered_pages[0].duration, pages[0].duration)
     self.assertEqual(filtered_pages[1].duration, 1001)
@@ -43,7 +43,7 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
   def test_page_by_url(self):
     url1 = "http:://example.com/test1"
     url2 = "http:://example.com/test2"
-    stories = bm.loading.LivePage.from_names([url1, url2])
+    stories = self.story_filter([url1, url2]).stories
     self.assertEqual(len(stories), 2)
     self.assertEqual(stories[0].url, url1)
     self.assertEqual(stories[1].url, url2)
@@ -51,7 +51,7 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
   def test_page_by_url_combined(self):
     url1 = "http:://example.com/test1"
     url2 = "http:://example.com/test2"
-    stories = bm.loading.LivePage.from_names([url1, url2], separate=False)
+    stories = self.story_filter([url1, url2], separate=False).stories
     self.assertEqual(len(stories), 1)
     combined = stories[0]
     self.assertIsInstance(combined, bm.loading.CombinedPage)

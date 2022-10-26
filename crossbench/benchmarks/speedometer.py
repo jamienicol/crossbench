@@ -5,8 +5,6 @@
 from __future__ import annotations
 
 import argparse
-import json
-import pathlib
 import csv
 from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 

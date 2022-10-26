@@ -434,7 +434,7 @@ class MacOSPlatform(PosixPlatform):
 
   def set_main_display_brightness(self, brightness_level: int):
     """Sets the main display brightness at the specified percentage by brightness_level.
-    
+
     This function imitates the open-source "brightness" tool at
     https://github.com/nriley/brightness.
     Since the benchmark doesn't care about older MacOSen, multiple displays
@@ -462,7 +462,7 @@ class MacOSPlatform(PosixPlatform):
 
   def get_main_display_brightness(self):
     """Gets the current brightness level of the main display .
-    
+
     This function imitates the open-source "brightness" tool at
     https://github.com/nriley/brightness.
     Since the benchmark doesn't care about older MacOSen, multiple displays

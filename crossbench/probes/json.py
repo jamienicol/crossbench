@@ -8,7 +8,7 @@ import abc
 import json
 import csv
 import pathlib
-from typing import TYPE_CHECKING, Optional, Union, Dict
+from typing import Dict, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
   import crossbench as cb

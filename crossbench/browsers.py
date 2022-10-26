@@ -19,7 +19,7 @@ import urllib.request
 import zipfile
 import pathlib
 import typing
-from typing import Dict, Final, Iterable, List, Optional, Sequence, Set
+from typing import Final, Iterable, List, Optional, Sequence, Set
 
 import selenium
 from selenium import webdriver

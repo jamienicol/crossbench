@@ -237,14 +237,14 @@ class ProbeConfig:
   }
 
   @classmethod
-  def from_cli_args(cls, args):
+  def from_cli_args(cls, args) -> ProbeConfig:
     if args.probe_config:
       with args.probe_config.open() as f:
         return cls.load(f)
     return cls(args.probe)
 
   @classmethod
-  def load(cls, file):
+  def load(cls, file) -> ProbeConfig:
     probe_config = cls()
     probe_config.load_config_file(file)
     return probe_config

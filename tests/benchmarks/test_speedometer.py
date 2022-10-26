@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from unittest import mock
 import crossbench as cb
 import crossbench.benchmarks as bm
 
@@ -15,23 +16,38 @@ class Speedometer2Test(helper.PressBaseBenchmarkTestCase):
   def benchmark_cls(self):
     return bm.speedometer.Speedometer20Benchmark
 
+  def test_story_filtering_cli_args_all(self):
+    stories = bm.speedometer.Speedometer20Story.default(separate=True)
+    args = mock.Mock()
+    args.stories = "all"
+    stories_all = self.benchmark_cls.stories_from_cli_args(args)
+    self.assertListEqual(
+        [story.name for story in stories],
+        [story.name for story in stories_all],
+    )
+
   def test_story_filtering(self):
-    stories = bm.speedometer.Speedometer20Story.from_names([])
+    with self.assertRaises(ValueError):
+      bm.speedometer.Speedometer20Story.from_names([])
+    stories = bm.speedometer.Speedometer20Story.default(separate=False)
     self.assertEqual(len(stories), 1)
-    stories = bm.speedometer.Speedometer20Story.from_names([], separate=True)
+
+    with self.assertRaises(ValueError):
+      bm.speedometer.Speedometer20Story.from_names([], separate=True)
+    stories = bm.speedometer.Speedometer20Story.default(separate=True)
     self.assertEqual(
         len(stories), len(bm.speedometer.Speedometer20Story.SUBSTORIES))
-    stories_b = bm.speedometer.Speedometer20Story.from_names(
-        ".*", separate=True)
+
+  def test_story_filtering_regexp_invalid(self):
+    with self.assertRaises(ValueError):
+      self.story_filter(".*", separate=True).stories
+
+  def test_story_filtering_regexp(self):
+    stories = bm.speedometer.Speedometer20Story.default(separate=True)
+    stories_b = self.story_filter([".*"], separate=True).stories
     self.assertListEqual(
         [story.name for story in stories],
         [story.name for story in stories_b],
-    )
-    stories_c = bm.speedometer.Speedometer20Story.from_names([".*"],
-                                                             separate=True)
-    self.assertListEqual(
-        [story.name for story in stories],
-        [story.name for story in stories_c],
     )
 
   def test_run(self):

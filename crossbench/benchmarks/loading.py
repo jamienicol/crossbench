@@ -4,9 +4,8 @@
 from __future__ import annotations
 
 import abc
-import logging
 import re
-from typing import Sequence, Optional, Union, TYPE_CHECKING
+from typing import Iterable, Optional, Sequence, TYPE_CHECKING, Type
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
@@ -17,56 +16,9 @@ import crossbench.benchmarks.base as benchmarks
 
 
 class Page(cb_stories.Story, metaclass=abc.ABCMeta):
-  _DURATION_RE = re.compile(r"((\d*[.])?\d+)s?")
-
   @classmethod
   def story_names(cls):
     return tuple(page.name for page in PAGE_LIST)
-
-  @classmethod
-  def from_names(cls, name_or_url_list, separate=True):
-    if len(name_or_url_list) == 1 and name_or_url_list[0] == "all":
-      pages = PAGE_LIST
-    else:
-      pages = cls._resolve_name_or_urls(name_or_url_list)
-      # Check if we have unique domain names for better short names
-      urls = list(urlparse(page.url) for page in pages)
-      hostnames = set(url.hostname for url in urls)
-      if len(hostnames) == len(urls):
-        pages = cls._resolve_name_or_urls(name_or_url_list, use_hostname=True)
-    if not separate and len(pages) > 1:
-      combined_name = "_".join(page.name for page in pages)
-      pages = (CombinedPage(pages, combined_name),)
-    logging.info("PAGES: %s", list(map(str, pages)))
-    return pages
-
-  @classmethod
-  def _resolve_name_or_urls(cls, name_or_url_list, use_hostname=False):
-    pages = []
-    page = None
-    for value in name_or_url_list:
-      if value in PAGES:
-        page = PAGES[value]
-      elif "://" in value:
-        name = value
-        url = value
-        if use_hostname:
-          name = urlparse(url).hostname
-        page = LivePage(name, url)
-      else:
-        # Use the last created page and set the duration on it
-        assert page is not None, (
-            f"Duration '{value}' has to follow a URL or page-name.")
-        match = cls._DURATION_RE.match(value)
-        assert match, f"Duration '{value}' is not a number."
-        duration = float(match.group(1))
-        assert duration > 0, ("Duration should be positive. "
-                              f"Got duration={duration} page={page.name}")
-        page.duration = duration
-        continue
-      pages.append(page)
-    return pages
-
 
 class LivePage(Page):
 
@@ -90,7 +42,7 @@ class LivePage(Page):
 
 class CombinedPage(Page):
 
-  def __init__(self, pages, name="combined"):
+  def __init__(self, pages: Sequence[Page], name="combined"):
     assert len(pages), "No sub-pages provided for CombinedPage"
     assert len(pages) > 1, "Combined Page needs more than one page"
     self._pages = pages
@@ -130,6 +82,79 @@ PAGE_LIST = [
 PAGES = {page.name: page for page in PAGE_LIST}
 
 
+class LoadingPageFilter(benchmarks.StoryFilter):
+  """
+  Filter / create loading stories
+
+  Syntax:
+    "name"            Include LivePage with the given name from predefined list.
+    "name", 10        Include predefined page with given 10s timeout.
+    "http://..."      Include custom page at the given URL with a default
+                      timout of 15 seconds.
+    "http://...", 12  Include custom page at the given URL with a 12s timout
+
+  These patterns can be combined:
+    ["http://foo.com", 5, "http://bar.co.jp", "amazon"]
+  """
+  _DURATION_RE = re.compile(r"((\d*[.])?\d+)s?")
+
+  @classmethod
+  def kwargs_from_cli(self, args):
+    kwargs = super().kwargs_from_cli(args)
+    kwargs["separate"] = args.separate
+    return kwargs
+
+  def __init__(self,
+               story_cls: Type[Page],
+               names: Sequence[str],
+               separate: bool = True):
+    self.separate = separate
+    super().__init__(story_cls, names)
+
+  def process_all(self, name_or_url_list: Sequence[str]):
+    if len(name_or_url_list) == 1 and name_or_url_list[0] == "all":
+      self.stories = PAGE_LIST
+      return
+    self._resolve_name_or_urls(name_or_url_list)
+    # Check if we have unique domain names for better short names
+    urls = list(urlparse(page.url) for page in self.stories)
+    hostnames = set(url.hostname for url in urls)
+    if len(hostnames) == len(urls):
+      # Regenerate with short names
+      self._resolve_name_or_urls(name_or_url_list, use_hostname=True)
+
+  def _resolve_name_or_urls(self, name_or_url_list, use_hostname=False):
+    page = None
+    self.stories = []
+    for value in name_or_url_list:
+      if value in PAGES:
+        page = PAGES[value]
+      elif "://" in value:
+        name = value
+        url = value
+        if use_hostname:
+          name = urlparse(url).hostname
+        page = LivePage(name, url)
+      else:
+        # Use the last created page and set the duration on it
+        assert page is not None, (
+            f"Duration '{value}' has to follow a URL or page-name.")
+        match = self._DURATION_RE.match(value)
+        assert match, f"Duration '{value}' is not a number."
+        duration = float(match.group(1))
+        assert duration != 0, ("Duration should be positive. "
+                               f"Got duration=0 page={page.name}")
+        page.duration = duration
+        continue
+      self.stories.append(page)
+
+  def create_stories(self) -> Iterable[Page]:
+    if not self.separate and len(self.stories) > 1:
+      combined_name = "_".join(page.name for page in self.stories)
+      self.stories = (CombinedPage(self.stories, combined_name),)
+    return self.stories
+
+
 class PageLoadBenchmark(benchmarks.SubStoryBenchmark):
   """
   Benchmark runner for loading pages.
@@ -147,6 +172,7 @@ class PageLoadBenchmark(benchmarks.SubStoryBenchmark):
   """
   NAME = "loading"
   DEFAULT_STORY_CLS = Page
+  STORY_FILTER_CLS = LoadingPageFilter
 
   @classmethod
   def add_cli_parser(cls, subparsers):
@@ -154,13 +180,10 @@ class PageLoadBenchmark(benchmarks.SubStoryBenchmark):
     parser.add_argument(
         "--urls",
         dest="stories",
-        type=cls.parse_cli_stories,
         help="List of urls and durations to load: url,seconds,...")
     return parser
 
-  def __init__(self,
-               stories: Union[Page, Sequence[Page]],
-               duration: Optional[float] = None):
+  def __init__(self, stories: Sequence[Page], duration: Optional[float] = None):
     for story in stories:
       assert isinstance(story, Page)
       if duration is not None:

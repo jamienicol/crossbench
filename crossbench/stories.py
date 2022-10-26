@@ -4,10 +4,8 @@
 
 from __future__ import annotations
 
-import logging
-import re
 from abc import ABC, ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Type, Union
+from typing import List, Sequence, TYPE_CHECKING, Tuple, Type
 
 if TYPE_CHECKING:
   import crossbench as cb
@@ -21,21 +19,11 @@ class Story(ABC):
   def story_names(cls) -> Sequence[str]:
     pass
 
-  @classmethod
-  @abstractmethod
-  def from_names(cls, names, separate=False) -> Sequence[Story]:
-    pass
-
-  @classmethod
-  def from_cli_args(cls, args) -> Sequence[Story]:
-    # TODO: make this more uniform with other args-parsing APIs
-    return cls.from_names(args.stories, args.separate)
-
   def __init__(self, name: str, duration: float = 15):
     assert name, "Invalid page name"
     self._name = name
     assert duration > 0, (
-        f"duration must be a positive number, but got: {duration}")
+        f"Duration must be a positive number, but got: {duration}")
     self.duration = duration
 
   @property
@@ -68,53 +56,46 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     return cls.SUBSTORIES
 
   @classmethod
-  def from_names(cls, names:Union[Sequence[str], str], separate=False, live=True):
-    if len(names) == 1 or isinstance(names, str):
-      if isinstance(names, str):
-        first = names
-      else:
-        first = names[0]
-      if first == "all":
-        names = cls.story_names()
-      elif first not in cls.story_names():
-        pattern = re.compile(first)
-        names = tuple(substory for substory in cls.story_names()
-                      if pattern.match(substory))
-        assert names, (
-            f"Regexp '{pattern.pattern}' didn't match any cb.stories")
-        logging.info("FILTERED SUB-STORIES story=%s selected=%s", cls.NAME,
-                     names)
+  def from_names(cls,
+                 substories: Sequence[str],
+                 separate: bool = False,
+                 live: bool = False) -> List[PressBenchmarkStory]:
     if live:
-      return cls.live(separate=separate, substories=names)
-    return cls.local(separate=separate, substories=names)
+      return cls.live(substories=substories, separate=separate)
+    return cls.local(substories=substories, separate=separate)
 
   @classmethod
-  def default(cls):
-    return cls.live()
+  def default(cls, live: bool = True, separate: bool = False):
+    if live:
+      return cls.live(cls.story_names(), separate)
+    return cls.local(cls.story_names(), separate)
 
   @classmethod
-  def local(cls, *args, separate=False, substories=None, **kwargs):
-    substories = cls.get_substories(separate, substories)
-    return [
-        cls(*args, is_live=False, benchmarks=substory, **kwargs)
-        for substory in substories
-    ]
-
-  @classmethod
-  def live(cls, *args, separate=False, substories=None, **kwarg):
-    substories = cls.get_substories(separate, substories)
-    return [
-        cls(*args, is_live=True, substories=substory, **kwarg)
-        for substory in substories
-    ]
-
-  @classmethod
-  def get_substories(cls, separate:bool, substories:Sequence[str]):
-    substories = substories or cls.story_names()
+  def local(cls, substories: Sequence[str], separate: bool = False,
+            **kwargs) -> List[PressBenchmarkStory]:
+    if not substories:
+      raise ValueError("No substories provided")
     if separate:
-      return substories
-    return [substories]
+      return [
+          cls(is_live=False, substories=[substory], **kwargs)  # pytype: disable=not-instantiable
+          for substory in substories
+      ]
+    else:
+      return [cls(is_live=False, substories=substories, **kwargs)]  # pytype: disable=not-instantiable
 
+
+  @classmethod
+  def live(cls, substories: Sequence[str], separate: bool = False,
+           **kwargs) -> List[PressBenchmarkStory]:
+    if not substories:
+      raise ValueError("No substories provided")
+    if separate:
+      return [
+          cls(is_live=True, substories=[substory], **kwargs)  # pytype: disable=not-instantiable
+          for substory in substories
+      ]
+    else:
+      return [cls(is_live=False, substories=substories, **kwargs)]  # pytype: disable=not-instantiable
 
   _substories: Sequence[str]
   is_live : bool
@@ -123,17 +104,14 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
   def __init__(self,
                *args,
                is_live: bool = True,
-               substories: Optional[Union[str, List[str]]] = None,
+               substories: Sequence[str] = (),
                **kwargs):
     cls = self.__class__
     assert self.SUBSTORIES, f"{cls}.SUBSTORIES is not set."
     assert self.NAME is not None, f"{cls}.NAME is not set."
     self._verify_url(self.URL, "URL")
     self._verify_url(self.URL_LOCAL, "URL_LOCAL")
-    if isinstance(substories, str):
-      self._substories = [substories]
-    else:
-      self._substories = substories or self.story_names()
+    self._substories = substories or self.story_names()
     self._verify_substories()
     name = self.NAME
     if self._substories != self.story_names():
