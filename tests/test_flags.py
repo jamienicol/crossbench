@@ -129,13 +129,24 @@ class TestChromeFlags(TestFlags):
     features = flags.features
     self.assertTrue(features.is_empty)
     flags["--enable-features"] = "F1,F2"
-    with self.assertRaises(AssertionError):
+    with self.assertRaises(ValueError):
       flags["--disable-features"] = "F1,F2"
-    with self.assertRaises(AssertionError):
+    with self.assertRaises(ValueError):
       flags["--disable-features"] = "F2,F1"
     flags["--disable-features"] = "F3,F4"
     self.assertEqual(features.enabled, {"F1": None, "F2": None})
     self.assertEqual(features.disabled, set(("F3", "F4")))
+
+  def test_get_list(self):
+    flags = self.CLASS()
+    flags["--js-flags"] = "--js-foo=v3, --no-js-bar"
+    flags["--enable-features"] = "F1,F2"
+    flags["--disable-features"] = "F3,F4"
+    flags_list = list(flags.get_list())
+    self.assertListEqual(flags_list, [
+        "--js-flags=--js-foo=v3,--no-js-bar", "--enable-features=F1,F2",
+        "--disable-features=F3,F4"
+    ])
 
 
 class TestJSFlags(TestFlags):
@@ -181,3 +192,103 @@ class TestJSFlags(TestFlags):
         "--flag3": "value3"
     })
     self.assertEqual(str(flags), "--flag1=value1,--flag2,--flag3=value3")
+
+
+class ChromeFeaturesTestCase(unittest.TestCase):
+
+  def test_empty(self):
+    features = ChromeFeatures()
+    self.assertEqual(str(features), "")
+    features_list = list(features.get_list())
+    self.assertEqual(len(features_list), 0)
+    self.assertDictEqual(features.enabled, {})
+    self.assertSetEqual(features.disabled, set())
+
+  def test_enable_complex_features(self):
+    features = ChromeFeatures()
+    features.enable("feature1")
+    features.enable("feature2:k1")
+    features.enable("feature3:k1/v1/k2/v2")
+    features.enable("feature4<Trial1:k1/v1/k2/v2")
+    features.enable("feature5<Trial1.Group1:k1/v1/k2/v2")
+    features_list = list(features.get_list())
+    self.assertEqual(len(features_list), 1)
+
+  def test_disable_complex_features(self):
+    features = ChromeFeatures()
+    features.disable("feature1")
+    features.disable("feature2:k1")
+    features.disable("feature3:k1/v1/k2/v2")
+    features.disable("feature4<Trial1:k1/v1/k2/v2")
+    features.disable("feature5<Trial1.Group1:k1/v1/k2/v2")
+    features_list = list(features.get_list())
+    self.assertEqual(len(features_list), 1)
+    features_str = str(features)
+    self.assertIn("feature1", features_str)
+    self.assertIn("feature2", features_str)
+    self.assertIn("feature3", features_str)
+    self.assertIn("feature4", features_str)
+
+  def test_enable_simple(self):
+    features = ChromeFeatures()
+    features.enable("feature1")
+    features.enable("feature2")
+    features_list = list(features.get_list())
+    self.assertEqual(len(features_list), 1)
+    features_str = str(features)
+    self.assertEqual(features_str, "--enable-features=feature1,feature2")
+
+  def test_disable_simple(self):
+    features = ChromeFeatures()
+    features.disable("feature1")
+    features.disable("feature2")
+    features_list = list(features.get_list())
+    self.assertEqual(len(features_list), 1)
+    features_str = str(features)
+    self.assertEqual(features_str, "--disable-features=feature1,feature2")
+
+  def test_enable_disable(self):
+    features = ChromeFeatures()
+    features.enable("feature1")
+    features.disable("feature2")
+    features_list = list(features.get_list())
+    self.assertEqual(len(features_list), 2)
+    features_str = str(features)
+    self.assertEqual(features_str,
+                     "--enable-features=feature1 --disable-features=feature2")
+    self.assertDictEqual(features.enabled, {"feature1": None})
+    self.assertSetEqual(features.disabled, {"feature2"})
+
+  def test_enable_disable_complex(self):
+    features = ChromeFeatures()
+    features.enable("feature0")
+    features.enable("feature1:k1/v1")
+    features.enable("feature2<Trial.Group:k2/v2")
+    features.disable("feature3:k3/v3")
+    self.assertDictEqual(features.enabled, {
+        "feature0": None,
+        "feature1": ":k1/v1",
+        "feature2": "<Trial.Group:k2/v2"
+    })
+    self.assertSetEqual(features.disabled, {"feature3"})
+
+  def test_conflicting_values_enabled(self):
+    features = ChromeFeatures()
+    features.enable("feature1")
+    features.enable("feature1")
+    with self.assertRaises(ValueError):
+      features.disable("feature1")
+    with self.assertRaises(ValueError):
+      features.enable("feature1:k1/v1")
+    features_str = str(features)
+    self.assertEqual(features_str, "--enable-features=feature1")
+
+  def test_conflicting_values_disabled(self):
+    features = ChromeFeatures()
+    features.disable("feature1")
+    features.disable("feature1")
+    with self.assertRaises(ValueError):
+      features.enable("feature1")
+    features.disable("feature1:k1/v1")
+    features_str = str(features)
+    self.assertEqual(features_str, "--disable-features=feature1")

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import collections
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Iterable, Optional, Set, Tuple, Union
 
 
 class Flags(collections.UserDict):
@@ -171,22 +171,23 @@ class ChromeFeatures:
   """
 
   def __init__(self):
-    self._enabled = {}
-    self._disabled = set()
+    self._enabled: Dict[str, Optional[str]] = {}
+    # Use dict as ordered set.
+    self._disabled: Dict[str, None] = {}
 
   @property
-  def is_empty(self):
+  def is_empty(self) -> bool:
     return len(self._enabled) == 0 and len(self._disabled) == 0
 
   @property
-  def enabled(self):
+  def enabled(self) -> Dict[str, Optional[str]]:
     return self._enabled
 
   @property
-  def disabled(self):
-    return self._disabled
+  def disabled(self) -> Set[str]:
+    return set(self._disabled.keys())
 
-  def _parse_feature(self, feature: str):
+  def _parse_feature(self, feature: str) -> Tuple[str, Optional[str]]:
     assert feature, "Cannot parse empty feature"
     assert "," not in feature, (
         f"'{feature}' contains multiple features. Please split them first.")
@@ -200,31 +201,32 @@ class ChromeFeatures:
     assert len(parts) == 1
     return (feature, None)
 
-  def enable(self, feature):
+  def enable(self, feature: str):
     name, value = self._parse_feature(feature)
-    assert name not in self._disabled, (
-        f"Cannot enable previously disabled feature={name}")
+    if name in self._disabled:
+      raise ValueError(f"Cannot enable previously disabled feature={name}")
     if name in self._enabled:
       prev_value = self._enabled[name]
-      assert value == prev_value, (
-          f"Cannot set conflicting values ('{prev_value}', vs. '{value}') "
-          f"for the same feature={name}")
+      if value != prev_value:
+        raise ValueError(
+            f"Cannot set conflicting values ('{prev_value}', vs. '{value}') "
+            f"for the same feature={name}")
     else:
       self._enabled[name] = value
 
-  def disable(self, feature):
+  def disable(self, feature: str):
     name, _ = self._parse_feature(feature)
-    assert name not in self._enabled, (
-        f"Cannot disable previously enabled feature={name}")
-    self._disabled.add(name)
+    if name in self._enabled:
+      raise ValueError(f"Cannot disable previously enabled feature={name}")
+    self._disabled[name] = None
 
-  def get_list(self):
+  def get_list(self) -> Iterable[str]:
     if self._enabled:
       joined = ",".join(
           k if v is None else f"{k}{v}" for k, v in self._enabled.items())
       yield f"{self._ENABLE_FLAG}={joined}"
     if self._disabled:
-      joined = ",".join(self._disabled)
+      joined = ",".join(self._disabled.keys())
       yield f"{self._DISABLE_FLAG}={joined}"
 
   def __str__(self):
