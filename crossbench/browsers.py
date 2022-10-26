@@ -258,45 +258,6 @@ class ChromeMeta(type(Browser)):
 
 
 class Chrome(Browser, metaclass=ChromeMeta):
-
-  @classmethod
-  def combine(
-      cls,
-      binaries: Iterable[pathlib.Path],
-      js_flags_list: Optional[Iterable[FlagsInitialDataType]] = None,
-      browser_flags_list: Optional[Iterable[FlagsInitialDataType]] = None,
-      user_data_dir: Optional[pathlib.Path] = None):
-    if isinstance(binaries, pathlib.Path):
-      binaries = [
-          binaries,
-      ]
-    browsers: List[Chrome] = []
-    empty_flags: Iterable[FlagsInitialDataType] = tuple(tuple())
-    for browser_flags in browser_flags_list or empty_flags:
-      assert not isinstance(
-          browser_flags_list, typing.get_args(FlagsInitialDataType)), (
-              f"browser_flags should be a {FlagsInitialDataType}  but got: "
-              f"{repr(browser_flags)}")
-      for js_flags in js_flags_list or empty_flags:
-        assert isinstance(js_flags, typing.get_args(FlagsInitialDataType)), (
-            f"js_flags should be an {FlagsInitialDataType}, but got type={type(js_flags)}: "
-            f"{repr(js_flags)}")
-        for binary in binaries:
-          assert isinstance(binary,
-                            pathlib.Path), "Expected browser binary path"
-          index = len(browsers)
-          # Don't print a browser/binary index if there is only one
-          label = convert_flags_to_label(*js_flags, *browser_flags, index=index)
-          browser = cls(
-              label,
-              binary,
-              js_flags=js_flags,
-              flags=browser_flags,
-              cache_dir=user_data_dir)
-          browsers.append(browser)
-    assert browsers, "No browser variants produced"
-    return browsers
-
   DEFAULT_FLAGS = [
       "--no-default-browser-check",
       "--disable-sync",
