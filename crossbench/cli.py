@@ -9,16 +9,11 @@ import itertools
 import json
 import logging
 import pathlib
+import hjson
 from tabulate import tabulate
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import crossbench as cb
-
-try:
-  import hjson
-except ModuleNotFoundError:
-  logging.debug("hjson module not found")
-
 
 def _map_flag_group_item(flag_name: str, flag_value: Optional[str]):
   if flag_value is None:
@@ -79,10 +74,7 @@ class BrowserConfig:
   def load(cls, f,
            browser_lookup_override: BrowserLookupTable = {}) -> BrowserConfig:
     try:
-      if hjson:
-        config = hjson.load(f)
-      else:
-        config = json.load(f)
+      config = hjson.load(f)
     except ValueError as e:
       raise ValueError(f"Failed to parse config file: {f}") from e
     return cls(config, browser_lookup_override)
