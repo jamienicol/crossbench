@@ -9,7 +9,7 @@ import json
 import logging
 import math
 import pathlib
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 _KeyFnType = Callable[[Tuple[str, ...]], Optional[str]]
 
@@ -199,7 +199,7 @@ class ValuesMerger:
 
   @classmethod
   def merge_json_files(cls,
-                       files: Iterator[pathlib.Path],
+                       files: Iterable[pathlib.Path],
                        key_fn: Optional[_KeyFnType] = None,
                        merge_duplicate_paths: bool = False):
     merger = cls(key_fn=key_fn)
