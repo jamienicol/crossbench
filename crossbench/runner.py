@@ -490,7 +490,8 @@ class RepetitionsRunGroup(RunGroup):
   """
 
   @classmethod
-  def groups(cls, runs, throw=False):
+  def groups(cls, runs: Iterable[Run],
+             throw=False) -> List[RepetitionsRunGroup]:
     return list(
         cb.helper.group_by(
             runs,
@@ -541,7 +542,8 @@ class StoriesRunGroup(RunGroup):
     self._browser: cb.browsers.Browser = None
 
   @classmethod
-  def groups(cls, run_groups, throw=False):
+  def groups(cls, run_groups: Iterable[RepetitionsRunGroup],
+             throw=False) -> List[StoriesRunGroup]:
     return list(
         cb.helper.group_by(
             run_groups,

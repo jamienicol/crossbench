@@ -20,7 +20,7 @@ import time
 import traceback
 import urllib
 import urllib.request
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Final, Iterable, List, Optional, Tuple, TypeVar
 
 import psutil
 
@@ -43,7 +43,16 @@ class TTYColor:
   RESET = "\033[0m"
 
 
-def group_by(collection, key, value=None, group=None):
+InputT = TypeVar('InputT')
+KeyT = TypeVar('KeyT')
+GroupT = TypeVar('GroupT')
+
+
+def group_by(collection: Iterable[InputT],
+             key: Callable[[InputT], KeyT],
+             value: Optional[Callable[[InputT], Any]] = None,
+             group: Optional[Callable[[KeyT], GroupT]] = None
+            ) -> Dict[KeyT, GroupT]:
   """
   Works similar to itertools.groupby but does a global, SQL-style grouping
   instead of a line-by-line basis like uniq.
@@ -54,31 +63,28 @@ def group_by(collection, key, value=None, group=None):
   """
   assert key, "No key function provided"
   key_fn = key
-  value_fn = value
-  group_fn = group
-  groups = {}
-  for item in collection:
-    group_key = key_fn(item)
-    if value_fn:
-      item = value_fn(item)
+  value_fn = value or (lambda item: item)
+  group_fn = group or (lambda key: [])
+  groups: Dict[KeyT, GroupT] = {}
+  for input_item in collection:
+    group_key: KeyT = key_fn(input_item)
+    group_item = value_fn(input_item)
     if group_key not in groups:
-      if group_fn:
-        new_group = groups[group_key] = group_fn(group_key)
-        new_group.append(item)
-      else:
-        groups[group_key] = [item]
+      new_group: GroupT = group_fn(group_key)
+      groups[group_key] = new_group
+      new_group.append(group_item)
     else:
-      groups[group_key].append(item)
+      groups[group_key].append(group_item)
   # sort keys as well for more predictable behavior
   items = sorted(groups.items(), key=str)
   return dict(items)
 
 
-def sort_by_file_size(files):
+def sort_by_file_size(files: Iterable[pathlib.Path]) -> List[pathlib.Path]:
   return sorted(files, key=lambda f: (-f.stat().st_size, f.name))
 
 
-SIZE_UNITS = ["B", "KiB", "MiB", "GiB", "TiB"]
+SIZE_UNITS: Final[Tuple[str, ...]] = ("B", "KiB", "MiB", "GiB", "TiB")
 
 
 def get_file_size(file, digits=2) -> str:
