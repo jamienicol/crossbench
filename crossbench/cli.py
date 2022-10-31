@@ -296,14 +296,14 @@ def existing_file_type(str_value):
 
 class CrossBenchCLI:
 
-  BENCHMARKS = (
+  BENCHMARKS: Tuple[Type[cb.benchmarks.Benchmark], ...] = (
       cb.benchmarks.Speedometer20Benchmark,
       cb.benchmarks.JetStream2Benchmark,
       cb.benchmarks.MotionMark12Benchmark,
       cb.benchmarks.PageLoadBenchmark,
   )
 
-  RUNNER_CLS =  cb.runner.Runner
+  RUNNER_CLS: Type[cb.runner.Runner] = cb.runner.Runner
 
   def __init__(self):
     self.parser = argparse.ArgumentParser()
@@ -340,7 +340,7 @@ class CrossBenchCLI:
                                  help="Print the data as json data")
     describe_parser.set_defaults(subcommand=self.describe_subcommand)
 
-  def describe_subcommand(self, args):
+  def describe_subcommand(self, args: argparse.Namespace):
     data = {
         "benchmarks": {
             benchmark_cls.NAME: benchmark_cls.describe()
@@ -378,18 +378,35 @@ class CrossBenchCLI:
                    headers=["Probe", "Help"],
                    tablefmt="grid"))
 
-
-  def _setup_benchmark_subparser(self, benchmark_cls):
+  def _setup_benchmark_subparser(self,
+                                 benchmark_cls: Type[cb.benchmarks.Benchmark]):
     subparser = benchmark_cls.add_cli_parser(self.subparsers)
     self.RUNNER_CLS.add_cli_parser(subparser)
     assert isinstance(subparser, argparse.ArgumentParser), (
         f"Benchmark class {benchmark_cls}.add_cli_parser did not return "
         f"an ArgumentParser: {subparser}")
-    subparser.add_argument(
+
+    env_group = subparser.add_argument_group("Runner Environment Settings", "")
+    env_group.add_argument(
         "--dry-run",
         action="store_true",
         default=False,
         help="Don't run any browsers or probes")
+    env_group.add_argument(
+        "--set-brightness",
+        dest="brightness",
+        type=int,
+        help="Use this to set the brightness of the main screen to specific "
+        "value between 0-100. Setting the screen to a constant value stops the "
+        "OS from adapting the screen's brightness.")
+    env_group.add_argument("--environment-config", help="")
+    env_group.add_argument(
+        "--skip-checklist",
+        dest="use_checklist",
+        action="store_false",
+        default=True,
+        help="Do not check for potential SetUp issues "
+        "before running the benchmark. Enabled by default.")
 
     browser_group = subparser.add_mutually_exclusive_group()
     browser_group.add_argument(
@@ -433,13 +450,6 @@ class CrossBenchCLI:
         "directly to chrome. Any other browser option can be passed "
         "after the '--' arguments separator.")
     chrome_args.add_argument("--js-flags", dest="js_flags")
-    subparser.add_argument(
-        "--set-brightness",
-        dest="brightness",
-        type=int,
-        help="Use this to set the brightness of the main screen to specific "
-        "value between 0-100. Setting the screen to a constant value stops the "
-        "OS from adapting the screen's brightness.")
 
     DOC = "See chrome's base/feature_list.h source file for more details"
     chrome_args.add_argument(
@@ -453,48 +463,66 @@ class CrossBenchCLI:
     subparser.set_defaults(
         subcommand=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
 
-  def benchmark_subcommand(self, args):
-    # Currently set_main_display_brightness is only available on MACOS
-    if args.brightness and cb.helper.platform.is_macos:
-      cb.helper.platform.set_main_display_brightness(args.brightness)
-
+  def benchmark_subcommand(self, args: argparse.Namespace):
     benchmark = self._get_benchmark(args)
     args.browsers = self._get_browsers(args)
     probes = self._get_probes(args)
-    runner = self._get_runner(args, benchmark)
+    env_config = self._get_env_config(args)
+    env_validation_mode = self._get_env_validation_mode(args)
+    runner = self._get_runner(args, benchmark, env_config, env_validation_mode)
     for probe in probes:
       runner.attach_probe(probe, matching_browser_only=True)
     runner.run(is_dry_run=args.dry_run)
     results_json = runner.out_dir / "results.json"
     print(f"RESULTS: {results_json}")
 
-  def _get_browsers(self, args) -> Sequence[cb.browsers.Browser]:
+  def _get_browsers(self,
+                    args: argparse.Namespace) -> Sequence[cb.browsers.Browser]:
     args.browser_config = BrowserConfig.from_cli_args(args)
     return args.browser_config.variants
 
-  def _get_probes(self, args) -> Sequence[cb.probes.Probe]:
+  def _get_probes(self, args: argparse.Namespace) -> Sequence[cb.probes.Probe]:
     args.probe_config = ProbeConfig.from_cli_args(args)
     return args.probe_config.probes
 
-  def _get_benchmark(self, args) -> cb.benchmarks.Benchmark:
+  def _get_benchmark(self, args: argparse.Namespace) -> cb.benchmarks.Benchmark:
     benchmark_cls = self._get_benchmark_cls(args)
     assert issubclass(benchmark_cls, cb.benchmarks.Benchmark), (
         f"benchmark_cls={benchmark_cls} is not subclass of Runner")
     return benchmark_cls.from_cli_args(args)
 
-  def _get_benchmark_cls(self, args) -> Type[cb.benchmarks.Benchmark]:
+  def _get_benchmark_cls(self, args: argparse.Namespace
+                        ) -> Type[cb.benchmarks.Benchmark]:
     return args.benchmark_cls
 
-  def _get_runner(self, args, benchmark) -> cb.runner.Runner:
+  def _get_env_validation_mode(self, args) -> cb.runner.ValidationMode:
+    if args.use_checklist:
+      return cb.runner.ValidationMode.PROMPT
+    return cb.runner.ValidationMode.SKIP
+
+  def _get_env_config(self, args) -> cb.runner.HostEnvironmentConfig:
+    # TODO: move env settings to option file
+    config = cb.runner.HostEnvironmentConfig(
+        screen_brightness_percent=args.brightness)
+    return config
+
+  def _get_runner(self, args: argparse.Namespace, benchmark,
+                  env_config: cb.runner.HostEnvironmentConfig,
+                  env_validation_mode: cb.runner.ValidationMode
+                 ) -> cb.runner.Runner:
     runner_kwargs = self.RUNNER_CLS.kwargs_from_cli(args)
-    return self.RUNNER_CLS(benchmark=benchmark, **runner_kwargs)
+    return self.RUNNER_CLS(
+        benchmark=benchmark,
+        env_config=env_config,
+        env_validation_mode=env_validation_mode,
+        **runner_kwargs)
 
   def run(self, argv):
-    args = self.parser.parse_args(argv)
+    args: argparse.Namespace = self.parser.parse_args(argv)
     self._initialize_logging(args)
     args.subcommand(args)
 
-  def _initialize_logging(self, args):
+  def _initialize_logging(self, args: argparse.Namespace):
     logging.getLogger().setLevel(logging.INFO)
     console_handler = logging.StreamHandler()
     if args.verbosity == 0:

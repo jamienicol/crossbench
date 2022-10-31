@@ -34,7 +34,7 @@ class HostEnvironmentConfig:
 
   disk_min_free_space_gib: Union[float, IgnoreType] = Ignore
   power_use_battery: Union[bool, IgnoreType] = Ignore
-  screen_brightness: Union[int, IgnoreType] = Ignore
+  screen_brightness_percent: Union[int, IgnoreType] = Ignore
   cpu_max_usage_percent: Union[int, IgnoreType] = Ignore
   cpu_min_relative_speed: Union[float, IgnoreType] = Ignore
   system_allow_antivirus: Union[bool, IgnoreType] = Ignore
@@ -187,7 +187,7 @@ class HostEnvironment:
                           f"Relative speed is {cpu_speed}, "
                           f"but expected at least {min_relative_speed}.")
 
-  def _check_cpu_power_mode(self):
+  def _check_cpu_power_mode(self) -> bool:
     # TODO Implement checks for performance mode
     return True
 
@@ -212,6 +212,17 @@ class HostEnvironment:
       logging.debug(filtered)
       self.handle_warning(
           f"{browser.app_name} {browser.version} seems to be already running.")
+
+  def _check_screen_brightness(self):
+    brightness = self._config.screen_brightness_percent
+    if brightness is HostEnvironmentConfig.Ignore:
+      return
+    assert 0 <= brightness <= 100, f"Invalid brightness={brightness}"
+    self._platform.set_main_display_brightness(brightness)
+    current = self._platform.get_main_display_brightness()
+    if current != brightness:
+      self.handle_warning(f"Requested main display brightness={brightness}%, "
+                          "but got {brightness}%")
 
   def _check_headless(self):
     requested_headless = self._config.browser_is_headless
@@ -250,6 +261,7 @@ class HostEnvironment:
     self._check_cpu_temperature()
     self._check_cpu_power_mode()
     self._check_running_binaries()
+    self._check_screen_brightness()
     self._check_headless()
     self._check_probes()
     self._wait_min_time()
@@ -330,13 +342,7 @@ class Runner:
         default=False,
         help="Directly throw exceptions")
     parser.add_argument("--label", type=str, help="Custom output label")
-    parser.add_argument(
-        "--skip-checklist",
-        dest="use_checklist",
-        action="store_false",
-        default=True,
-        help="Do not check for potential SetUp issues "
-        "before running the benchmark. Enabled by default.")
+
     return parser
 
   @classmethod
@@ -345,16 +351,11 @@ class Runner:
       label = args.label or args.benchmark_cls.NAME
       cli_dir = pathlib.Path(__file__).parent.parent
       args.out_dir = cls.get_out_dir(cli_dir, label)
-    mode = ValidationMode.SKIP
-    if args.use_checklist:
-      mode = ValidationMode.PROMPT
     return {
         "out_dir": args.out_dir,
         "browsers": args.browsers,
         "repetitions": args.repeat,
         "throw": args.throw,
-        "env_config": HostEnvironmentConfig(),
-        "env_validation_mode": mode
     }
 
   def __init__(self,
