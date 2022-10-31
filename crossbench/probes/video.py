@@ -37,17 +37,15 @@ class VideoProbe(probes.Probe):
   def results_file_name(self) -> str:
     return f"{self.name}.mp4"
 
-  def pre_check(self, environment: cb.runner.HostEnvironment) -> bool:
-    if not super().pre_check(environment):
-      return False
-    if environment.runner.repetitions > 10:
-      return environment.warn(
+  def pre_check(self, env: cb.runner.HostEnvironment):
+    super().pre_check(env)
+    if env.runner.repetitions > 10:
+      env.handle_warning(
           f"Probe={self.NAME} might not be able to merge so many "
-          f"repetitions={environment.runner.repetitions}.")
-    environment.check_installed(
+          f"repetitions={env.runner.repetitions}.")
+    env.check_installed(
         binaries=("ffmpeg", "montage"),
         message="Missing binaries for video probe: %s")
-    return True
 
   class Scope(probes.Probe.Scope):
     IMAGE_FORMAT = "png"

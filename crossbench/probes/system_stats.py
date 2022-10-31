@@ -35,14 +35,11 @@ class SystemStatsProbe(probes.Probe):
     return not browser.platform.is_remote and (browser.platform.is_linux or
                                                browser.platform.is_macos)
 
-  def pre_check(self, environment: cb.runner.HostEnvironment) -> bool:
-    if not super().pre_check(environment):
-      return False
-    if environment.runner.repetitions > 1:
-      return environment.warn(
-          f"Probe={self.NAME} cannot merge data over multiple "
-          f"repetitions={environment.runner.repetitions}.")
-    return True
+  def pre_check(self, env: cb.runner.HostEnvironment):
+    super().pre_check(env)
+    if env.runner.repetitions != 1:
+      env.handle_warning(f"Probe={self.NAME} cannot merge data over multiple "
+                         f"repetitions={env.runner.repetitions}.")
 
   @classmethod
   def poll(cls, interval: float, path: pathlib.Path, event: threading.Event):

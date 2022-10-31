@@ -63,15 +63,12 @@ class PowerSamplerProbe(probes.Probe):
   def samplers(self) -> Tuple[str, ...]:
     return self._samplers
 
-  def pre_check(self, checklist) -> bool:
-    if not super().pre_check(checklist):
-      return False
+  def pre_check(self, env: cb.runner.HostEnvironment):
+    super().pre_check(env)
     if not self.browser_platform.is_battery_powered:
-      logging.error("ERROR: Power Sampler only works on battery power!")
-      return False
+      env.handle_warning("Power Sampler only works on battery power!")
     # TODO() warn when external monitors are connected
     # TODO() warn about open terminals
-    return True
 
   def is_compatible(self, browser: cb.browsers.Browser) -> bool:
     # For now only supported on MacOs

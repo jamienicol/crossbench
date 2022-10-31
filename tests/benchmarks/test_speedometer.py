@@ -103,7 +103,8 @@ class Speedometer2Test(helper.PressBaseBenchmarkTestCase):
         self.out_dir,
         self.browsers,
         benchmark,
-        environment_config=cb.runner.HostEnvironmentConfig.ignore(),
+        env_config=cb.runner.HostEnvironmentConfig(),
+        env_validation_mode=cb.runner.ValidationMode.SKIP,
         platform=self.platform,
         repetitions=repetitions)
     runner.run()

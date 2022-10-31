@@ -124,7 +124,7 @@ class Probe(abc.ABC):
           f"existing={self._browser_platform }, new={browser.platform}")
     self._browsers.add(browser)
 
-  def pre_check(self, environment: cb.runner.HostEnvironment) -> bool:
+  def pre_check(self, env: cb.runner.HostEnvironment):
     """
     Part of the Checklist, make sure everything is set up correctly for a probe
     to run.
@@ -135,7 +135,6 @@ class Probe(abc.ABC):
         f"Probe {self.name} is not properly attached to a browser")
     for browser in self._browsers:
       assert self.is_compatible(browser)
-    return True
 
   def merge_repetitions(self, group: cb.runner.RepetitionsRunGroup
                        ) -> Optional[ProbeResultType]:
