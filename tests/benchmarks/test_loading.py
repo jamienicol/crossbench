@@ -64,7 +64,7 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
         self.out_dir,
         self.browsers,
         benchmark,
-        use_checklist=False,
+        environment_config=cb.runner.HostEnvironmentConfig.ignore(),
         platform=self.platform)
     runner.run()
     self.assertEqual(self.browsers[0].url_list,

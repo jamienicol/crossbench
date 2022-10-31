@@ -14,23 +14,52 @@ import os
 import pathlib
 import shutil
 import sys
+import time
 import traceback
 from typing import Iterable, Sequence, List, Optional, Tuple
 
 import crossbench as cb
 
 
-class CheckList:
+class HostEnvironmentConfig:
+  MODE_PROMPT = "prompt"
+  MODE_WARN = "warn"
+  MODE_FAIL = "fail"
+  MODE_SKIP = "skip"
+
+  @classmethod
+  def ignore(cls) -> HostEnvironmentConfig:
+    return cls(mode=cls.MODE_SKIP)
+
+  def __init__(self, mode: str = MODE_PROMPT):
+    assert mode in (self.MODE_FAIL, self.MODE_PROMPT, self.MODE_WARN,
+                    self.MODE_SKIP)
+    self.mode = mode
+
+
+class HostEnvironment:
+  """
+  HostEnvironment can check and enforce certain settings on a host
+  where we run benchmarks.
+
+  Modes:
+    skip:     Do not perform any checks
+    warn:     Only warn about mismatching host conditions
+    enforce:  Tries to auto-enforce conditions and warns about others. 
+    prompt:   Interactive mode to skip over certain conditions
+    fail:     Fast-fail on mismatch
+  """
 
   def __init__(self,
-               runner: cb.runner.Runner,
-               platform: Optional[cb.helper.Platform] = None):
-    self._runner = runner
+               runner: Runner,
+               config: Optional[HostEnvironmentConfig] = None):
     self._wait_until = dt.datetime.now()
-    self._platform = platform or cb.helper.platform
+    self._config = config or HostEnvironmentConfig()
+    self._runner = runner
+    self._platform = runner.platform
 
   @property
-  def runner(self):
+  def runner(self) -> Runner:
     return self._runner
 
   def _add_min_delay(self, seconds: float):
@@ -40,16 +69,15 @@ class CheckList:
 
   def _wait_min_time(self):
     delta = self._wait_until - dt.datetime.now()
-    if delta <= dt.timedelta(0):
-      return
-    self._platform.sleep(delta)
+    if delta > dt.timedelta(0):
+      self._platform.sleep(delta)
 
-  def warn(self, message: str):
-    result = input(
-        f"{cb.helper.TTYColor.RED}{message}{cb.helper.TTYColor.RESET} [Yn]")
+  def warn(self, message: str) -> bool:
+    result = input(f"{cb.helper.TTYColor.RED}{message} Continue?"
+                   f"{cb.helper.TTYColor.RESET} [Yn]")
     return result.lower() != "n"
 
-  def _disable_crowdstrike(self):
+  def _disable_crowdstrike(self) -> bool:
     """go/crowdstrike-falcon has quite terrible overhead for each file-access
     disable to prevent flaky numbers """
     if not self._platform.is_macos:
@@ -62,49 +90,48 @@ class CheckList:
       logging.exception("Exception: %s", e)
       return self.warn(
           "Could not disable go/crowdstrike-falcon monitor which can cause"
-          " high background CPU usage. Continue nevertheless?")
+          " high background CPU usage.")
 
-  def _check_disk_space(self):
+  def _check_disk_space(self) -> bool:
     # Check the remaining disk space on the FS where we write the results.
-    usage = self._platform.disk_usage(self.runner.out_dir)
+    usage = self._platform.disk_usage(self._runner.out_dir)
     free_gib = round(usage.free / 1024 / 1024 / 1024, 2)
     # Warn if there are less than 20GiB
     if free_gib > 20:
       return True
-    return self.warn(f"Only {free_gib}GiB disk space left, continue?")
+    return self.warn(f"Only {free_gib}GiB disk space left.")
 
-  def _check_power(self):
+  def _check_power(self) -> bool:
     # By default we expect users to run on power. However, there are
     # certain probes that require battery power:
     for probe in self._runner.probes:
       if probe.BATTERY_ONLY:
         return True
     if self._platform.is_battery_powered:
-      return self.warn("Running on battery power, continue?")
+      return self.warn("Running on battery power.")
     return True
 
-  def _check_cpu_usage(self):
+  def _check_cpu_usage(self) -> bool:
     cpu_usage_percent = round(100 * self._platform.cpu_usage(), 1)
     if cpu_usage_percent < 20:
       return True
-    return self.warn(f"CPU usage is high ({cpu_usage_percent}%), continue?")
+    return self.warn(f"CPU usage is high ({cpu_usage_percent}%)")
 
-  def _check_cpu_temperature(self):
+  def _check_cpu_temperature(self) -> bool:
     cpu_speed = self._platform.get_relative_cpu_speed()
     if cpu_speed == 1:
       return True
     return self.warn(
-        f"CPU thermal throttling is active (relative speed is {cpu_speed})."
-        " Continue?")
+        f"CPU thermal throttling is active (relative speed is {cpu_speed}).")
 
   def _check_cpu_power_mode(self):
     # TODO Implement checks for performance mode
     return True
 
-  def _check_running_binaries(self):
+  def _check_running_binaries(self) -> bool:
     ps_stats = self._platform.sh_stdout("ps", "aux")
     browser_binaries = cb.helper.group_by(
-        self.runner.browsers, key=lambda browser: str(browser.path))
+        self._runner.browsers, key=lambda browser: str(browser.path))
     for binary, browsers in browser_binaries.items():
       # Add a white-space to get less false-positives
       binary_search = f"{binary} "
@@ -117,13 +144,12 @@ class CheckList:
       logging.debug("PS status output:")
       logging.debug(filtered)
       result = self.warn(
-          f"{browser.app_name} {browser.version} seems to be already running. "
-          "Continue?")
+          f"{browser.app_name} {browser.version} seems to be already running.")
       if not result:
         return False
     return True
 
-  def _check_headless(self):
+  def _check_headless(self) -> bool:
     if self._platform.is_win:
       return True
     # We only have a $DISPLAY env var on macos if xquartz is installed
@@ -136,19 +162,21 @@ class CheckList:
         continue
       if not self.warn(
           f"Browser {browser.short_name} will likely not work in headless mode."
-          "Continue?"):
+      ):
         return False
     return True
 
-  def _check_probes(self):
+  def _check_probes(self) -> bool:
     if not self._runner.probes:
-      return self.warn("No probes specified. Continue?")
+      return self.warn("No probes specified.")
     for probe in self._runner.probes:
       if not probe.pre_check(self):
         return False
     return True
 
-  def is_ok(self) -> bool:
+  def validate(self):
+    if self._config.mode == HostEnvironmentConfig.MODE_SKIP:
+      return True
     ok = True
     ok &= self._disable_crowdstrike()
     ok &= self._check_power()
@@ -160,12 +188,16 @@ class CheckList:
     ok &= self._check_headless()
     ok &= self._check_probes()
     self._wait_min_time()
+    if not ok:
+      raise Exception(
+          "Host environment does not fulfill the specified requirements.")
     return ok
 
-  def check_installed(self, binaries, message="Missing binaries: %s"):
+  def check_installed(self, binaries, message="Missing binaries: %s") -> bool:
     missing = (binary for binary in binaries if not shutil.which(binary))
     if missing:
       return self.warn((message % binaries) + " Continue?")
+    return True
 
 
 class ExceptionHandler:
@@ -253,14 +285,16 @@ class Runner:
       label = args.label or args.benchmark_cls.NAME
       cli_dir = pathlib.Path(__file__).parent.parent
       args.out_dir = cls.get_out_dir(cli_dir, label)
+    mode = HostEnvironmentConfig.MODE_SKIP
+    if args.use_checklist:
+      mode = HostEnvironmentConfig.MODE_PROMPT
     return {
         "out_dir": args.out_dir,
         "browsers": args.browsers,
         "repetitions": args.repeat,
-        "use_checklist": args.use_checklist,
-        "throw": args.throw
+        "throw": args.throw,
+        "environment_config": HostEnvironmentConfig(mode=mode)
     }
-
 
   def __init__(self,
                out_dir: pathlib.Path,
@@ -268,9 +302,9 @@ class Runner:
                benchmark: cb.benchmarks.Benchmark,
                additional_probes: Iterable[cb.probes.Probe] = (),
                platform: cb.helper.Platform = cb.helper.platform,
+               environment_config: Optional[HostEnvironmentConfig] = None,
                throttle: bool = True,
                repetitions: int = 1,
-               use_checklist: bool = True,
                throw: bool = False):
     self.out_dir = out_dir
     assert not self.out_dir.exists(), f"out_dir={self.out_dir} exists already"
@@ -283,11 +317,11 @@ class Runner:
     self.repetitions = repetitions
     assert self.repetitions > 0, f"Invalid repetitions={self.repetitions}"
     self.throttle = throttle
-    self._use_checklist = use_checklist
     self._probes: List[cb.probes.Probe] = []
     self._runs: List[Run] = []
     self._exceptions = ExceptionHandler(throw)
     self._platform = platform
+    self._environment = HostEnvironment(self, environment_config)
     self._attach_default_probes(additional_probes)
     self._validate_stories()
 
@@ -363,19 +397,14 @@ class Runner:
       json.dump(details, f, indent=2)
 
   def _setup(self):
-    if self.repetitions <= 0:
-      raise Exception(f"Invalid repetitions count: {self.repetitions}")
-    if len(self.browsers) == 0:
-      raise Exception("No browsers provided: self.browsers is empty")
-    if len(self.stories) == 0:
-      raise Exception("No stories provided: self.stories is empty")
+    assert self.repetitions > 0, f"Invalid repetitions count: {self.repetitions}"
+    assert self.browsers, "No browsers provided: self.browsers is empty"
+    assert self.stories, "No stories provided: self.stories is empty"
     for browser in self.browsers:
       browser.setup_binary(self)  # pytype: disable=wrong-arg-types
     self._runs = list(self.get_runs())
-    assert self._runs, "get_runs() produced no runs"
-    if self._use_checklist:
-      if not CheckList(self, self.browser_platform).is_ok():  # pytype: disable=wrong-arg-types
-        raise Exception("Thou shalt not fail the CheckList")
+    assert self._runs, f"{type(self)}.get_runs() produced no runs"
+    self._environment.validate()
     self.collect_system_details()
 
   def get_runs(self) -> Iterable[Run]:
@@ -500,7 +529,7 @@ class RepetitionsRunGroup(RunGroup):
 
   def __init__(self, throw=False):
     super().__init__(throw)
-    self._runs = []
+    self._runs: List[Run] = []
     self._story: cb.stories.Story = None
     self._browser: cb.browsers.Browser = None
 
@@ -627,6 +656,7 @@ class Run:
     self._runner = runner
     self._browser = browser
     self._story = story
+    assert iteration >= 0
     self._iteration = iteration
     self._name = name
     self._out_dir = self.get_out_dir(root_dir).absolute()

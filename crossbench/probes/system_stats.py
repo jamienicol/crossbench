@@ -31,17 +31,17 @@ class SystemStatsProbe(probes.Probe):
   def interval(self):
     return self._interval
 
-  def is_compatible(self, browser: cb.browsers.Browser):
+  def is_compatible(self, browser: cb.browsers.Browser) -> bool:
     return not browser.platform.is_remote and (browser.platform.is_linux or
                                                browser.platform.is_macos)
 
-  def pre_check(self, checklist: cb.runner.CheckList):
-    if not super().pre_check(checklist):
+  def pre_check(self, environment: cb.runner.HostEnvironment) -> bool:
+    if not super().pre_check(environment):
       return False
-    if checklist.runner.repetitions > 1:
-      return checklist.warn(
+    if environment.runner.repetitions > 1:
+      return environment.warn(
           f"Probe={self.NAME} cannot merge data over multiple "
-          f"repetitions={checklist.runner.repetitions}. Continue?")
+          f"repetitions={environment.runner.repetitions}.")
     return True
 
   @classmethod

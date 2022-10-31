@@ -67,7 +67,7 @@ class V8LogProbe(probes.Probe):
   def js_flags(self) -> cb.flags.JSFlags:
     return self._js_flags.copy()
 
-  def is_compatible(self, browser):
+  def is_compatible(self, browser) -> bool:
     return browser.type == "chrome"
 
   def attach(self, browser):
@@ -75,13 +75,13 @@ class V8LogProbe(probes.Probe):
     browser.flags.set("--no-sandbox")
     browser.js_flags.update(self._js_flags)
 
-  def pre_check(self, checklist):
-    if not super().pre_check(checklist):
+  def pre_check(self, environment: cb.runner.HostEnvironment) -> bool:
+    if not super().pre_check(environment):
       return False
-    if checklist.runner.repetitions > 1:
-      return checklist.warn(
+    if environment.runner.repetitions > 1:
+      return environment.warn(
           f"Probe={self.NAME} cannot merge data over multiple "
-          f"repetitions={checklist.runner.repetitions}. Continue?")
+          f"repetitions={environment.runner.repetitions}.")
     return True
 
   class Scope(probes.Probe.Scope):

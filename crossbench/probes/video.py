@@ -34,17 +34,17 @@ class VideoProbe(probes.Probe):
     self._duration = None
 
   @property
-  def results_file_name(self):
+  def results_file_name(self) -> str:
     return f"{self.name}.mp4"
 
-  def pre_check(self, checklist: cb.runner.CheckList):
-    if not super().pre_check(checklist):
+  def pre_check(self, environment: cb.runner.HostEnvironment) -> bool:
+    if not super().pre_check(environment):
       return False
-    if checklist.runner.repetitions > 10:
-      return checklist.warn(
+    if environment.runner.repetitions > 10:
+      return environment.warn(
           f"Probe={self.NAME} might not be able to merge so many "
-          f"repetitions={checklist.runner.repetitions}. Continue?")
-    checklist.check_installed(
+          f"repetitions={environment.runner.repetitions}.")
+    environment.check_installed(
         binaries=("ffmpeg", "montage"),
         message="Missing binaries for video probe: %s")
     return True

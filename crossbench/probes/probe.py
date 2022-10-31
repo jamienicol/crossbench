@@ -124,7 +124,7 @@ class Probe(abc.ABC):
           f"existing={self._browser_platform }, new={browser.platform}")
     self._browsers.add(browser)
 
-  def pre_check(self, checklist: cb.runner.CheckList) -> bool:
+  def pre_check(self, environment: cb.runner.HostEnvironment) -> bool:
     """
     Part of the Checklist, make sure everything is set up correctly for a probe
     to run.

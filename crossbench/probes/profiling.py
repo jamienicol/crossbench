@@ -72,8 +72,8 @@ class ProfilingProbe(probes.Probe):
           f"Expected Chrome, found {type(browser)}.")
       self._attach_linux(browser)
 
-  def pre_check(self, checklist: cb.runner.CheckList):
-    if not super().pre_check(checklist):
+  def pre_check(self, environment: cb.runner.HostEnvironment) -> bool:
+    if not super().pre_check(environment):
       return False
     if self.browser_platform.is_linux:
       assert self.browser_platform.which("pprof"), "Please install pprof"
@@ -85,12 +85,12 @@ class ProfilingProbe(probes.Probe):
         self.browser_platform.sh(self.browser_platform.which("gcertstatus"))
         return True
       except cb.helper.SubprocessError:
-        return checklist.warn("Please run gcert for generating pprof results")
+        return environment.warn("Please run gcert for generating pprof results")
     # Only Linux-perf results can be merged
-    if self.browser_platform.is_macos and checklist.runner.repetitions > 1:
-      return checklist.warn(
+    if self.browser_platform.is_macos and environment.runner.repetitions > 1:
+      return environment.warn(
           f"Probe={self.NAME} cannot merge data over multiple "
-          f"repetitions={checklist.runner.repetitions}. Continue?")
+          f"repetitions={environment.runner.repetitions}.")
     return True
 
   def _attach_linux(self, browser: cb.browsers.Chrome):
