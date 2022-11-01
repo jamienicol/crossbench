@@ -37,7 +37,7 @@ class VideoProbe(probes.Probe):
   def results_file_name(self) -> str:
     return f"{self.name}.mp4"
 
-  def pre_check(self, env: cb.runner.HostEnvironment):
+  def pre_check(self, env: cb.env.HostEnvironment):
     super().pre_check(env)
     if env.runner.repetitions > 10:
       env.handle_warning(

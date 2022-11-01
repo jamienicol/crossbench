@@ -495,20 +495,20 @@ class CrossBenchCLI:
                         ) -> Type[cb.benchmarks.Benchmark]:
     return args.benchmark_cls
 
-  def _get_env_validation_mode(self, args) -> cb.runner.ValidationMode:
+  def _get_env_validation_mode(self, args) -> cb.env.ValidationMode:
     if args.use_checklist:
-      return cb.runner.ValidationMode.PROMPT
-    return cb.runner.ValidationMode.SKIP
+      return cb.env.ValidationMode.PROMPT
+    return cb.env.ValidationMode.SKIP
 
-  def _get_env_config(self, args) -> cb.runner.HostEnvironmentConfig:
+  def _get_env_config(self, args) -> cb.env.HostEnvironmentConfig:
     # TODO: move env settings to option file
-    config = cb.runner.HostEnvironmentConfig(
+    config = cb.env.HostEnvironmentConfig(
         screen_brightness_percent=args.brightness)
     return config
 
   def _get_runner(self, args: argparse.Namespace, benchmark,
-                  env_config: cb.runner.HostEnvironmentConfig,
-                  env_validation_mode: cb.runner.ValidationMode
+                  env_config: cb.env.HostEnvironmentConfig,
+                  env_validation_mode: cb.env.ValidationMode
                  ) -> cb.runner.Runner:
     runner_kwargs = self.RUNNER_CLS.kwargs_from_cli(args)
     return self.RUNNER_CLS(

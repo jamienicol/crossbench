@@ -7,6 +7,8 @@ import crossbench.helper as helper
 import crossbench.flags as flags
 import crossbench.stories as stories
 
+import crossbench.env as env
+
 import crossbench.browsers as browsers
 import crossbench.probes as probes
 import crossbench.runner as runner

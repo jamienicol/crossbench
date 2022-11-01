@@ -72,7 +72,7 @@ class ProfilingProbe(probes.Probe):
           f"Expected Chrome, found {type(browser)}.")
       self._attach_linux(browser)
 
-  def pre_check(self, env: cb.runner.HostEnvironment):
+  def pre_check(self, env: cb.env.HostEnvironment):
     super().pre_check(env)
     if self.browser_platform.is_linux:
       assert self.browser_platform.which("pprof"), "Please install pprof"

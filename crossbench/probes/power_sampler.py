@@ -63,7 +63,7 @@ class PowerSamplerProbe(probes.Probe):
   def samplers(self) -> Tuple[str, ...]:
     return self._samplers
 
-  def pre_check(self, env: cb.runner.HostEnvironment):
+  def pre_check(self, env: cb.env.HostEnvironment):
     super().pre_check(env)
     if not self.browser_platform.is_battery_powered:
       env.handle_warning("Power Sampler only works on battery power!")

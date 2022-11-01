@@ -75,7 +75,7 @@ class V8LogProbe(probes.Probe):
     browser.flags.set("--no-sandbox")
     browser.js_flags.update(self._js_flags)
 
-  def pre_check(self, env: cb.runner.HostEnvironment):
+  def pre_check(self, env: cb.env.HostEnvironment):
     super().pre_check(env)
     if env.runner.repetitions != 1:
       env.handle_warning(f"Probe={self.NAME} cannot merge data over multiple "

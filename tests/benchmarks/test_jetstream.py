@@ -36,8 +36,8 @@ class JetStream2Test(helper.PressBaseBenchmarkTestCase):
         self.out_dir,
         self.browsers,
         benchmark,
-        env_config=cb.runner.HostEnvironmentConfig(),
-        env_validation_mode=cb.runner.ValidationMode.SKIP,
+        env_config=cb.env.HostEnvironmentConfig(),
+        env_validation_mode=cb.env.ValidationMode.SKIP,
         platform=self.platform,
         repetitions=repetitions)
     runner.run()
