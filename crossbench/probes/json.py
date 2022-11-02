@@ -10,13 +10,14 @@ import csv
 import pathlib
 from typing import Dict, TYPE_CHECKING, Union
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
-import crossbench.probes as probes
+  import crossbench.runner
+from crossbench.probes import base
 import crossbench.probes.helper as helper
 
 
-class JsonResultProbe(probes.Probe, metaclass=abc.ABCMeta):
+class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
   """
   Abstract Probe that stores a JSON result extracted by the `to_json` method
 
@@ -43,7 +44,7 @@ class JsonResultProbe(probes.Probe, metaclass=abc.ABCMeta):
   def flatten_json_data(self, json_data):
     return helper.Flatten(json_data).data
 
-  class Scope(probes.Probe.Scope):
+  class Scope(base.Probe.Scope):
 
     def __init__(self, probe: JsonResultProbe, run: cb.runner.Run):
       super().__init__(probe, run)
@@ -94,7 +95,7 @@ class JsonResultProbe(probes.Probe, metaclass=abc.ABCMeta):
   def merge_repetitions(
       self,
       group: cb.runner.RepetitionsRunGroup,
-  ) -> cb.probes.ProbeResultType:
+  ) -> base.ProbeResultType:
     merger = helper.ValuesMerger()
     for run in group.runs:
       source_file = self.get_mergeable_result_file(run.results[self])
@@ -112,7 +113,7 @@ class JsonResultProbe(probes.Probe, metaclass=abc.ABCMeta):
                          group,
                          merged_data: Union[Dict, helper.ValuesMerger],
                          write_csv=False,
-                         value_fn=None) -> cb.probes.ProbeResultType:
+                         value_fn=None) -> base.ProbeResultType:
     merged_json_path = group.get_probe_results_file(self)
     with merged_json_path.open("w") as f:
       if isinstance(merged_data, dict):

@@ -8,21 +8,22 @@ import argparse
 import csv
 from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
+  import crossbench.runner
 
-import crossbench.probes as probes
+import crossbench.probes.json as probes_json
 import crossbench.probes.helper as probes_helper
-import crossbench.stories as stories
-import crossbench.helper as helper
-import crossbench.benchmarks.base as benchmarks
+import crossbench.stories
+from crossbench import helper
+import crossbench.benchmarks
 
 
 def _probe_remove_tests_segments(path: Tuple[str, ...]):
   return "/".join(segment for segment in path if segment != "tests")
 
 
-class Speedometer20Probe(probes.JsonResultProbe):
+class Speedometer20Probe(probes_json.JsonResultProbe):
   """
   Speedometer2-specific probe.
   Extracts all speedometer times and scores.
@@ -64,7 +65,7 @@ class Speedometer20Probe(probes.JsonResultProbe):
       csv.writer(f, delimiter="\t").writerows(merged_table)
 
 
-class Speedometer20Story(stories.PressBenchmarkStory):
+class Speedometer20Story(cb.stories.PressBenchmarkStory):
   NAME = "speedometer_2.0"
   PROBES = (Speedometer20Probe,)
   URL = "https://browserbench.org/Speedometer2.0/InteractiveRunner.html"
@@ -138,7 +139,7 @@ class Speedometer20Story(stories.PressBenchmarkStory):
                                2 * len(self._substories) * self.iterations))
 
 
-class Speedometer20Benchmark(benchmarks.PressBenchmark):
+class Speedometer20Benchmark(cb.benchmarks.PressBenchmark):
   """
   Benchmark runner for Speedometer 2.0
   """

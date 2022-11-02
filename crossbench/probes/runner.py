@@ -9,13 +9,15 @@ import logging
 import pathlib
 from typing import TYPE_CHECKING
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
-import crossbench.probes as probes
+  import crossbench.runner
+
+from crossbench.probes import base
 from crossbench.probes.json import JsonResultProbe
 
 
-class RunRunnerLogProbe(probes.Probe):
+class RunRunnerLogProbe(base.Probe):
   """
   Runner-internal meta-probe: Collects the python logging data from the runner
   itself.
@@ -24,7 +26,7 @@ class RunRunnerLogProbe(probes.Probe):
   IS_GENERAL_PURPOSE = False
   FLATTEN = False
 
-  class Scope(probes.Probe.Scope):
+  class Scope(base.Probe.Scope):
 
     def __init__(self, *args, **kwargs):
       super().__init__(*args, **kwargs)

@@ -11,13 +11,14 @@ from typing import List, Optional
 from pyfakefs import fake_filesystem_unittest
 
 import crossbench as cb
-import crossbench.cli as cli
+from crossbench import cli
+from crossbench import helper
 
 FlagsInitialDataType = cb.flags.Flags.InitialDataType
 
 GiB = 1014**3
 
-ActivePlatformClass = type(cb.helper.platform)
+ActivePlatformClass = type(helper.platform)
 
 
 class MockPlatform(ActivePlatformClass):
@@ -52,7 +53,7 @@ class MockBrowser(cb.browsers.Browser):
 
   @classmethod
   def setup_fs(cls, fs, bin_name="Chrome"):
-    if cb.helper.platform.is_macos:
+    if helper.platform.is_macos:
       fs.create_file(cls.BIN_PATH / "Contents" / "MacOS" / bin_name)
     else:
       fs.create_file(cls.BIN_PATH)
@@ -108,28 +109,28 @@ class MockBrowser(cb.browsers.Browser):
 
 
 class MockChromeStable(MockBrowser):
-  if cb.helper.platform.is_macos:
+  if helper.platform.is_macos:
     BIN_PATH = pathlib.Path("/Applications/Google Chrome.app")
   else:
     BIN_PATH = pathlib.Path("/usr/bin/chrome")
 
 
 class MockChromeDev(MockBrowser):
-  if cb.helper.platform.is_macos:
+  if helper.platform.is_macos:
     BIN_PATH = pathlib.Path("/Applications/Google Chrome Dev.app")
   else:
     BIN_PATH = pathlib.Path("/usr/bin/chrome-dev")
 
 
 class MockChromeCanary(MockBrowser):
-  if cb.helper.platform.is_macos:
+  if helper.platform.is_macos:
     BIN_PATH = pathlib.Path("/Applications/Google Chrome Canary.app")
   else:
     BIN_PATH = pathlib.Path("/usr/bin/chrome-canary")
 
 
 class MockSafari(MockBrowser):
-  if cb.helper.platform.is_macos:
+  if helper.platform.is_macos:
     BIN_PATH = pathlib.Path("/Applications/Safari.app")
   else:
     BIN_PATH = pathlib.Path('/unsupported-platform/Safari')

@@ -18,8 +18,7 @@ import traceback
 import urllib.request
 import zipfile
 import pathlib
-import typing
-from typing import Final, Iterable, List, Optional, Sequence, Set
+from typing import Final, List, Optional, Sequence, Set
 
 import selenium
 from selenium import webdriver
@@ -29,6 +28,10 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 import crossbench as cb
+import crossbench.runner
+from crossbench import helper
+import crossbench.probes.base
+import crossbench.flags
 
 # =============================================================================
 
@@ -52,8 +55,8 @@ class Browser(abc.ABC):
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                type: Optional[str] = None,
-               platform: Optional[cb.helper.Platform] = None):
-    self.platform = platform or cb.helper.platform
+               platform: Optional[helper.Platform] = None):
+    self.platform = platform or helper.platform
     # Marked optional to make subclass constructor calls easier with pytype.
     assert type
     self.type: str = type
@@ -223,36 +226,36 @@ class ChromeMeta(type(Browser)):
 
   @property
   def stable_path(cls):
-    if cb.helper.platform.is_macos:
+    if helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome.app")
-    if cb.helper.platform.is_linux:
+    if helper.platform.is_linux:
       for bin_name in ("google-chrome", "chrome"):
-        binary = cb.helper.platform.search_binary(bin_name)
+        binary = helper.platform.search_binary(bin_name)
         if binary:
           return binary
       raise Exception("Could not find binary")
-    if cb.helper.platform.is_win:
-      return cb.helper.platform.search_binary(
+    if helper.platform.is_win:
+      return helper.platform.search_binary(
           "Google\Chrome\Application\chrome.exe")
     raise NotImplementedError()
 
   @property
   def dev_path(cls):
-    if cb.helper.platform.is_macos:
+    if helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome Dev.app")
-    if cb.helper.platform.is_win:
-      return cb.helper.platform.search_binary(
+    if helper.platform.is_win:
+      return helper.platform.search_binary(
           "Google\Chrome Dev\Application\chrome.exe")
-    if cb.helper.platform.is_linux:
-      return cb.helper.platform.search_binary("google-chrome-unstable")
+    if helper.platform.is_linux:
+      return helper.platform.search_binary("google-chrome-unstable")
     raise NotImplementedError()
 
   @property
   def canary_path(cls):
-    if cb.helper.platform.is_macos:
+    if helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome Canary.app")
-    if cb.helper.platform.is_win:
-      return cb.helper.platform.search_binary(
+    if helper.platform.is_win:
+      return helper.platform.search_binary(
           "Google\Chrome SxS\Application\chrome.exe")
     raise NotImplementedError()
 
@@ -277,7 +280,7 @@ class Chrome(Browser, metaclass=ChromeMeta):
                js_flags: FlagsInitialDataType = None,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
-               platform: Optional[cb.helper.Platform] = None):
+               platform: Optional[helper.Platform] = None):
     if cache_dir is None:
       self.cache_dir = pathlib.Path(
           tempfile.TemporaryDirectory(prefix="chrome").name)
@@ -534,7 +537,7 @@ class ChromeDriverFinder:
     driver_version = None
     listing_url = None
     if major_version <= 69:
-      with cb.helper.urlopen(f"{self.URL}/2.46/notes.txt") as response:
+      with helper.urlopen(f"{self.URL}/2.46/notes.txt") as response:
         lines = response.read().decode("utf-8").split("\n")
         for i, line in enumerate(lines):
           if not line.startswith("---"):
@@ -548,7 +551,7 @@ class ChromeDriverFinder:
     else:
       url = f"{self.URL}/LATEST_RELEASE_{major_version}"
       try:
-        with cb.helper.urlopen(url) as response:
+        with helper.urlopen(url) as response:
           driver_version = response.read().decode("utf-8")
         listing_url = f"{self.URL}/index.html?path={driver_version}/"
       except urllib.error.HTTPError as e:
@@ -579,7 +582,7 @@ class ChromeDriverFinder:
       # Try downloading the canary version
       # Lookup the branch name
       url = f"{self.OMAHA_PROXY_URL}?version={self.browser.version}"
-      with cb.helper.urlopen(url) as response:
+      with helper.urlopen(url) as response:
         version_info = json.loads(response.read().decode("utf-8"))
         assert version_info["chromium_version"] == self.browser.version
         chromium_base_position = int(version_info["chromium_base_position"])
@@ -596,7 +599,7 @@ class ChromeDriverFinder:
       listing_url = (
           self.CHROMIUM_LISTING_URL +
           f"?prefix={arch_suffix}/{base_prefix}&maxResults=10000")
-      with cb.helper.urlopen(listing_url) as response:
+      with helper.urlopen(listing_url) as response:
         listing = json.loads(response.read().decode("utf-8"))
 
       versions = []
@@ -657,7 +660,7 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                driver_path: Optional[pathlib.Path] = None,
-               platform: Optional[cb.helper.Platform] = None):
+               platform: Optional[helper.Platform] = None):
     super().__init__(label, path, js_flags, flags, cache_dir, platform)
     self._driver_path = driver_path
 
@@ -724,7 +727,7 @@ class Safari(Browser, metaclass=SafariMeta):
                path: pathlib.Path,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
-               platform: Optional[cb.helper.MacOSPlatform] = None):
+               platform: Optional[helper.MacOSPlatform] = None):
     super().__init__(label, path, flags, type="safari", platform=platform)
     assert self.platform.is_macos, "Safari only works on MacOS"
     self.bundle_name = self.path.stem.replace(" ", "")
@@ -785,7 +788,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
                path: pathlib.Path,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
-               platform: Optional[cb.helper.MacOSPlatform] = None):
+               platform: Optional[helper.MacOSPlatform] = None):
     super().__init__(label, path, flags, cache_dir, platform)
 
   def _find_driver(self):

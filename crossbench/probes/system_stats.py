@@ -8,12 +8,17 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
-import crossbench.probes as probes
+  import crossbench.runner
+  import crossbench.browsers
+  import crossbench.env
+
+from crossbench import helper
+from crossbench.probes import base
 
 
-class SystemStatsProbe(probes.Probe):
+class SystemStatsProbe(base.Probe):
   """
   General-purpose probe to periodically collect system-wide CPU and memory
   stats on unix systems.
@@ -45,20 +50,20 @@ class SystemStatsProbe(probes.Probe):
   def poll(cls, interval: float, path: pathlib.Path, event: threading.Event):
     while not event.is_set():
       # TODO(cbruni): support remote platform
-      data = cb.helper.platform.sh_stdout(*cls.CMD)
+      data = helper.platform.sh_stdout(*cls.CMD)
       out_file = path / f"{time.time()}.txt"
       with out_file.open("w") as f:
         f.write(data)
       time.sleep(interval)
 
-  class Scope(probes.Probe.Scope):
+  class Scope(base.Probe.Scope):
 
     def setup(self, run: cb.runner.Run):
       self.results_file.mkdir()
 
     def start(self, run: cb.runner.Run):
       self._event = threading.Event()
-      assert self.browser_platform == cb.helper.platform, (
+      assert self.browser_platform == helper.platform, (
           "Remote platforms are not supported yet")
       self._poller = threading.Thread(
           target=SystemStatsProbe.poll,

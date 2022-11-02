@@ -7,8 +7,9 @@ import tabulate
 
 from typing import Any, Callable, Dict, List, Optional, Sequence, Type, TYPE_CHECKING
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
+  import crossbench.probes
 
 ArgParserType = Callable[[Any], Any]
 

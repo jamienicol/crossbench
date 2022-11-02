@@ -7,14 +7,13 @@ from __future__ import annotations
 import itertools
 from typing import TYPE_CHECKING, List, Tuple, Optional
 
-if TYPE_CHECKING:
-  import crossbench as cb
+import crossbench as cb
 
-import crossbench.probes as probes
-import crossbench.probes.helper as probes_helper
-import crossbench.stories as stories
-import crossbench.helper as helper
-import crossbench.benchmarks.base as benchmarks
+import crossbench.probes.json
+import crossbench.probes.helper
+import crossbench.stories
+from crossbench import helper
+import crossbench.benchmarks
 
 
 def _probe_skip_data_segments(path: Tuple[str, ...]) -> Optional[str]:
@@ -24,7 +23,7 @@ def _probe_skip_data_segments(path: Tuple[str, ...]) -> Optional[str]:
   return "/".join(path)
 
 
-class MotionMark12Probe(probes.JsonResultProbe):
+class MotionMark12Probe(cb.probes.json.JsonResultProbe):
   """
   MotionMark-specific Probe.
   Extracts all MotionMark times and scores.
@@ -42,11 +41,11 @@ class MotionMark12Probe(probes.JsonResultProbe):
   def flatten_json_data(self, json_data: List):
     assert isinstance(json_data, list) and len(json_data) == 1, (
       "Motion12MarkProbe requires a results list.")
-    return probes_helper.Flatten(
+    return cb.probes.helper.Flatten(
         json_data[0], key_fn=_probe_skip_data_segments).data
 
 
-class MotionMark12Story(stories.PressBenchmarkStory):
+class MotionMark12Story(cb.stories.PressBenchmarkStory):
   NAME = "motionmark_1.2"
   PROBES = (MotionMark12Probe,)
   URL = "https://browserbench.org/MotionMark1.2/developer.html"
@@ -182,7 +181,7 @@ class MotionMark12Story(stories.PressBenchmarkStory):
           """, helper.wait_range(5, 20 * len(self._substories)))
 
 
-class MotionMark12Benchmark(benchmarks.PressBenchmark):
+class MotionMark12Benchmark(cb.benchmarks.PressBenchmark):
   """
   Benchmark runner for MotionMark 1.2.
 

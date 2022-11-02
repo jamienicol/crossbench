@@ -12,12 +12,18 @@ import pathlib
 import json
 from typing import List, Optional, TYPE_CHECKING
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
-import crossbench.probes as probes
+  import crossbench.runner
+  import crossbench.browsers
+  import crossbench.env
+
+from crossbench import helper
+from crossbench.probes import base
+import crossbench.probes.v8
 
 
-class ProfilingProbe(probes.Probe):
+class ProfilingProbe(base.Probe):
   """
   General-purpose sampling profiling probe.
 
@@ -83,7 +89,7 @@ class ProfilingProbe(probes.Probe):
       try:
         self.browser_platform.sh(self.browser_platform.which("gcertstatus"))
         return
-      except cb.helper.SubprocessError:
+      except helper.SubprocessError:
         env.handle_warning("Please run gcert for generating pprof results")
     # Only Linux-perf results can be merged
     if self.browser_platform.is_macos and env.runner.repetitions > 1:
@@ -109,7 +115,7 @@ class ProfilingProbe(probes.Probe):
       return self.MacOSProfilingScope(self, run)
     raise Exception("Invalid platform")
 
-  class MacOSProfilingScope(probes.Probe.Scope):
+  class MacOSProfilingScope(base.Probe.Scope):
 
     def __init__(self, *args, **kwargs):
       super().__init__(*args, **kwargs)
@@ -132,7 +138,7 @@ class ProfilingProbe(probes.Probe):
         time.sleep(1)
       return self.results_file
 
-  class LinuxProfilingScope(probes.Probe.Scope):
+  class LinuxProfilingScope(base.Probe.Scope):
     PERF_DATA_PATTERN = "*.perf.data"
     TEMP_FILE_PATTERNS = (
         "*.perf.data.jitted",
@@ -158,7 +164,7 @@ class ProfilingProbe(probes.Probe):
 
     def setup(self, run: cb.runner.Run):
       for probe in run.probes:
-        assert not isinstance(probe, probes.v8.V8LogProbe), (
+        assert not isinstance(probe, cb.probes.v8.V8LogProbe), (
             "Cannot use profiler and v8.log probe in parallel yet")
 
     def stop(self, run: cb.runner.Run):
@@ -171,11 +177,11 @@ class ProfilingProbe(probes.Probe):
         time.sleep(3)
       time.sleep(1)
 
-      perf_files = cb.helper.sort_by_file_size(
+      perf_files = helper.sort_by_file_size(
           run.out_dir.glob(self.PERF_DATA_PATTERN))
       if self.probe.sample_js:
         perf_files = self._inject_v8_symbols(run, perf_files)
-      perf_files = cb.helper.sort_by_file_size(perf_files)
+      perf_files = helper.sort_by_file_size(perf_files)
       if not self.probe.run_pprof or not self.browser_platform.which("gcert"):
         return map(str, perf_files)
 
@@ -198,7 +204,7 @@ class ProfilingProbe(probes.Probe):
               for file in perf_files
           ]
         else:
-          assert self.browser_platform == cb.helper.platform
+          assert self.browser_platform == helper.platform
           with multiprocessing.Pool() as pool:
             perf_jitted_files = list(pool.imap(linux_perf_probe_inject_v8_symbols,
                                           perf_files))
@@ -217,7 +223,7 @@ class ProfilingProbe(probes.Probe):
                                      self.browser_platform)
               for perf_data_file, run_details in items)
         else:
-          assert self.browser_platform == cb.helper.platform
+          assert self.browser_platform == helper.platform
           with multiprocessing.Pool() as pool:
             urls = dict(pool.starmap(linux_perf_probe_pprof, items))
         try:
@@ -239,12 +245,12 @@ class ProfilingProbe(probes.Probe):
 
 def linux_perf_probe_inject_v8_symbols(
     perf_data_file: pathlib.Path,
-    platform: Optional[cb.helper.Platform] = None):
+    platform: Optional[helper.Platform] = None):
   assert perf_data_file.is_file()
   output_file = perf_data_file.with_suffix(".data.jitted")
   assert not output_file.exists()
   try:
-    platform = platform or cb.helper.platform
+    platform = platform or helper.platform
     platform.sh("perf", "inject", "--jit", f"--input={perf_data_file}",
                 f"--output={output_file}")
   except Exception:
@@ -255,15 +261,15 @@ def linux_perf_probe_inject_v8_symbols(
 
 def linux_perf_probe_pprof(perf_data_file: pathlib.Path,
                            run_details: str,
-                           platform: Optional[cb.helper.Platform] = None):
-  platform = platform or cb.helper.platform
+                           platform: Optional[helper.Platform] = None):
+  platform = platform or helper.platform
   url = platform.sh_stdout(
       "pprof",
       "-flame",
       f"-add_comment={run_details}",
       perf_data_file,
   ).strip()
-  size = cb.helper.get_file_size(perf_data_file)
+  size = helper.get_file_size(perf_data_file)
   logging.info("PPROF")
   logging.info("  linux-perf:   %s %s", perf_data_file.name, size)
   logging.info("  pprof result: %s", url)

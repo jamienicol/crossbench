@@ -5,12 +5,14 @@
 from __future__ import annotations
 from typing import Iterable, TYPE_CHECKING
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
-import crossbench.probes as probes
+  import crossbench.browsers
+
+from crossbench.probes import base
 
 
-class TracingProbe(probes.Probe):
+class TracingProbe(base.Probe):
   """
   Chromium-only Probe to collect tracing / perfetto data that can be used by
   chrome://tracing or https://ui.perfetto.dev/.

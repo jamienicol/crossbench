@@ -3,8 +3,11 @@
 # found in the LICENSE file.
 
 from unittest import mock
+
 import crossbench as cb
-import crossbench.benchmarks as bm
+from crossbench.benchmarks import speedometer
+import crossbench.runner
+import crossbench.env
 
 from tests.benchmarks import helper
 
@@ -14,10 +17,10 @@ class Speedometer2Test(helper.PressBaseBenchmarkTestCase):
 
   @property
   def benchmark_cls(self):
-    return bm.speedometer.Speedometer20Benchmark
+    return speedometer.Speedometer20Benchmark
 
   def test_story_filtering_cli_args_all(self):
-    stories = bm.speedometer.Speedometer20Story.default(separate=True)
+    stories = speedometer.Speedometer20Story.default(separate=True)
     args = mock.Mock()
     args.stories = "all"
     stories_all = self.benchmark_cls.stories_from_cli_args(args)
@@ -28,22 +31,22 @@ class Speedometer2Test(helper.PressBaseBenchmarkTestCase):
 
   def test_story_filtering(self):
     with self.assertRaises(ValueError):
-      bm.speedometer.Speedometer20Story.from_names([])
-    stories = bm.speedometer.Speedometer20Story.default(separate=False)
+      speedometer.Speedometer20Story.from_names([])
+    stories = speedometer.Speedometer20Story.default(separate=False)
     self.assertEqual(len(stories), 1)
 
     with self.assertRaises(ValueError):
-      bm.speedometer.Speedometer20Story.from_names([], separate=True)
-    stories = bm.speedometer.Speedometer20Story.default(separate=True)
+      speedometer.Speedometer20Story.from_names([], separate=True)
+    stories = speedometer.Speedometer20Story.default(separate=True)
     self.assertEqual(
-        len(stories), len(bm.speedometer.Speedometer20Story.SUBSTORIES))
+        len(stories), len(speedometer.Speedometer20Story.SUBSTORIES))
 
   def test_story_filtering_regexp_invalid(self):
     with self.assertRaises(ValueError):
-      self.story_filter(".*", separate=True).stories
+      self.story_filter(".*", separate=True).stories  # pytype: disable=wrong-arg-types
 
   def test_story_filtering_regexp(self):
-    stories = bm.speedometer.Speedometer20Story.default(separate=True)
+    stories = speedometer.Speedometer20Story.default(separate=True)
     stories_b = self.story_filter([".*"], separate=True).stories
     self.assertListEqual(
         [story.name for story in stories],
@@ -53,8 +56,7 @@ class Speedometer2Test(helper.PressBaseBenchmarkTestCase):
   def test_run(self):
     repetitions = 3
     iterations = 2
-    stories = bm.speedometer.Speedometer20Story.from_names(
-        ['VanillaJS-TodoMVC'])
+    stories = speedometer.Speedometer20Story.from_names(['VanillaJS-TodoMVC'])
     example_story_data = {
         "tests": {
             "Adding100Items": {
@@ -110,4 +112,4 @@ class Speedometer2Test(helper.PressBaseBenchmarkTestCase):
     runner.run()
     for browser in self.browsers:
       self.assertEqual(len(browser.url_list), repetitions)
-      self.assertIn(bm.speedometer.Speedometer20Probe.JS, browser.js_list)
+      self.assertIn(speedometer.Speedometer20Probe.JS, browser.js_list)

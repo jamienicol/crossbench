@@ -5,12 +5,16 @@
 from __future__ import annotations
 
 import pathlib
+from typing import TYPE_CHECKING
 
 import crossbench as cb
-import crossbench.probes as probes
+if TYPE_CHECKING:
+  import crossbench.browsers
+  import crossbench.runner
+from crossbench.probes import base
 
 
-class V8BuiltinsPGOProbe(probes.Probe):
+class V8BuiltinsPGOProbe(base.Probe):
   """
   Chromium-only Probe to extract V8 builtins PGO data.
   The resulting data is used to optimize Torque and CSA builtins.
@@ -25,7 +29,7 @@ class V8BuiltinsPGOProbe(probes.Probe):
     super().attach(browser)
     browser.js_flags.set("--allow-natives-syntax")
 
-  class Scope(probes.Probe.Scope):
+  class Scope(base.Probe.Scope):
 
     def __init__(self, *args, **kwargs):
       super().__init__(*args, *kwargs)

@@ -14,6 +14,15 @@ from tabulate import tabulate
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import crossbench as cb
+import crossbench.flags
+import crossbench.browsers
+import crossbench.runner
+import crossbench.probes
+import crossbench.probes.all
+import crossbench.benchmarks
+import crossbench.benchmarks.all
+import crossbench.env
+
 
 def _map_flag_group_item(flag_name: str, flag_value: Optional[str]):
   if flag_value is None:
@@ -197,7 +206,7 @@ class BrowserConfig:
       flags.set(*cb.flags.Flags.split(flag_str))
 
     label = cb.browsers.convert_flags_to_label(*flags.get_list())
-    browser = cls(label=label, path=path, flags=flags)
+    browser = cls(label=label, path=path, flags=flags)  # pytype: disable=not-instantiable
     self.variants.append(browser)
 
   def _get_browser_path(self, path_or_identifier: str) -> pathlib.Path:
@@ -229,7 +238,7 @@ class BrowserConfig:
 class ProbeConfig:
 
   LOOKUP: Dict[str, Type[cb.probes.Probe]] = {
-      cls.NAME: cls for cls in cb.probes.GENERAL_PURPOSE_PROBES
+      cls.NAME: cls for cls in cb.probes.all.GENERAL_PURPOSE_PROBES
   }
 
   @classmethod
@@ -297,10 +306,10 @@ def existing_file_type(str_value):
 class CrossBenchCLI:
 
   BENCHMARKS: Tuple[Type[cb.benchmarks.Benchmark], ...] = (
-      cb.benchmarks.Speedometer20Benchmark,
-      cb.benchmarks.JetStream2Benchmark,
-      cb.benchmarks.MotionMark12Benchmark,
-      cb.benchmarks.PageLoadBenchmark,
+      cb.benchmarks.all.Speedometer20Benchmark,
+      cb.benchmarks.all.JetStream2Benchmark,
+      cb.benchmarks.all.MotionMark12Benchmark,
+      cb.benchmarks.all.PageLoadBenchmark,
   )
 
   RUNNER_CLS: Type[cb.runner.Runner] = cb.runner.Runner
@@ -348,7 +357,7 @@ class CrossBenchCLI:
         },
         "probes": {
             probe_cls.NAME: probe_cls.help_text()
-            for probe_cls in cb.probes.GENERAL_PURPOSE_PROBES
+            for probe_cls in cb.probes.all.GENERAL_PURPOSE_PROBES
         }
     }
     if args.json:

@@ -6,17 +6,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-  import crossbench as cb
+import crossbench as cb
 
-import crossbench.probes as probes
-import crossbench.probes.helper as probes_helper
-import crossbench.stories as stories
-import crossbench.helper as helper
-import crossbench.benchmarks.base as benchmarks
+import crossbench.probes.json
+import crossbench.probes.helper
+import crossbench.stories
+from crossbench import helper
+import crossbench.benchmarks
 
 
-class JetStream2Probe(probes.JsonResultProbe):
+class JetStream2Probe(cb.probes.json.JsonResultProbe):
   """
   JetStream2-specific Probe.
   Extracts all JetStream2 times and scores.
@@ -47,12 +46,12 @@ class JetStream2Probe(probes.JsonResultProbe):
     return data
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup):
-    merged = probes_helper.ValuesMerger.merge_json_files(
+    merged = cb.probes.helper.ValuesMerger.merge_json_files(
         story_group.results[self] for story_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 
 
-class JetStream2Story(stories.PressBenchmarkStory):
+class JetStream2Story(cb.stories.PressBenchmarkStory):
   NAME = "jetstream_2"
   PROBES = (JetStream2Probe,)
   URL = "https://browserbench.org/JetStream/"
@@ -153,7 +152,7 @@ class JetStream2Story(stories.PressBenchmarkStory):
         """, helper.wait_range(1, 60 * 20))
 
 
-class JetStream2Benchmark(benchmarks.PressBenchmark):
+class JetStream2Benchmark(cb.benchmarks.PressBenchmark):
   """
   Benchmark runner for JetStream 2.
 

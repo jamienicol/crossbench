@@ -10,11 +10,15 @@ import pathlib
 import subprocess
 from typing import Optional, TYPE_CHECKING, Sequence, Tuple
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
-import crossbench.probes as probes
+  import crossbench.env
+  import crossbench.runner
+  import crossbench.browsers
+from crossbench.probes import base
 
-class PowerSamplerProbe(probes.Probe):
+
+class PowerSamplerProbe(base.Probe):
   """
   Probe for chrome's power_sampler helper binary to collect MacOS specific
   battery and system usage metrics.
@@ -74,7 +78,7 @@ class PowerSamplerProbe(probes.Probe):
     # For now only supported on MacOs
     return browser.platform.is_macos
 
-  class Scope(probes.Probe.Scope):
+  class Scope(base.Probe.Scope):
 
     def __init__(self, probe: PowerSamplerProbe, run: cb.runner.Run):
       super().__init__(probe, run)

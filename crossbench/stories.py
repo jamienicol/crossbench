@@ -5,10 +5,11 @@
 from __future__ import annotations
 
 from abc import ABC, ABCMeta, abstractmethod
-from typing import List, Sequence, TYPE_CHECKING, Tuple, Type
+from typing import List, Sequence, TYPE_CHECKING, Tuple, Type, TypeVar
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
+  import crossbench.probes
 
 
 class Story(ABC):
@@ -44,6 +45,10 @@ class Story(ABC):
     return f"Story(name={self.name})"
 
 
+TPressBenchmarkStory = TypeVar(
+    "TPressBenchmarkStory", bound="PressBenchmarkStory")
+
+
 class PressBenchmarkStory(Story, metaclass=ABCMeta):
   NAME: str = ""
   URL: str = ""
@@ -56,23 +61,27 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     return cls.SUBSTORIES
 
   @classmethod
-  def from_names(cls,
+  def from_names(cls: Type[TPressBenchmarkStory],
                  substories: Sequence[str],
                  separate: bool = False,
-                 live: bool = False) -> List[PressBenchmarkStory]:
+                 live: bool = False) -> List[TPressBenchmarkStory]:
     if live:
       return cls.live(substories=substories, separate=separate)
     return cls.local(substories=substories, separate=separate)
 
   @classmethod
-  def default(cls, live: bool = True, separate: bool = False):
+  def default(cls: Type[TPressBenchmarkStory],
+              live: bool = True,
+              separate: bool = False):
     if live:
       return cls.live(cls.story_names(), separate)
     return cls.local(cls.story_names(), separate)
 
   @classmethod
-  def local(cls, substories: Sequence[str], separate: bool = False,
-            **kwargs) -> List[PressBenchmarkStory]:
+  def local(cls: Type[TPressBenchmarkStory],
+            substories: Sequence[str],
+            separate: bool = False,
+            **kwargs) -> List[TPressBenchmarkStory]:
     if not substories:
       raise ValueError("No substories provided")
     if separate:
@@ -85,8 +94,10 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
 
 
   @classmethod
-  def live(cls, substories: Sequence[str], separate: bool = False,
-           **kwargs) -> List[PressBenchmarkStory]:
+  def live(cls: Type[TPressBenchmarkStory],
+           substories: Sequence[str],
+           separate: bool = False,
+           **kwargs) -> List[TPressBenchmarkStory]:
     if not substories:
       raise ValueError("No substories provided")
     if separate:

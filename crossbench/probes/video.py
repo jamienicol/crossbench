@@ -12,12 +12,17 @@ import tempfile
 import pathlib
 from typing import List, TYPE_CHECKING
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
-import crossbench.probes as probes
+  import crossbench.runner
+  import crossbench.env
+
+from crossbench.probes import base
+from crossbench import helper
+import crossbench.stories
 
 
-class VideoProbe(probes.Probe):
+class VideoProbe(base.Probe):
   """
   General-purpose Probe that collects screen-recordings.
 
@@ -47,7 +52,7 @@ class VideoProbe(probes.Probe):
         binaries=("ffmpeg", "montage"),
         message="Missing binaries for video probe: %s")
 
-  class Scope(probes.Probe.Scope):
+  class Scope(base.Probe.Scope):
     IMAGE_FORMAT = "png"
     FFMPEG_TIMELINE_TEXT = (
         "drawtext="
@@ -172,7 +177,7 @@ class VideoProbe(probes.Probe):
     groups = list(group.repetitions_groups)
     if len(groups) <= 1:
       return None
-    grouped = cb.helper.group_by(
+    grouped = helper.group_by(
         groups, key=lambda repetitions_group: repetitions_group.story)
 
     result_dir = group.get_probe_results_file(self)

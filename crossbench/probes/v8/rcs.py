@@ -5,12 +5,16 @@
 from __future__ import annotations
 
 import pathlib
+from typing import TYPE_CHECKING
 
 import crossbench as cb
-import crossbench.probes as probes
+if TYPE_CHECKING:
+  import crossbench.runner
+
+from crossbench.probes import base
 
 
-class V8RCSProbe(probes.Probe):
+class V8RCSProbe(base.Probe):
   """
   Chromium-only Probe to extract runtime-call-stats data that can be used
   to analyze precise counters and time spent in various VM components in V8:
@@ -29,7 +33,7 @@ class V8RCSProbe(probes.Probe):
   def results_file_name(self):
     return f"{self.name}.txt"
 
-  class Scope(probes.Probe.Scope):
+  class Scope(base.Probe.Scope):
 
     def setup(self, run):
       pass

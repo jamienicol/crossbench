@@ -8,6 +8,7 @@ from typing import Sequence, Type
 from tests import mockbenchmark
 
 import crossbench as cb
+import crossbench.benchmarks
 
 
 class BaseBenchmarkTestCase(

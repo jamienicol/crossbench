@@ -10,16 +10,15 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, TYPE_CHECKING,
 import argparse
 import logging
 
-if TYPE_CHECKING:
-  import crossbench as cb
-import crossbench.stories as cb_stories
+import crossbench as cb
+import crossbench.stories
 
 from typing import TypeVar, Generic
 
 
 class Benchmark(abc.ABC):
   NAME: str = ""
-  DEFAULT_STORY_CLS: Type[cb_stories.Story] = cb_stories.Story
+  DEFAULT_STORY_CLS: Type[cb.stories.Story] = cb.stories.Story
 
   @classmethod
   def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
@@ -54,14 +53,14 @@ class Benchmark(abc.ABC):
     kwargs = cls.kwargs_from_cli(args)
     return cls(**kwargs)
 
-  def __init__(self, stories: Sequence[cb_stories.Story]):
+  def __init__(self, stories: Sequence[cb.stories.Story]):
     assert self.NAME is not None, f"{self} has no .NAME property"
-    assert self.DEFAULT_STORY_CLS != cb_stories.Story, (
+    assert self.DEFAULT_STORY_CLS != cb.stories.Story, (
         f"{self} has no .DEFAULT_STORY_CLS property")
-    self.stories = self._validate_stories(stories)
+    self.stories: List[cb.stories.Story] = self._validate_stories(stories)
 
-  def _validate_stories(self, stories: Sequence[cb_stories.Story]
-                       ) -> List[cb_stories.Story]:
+  def _validate_stories(self, stories: Sequence[cb.stories.Story]
+                       ) -> List[cb.stories.Story]:
     assert stories, "No stories provided"
     for story in stories:
       assert isinstance(story, self.DEFAULT_STORY_CLS), (
@@ -75,7 +74,7 @@ class Benchmark(abc.ABC):
     return list(stories)
 
 
-StoryT = TypeVar("StoryT", bound=cb_stories.Story)
+StoryT = TypeVar("StoryT", bound=cb.stories.Story)
 
 
 class StoryFilter(Generic[StoryT], metaclass=abc.ABCMeta):
@@ -91,8 +90,8 @@ class StoryFilter(Generic[StoryT], metaclass=abc.ABCMeta):
 
   def __init__(self, story_cls: Type[StoryT], names: Sequence[str]):
     self.story_cls = story_cls
-    assert issubclass(story_cls, cb_stories.Story), (
-        f"Subclass of {cb_stories.Story} expected, found {story_cls}")
+    assert issubclass(story_cls, cb.stories.Story), (
+        f"Subclass of {cb.stories.Story} expected, found {story_cls}")
     # Using order-preserving dict instead of set
     self._known_names: Dict[str, None] = dict.fromkeys(story_cls.story_names())
     self.stories: Sequence[StoryT] = []
@@ -139,7 +138,7 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
     return kwargs
 
   @classmethod
-  def stories_from_cli_args(cls, args) -> Iterable[cb_stories.Story]:
+  def stories_from_cli_args(cls, args) -> Iterable[cb.stories.Story]:
     return cls.STORY_FILTER_CLS.from_cli_args(cls.DEFAULT_STORY_CLS,
                                               args).stories
 
@@ -154,7 +153,7 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
     return cls.DEFAULT_STORY_CLS.story_names()
 
 
-class PressBenchmarkStoryFilter(StoryFilter[cb_stories.PressBenchmarkStory]):
+class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
   """
   Filter stories by name or regexp.
 
@@ -177,7 +176,7 @@ class PressBenchmarkStoryFilter(StoryFilter[cb_stories.PressBenchmarkStory]):
     return kwargs
 
   def __init__(self,
-               story_cls: Type[cb_stories.PressBenchmarkStory],
+               story_cls: Type[cb.stories.PressBenchmarkStory],
                names: Sequence[str],
                separate: bool = False,
                live: bool = False):
@@ -186,7 +185,7 @@ class PressBenchmarkStoryFilter(StoryFilter[cb_stories.PressBenchmarkStory]):
     # Using dict instead as ordered set
     self._filtered_names: Dict[str, None] = dict()
     super().__init__(story_cls, names)
-    assert issubclass(self.story_cls, cb_stories.PressBenchmarkStory)
+    assert issubclass(self.story_cls, cb.stories.PressBenchmarkStory)
     for name in self._known_names:
       assert name, "Invalid empty story name"
       assert not name.startswith("-"), (
@@ -287,7 +286,7 @@ class PressBenchmark(SubStoryBenchmark):
   @classmethod
   def describe(cls) -> dict:
     data = super().describe()
-    assert issubclass(cls.DEFAULT_STORY_CLS, cb_stories.PressBenchmarkStory)
+    assert issubclass(cls.DEFAULT_STORY_CLS, cb.stories.PressBenchmarkStory)
     data["url"] = cls.DEFAULT_STORY_CLS.URL
     data["url-local"] = cls.DEFAULT_STORY_CLS.URL_LOCAL
     return data

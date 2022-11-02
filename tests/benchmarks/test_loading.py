@@ -2,8 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# pytype: disable=attribute-error
+
+from __future__ import annotations
+
+from typing import Sequence, cast
+
 import crossbench as cb
-import crossbench.benchmarks as bm
+import crossbench.runner
+import crossbench.env
+from crossbench.benchmarks import loading
 
 from tests.benchmarks import helper
 
@@ -12,28 +20,33 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
 
   @property
   def benchmark_cls(self):
-    return bm.loading.PageLoadBenchmark
+    return loading.PageLoadBenchmark
+
+  def story_filter(self, names: Sequence[str],
+                   **kwargs) -> loading.LoadingPageFilter:
+    return cast(loading.LoadingPageFilter,
+                super().story_filter(names, **kwargs))
 
   def test_default_stories(self):
     stories = self.story_filter(["all"]).stories
     self.assertGreater(len(stories), 1)
     for story in stories:
-      self.assertIsInstance(story, bm.loading.LivePage)
+      self.assertIsInstance(story, loading.LivePage)
 
   def test_combined_stories(self):
     stories = self.story_filter(["all"], separate=False).stories
     self.assertEqual(len(stories), 1)
     combined = stories[0]
-    self.assertIsInstance(combined, bm.loading.CombinedPage)
+    self.assertIsInstance(combined, loading.CombinedPage)
 
   def test_filter_by_name(self):
-    for page in bm.loading.PAGE_LIST:
+    for page in loading.PAGE_LIST:
       stories = self.story_filter([page.name]).stories
       self.assertListEqual(stories, [page])
     self.assertListEqual(self.story_filter([]).stories, [])
 
   def test_filter_by_name_with_duration(self):
-    pages = bm.loading.PAGE_LIST
+    pages = loading.PAGE_LIST
     filtered_pages = self.story_filter([pages[0].name, pages[1].name,
                                         '1001']).stories
     self.assertListEqual(filtered_pages, [pages[0], pages[1]])
@@ -54,10 +67,10 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
     stories = self.story_filter([url1, url2], separate=False).stories
     self.assertEqual(len(stories), 1)
     combined = stories[0]
-    self.assertIsInstance(combined, bm.loading.CombinedPage)
+    self.assertIsInstance(combined, loading.CombinedPage)
 
   def test_run(self):
-    stories = bm.loading.PAGE_LIST
+    stories = loading.PAGE_LIST
     benchmark = self.benchmark_cls(stories)
     self.assertTrue(len(benchmark.describe()) > 0)
     runner = cb.runner.Runner(

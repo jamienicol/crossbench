@@ -5,17 +5,16 @@ from __future__ import annotations
 
 import abc
 import re
-from typing import Iterable, Optional, Sequence, TYPE_CHECKING, Type
+from typing import Iterable, Optional, Sequence, Type
 from urllib.parse import urlparse
 
-if TYPE_CHECKING:
-  import crossbench as cb
-
-import crossbench.stories as cb_stories
-import crossbench.benchmarks.base as benchmarks
+import crossbench as cb
+import crossbench.stories
+import crossbench.benchmarks
 
 
-class Page(cb_stories.Story, metaclass=abc.ABCMeta):
+class Page(cb.stories.Story, metaclass=abc.ABCMeta):
+
   @classmethod
   def story_names(cls):
     return tuple(page.name for page in PAGE_LIST)
@@ -82,7 +81,7 @@ PAGE_LIST = [
 PAGES = {page.name: page for page in PAGE_LIST}
 
 
-class LoadingPageFilter(benchmarks.StoryFilter):
+class LoadingPageFilter(cb.benchmarks.StoryFilter):
   """
   Filter / create loading stories
 
@@ -97,6 +96,8 @@ class LoadingPageFilter(benchmarks.StoryFilter):
     ["http://foo.com", 5, "http://bar.co.jp", "amazon"]
   """
   _DURATION_RE = re.compile(r"((\d*[.])?\d+)s?")
+
+  stories: Sequence[Page]
 
   @classmethod
   def kwargs_from_cli(self, args):
@@ -155,7 +156,7 @@ class LoadingPageFilter(benchmarks.StoryFilter):
     return self.stories
 
 
-class PageLoadBenchmark(benchmarks.SubStoryBenchmark):
+class PageLoadBenchmark(cb.benchmarks.SubStoryBenchmark):
   """
   Benchmark runner for loading pages.
 

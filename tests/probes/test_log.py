@@ -4,7 +4,7 @@
 
 import unittest
 
-from crossbench.probes import V8LogProbe
+from crossbench.probes.all import V8LogProbe
 
 
 class TestV8LogProbe(unittest.TestCase):

@@ -5,8 +5,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
+  import crossbench.browsers
+  import crossbench.runner
 from crossbench.probes import json
 
 

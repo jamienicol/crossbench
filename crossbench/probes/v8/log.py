@@ -5,13 +5,18 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable, Optional, Dict
+from typing import TYPE_CHECKING, Iterable, Optional
 
 import crossbench as cb
-import crossbench.probes as probes
+if TYPE_CHECKING:
+  import crossbench.env
+
+import crossbench.flags
+from crossbench import helper
+from crossbench.probes import base
 
 
-class V8LogProbe(probes.Probe):
+class V8LogProbe(base.Probe):
   """
   Chromium-only probe that produces a v8.log file with detailed internal V8
   performance and logging information.
@@ -81,7 +86,7 @@ class V8LogProbe(probes.Probe):
       env.handle_warning(f"Probe={self.NAME} cannot merge data over multiple "
                          f"repetitions={env.runner.repetitions}.")
 
-  class Scope(probes.Probe.Scope):
+  class Scope(base.Probe.Scope):
 
     @property
     def results_file(self):
@@ -101,6 +106,6 @@ class V8LogProbe(probes.Probe):
 
     def tear_down(self, run):
       log_dir = self.results_file.parent
-      log_files = cb.helper.sort_by_file_size(log_dir.glob("*-v8.log"))
+      log_files = helper.sort_by_file_size(log_dir.glob("*-v8.log"))
       # Sort by file size, biggest first
       return tuple(str(f) for f in log_files)

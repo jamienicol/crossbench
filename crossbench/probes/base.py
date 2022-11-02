@@ -10,14 +10,18 @@ import logging
 import pathlib
 from typing import Any, Iterable, Optional, Set, Dict, Tuple, TypeVar, Generic, Union, TYPE_CHECKING
 
+import crossbench as cb
 if TYPE_CHECKING:
-  import crossbench as cb
+  import crossbench.probes
+  import crossbench.runner
+  import crossbench.browsers
+  import crossbench.env
 
-import crossbench.helper as helper
+from crossbench import helper
 
 from crossbench.probes.config import ProbeConfigParser
 
-ProbeT = TypeVar('ProbeT', bound="cb.probes.Probe")
+ProbeT = TypeVar('ProbeT', bound="probes.Probe")
 
 
 class Probe(abc.ABC):
@@ -77,18 +81,18 @@ class Probe(abc.ABC):
   BATTERY_ONLY: bool = False
 
   _browsers: Set[cb.browsers.Browser]
-  _browser_platform: cb.helper.Platform
+  _browser_platform: helper.Platform
 
   def __init__(self):
     assert self.name is not None, "A Probe must define a name"
     self._browsers = set()
 
   @property
-  def browser_platform(self) -> cb.helper.Platform:
+  def browser_platform(self) -> helper.Platform:
     return self._browser_platform
 
   @property
-  def runner_platform(self) -> cb.helper.Platform:
+  def runner_platform(self) -> helper.Platform:
     # TODO(cbruni): support remote platforms
     return helper.platform
 
@@ -160,7 +164,7 @@ class Probe(abc.ABC):
     """
     return None
 
-  def get_scope(self: ProbeT, run) -> cb.probes.Probe.Scope[ProbeT]:
+  def get_scope(self: ProbeT, run) -> base.Probe.Scope[ProbeT]:
     assert self.is_attached, (
         f"Probe {self.name} is not properly attached to a browser")
     return self.Scope(self, run)
@@ -226,11 +230,11 @@ class Probe(abc.ABC):
       return self._run.runner
 
     @property
-    def browser_platform(self) -> cb.helper.Platform:
+    def browser_platform(self) -> helper.Platform:
       return self.browser.platform
 
     @property
-    def runner_platform(self) -> cb.helper.Platform:
+    def runner_platform(self) -> helper.Platform:
       return self.runner.platform
 
     @property

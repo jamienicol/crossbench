@@ -13,10 +13,21 @@ import logging
 import pathlib
 import sys
 import traceback
-from typing import Iterable, Sequence, List, Optional, Tuple
+from typing import TYPE_CHECKING, Iterable, Sequence, List, Optional, Tuple
 
+if TYPE_CHECKING:
+  import crossbench.runner
 
 import crossbench as cb
+
+import crossbench.env
+from crossbench import helper
+import crossbench.flags
+import crossbench.stories
+import crossbench.probes
+import crossbench.probes.runner
+import crossbench.browsers
+import crossbench.benchmarks
 
 
 class ExceptionHandler:
@@ -111,7 +122,7 @@ class Runner:
       browsers: Sequence[cb.browsers.Browser],
       benchmark: cb.benchmarks.Benchmark,
       additional_probes: Iterable[cb.probes.Probe] = (),
-      platform: cb.helper.Platform = cb.helper.platform,
+      platform: helper.Platform = helper.platform,
       env_config: Optional[cb.env.HostEnvironmentConfig] = None,
       env_validation_mode: cb.env.ValidationMode = cb.env.ValidationMode.THROW,
       throttle: bool = True,
@@ -120,7 +131,7 @@ class Runner:
     self.out_dir = out_dir
     assert not self.out_dir.exists(), f"out_dir={self.out_dir} exists already"
     self.out_dir.mkdir(parents=True)
-    self.default_wait = 2 if throttle else 0.1
+    self.default_wait: float = 2 if throttle else 0.1
     self.browsers = browsers
     self._validate_browsers()
     self._browser_platform = browsers[0].platform
@@ -154,9 +165,9 @@ class Runner:
 
   def _attach_default_probes(self, probe_list: Iterable[cb.probes.Probe]):
     assert len(self._probes) == 0
-    self.attach_probe(cb.probes.RunResultsSummaryProbe())
-    self.attach_probe(cb.probes.RunDurationsProbe())
-    self.attach_probe(cb.probes.RunRunnerLogProbe())
+    self.attach_probe(cb.probes.runner.RunResultsSummaryProbe())
+    self.attach_probe(cb.probes.runner.RunDurationsProbe())
+    self.attach_probe(cb.probes.runner.RunRunnerLogProbe())
     for probe in probe_list:
       self.attach_probe(probe)
 
@@ -189,11 +200,11 @@ class Runner:
     return len(self._runs) > 0 and self._exceptions.is_success
 
   @property
-  def platform(self) -> cb.helper.Platform:
+  def platform(self) -> helper.Platform:
     return self._platform
 
   @property
-  def browser_platform(self) -> cb.helper.Platform:
+  def browser_platform(self) -> helper.Platform:
     return self._browser_platform
 
   def sh(self, *args, shell=False, stdout=None):
@@ -232,7 +243,7 @@ class Runner:
 
   def run(self, is_dry_run=False):
     try:
-      with cb.helper.SystemSleepPreventer():
+      with helper.SystemSleepPreventer():
         self._setup()
         for run in self._runs:
           run.run(is_dry_run)
@@ -271,8 +282,8 @@ class Runner:
     if not self._platform.is_thermal_throttled():
       return
     logging.info("COOLDOWN")
-    for time_spent, time_left in cb.helper.wait_with_backoff(
-        cb.helper.wait_range(1, 100)):
+    for time_spent, time_left in helper.wait_with_backoff(
+        helper.wait_range(1, 100)):
       if not self._platform.is_thermal_throttled():
         break
       logging.info("COOLDOWN: still hot, waiting some more")
@@ -333,7 +344,7 @@ class RepetitionsRunGroup(RunGroup):
   def groups(cls, runs: Iterable[Run],
              throw=False) -> List[RepetitionsRunGroup]:
     return list(
-        cb.helper.group_by(
+        helper.group_by(
             runs,
             key=lambda run: (run.story, run.browser),
             group=lambda _: cls(throw)).values())
@@ -385,7 +396,7 @@ class StoriesRunGroup(RunGroup):
   def groups(cls, run_groups: Iterable[RepetitionsRunGroup],
              throw=False) -> List[StoriesRunGroup]:
     return list(
-        cb.helper.group_by(
+        helper.group_by(
             run_groups,
             key=lambda run_group: run_group.browser,
             group=lambda _: cls(throw)).values())
@@ -474,7 +485,7 @@ class Run:
     self._probe_results = cb.probes.ProbeResultDict(self._out_dir)
     self._extra_js_flags = cb.flags.JSFlags()
     self._extra_flags = cb.flags.Flags()
-    self._durations = cb.helper.Durations()
+    self._durations = helper.Durations()
     self._temperature = temperature
     self._exceptions = ExceptionHandler(throw)
 
@@ -494,7 +505,7 @@ class Run:
     return self._temperature
 
   @property
-  def durations(self) -> cb.helper.Durations:
+  def durations(self) -> helper.Durations:
     return self._durations
 
   @property
@@ -510,7 +521,7 @@ class Run:
     return self._browser
 
   @property
-  def platform(self) -> cb.helper.Platform:
+  def platform(self) -> helper.Platform:
     return self._browser.platform
 
   @property
@@ -603,7 +614,7 @@ class Run:
       # TODO(cbruni): Implement better logging for dry-runs
       return
     self._out_dir.mkdir(parents=True, exist_ok=True)
-    with cb.helper.ChangeCWD(self._out_dir):
+    with helper.ChangeCWD(self._out_dir):
       probe_scopes = self.setup()
       self._advance_state(self.STATE_PREPARE, self.STATE_RUN)
       self._run_success = False
@@ -668,7 +679,7 @@ class Run:
         self._exceptions.handle(e)
 
 
-class Actions(cb.helper.TimeScope):
+class Actions(helper.TimeScope):
 
   def __init__(self,
                message: str,
@@ -689,7 +700,7 @@ class Actions(cb.helper.TimeScope):
     return self._run
 
   @property
-  def platform(self) -> cb.helper.Platform:
+  def platform(self) -> helper.Platform:
     return self._run.platform
 
   def __enter__(self):
@@ -713,10 +724,10 @@ class Actions(cb.helper.TimeScope):
       js_code = js_code.format(**kwargs)
     return self._browser.js(self._runner, js_code, timeout, arguments=arguments)
 
-  def wait_js_condition(self, js_code: str, wait_range: cb.helper.wait_range):
+  def wait_js_condition(self, js_code: str, wait_range: helper.wait_range):
     assert "return" in js_code, (
         f"Missing return statement in js-wait code: {js_code}")
-    for time_spent, time_left in cb.helper.wait_with_backoff(wait_range):
+    for time_spent, time_left in helper.wait_with_backoff(wait_range):
       result = self.js(js_code, timeout=time_left)
       if result:
         return time_spent
