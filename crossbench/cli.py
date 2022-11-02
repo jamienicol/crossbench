@@ -387,7 +387,7 @@ class CrossBenchCLI:
               data["probes"].items(),
               headers=["Probe", "Help"],
               tablefmt="grid",
-              maxcolwidths=[12, None]))
+              maxcolwidths=[12, None]))  # pytype: disable=wrong-keyword-args
 
   def _setup_benchmark_subparser(self,
                                  benchmark_cls: Type[cb.benchmarks.Benchmark]):

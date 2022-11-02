@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, List, Optional, Union
 
 from dataclasses import dataclass
 
+import crossbench as cb
 if TYPE_CHECKING:
   from crossbench import runner
   from crossbench import probes
@@ -60,7 +61,7 @@ class HostEnvironment:
   """
 
   def __init__(self,
-               runner: runner.Runner,
+               runner: cb.runner.Runner,
                config: Optional[HostEnvironmentConfig] = None,
                validation_mode: ValidationMode = ValidationMode.THROW):
     self._wait_until = dt.datetime.now()

@@ -124,7 +124,7 @@ class ProbeConfigParser:
 
   def add_argument(self,
                    name: str,
-                   type: ArgParserType,
+                   type: Optional[ArgParserType],
                    default: Any = None,
                    choices: Optional[Sequence[Any]] = None,
                    help: Optional[str] = None,

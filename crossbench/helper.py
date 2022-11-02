@@ -157,7 +157,10 @@ class Platform(abc.ABC):
 
   def processes(self, attrs=[]) -> List[Dict[str, Any]]:
     assert not self.is_remote, "Only local platform supported"
-    return [p.info for p in psutil.process_iter(attrs=attrs)]
+    return [
+        p.info  # pytype: disable=attribute-error
+        for p in psutil.process_iter(attrs=attrs)
+    ]
 
   def sh_stdout(self, *args, shell=False, quiet=False, encoding="utf-8") -> str:
     completed_process = self.sh(

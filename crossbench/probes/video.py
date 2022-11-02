@@ -190,7 +190,7 @@ class VideoProbe(base.Probe):
   def _merge_stories_for_browser(
       self, result_dir: pathlib.Path, story: cb.stories.Story,
       repetitions_groups: List[cb.runner.RepetitionsRunGroup]):
-    input_files = []
+    input_files: List[str] = []
     story = repetitions_groups[0].story
     for repetitions_group in repetitions_groups:
       input_files += ["-i", repetitions_group.results[self][0]]

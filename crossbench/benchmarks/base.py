@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import abc
 import re
-from typing import Any, Dict, Iterable, List, Sequence, Type
+from typing import Any, Dict, Iterable, List, Sequence, Type, cast
 import argparse
 import logging
 from urllib.error import HTTPError
@@ -313,7 +313,8 @@ class PressBenchmark(SubStoryBenchmark):
     self.validate_url()
 
   def validate_url(self):
-    url = self.stories[0].url
+    first_story = cast(cb.stories.PressBenchmarkStory, self.stories[0])
+    url = first_story.url
     try:
       code = urllib.request.urlopen(url).getcode()
       if code == 200:

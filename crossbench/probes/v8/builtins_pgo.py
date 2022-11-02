@@ -65,6 +65,6 @@ class V8BuiltinsPGOProbe(base.Probe):
   def merge_stories(self, group: cb.runner.StoriesRunGroup):
     merged_result_path = group.get_probe_results_file(self)
     result_files = (
-        pathlib.Path(group.results[self]) for group in group.repetitions_groups)
+        pathlib.Path(g.results[self]) for g in group.repetitions_groups)
     return self.runner_platform.concat_files(
         inputs=result_files, output=merged_result_path)

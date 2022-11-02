@@ -144,7 +144,10 @@ class Runner:
     self._runs: List[Run] = []
     self._exceptions = ExceptionHandler(throw)
     self._platform = platform
-    self._env = cb.env.HostEnvironment(self, env_config, env_validation_mode)  # pytype: disable=wrong-arg-types
+    self._env = cb.env.HostEnvironment(
+        self,  # pytype: disable=wrong-arg-types
+        env_config,
+        env_validation_mode)
     self._attach_default_probes(additional_probes)
     self._validate_stories()
 
