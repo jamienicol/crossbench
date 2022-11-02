@@ -63,10 +63,12 @@ class Probe(abc.ABC):
 
   @classmethod
   def from_config(cls, config_data: Dict) -> Probe:
-    kwargs: Dict[str, Any] = cls.config_parser().kwargs_from_config(config_data)
+    config_parser = cls.config_parser()
+    kwargs: Dict[str, Any] = config_parser.kwargs_from_config(config_data)
     if config_data:
       raise ValueError(
-          f"Config contains unused properties: {', '.join(config_data.keys())}")
+          f"Config for Probe={cls.NAME} contains unused properties: "
+          f"{', '.join(config_data.keys())}")
     return cls(**kwargs)
 
   @classmethod

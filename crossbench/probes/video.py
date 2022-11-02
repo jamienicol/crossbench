@@ -26,7 +26,7 @@ class VideoProbe(base.Probe):
   """
   General-purpose Probe that collects screen-recordings.
 
-  It also produces a timestrip pang and creates merged versions of these files
+  It also produces a timestrip png and creates merged versions of these files
   for visually comparing various browsers / variants / cb.stories
   """
   NAME = "video"

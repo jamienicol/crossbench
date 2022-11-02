@@ -37,20 +37,55 @@ class ProfilingProbe(base.Probe):
   """
   NAME = "profiling"
 
-  JS_FLAGS_PERF = ("--perf-prof", "--no-write-protect-code-memory",
-                   "--interpreted-frames-native-stack")
+  JS_FLAGS_PERF = (
+      "--perf-prof",
+      "--no-write-protect-code-memory",
+  )
+  _INTERPRETED_FRAMES_FLAG = "--interpreted-frames-native-stack"
   IS_GENERAL_PURPOSE = True
+
+  @classmethod
+  def config_parser(cls):
+    parser = super().config_parser()
+    parser.add_argument(
+        "js",
+        type=bool,
+        default=True,
+        help="Chrome-only: expose JS function names to the native profiler")
+    parser.add_argument(
+        "browser_process",
+        type=bool,
+        default=False,
+        help=("Chrome-only: also profile the browser process, "
+              "(as opposed to only renderer processes)"))
+    parser.add_argument(
+        "v8_interpreted_frames",
+        type=bool,
+        default=True,
+        help=(
+            f"Chrome-only: Sets the {cls._INTERPRETED_FRAMES_FLAG} flag for "
+            "V8, which exposes interpreted frames as native frames. "
+            "Note that this comes at an additional performance and memory cost."
+        ))
+    parser.add_argument(
+        "pprof",
+        type=bool,
+        default=True,
+        help="linux-only: process collected samples with pprof.")
+    return parser
 
   def __init__(self,
                js=True,
+               v8_interpreted_frames=True,
                pprof=True,
-               browser_process=False,
-               *args,
-               **kwargs):
-    super().__init__(*args, **kwargs)
+               browser_process=False):
+    super().__init__()
     self._sample_js = js
     self._sample_browser_process = browser_process
     self._run_pprof = pprof
+    self._expose_v8_interpreted_frames = v8_interpreted_frames
+    if v8_interpreted_frames:
+      assert js, "Cannot expose V8 interpreted frames without js profiling."
 
   def is_compatible(self, browser):
     if browser.platform.is_linux:
@@ -99,6 +134,8 @@ class ProfilingProbe(base.Probe):
   def _attach_linux(self, browser: cb.browsers.Chrome):
     if self._sample_js:
       browser.js_flags.update(self.JS_FLAGS_PERF)
+      if self._expose_v8_interpreted_frames:
+        browser.js_flags.set(self._INTERPRETED_FRAMES_FLAG)
     cmd = pathlib.Path(__file__).parent / "linux-perf-chrome-renderer-cmd.sh"
     assert not self.browser_platform.is_remote, (
         "Copying renderer command prefix to remote platform is "

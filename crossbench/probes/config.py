@@ -3,6 +3,9 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+import collections
+import inspect
+import textwrap
 import tabulate
 
 from typing import Any, Callable, Dict, List, Optional, Sequence, Type, TYPE_CHECKING
@@ -31,6 +34,27 @@ class _ConfigArg:
     self.choices = choices
     self.help = help
     self.is_list = is_list
+    if self.type:
+      assert callable(self.type), (
+          f"Expected type to be a class or a callable, but got: {self.type}")
+    if self.default is not None:
+      self._validate_default()
+
+  def _validate_default(self):
+    if self.is_list:
+      assert isinstance(self.default, collections.abc.Sequence), (
+          "List default must be a sequence, but got: {self.default}")
+      if inspect.isclass(self.type):
+        for default_item in self.default:
+          assert isinstance(
+              default_item,
+              self.type), (f"Expected default list item of type={self.type}, "
+                           f"but got type={type(default_item)}: {default_item}")
+    elif inspect.isclass(self.type):
+      assert isinstance(
+          self.default,
+          self.type), (f"Expected default value of type={self.type}, "
+                       f"but got type={type(self.default)}: {self.default}")
 
   @property
   def probe_name(self) -> str:
@@ -43,16 +67,22 @@ class _ConfigArg:
       items.append(self.help)
     if self.type is None:
       if self.is_list:
-        items.append(f" type = List[{self.type}]")
+        items.append(f"type = list")
+    else:
+      if self.is_list:
+        items.append(f"type = List[{self.type}]")
       else:
-        items.append(f" type = {self.type}")
-    elif self.is_list:
-      items.append(f" type = list")
+        items.append(f"type = {self.type}")
 
-    if self.default:
-      items.append(f"default = {self.default}")
+    if self.default is None:
+      items.append("default = not set")
+    else:
+      if self.is_list:
+        items.append(f"default = {','.join(map(str, self.default))}")
+      else:
+        items.append(f"default = {self.default}")
     if self.choices:
-      items.append(f"choices = {self.choices}")
+      items.append(f"choices = {', '.join(map(str, self.choices))}")
 
     return "\n".join(items)
 
@@ -115,8 +145,19 @@ class ProbeConfigParser:
     return kwargs
 
   def __str__(self):
+    doc = ["\n".join(textwrap.wrap(self.doc, width=60))]
     if not self._args:
-      return self.doc
-    help = {arg.name: arg.help_text for arg in self._args.values()}
-    config_help = tabulate.tabulate(help.items())
-    return f"{self.doc}\n\nConfig:\n{config_help}"
+      return doc[0]
+    doc.extend(["", "Probe Configuration:", ""])
+    for arg in self._args.values():
+      doc.append(f"{arg.name}:")
+      doc.extend(wrap_lines(arg.help_text, width=58, indent="  "))
+      doc.append("")
+
+    return "\n".join(doc)
+
+
+def wrap_lines(body, width, indent):
+  for line in body.splitlines():
+    for split in textwrap.wrap(line, width):
+      yield f"{indent}{split}"

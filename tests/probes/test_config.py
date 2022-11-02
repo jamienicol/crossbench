@@ -31,15 +31,53 @@ class TestProbeConfig(unittest.TestCase):
     parser = ProbeConfigParser(MockProbe)
     parser.add_argument("bool", type=bool)
     parser.add_argument("bool_default", type=bool, default=False)
-    parser.add_argument("bool_list", type=bool, default=False, is_list=True)
+    parser.add_argument("bool_list", type=bool, default=(False,), is_list=True)
+    parser.add_argument("any_list", type=None, default=(1,), is_list=True)
     parser.add_argument("custom_type", type=custom_arg_type)
     parser.add_argument("custom_help", type=bool, help="custom help")
     help = str(parser)
     self.assertIn("Probe DOC Text", help)
     self.assertIn("bool_default", help)
     self.assertIn("bool_list", help)
+    self.assertIn("any_list", help)
     self.assertIn("custom_type", help)
     self.assertIn("custom_help", help)
+
+  def test_invalid_config_duplicate(self):
+    parser = ProbeConfigParser(MockProbe)
+    parser.add_argument("bool", type=bool)
+    with self.assertRaises(AssertionError):
+      parser.add_argument("bool", type=bool)
+
+  def test_config_defaults(self):
+    parser = ProbeConfigParser(MockProbe)
+    with self.assertRaises(AssertionError):
+      parser.add_argument("bool", type=bool, default=1)
+    parser.add_argument("any", type=object, default=1)
+
+  def test_config_defaults_list(self):
+    parser = ProbeConfigParser(MockProbe)
+    with self.assertRaises(AssertionError):
+      parser.add_argument("bool", type=bool, is_list=True, default=True)
+    with self.assertRaises(AssertionError):
+      parser.add_argument(
+          "bool", type=bool, is_list=True, default=(
+              1,
+              1,
+          ))
+    parser.add_argument(
+        "bool", type=bool, is_list=True, default=(
+            True,
+            False,
+        ))
+    parser.add_argument(
+        "custom_list",
+        type=lambda x: x + 1,
+        is_list=True,
+        default=(
+            True,
+            False,
+        ))
 
   def test_bool_missing_property(self):
     parser = ProbeConfigParser(MockProbe)

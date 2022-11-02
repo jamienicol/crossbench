@@ -383,9 +383,11 @@ class CrossBenchCLI:
       print(tabulate(table, tablefmt="grid"))
     if args.filter == "all" or args.filter == "probes":
       print(
-          tabulate(data["probes"].items(),
-                   headers=["Probe", "Help"],
-                   tablefmt="grid"))
+          tabulate(
+              data["probes"].items(),
+              headers=["Probe", "Help"],
+              tablefmt="grid",
+              maxcolwidths=[12, None]))
 
   def _setup_benchmark_subparser(self,
                                  benchmark_cls: Type[cb.benchmarks.Benchmark]):

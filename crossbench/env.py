@@ -120,8 +120,8 @@ class HostEnvironment:
 
   def _disable_crowdstrike(self):
     """Crowdstrike security monitoring (for googlers go/crowdstrike-falcon) can
-    have quite terrible overhead for each file-access disable to prevent 
-    flaky numbers """
+    have quite terrible overhead for each file-access. Disable it to reduce
+    flakiness. """
     if not self._platform.is_macos:
       return
     try:
