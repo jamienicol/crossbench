@@ -6,9 +6,11 @@ from __future__ import annotations
 
 import abc
 import re
-from typing import Any, Dict, Iterable, List, Optional, Sequence, TYPE_CHECKING, Type
+from typing import Any, Dict, Iterable, List, Sequence, Type
 import argparse
 import logging
+from urllib.error import HTTPError
+import urllib.request
 
 import crossbench as cb
 import crossbench.stories
@@ -72,6 +74,9 @@ class Benchmark(abc.ABC):
       assert story.PROBES == expected_probes_cls_list, (
           f"story={story} has different PROBES than {first_story}")
     return list(stories)
+
+  def setup(self):
+    pass
 
 
 StoryT = TypeVar("StoryT", bound=cb.stories.Story)
@@ -172,16 +177,16 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
   def kwargs_from_cli(self, args):
     kwargs = super().kwargs_from_cli(args)
     kwargs["separate"] = args.separate
-    kwargs["live"] = args.live
+    kwargs["is_live"] = args.is_live
     return kwargs
 
   def __init__(self,
                story_cls: Type[cb.stories.PressBenchmarkStory],
                names: Sequence[str],
                separate: bool = False,
-               live: bool = False):
+               is_live: bool = False):
     self.separate = separate
-    self.live = live
+    self.is_live: bool = is_live
     # Using dict instead as ordered set
     self._filtered_names: Dict[str, None] = dict()
     super().__init__(story_cls, names)
@@ -261,7 +266,8 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
 
   def create_stories(self) -> Sequence[StoryT]:
     names = list(self._filtered_names.keys())
-    return self.story_cls.from_names(names, self.separate, self.live)
+    return self.story_cls.from_names(
+        names, separate=self.separate, is_live=self.is_live)
 
 
 class PressBenchmark(SubStoryBenchmark):
@@ -274,14 +280,21 @@ class PressBenchmark(SubStoryBenchmark):
     is_live_group.add_argument(
         "--live",
         default=True,
+        dest="is_live",
         action="store_true",
         help="Use live/online benchmark url.")
     is_live_group.add_argument(
         "--local",
-        dest="live",
+        dest="is_live",
         action="store_false",
         help="Use locally hosted benchmark url.")
     return parser
+
+  @classmethod
+  def kwargs_from_cli(cls, args) -> Dict[str, Any]:
+    kwargs = super().kwargs_from_cli(args)
+    kwargs["is_live"] = args.is_live
+    return kwargs
 
   @classmethod
   def describe(cls) -> dict:
@@ -290,3 +303,26 @@ class PressBenchmark(SubStoryBenchmark):
     data["url"] = cls.DEFAULT_STORY_CLS.URL
     data["url-local"] = cls.DEFAULT_STORY_CLS.URL_LOCAL
     return data
+
+  def __init__(self, stories: Sequence[cb.stories.Story], is_live: bool = True):
+    super().__init__(stories)
+    self.is_live: bool = is_live
+
+  def setup(self):
+    super().setup()
+    self.validate_url()
+
+  def validate_url(self):
+    url = self.stories[0].url
+    try:
+      code = urllib.request.urlopen(url).getcode()
+      if code == 200:
+        return
+    except urllib.error.URLError:
+      pass
+    message = f"Could not reach benchmark URL: {url}"
+    if self.is_live:
+      raise Exception(f"Could not reach live benchmark URL: '{url}'. "
+                      f"Please make sure you're connected to the internet.")
+    raise Exception(f"Could not reach local benchmark URL: '{url}'. "
+                    f"Please make sure your local webserver is running")

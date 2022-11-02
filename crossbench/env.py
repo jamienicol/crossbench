@@ -9,6 +9,7 @@ import enum
 import logging
 import os
 import shutil
+import psutil
 from typing import TYPE_CHECKING, List, Optional, Union
 
 from dataclasses import dataclass
@@ -19,24 +20,19 @@ if TYPE_CHECKING:
 
 from crossbench import helper
 
-
-class IgnoreType(enum.Enum):
-  Ignore = 'IgnoreType'
-
-
 @dataclass(frozen=True)
 class HostEnvironmentConfig:
-  Ignore: IgnoreType = IgnoreType.Ignore
+  Ignore = None
 
-  disk_min_free_space_gib: Union[float, IgnoreType] = Ignore
-  power_use_battery: Union[bool, IgnoreType] = Ignore
-  screen_brightness_percent: Union[int, IgnoreType] = Ignore
-  cpu_max_usage_percent: Union[int, IgnoreType] = Ignore
-  cpu_min_relative_speed: Union[float, IgnoreType] = Ignore
-  system_allow_antivirus: Union[bool, IgnoreType] = Ignore
-  browser_allow_existing_process: Union[bool, IgnoreType] = Ignore
-  browser_is_headless: Union[bool, IgnoreType] = Ignore
-  require_probes: Union[bool, IgnoreType] = Ignore
+  disk_min_free_space_gib: Optional[float] = Ignore
+  power_use_battery: Optional[bool] = Ignore
+  screen_brightness_percent: Optional[int] = Ignore
+  cpu_max_usage_percent: Optional[int] = Ignore
+  cpu_min_relative_speed: Optional[float] = Ignore
+  system_allow_antivirus: Optional[bool] = Ignore
+  browser_allow_existing_process: Optional[bool] = Ignore
+  browser_is_headless: Optional[bool] = Ignore
+  require_probes: Optional[bool] = Ignore
 
 
 class ValidationMode(enum.Enum):
@@ -110,7 +106,8 @@ class HostEnvironment:
     elif self._validation_mode == ValidationMode.PROMPT:
       result = input(f"{helper.TTYColor.RED}{message} Continue?"
                      f"{helper.TTYColor.RESET} [Yn]")
-      if result.lower() == "y":
+      # Accept <enter> as default input to continue.
+      if result.lower() != "n":
         return
     else:
       raise ValueError(
@@ -190,24 +187,25 @@ class HostEnvironment:
   def _check_running_binaries(self):
     if self._config.browser_allow_existing_process:
       return
-    if not self._platform.is_posix:
-      return
-    ps_stats = self._platform.sh_stdout("ps", "aux")
     browser_binaries = helper.group_by(
         self._runner.browsers, key=lambda browser: str(browser.path))
-    for binary, browsers in browser_binaries.items():
-      # Add a white-space to get less false-positives
-      binary_search = f"{binary} "
-      filtered = tuple(line for line in ps_stats.splitlines() if binary in line)
-      if len(filtered) == 0:
-        continue
-      # Use the first in the group
-      browser = browsers[0]
-      logging.debug("Binary=%s", binary)
-      logging.debug("PS status output:")
-      logging.debug(filtered)
-      self.handle_warning(
-          f"{browser.app_name} {browser.version} seems to be already running.")
+    for proc_info in self._platform.processes(["cmdline", "exe", "pid",
+                                               "name"]):
+      cmdline = " ".join(proc_info["cmdline"] or "")
+      exe = proc_info["exe"]
+      for binary, browsers in browser_binaries.items():
+        # Add a white-space to get less false-positives
+        if f"{binary} " not in cmdline and binary != exe:
+          continue
+        # Use the first in the group
+        browser = browsers[0]
+        logging.debug("Binary=%s", binary)
+        logging.debug("PS status output:")
+        logging.debug("proc(pid=%s, name=%s, cmd=%s)", proc_info["pid"],
+                      proc_info["name"], cmdline)
+        self.handle_warning(
+            f"{browser.app_name} {browser.version} seems to be already running."
+        )
 
   def _check_screen_brightness(self):
     brightness = self._config.screen_brightness_percent
@@ -246,6 +244,9 @@ class HostEnvironment:
       self.handle_warning("No probes specified.")
     for probe in self._runner.probes:
       probe.pre_check(self)
+
+  def setup(self):
+    self.validate()
 
   def validate(self):
     if self._validation_mode == ValidationMode.SKIP:

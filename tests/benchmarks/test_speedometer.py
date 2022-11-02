@@ -109,7 +109,9 @@ class Speedometer2Test(helper.PressBaseBenchmarkTestCase):
         env_validation_mode=cb.env.ValidationMode.SKIP,
         platform=self.platform,
         repetitions=repetitions)
-    runner.run()
+    with mock.patch.object(self.benchmark_cls, "validate_url") as cm:
+      runner.run()
+    cm.assert_called_once()
     for browser in self.browsers:
       self.assertEqual(len(browser.url_list), repetitions)
       self.assertIn(speedometer.Speedometer20Probe.JS, browser.js_list)

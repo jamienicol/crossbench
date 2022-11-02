@@ -168,6 +168,7 @@ class Speedometer20Benchmark(cb.benchmarks.PressBenchmark):
 
   def __init__(self,
                stories: Optional[Sequence[Speedometer20Story]] = None,
+               is_live: bool = True,
                iterations: Optional[int] = None):
     if stories is None:
       stories = self.DEFAULT_STORY_CLS.default()
@@ -176,4 +177,4 @@ class Speedometer20Benchmark(cb.benchmarks.PressBenchmark):
       if iterations is not None:
         assert iterations > 1
         story.iterations = iterations
-    super().__init__(stories)
+    super().__init__(stories, is_live)

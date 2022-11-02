@@ -14,7 +14,9 @@ class HostEnvironmentTestCase(unittest.TestCase):
 
   def setUp(self):
     self.mock_platform = mock.Mock()
-    self.mock_runner = mock.Mock(platform=self.mock_platform, probes=[])
+    self.mock_platform.processes.return_value = []
+    self.mock_runner = mock.Mock(
+        platform=self.mock_platform, probes=[], browsers=[])
 
   def test_instantiate(self):
     env = cb.env.HostEnvironment(self.mock_runner)

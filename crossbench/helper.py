@@ -155,6 +155,10 @@ class Platform(abc.ABC):
     # TODO(cbruni): support remote platforms
     return shutil.which(binary)
 
+  def processes(self, attrs=[]) -> List[Dict[str, Any]]:
+    assert not self.is_remote, "Only local platform supported"
+    return [p.info for p in psutil.process_iter(attrs=attrs)]
+
   def sh_stdout(self, *args, shell=False, quiet=False, encoding="utf-8") -> str:
     completed_process = self.sh(
         *args, shell=shell, capture_output=True, quiet=quiet)

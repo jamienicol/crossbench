@@ -135,6 +135,7 @@ class Runner:
     self.browsers = browsers
     self._validate_browsers()
     self._browser_platform = browsers[0].platform
+    self._benchmark = benchmark
     self.stories = benchmark.stories
     self.repetitions = repetitions
     assert self.repetitions > 0, f"Invalid repetitions={self.repetitions}"
@@ -226,7 +227,8 @@ class Runner:
       browser.setup_binary(self)  # pytype: disable=wrong-arg-types
     self._runs = list(self.get_runs())
     assert self._runs, f"{type(self)}.get_runs() produced no runs"
-    self._env.validate()
+    self._env.setup()
+    self._benchmark.setup()
     self.collect_system_details()
 
   def get_runs(self) -> Iterable[Run]:

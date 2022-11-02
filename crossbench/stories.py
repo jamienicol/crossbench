@@ -64,16 +64,16 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
   def from_names(cls: Type[TPressBenchmarkStory],
                  substories: Sequence[str],
                  separate: bool = False,
-                 live: bool = False) -> List[TPressBenchmarkStory]:
-    if live:
+                 is_live: bool = False) -> List[TPressBenchmarkStory]:
+    if is_live:
       return cls.live(substories=substories, separate=separate)
     return cls.local(substories=substories, separate=separate)
 
   @classmethod
   def default(cls: Type[TPressBenchmarkStory],
-              live: bool = True,
+              is_live: bool = True,
               separate: bool = False):
-    if live:
+    if is_live:
       return cls.live(cls.story_names(), separate)
     return cls.local(cls.story_names(), separate)
 
@@ -106,7 +106,7 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
           for substory in substories
       ]
     else:
-      return [cls(is_live=False, substories=substories, **kwargs)]  # pytype: disable=not-instantiable
+      return [cls(is_live=True, substories=substories, **kwargs)]  # pytype: disable=not-instantiable
 
   _substories: Sequence[str]
   is_live : bool
@@ -127,6 +127,9 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     name = self.NAME
     if self._substories != self.story_names():
       name += "_" + ("_".join(self._substories))
+    if len(name) > 220:
+      # Crop the name and add some random hash bits
+      name = name[:220] + hex(hash(name))[2:10]
     kwargs["name"] = name
     super().__init__(*args, **kwargs)
     self.is_live = is_live
@@ -135,6 +138,10 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     else:
       self._url = self.URL_LOCAL
     assert self._url is not None, f"Invalid URL for {self.NAME}"
+
+  @property
+  def url(self):
+    return self._url
 
   def _verify_url(self, url:str, property_name:str):
     cls = self.__class__
