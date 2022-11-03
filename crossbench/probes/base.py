@@ -21,7 +21,7 @@ from crossbench import helper
 
 from crossbench.probes.config import ProbeConfigParser
 
-ProbeT = TypeVar('ProbeT', bound="probes.Probe")
+ProbeT = TypeVar('ProbeT', bound="cb.probes.Probe")
 
 
 class Probe(abc.ABC):
@@ -166,7 +166,7 @@ class Probe(abc.ABC):
     """
     return None
 
-  def get_scope(self: ProbeT, run) -> base.Probe.Scope[ProbeT]:
+  def get_scope(self: ProbeT, run) -> Probe.Scope[ProbeT]:
     assert self.is_attached, (
         f"Probe {self.name} is not properly attached to a browser")
     return self.Scope(self, run)
