@@ -30,7 +30,7 @@ class HostEnvironmentConfig:
   screen_brightness_percent: Optional[int] = Ignore
   cpu_max_usage_percent: Optional[int] = Ignore
   cpu_min_relative_speed: Optional[float] = Ignore
-  system_allow_antivirus: Optional[bool] = Ignore
+  system_allow_monitoring: Optional[bool] = Ignore
   browser_allow_existing_process: Optional[bool] = Ignore
   browser_is_headless: Optional[bool] = Ignore
   require_probes: Optional[bool] = Ignore
@@ -116,21 +116,31 @@ class HostEnvironment:
     raise ValidationError(
         f"Runner/Host environment requests cannot be fulfilled: {message}")
 
-  def _disable_crowdstrike(self):
+  def _check_system_monitoring(self):
+    if self._platform.is_macos:
+      self._check_crowdstrike()
+
+  def _check_crowdstrike(self):
     """Crowdstrike security monitoring (for googlers go/crowdstrike-falcon) can
     have quite terrible overhead for each file-access. Disable it to reduce
     flakiness. """
-    if not self._platform.is_macos:
-      return
+    is_disabled = False
+    force_disable = self._config.system_allow_monitoring is False
     try:
-      self._platform.disable_monitoring()
-      self._add_min_delay(5)
-      return
-    except Exception as e:
-      logging.exception("Exception: %s", e)
+      is_disabled = self._platform.check_system_monitoring(force_disable)
+      if force_disable:
+        self._add_min_delay(5)
+    except helper.SubprocessError as e:
       self.handle_warning(
           "Could not disable go/crowdstrike-falcon monitor which can cause"
           " high background CPU usage.")
+      return
+    if not is_disabled:
+      self.handle_warning(
+          "Crowdstrike monitoring is running, "
+          "which can impact startup performance drastically.\n"
+          "Use the following command to disable it manually:\n"
+          "sudo /Applications/Falcon.app/Contents/Resources/falconctl unload\n")
 
   def _check_disk_space(self):
     limit = self._config.disk_min_free_space_gib
@@ -251,7 +261,7 @@ class HostEnvironment:
   def validate(self):
     if self._validation_mode == ValidationMode.SKIP:
       return
-    self._disable_crowdstrike()
+    self._check_system_monitoring()
     self._check_power()
     self._check_disk_space()
     self._check_cpu_usage()

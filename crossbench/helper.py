@@ -227,9 +227,8 @@ class Platform(abc.ABC):
       level = logging.ERROR
     logging.log(level, messages)
 
-  @abc.abstractmethod
-  def disable_monitoring(self):
-    pass
+  def check_system_monitoring(self, disable: bool = False) -> bool:
+    return True
 
   def get_relative_cpu_speed(self) -> float:
     return 1
@@ -345,9 +344,6 @@ class WinPlatform(Platform):
   def short_name(self):
     return "win"
 
-  def disable_monitoring(self):
-    pass
-
   def search_binary(self, bin_name) -> Optional[pathlib.Path]:
     for path in self.SEARCH_PATHS:
       bin_path = path / bin_name
@@ -446,18 +442,30 @@ class MacOSPlatform(PosixPlatform):
     })
     return details
 
-  def disable_monitoring(self):
-    self.disable_crowdstrike()
+  def check_system_monitoring(self, disable: bool = False) -> bool:
+    return self.check_crowdstrike(disable)
 
-  def disable_crowdstrike(self):
+  def check_crowdstrike(self, disable: bool = False) -> bool:
     falconctl = pathlib.Path(
         "/Applications/Falcon.app/Contents/Resources/falconctl")
     if not falconctl.exists():
       logging.debug("You're fine, falconctl or %s are not installed.",
                     falconctl)
-    else:
+      return True
+    try:
+      logging.warn("Checking falcon sensor status:")
+      status = self.sh_stdout("sudo", falconctl, "stats", "agent_info")
+    except SubprocessError as e:
+      return True
+    if "operational: true" not in status:
+      # Early return if not running, no need to disable the sensor.
+      return True
+    if disable:
+      # Try disabling the process
       logging.warn("Disabling crowdstrike monitoring:")
       self.sh("sudo", falconctl, "unload")
+      return True
+    return False
 
   def set_main_display_brightness(self, brightness_level: int):
     """Sets the main display brightness at the specified percentage by brightness_level.
@@ -472,7 +480,7 @@ class MacOSPlatform(PosixPlatform):
       brightness_level: Percentage at which we want to set screen brightness.
 
     Raises:
-      AssertionError: An error occused when we tried to set the brightness
+      AssertionError: An error occurred when we tried to set the brightness
     """
     CoreGraphics = ctypes.CDLL(
         "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
@@ -538,12 +546,12 @@ class LinuxPlatform(PosixPlatform):
   def short_name(self):
     return "linux"
 
+  def check_system_monitoring(self, disable: bool = False) -> bool:
+    return True
+
   @property
   def has_display(self) -> bool:
     return "DISPLAY" in os.environ
-
-  def disable_monitoring(self):
-    pass
 
   def system_details(self) -> Dict[str, Any]:
     details = super().system_details()
