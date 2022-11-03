@@ -140,6 +140,10 @@ class Platform(abc.ABC):
       return False
     return status.power_plugged
 
+  @property
+  def has_display(self) -> bool:
+    return True
+
   def find_app_binary_path(self, app_path):
     return app_path
 
@@ -533,6 +537,10 @@ class LinuxPlatform(PosixPlatform):
   @property
   def short_name(self):
     return "linux"
+
+  @property
+  def has_display(self) -> bool:
+    return "DISPLAY" in os.environ
 
   def disable_monitoring(self):
     pass

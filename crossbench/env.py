@@ -225,8 +225,7 @@ class HostEnvironment:
       return
     if self._platform.is_linux and not requested_headless:
       # Check that the system can run browsers with a UI.
-      system_is_headless = "DISPLAY" not in os.environ
-      if system_is_headless:
+      if not self._platform.has_display:
         self.handle_warning("Requested browser_is_headless=False, "
                             "but no DISPLAY is available to run with a UI.")
     # Check that browsers are running in the requested display mode:

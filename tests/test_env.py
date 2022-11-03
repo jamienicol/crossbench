@@ -156,12 +156,21 @@ class HostEnvironmentTestCase(unittest.TestCase):
     mock_browser = mock.Mock()
     self.mock_runner.browsers = [mock_browser]
 
+    self.mock_platform.has_display = True
     mock_browser.is_headless = False
     with self.assertRaises(cb.env.ValidationError) as cm:
       env.validate()
     self.assertIn("is_headless", str(cm.exception))
 
+    self.mock_platform.has_display = False
+    with self.assertRaises(cb.env.ValidationError) as cm:
+      env.validate()
+
+    self.mock_platform.has_display = True
     mock_browser.is_headless = True
+    env.validate()
+
+    self.mock_platform.has_display = False
     env.validate()
 
   def test_request_is_headless_false(self):
@@ -172,9 +181,15 @@ class HostEnvironmentTestCase(unittest.TestCase):
     mock_browser = mock.Mock()
     self.mock_runner.browsers = [mock_browser]
 
+    self.mock_platform.has_display = True
     mock_browser.is_headless = False
     env.validate()
 
+    self.mock_platform.has_display = False
+    with self.assertRaises(cb.env.ValidationError) as cm:
+      env.validate()
+
+    self.mock_platform.has_display = True
     mock_browser.is_headless = True
     with self.assertRaises(cb.env.ValidationError) as cm:
       env.validate()
