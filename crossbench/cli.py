@@ -446,7 +446,7 @@ class CrossBenchCLI:
         type=env_config_file,
         help="Path to an env.config.hjson file that specifies detailed "
         "runner environment settings and requirements. "
-        "See env.config.hjson for more details."
+        "See config/env.config.hjson for more details."
         "Mutually exclusive with --env")
     env_group.add_argument(
         "--dry-run",
@@ -474,7 +474,7 @@ class CrossBenchCLI:
         type=existing_file_type,
         help="Browser configuration.json file. "
         "Use this to run multiple browsers and/or multiple flag configurations."
-        "See browser.config.example.hjson on how to set up a complex "
+        "See config/browser.config.example.hjson on how to set up a complex "
         "configuration file. "
         "Cannot be used together with --browser.")
 
@@ -492,7 +492,7 @@ class CrossBenchCLI:
         type=existing_file_type,
         help="Browser configuration.json file. "
         "Use this config file to specify more complex Probe settings."
-        "See probe.config.example.hjson on how to set up a complex "
+        "See config/probe.config.example.hjson on how to set up a complex "
         "configuration file. "
         "Cannot be used together with --probe.")
 

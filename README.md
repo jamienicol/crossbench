@@ -61,7 +61,7 @@ poetry run crossbench speedometer_2.0 \
 ```
 
 For more complex scenarios you can use a
-[browser.config.hjson](browser.config.example.hjson) file.
+[browser.config.hjson](config/browser.config.example.hjson) file.
 It allows you to specify multiple browser and multiple flag configurations in
 a single file and produce performance numbers with a single invocation.
 
@@ -70,7 +70,7 @@ poetry run crossbench speedometer_2.0 \
     --browser-config=config.hjson
 ```
 
-The [example file](browser.config.example.hjson) lists and explains all
+The [example file](config/browser.config.example.hjson) lists and explains all
 configuration details.
 
 ### Probes

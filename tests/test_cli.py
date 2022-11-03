@@ -329,7 +329,7 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
 
 class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
   EXAMPLE_CONFIG_PATH = pathlib.Path(
-      __file__).parent.parent / "browser.config.example.hjson"
+      __file__).parent.parent / "config" / "browser.config.example.hjson"
 
 
   def setUp(self):

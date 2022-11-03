@@ -71,7 +71,7 @@ class HostEnvironmentConfigTestCase(unittest.TestCase):
 
   def test_parse_example_config_file(self):
     example_config_file = pathlib.Path(
-        __file__).parent.parent / "env.config.example.hjson"
+        __file__).parent.parent / "config" / "env.config.example.hjson"
     if not example_config_file.exists():
       raise unittest.SkipTest(f"Test file {example_config_file} does not exist")
     with example_config_file.open() as f:
