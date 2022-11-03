@@ -55,19 +55,19 @@ class HostEnvironmentConfigTestCase(unittest.TestCase):
     default = cb.env.HostEnvironmentConfig()
     self.assertIsNone(default.cpu_max_usage_percent)
 
-    high = cb.env.HostEnvironmentConfig(cpu_max_usage_percent=1)
-    self.assertEqual(high.cpu_max_usage_percent, 1)
-    self.assertEqual(high.merge(high).cpu_max_usage_percent, 1)
-    self.assertEqual(default.merge(high).cpu_max_usage_percent, 1)
-    self.assertEqual(high.merge(default).cpu_max_usage_percent, 1)
+    high = cb.env.HostEnvironmentConfig(cpu_max_usage_percent=100)
+    self.assertEqual(high.cpu_max_usage_percent, 100)
+    self.assertEqual(high.merge(high).cpu_max_usage_percent, 100)
+    self.assertEqual(default.merge(high).cpu_max_usage_percent, 100)
+    self.assertEqual(high.merge(default).cpu_max_usage_percent, 100)
 
-    low = cb.env.HostEnvironmentConfig(cpu_max_usage_percent=0.5)
-    self.assertEqual(low.cpu_max_usage_percent, 0.5)
-    self.assertEqual(low.merge(low).cpu_max_usage_percent, 0.5)
-    self.assertEqual(default.merge(low).cpu_max_usage_percent, 0.5)
-    self.assertEqual(low.merge(default).cpu_max_usage_percent, 0.5)
+    low = cb.env.HostEnvironmentConfig(cpu_max_usage_percent=1)
+    self.assertEqual(low.cpu_max_usage_percent, 1)
+    self.assertEqual(low.merge(low).cpu_max_usage_percent, 1)
+    self.assertEqual(default.merge(low).cpu_max_usage_percent, 1)
+    self.assertEqual(low.merge(default).cpu_max_usage_percent, 1)
 
-    self.assertEqual(high.merge(low).cpu_max_usage_percent, 0.5)
+    self.assertEqual(high.merge(low).cpu_max_usage_percent, 1)
 
   def test_parse_example_config_file(self):
     example_config_file = pathlib.Path(

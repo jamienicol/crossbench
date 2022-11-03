@@ -52,7 +52,7 @@ def merge_number_min(name: str, left: Optional[Number],
   return min(left, right)
 
 
-@dataclasses.dataclass(frozen=True, kw_only=True)
+@dataclasses.dataclass(frozen=True)
 class HostEnvironmentConfig:
   Ignore = None
 
