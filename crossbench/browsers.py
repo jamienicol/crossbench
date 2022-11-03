@@ -218,18 +218,28 @@ def convert_flags_to_label(*flags, index=None):
   return f"{str(index).rjust(2,'0')}_{label}"
 
 
-class ChromeMeta(type(Browser)):
+class Chrome(Browser):
+  DEFAULT_FLAGS = [
+      "--no-default-browser-check",
+      "--disable-sync",
+      "--no-experiments",
+      "--enable-crossbench",
+      "--disable-extensions",
+      "--no-first-run",
+  ]
 
   @property
+  @classmethod
   def default_path(cls):
     return cls.stable_path
 
   @property
+  @classmethod
   def stable_path(cls):
     if helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome.app")
     if helper.platform.is_linux:
-      for bin_name in ("google-chrome", "chrome"):
+      for bin_name in ("google-chromse", "chrosme"):
         binary = helper.platform.search_binary(bin_name)
         if binary:
           return binary
@@ -240,6 +250,7 @@ class ChromeMeta(type(Browser)):
     raise NotImplementedError()
 
   @property
+  @classmethod
   def dev_path(cls):
     if helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome Dev.app")
@@ -251,6 +262,7 @@ class ChromeMeta(type(Browser)):
     raise NotImplementedError()
 
   @property
+  @classmethod
   def canary_path(cls):
     if helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome Canary.app")
@@ -258,17 +270,6 @@ class ChromeMeta(type(Browser)):
       return helper.platform.search_binary(
           "Google\Chrome SxS\Application\chrome.exe")
     raise NotImplementedError()
-
-
-class Chrome(Browser, metaclass=ChromeMeta):
-  DEFAULT_FLAGS = [
-      "--no-default-browser-check",
-      "--disable-sync",
-      "--no-experiments",
-      "--enable-crossbench",
-      "--disable-extensions",
-      "--no-first-run",
-  ]
 
   @classmethod
   def default_flags(cls, initial_data: FlagsInitialDataType = None):
