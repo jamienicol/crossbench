@@ -246,7 +246,7 @@ class Chrome(Browser):
       raise Exception("Could not find binary")
     if helper.platform.is_win:
       return helper.platform.search_binary(
-          "Google\Chrome\Application\chrome.exe")
+          "Google/Chrome/Application/chrome.exe")
     raise NotImplementedError()
 
   @property
@@ -256,7 +256,7 @@ class Chrome(Browser):
       return pathlib.Path("/Applications/Google Chrome Dev.app")
     if helper.platform.is_win:
       return helper.platform.search_binary(
-          "Google\Chrome Dev\Application\chrome.exe")
+          "Google/Chrome Dev/Application/chrome.exe")
     if helper.platform.is_linux:
       return helper.platform.search_binary("google-chrome-unstable")
     raise NotImplementedError()
@@ -268,7 +268,7 @@ class Chrome(Browser):
       return pathlib.Path("/Applications/Google Chrome Canary.app")
     if helper.platform.is_win:
       return helper.platform.search_binary(
-          "Google\Chrome SxS\Application\chrome.exe")
+          "Google/Chrome SxS/Application/chrome.exe")
     raise NotImplementedError()
 
   @classmethod
