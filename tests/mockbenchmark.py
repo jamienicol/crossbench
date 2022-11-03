@@ -152,12 +152,14 @@ class MockCLI(cli.CrossBenchCLI):
 
   def _get_runner(self, args, benchmark, env_config, env_validation_mode):
     runner_kwargs = self.RUNNER_CLS.kwargs_from_cli(args)
-    return self.RUNNER_CLS(
+    self.runner = self.RUNNER_CLS(
         benchmark=benchmark,
         env_config=env_config,
         env_validation_mode=env_validation_mode,
         **runner_kwargs,
+        # Use custom platform
         platform=mock_platform)
+    return self.runner
 
 
 class BaseCrossbenchTestCase(

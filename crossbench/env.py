@@ -7,12 +7,12 @@ from __future__ import annotations
 import datetime as dt
 import enum
 import logging
+from numbers import Number
 import os
 import shutil
-import psutil
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional
 
-from dataclasses import dataclass
+import dataclasses
 
 import crossbench as cb
 if TYPE_CHECKING:
@@ -21,7 +21,38 @@ if TYPE_CHECKING:
 
 from crossbench import helper
 
-@dataclass(frozen=True)
+
+def merge_bool(name: str, left: Optional[bool],
+               right: Optional[bool]) -> Optional[bool]:
+  if left is None:
+    return right
+  if right is None:
+    return left
+  if left != right:
+    raise ValueError(f"Conflicting merge values for {name}: "
+                     f"{left} vs. {right}")
+  return left
+
+
+def merge_number_max(name: str, left: Optional[Number],
+                     right: Optional[Number]) -> Optional[Number]:
+  if left is None:
+    return right
+  if right is None:
+    return left
+  return max(left, right)
+
+
+def merge_number_min(name: str, left: Optional[Number],
+                     right: Optional[Number]) -> Optional[Number]:
+  if left is None:
+    return right
+  if right is None:
+    return left
+  return min(left, right)
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class HostEnvironmentConfig:
   Ignore = None
 
@@ -35,6 +66,25 @@ class HostEnvironmentConfig:
   browser_is_headless: Optional[bool] = Ignore
   require_probes: Optional[bool] = Ignore
 
+  def merge(self, other: HostEnvironmentConfig) -> HostEnvironmentConfig:
+    merger = {
+        "disk_min_free_space_gib": merge_number_max,
+        "power_use_battery": merge_bool,
+        "screen_brightness_percent": merge_number_max,
+        "cpu_max_usage_percent": merge_number_min,
+        "cpu_min_relative_speed": merge_number_max,
+        "system_allow_monitoring": merge_bool,
+        "browser_allow_existing_process": merge_bool,
+        "browser_is_headless": merge_bool,
+        "require_probes": merge_bool
+    }
+    kwargs = {}
+    for name, merger in merger.items():
+      self_value = getattr(self, name)
+      other_value = getattr(other, name)
+      kwargs[name] = merger(name, self_value, other_value)
+    return HostEnvironmentConfig(**kwargs)
+
 
 class ValidationMode(enum.Enum):
   PROMPT = "prompt"
@@ -45,6 +95,20 @@ class ValidationMode(enum.Enum):
 
 class ValidationError(Exception):
   pass
+
+
+_config_default = HostEnvironmentConfig()
+_config_strict = HostEnvironmentConfig(
+    cpu_max_usage_percent=98,
+    cpu_min_relative_speed=1,
+    system_allow_monitoring=False,
+    browser_allow_existing_process=False,
+    require_probes=True,
+)
+_config_battery = _config_strict.merge(
+    HostEnvironmentConfig(power_use_battery=True))
+_config_power = _config_strict.merge(
+    HostEnvironmentConfig(power_use_battery=False))
 
 
 class HostEnvironment:
@@ -59,6 +123,13 @@ class HostEnvironment:
     prompt:   Interactive mode to skip over certain conditions
     fail:     Fast-fail on mismatch
   """
+
+  CONFIGS = {
+      "default": _config_default,
+      "strict": _config_strict,
+      "battery": _config_battery,
+      "power": _config_power,
+  }
 
   def __init__(self,
                runner: cb.runner.Runner,

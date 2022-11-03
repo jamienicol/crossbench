@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import argparse
 import io
 import json
 import pathlib
@@ -173,6 +174,95 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         for flag in js_flags:
           self.assertIn(flag, browser.js_flags)
 
+  def test_env_config_name(self):
+    with mock.patch.object(
+        cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      self.run_cli("loading", "--env=strict", "--urls=http://test.com",
+                   "--skip-checklist")
+
+  def test_env_config_inline_hjson(self):
+    with mock.patch.object(
+        cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      self.run_cli("loading", "--env={power_use_battery:false}",
+                   "--urls=http://test.com", "--skip-checklist")
+
+  def test_env_config_inline_invalid(self):
+    with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
+      self.run_cli(
+          "loading",
+          "--env=not a valid name",
+          "--urls=http://test.com",
+          "--skip-checklist",
+          raises=SysExitException)
+    with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
+      self.run_cli(
+          "loading",
+          "--env={not valid hjson}",
+          "--urls=http://test.com",
+          "--skip-checklist",
+          raises=SysExitException)
+    with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
+      self.run_cli(
+          "loading",
+          "--env={unknown_property:1}",
+          "--urls=http://test.com",
+          "--skip-checklist",
+          raises=SysExitException)
+
+  def test_env_config_invalid_file(self):
+    config = pathlib.Path("/test.config.hjson")
+    # No "env" property
+    with config.open("w") as f:
+      f.write("{}")
+    with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
+      self.run_cli(
+          "loading",
+          f"--env-config={config}",
+          "--urls=http://test.com",
+          "--skip-checklist",
+          raises=SysExitException)
+    # "env" not a dict
+    with config.open("w") as f:
+      f.write("{env:[]}")
+    with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
+      self.run_cli(
+          "loading",
+          f"--env-config={config}",
+          "--urls=http://test.com",
+          "--skip-checklist",
+          raises=SysExitException)
+    with config.open("w") as f:
+      f.write("{env:{unknown_property_name:1}}")
+    with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
+      self.run_cli(
+          "loading",
+          f"--env-config={config}",
+          "--urls=http://test.com",
+          "--skip-checklist",
+          raises=SysExitException)
+
+  def test_env_config_file(self):
+    config = pathlib.Path("/test.config.hjson")
+    with config.open("w") as f:
+      f.write("{env:{}}")
+    with mock.patch.object(
+        cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      self.run_cli("loading", f"--env-config={config}",
+                   "--urls=http://test.com", "--skip-checklist")
+
+  def test_env_invalid_inline_and_file(self):
+    config = pathlib.Path("/test.config.hjson")
+    with config.open("w") as f:
+      f.write("{env:{}}")
+    with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
+      self.run_cli(
+          "loading",
+          "--env=strict",
+          f"--env-config={config}",
+          "--urls=http://test.com",
+          "--skip-checklist",
+          raises=SysExitException)
+
 
 class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
 
@@ -263,7 +353,8 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
 
   def test_load_browser_config_template(self):
     if not self.EXAMPLE_CONFIG_PATH.exists():
-      return
+      raise unittest.SkipTest(
+          f"Test file {self.EXAMPLE_CONFIG_PATH} does not exist")
     self.fs.add_real_file(self.EXAMPLE_CONFIG_PATH)
     with self.EXAMPLE_CONFIG_PATH.open() as f:
       config = cli.BrowserConfig.load(

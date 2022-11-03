@@ -8,6 +8,7 @@ import argparse
 import itertools
 import json
 import logging
+from multiprocessing.sharedctypes import Value
 import pathlib
 import hjson
 from tabulate import tabulate
@@ -303,6 +304,40 @@ def existing_file_type(str_value):
   return path
 
 
+def inline_env_config(value: str) -> cb.env.HostEnvironmentConfig:
+  if value in cb.env.HostEnvironment.CONFIGS:
+    return cb.env.HostEnvironment.CONFIGS[value]
+  if value[0] != "{":
+    raise argparse.ArgumentTypeError(
+        f"Invalid env config name: '{value}'. "
+        f"choices = {list(cb.env.HostEnvironment.CONFIGS.keys())}")
+  # Assume hjson data
+  kwargs = None
+  msg = ""
+  try:
+    kwargs = hjson.loads(value)
+    return cb.env.HostEnvironmentConfig(**kwargs)
+  except Exception as e:
+    msg = f"\n{e}"
+    raise argparse.ArgumentTypeError(
+        f"Invalid inline config string: {value}{msg}") from e
+
+
+def env_config_file(value: str) -> cb.env.HostEnvironmentConfig:
+  config_path = existing_file_type(value)
+  try:
+    with config_path.open() as f:
+      data = hjson.load(f)
+    if "env" not in data:
+      raise argparse.ArgumentTypeError("No 'env' property found")
+    kwargs = data["env"]
+    return cb.env.HostEnvironmentConfig(**kwargs)
+  except Exception as e:
+    msg = f"\n{e}"
+    raise argparse.ArgumentTypeError(
+        f"Invalid env config file: {value}{msg}") from e
+
+
 class CrossBenchCLI:
 
   BENCHMARKS: Tuple[Type[cb.benchmarks.Benchmark], ...] = (
@@ -398,19 +433,26 @@ class CrossBenchCLI:
         f"an ArgumentParser: {subparser}")
 
     env_group = subparser.add_argument_group("Runner Environment Settings", "")
+    env_settings_group = env_group.add_mutually_exclusive_group()
+    env_settings_group.add_argument(
+        "--env",
+        type=inline_env_config,
+        help="Set default runner environment settings. "
+        f"Possible values: {', '.join(cb.env.HostEnvironment.CONFIGS)}"
+        "or an inline hjson configuration (see --env-config). "
+        "Mutually exclusive with --env-config")
+    env_settings_group.add_argument(
+        "--env-config",
+        type=env_config_file,
+        help="Path to an env.config.hjson file that specifies detailed "
+        "runner environment settings and requirements. "
+        "See env.config.hjson for more details."
+        "Mutually exclusive with --env")
     env_group.add_argument(
         "--dry-run",
         action="store_true",
         default=False,
         help="Don't run any browsers or probes")
-    env_group.add_argument(
-        "--set-brightness",
-        dest="brightness",
-        type=int,
-        help="Use this to set the brightness of the main screen to specific "
-        "value between 0-100. Setting the screen to a constant value stops the "
-        "OS from adapting the screen's brightness.")
-    env_group.add_argument("--environment-config", help="")
     env_group.add_argument(
         "--skip-checklist",
         dest="use_checklist",
@@ -512,10 +554,11 @@ class CrossBenchCLI:
     return cb.env.ValidationMode.SKIP
 
   def _get_env_config(self, args) -> cb.env.HostEnvironmentConfig:
-    # TODO: move env settings to option file
-    config = cb.env.HostEnvironmentConfig(
-        screen_brightness_percent=args.brightness)
-    return config
+    if args.env:
+      return args.env
+    elif args.env_config:
+      return args.env_config
+    return cb.env.HostEnvironmentConfig()
 
   def _get_runner(self, args: argparse.Namespace, benchmark,
                   env_config: cb.env.HostEnvironmentConfig,

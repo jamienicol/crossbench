@@ -2,12 +2,81 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import pathlib
+import hjson
 import unittest
 from unittest import mock
 
 import crossbench as cb
 import crossbench.runner
 import crossbench.env
+
+
+class HostEnvironmentConfigTestCase(unittest.TestCase):
+
+  def test_combine_bool_value(self):
+    default = cb.env.HostEnvironmentConfig()
+    self.assertIsNone(default.power_use_battery)
+
+    battery = cb.env.HostEnvironmentConfig(power_use_battery=True)
+    self.assertTrue(battery.power_use_battery)
+    self.assertTrue(battery.merge(battery).power_use_battery)
+    self.assertTrue(default.merge(battery).power_use_battery)
+    self.assertTrue(battery.merge(default).power_use_battery)
+
+    power = cb.env.HostEnvironmentConfig(power_use_battery=False)
+    self.assertFalse(power.power_use_battery)
+    self.assertFalse(power.merge(power).power_use_battery)
+    self.assertFalse(default.merge(power).power_use_battery)
+    self.assertFalse(power.merge(default).power_use_battery)
+
+    with self.assertRaises(ValueError):
+      combined = power.merge(battery)
+
+  def test_combine_min_float_value(self):
+    default = cb.env.HostEnvironmentConfig()
+    self.assertIsNone(default.cpu_min_relative_speed)
+
+    high = cb.env.HostEnvironmentConfig(cpu_min_relative_speed=1)
+    self.assertEqual(high.cpu_min_relative_speed, 1)
+    self.assertEqual(high.merge(high).cpu_min_relative_speed, 1)
+    self.assertEqual(default.merge(high).cpu_min_relative_speed, 1)
+    self.assertEqual(high.merge(default).cpu_min_relative_speed, 1)
+
+    low = cb.env.HostEnvironmentConfig(cpu_min_relative_speed=0.5)
+    self.assertEqual(low.cpu_min_relative_speed, 0.5)
+    self.assertEqual(low.merge(low).cpu_min_relative_speed, 0.5)
+    self.assertEqual(default.merge(low).cpu_min_relative_speed, 0.5)
+    self.assertEqual(low.merge(default).cpu_min_relative_speed, 0.5)
+
+    self.assertEqual(high.merge(low).cpu_min_relative_speed, 1)
+
+  def test_combine_max_float_value(self):
+    default = cb.env.HostEnvironmentConfig()
+    self.assertIsNone(default.cpu_max_usage_percent)
+
+    high = cb.env.HostEnvironmentConfig(cpu_max_usage_percent=1)
+    self.assertEqual(high.cpu_max_usage_percent, 1)
+    self.assertEqual(high.merge(high).cpu_max_usage_percent, 1)
+    self.assertEqual(default.merge(high).cpu_max_usage_percent, 1)
+    self.assertEqual(high.merge(default).cpu_max_usage_percent, 1)
+
+    low = cb.env.HostEnvironmentConfig(cpu_max_usage_percent=0.5)
+    self.assertEqual(low.cpu_max_usage_percent, 0.5)
+    self.assertEqual(low.merge(low).cpu_max_usage_percent, 0.5)
+    self.assertEqual(default.merge(low).cpu_max_usage_percent, 0.5)
+    self.assertEqual(low.merge(default).cpu_max_usage_percent, 0.5)
+
+    self.assertEqual(high.merge(low).cpu_max_usage_percent, 0.5)
+
+  def test_parse_example_config_file(self):
+    example_config_file = pathlib.Path(
+        __file__).parent.parent / "env.config.example.hjson"
+    if not example_config_file.exists():
+      raise unittest.SkipTest(f"Test file {example_config_file} does not exist")
+    with example_config_file.open() as f:
+      data = hjson.load(f)
+    config = cb.env.HostEnvironmentConfig(**data["env"])
 
 
 class HostEnvironmentTestCase(unittest.TestCase):
