@@ -110,21 +110,22 @@ class BrowserConfig:
 
   def _parse_flag_group(self, name, raw_flag_group_data):
     assert name not in self.flag_groups, (f"flag-group='{name}' exists already")
-    variants = {}
+    variants: Dict[str, List[str]] = {}
     for flag_name, values in raw_flag_group_data.items():
       if not flag_name.startswith("-"):
-        raise Exception(f"Invalid flag name: '{flag_name}'")
+        raise ValueError(f"Invalid flag name: '{flag_name}'")
       if flag_name not in variants:
-        flag_values = variants[flag_name] = set()
+        flag_values = variants[flag_name] = []
       else:
         flag_values = variants[flag_name]
       if isinstance(values, str):
         values = [values]
       for value in values:
-        assert value not in flag_values, (
-            "Same flag variant was specified more than once: "
-            f"'{value}' for entry '{flag_name}'")
-        flag_values.add(value)
+        # O(n^2) check, assuming very few values per flag.
+        if value in flag_values:
+          raise ValueError("Same flag variant was specified more than once: "
+                           f"'{value}' for entry '{flag_name}'")
+        flag_values.append(value)
     self.flag_groups[name] = FlagGroupConfig(name, variants)
 
   def _parse_browser(self, name, raw_browser_data):

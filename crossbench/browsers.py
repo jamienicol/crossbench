@@ -239,7 +239,7 @@ class Chrome(Browser):
     if helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome.app")
     if helper.platform.is_linux:
-      for bin_name in ("google-chromse", "chrosme"):
+      for bin_name in ("google-chrome", "chrome"):
         binary = helper.platform.search_binary(bin_name)
         if binary:
           return binary

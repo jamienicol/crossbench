@@ -342,13 +342,13 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
       mockbenchmark.MockSafari.setup_fs(self.fs)
     self.BROWSER_LOOKUP = {
         "stable": (mockbenchmark.MockChromeStable,
-                   mockbenchmark.MockChromeStable.BIN_PATH),
+                   mockbenchmark.MockChromeStable.APP_PATH),
         "dev":
-            (mockbenchmark.MockChromeDev, mockbenchmark.MockChromeDev.BIN_PATH),
+            (mockbenchmark.MockChromeDev, mockbenchmark.MockChromeDev.APP_PATH),
         "chrome-stable": (mockbenchmark.MockChromeStable,
-                          mockbenchmark.MockChromeStable.BIN_PATH),
+                          mockbenchmark.MockChromeStable.APP_PATH),
         "chrome-dev":
-            (mockbenchmark.MockChromeDev, mockbenchmark.MockChromeDev.BIN_PATH),
+            (mockbenchmark.MockChromeDev, mockbenchmark.MockChromeDev.APP_PATH),
     }
 
   def test_load_browser_config_template(self):
@@ -464,10 +464,10 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
         }},
         browser_lookup_override=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 2)
-    self.assertEqual(config.variants[0].path,
-                     mockbenchmark.MockChromeStable.BIN_PATH)
-    self.assertEqual(config.variants[1].path,
-                     mockbenchmark.MockChromeDev.BIN_PATH)
+    browser = config.variants[0]
+    assert isinstance(browser, mockbenchmark.MockChromeStable)
+    self.assertEqual(browser.app_path, mockbenchmark.MockChromeStable.APP_PATH)
+    self.assertEqual(browser.app_path, mockbenchmark.MockChromeDev.APP_PATH)
 
   def test_inline_flags(self):
     with (mock.patch.object(
@@ -475,7 +475,7 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
           mock.patch.object(
               cb.browsers.Chrome,
               "stable_path",
-              new=mockbenchmark.MockChromeStable.BIN_PATH)):
+              new=mockbenchmark.MockChromeStable.APP_PATH)):
 
       config = cli.BrowserConfig(
           {"browsers": {
@@ -486,7 +486,12 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
           }})
       self.assertEqual(len(config.variants), 1)
       browser = config.variants[0]
-      self.assertEqual(browser.path, mockbenchmark.MockChromeStable.BIN_PATH)
+      # TODO: Fix once app lookup is cleaned up
+      if browser.platform.is_macos:
+        self.assertEqual(browser.path.parents[2],
+                         mockbenchmark.MockChromeStable.APP_PATH)
+      else:
+        self.assertEqual(browser.path, mockbenchmark.MockChromeStable.APP_PATH)
       self.assertEqual(browser.version, "101.22.333.44")
 
   def test_inline_load_safari(self):
@@ -519,7 +524,9 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
         browser_lookup_override=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3)
     for browser in config.variants:
-      self.assertEqual(browser.path, mockbenchmark.MockChromeStable.BIN_PATH)
+      assert isinstance(browser, mockbenchmark.MockChromeStable)
+      self.assertEqual(browser.app_path,
+                       mockbenchmark.MockChromeStable.APP_PATH)
 
   def test_flag_group_combination(self):
     config = cli.BrowserConfig(
