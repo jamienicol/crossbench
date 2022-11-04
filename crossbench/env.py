@@ -349,6 +349,7 @@ class HostEnvironment:
     self._wait_min_time()
 
   def check_installed(self, binaries, message="Missing binaries: %s"):
-    missing = (binary for binary in binaries if not shutil.which(binary))
-    if missing:
-      self.handle_warning((message % binaries) + " Continue?")
+    missing_binaries = list(
+        binary for binary in binaries if not self._platform.which(binary))
+    if missing_binaries:
+      self.handle_warning((message % missing_binaries))
