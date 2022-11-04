@@ -19,15 +19,43 @@ class Speedometer2Test(helper.PressBaseBenchmarkTestCase):
   def benchmark_cls(self):
     return speedometer.Speedometer20Benchmark
 
-  def test_story_filtering_cli_args_all(self):
+  def test_story_filtering_cli_args_all_separate(self):
     stories = speedometer.Speedometer20Story.default(separate=True)
     args = mock.Mock()
     args.stories = "all"
+    args.is_live = False
+    args.separate = True
     stories_all = self.benchmark_cls.stories_from_cli_args(args)
     self.assertListEqual(
         [story.name for story in stories],
         [story.name for story in stories_all],
     )
+
+  def test_story_filtering_cli_args_all(self):
+    stories = speedometer.Speedometer20Story.default(separate=False)
+    args = mock.Mock()
+    args.stories = "all"
+    args.is_live = False
+    args.separate = False
+    stories_all = self.benchmark_cls.stories_from_cli_args(args)
+    self.assertEqual(len(stories), 1)
+    self.assertEqual(len(stories_all), 1)
+    story = stories[0]
+    assert isinstance(story, speedometer.Speedometer20Story)
+    self.assertEqual(story.name, "speedometer_2.0")
+    story = stories_all[0]
+    assert isinstance(story, speedometer.Speedometer20Story)
+    self.assertEqual(story.name, "speedometer_2.0")
+    self.assertEqual(story.url, speedometer.Speedometer20Story.URL_LOCAL)
+
+    args.is_live = True
+    args.separate = False
+    stories_all = self.benchmark_cls.stories_from_cli_args(args)
+    self.assertEqual(len(stories_all), 1)
+    story = stories_all[0]
+    assert isinstance(story, speedometer.Speedometer20Story)
+    self.assertEqual(story.name, "speedometer_2.0")
+    self.assertEqual(story.url, speedometer.Speedometer20Story.URL)
 
   def test_story_filtering(self):
     with self.assertRaises(ValueError):

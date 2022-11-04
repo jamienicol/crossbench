@@ -125,7 +125,9 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     self._substories = substories or self.story_names()
     self._verify_substories()
     name = self.NAME
-    if self._substories != self.story_names():
+    # Potentially inefficient intermediate set creation.
+    if len(self._substories) != len(self.story_names()) or (set(
+        self._substories) != set(self.story_names())):
       name += "_" + ("_".join(self._substories))
     if len(name) > 220:
       # Crop the name and add some random hash bits

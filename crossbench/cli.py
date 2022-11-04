@@ -341,11 +341,12 @@ def env_config_file(value: str) -> cb.env.HostEnvironmentConfig:
 
 class CrossBenchCLI:
 
-  BENCHMARKS: Tuple[Type[cb.benchmarks.Benchmark], ...] = (
-      cb.benchmarks.all.Speedometer20Benchmark,
-      cb.benchmarks.all.JetStream2Benchmark,
-      cb.benchmarks.all.MotionMark12Benchmark,
-      cb.benchmarks.all.PageLoadBenchmark,
+  TBenchmarkCls = Type[cb.benchmarks.Benchmark]
+  BENCHMARKS: Tuple[Tuple[TBenchmarkCls, Tuple[str, ...]], ...] = (
+      (cb.benchmarks.all.Speedometer20Benchmark, ("speedometer",)),
+      (cb.benchmarks.all.JetStream2Benchmark, ("jetstream",)),
+      (cb.benchmarks.all.MotionMark12Benchmark, ("motionmark",)),
+      (cb.benchmarks.all.PageLoadBenchmark, ()),
   )
 
   RUNNER_CLS: Type[cb.runner.Runner] = cb.runner.Runner
@@ -368,8 +369,8 @@ class CrossBenchCLI:
     self.subparsers = self.parser.add_subparsers(
         title="Subcommands", dest="subcommand", required=True)
 
-    for benchmark_cls in self.BENCHMARKS:
-      self._setup_benchmark_subparser(benchmark_cls)
+    for benchmark_cls, alias in self.BENCHMARKS:
+      self._setup_benchmark_subparser(benchmark_cls, alias)
 
     describe_parser = self.subparsers.add_parser(
         "describe", aliases=["desc"], help="Print all benchmarks and stories")
@@ -389,7 +390,7 @@ class CrossBenchCLI:
     data = {
         "benchmarks": {
             benchmark_cls.NAME: benchmark_cls.describe()
-            for benchmark_cls in self.BENCHMARKS
+            for benchmark_cls, _ in self.BENCHMARKS
         },
         "probes": {
             probe_cls.NAME: probe_cls.help_text()
@@ -426,8 +427,9 @@ class CrossBenchCLI:
               maxcolwidths=[12, None]))  # pytype: disable=wrong-keyword-args
 
   def _setup_benchmark_subparser(self,
-                                 benchmark_cls: Type[cb.benchmarks.Benchmark]):
-    subparser = benchmark_cls.add_cli_parser(self.subparsers)
+                                 benchmark_cls: Type[cb.benchmarks.Benchmark],
+                                 aliases: Sequence[str]):
+    subparser = benchmark_cls.add_cli_parser(self.subparsers, aliases)
     self.RUNNER_CLS.add_cli_parser(subparser)
     assert isinstance(subparser, argparse.ArgumentParser), (
         f"Benchmark class {benchmark_cls}.add_cli_parser did not return "
@@ -526,9 +528,18 @@ class CrossBenchCLI:
     runner = self._get_runner(args, benchmark, env_config, env_validation_mode)
     for probe in probes:
       runner.attach_probe(probe, matching_browser_only=True)
-    runner.run(is_dry_run=args.dry_run)
-    results_json = runner.out_dir / "results.json"
-    print(f"RESULTS: {results_json}")
+    try:
+      runner.run(is_dry_run=args.dry_run)
+    except Exception as e:
+      if args.throw:
+        raise
+      logging.error("")
+      logging.error(f"ERROR {e.__class__.__name__.upper()}:")
+      logging.error("  use --throw for detailed stack traces")
+      logging.error("")
+      logging.error(e)
+      exit(3)
+    print(f"RESULTS: {runner.out_dir}")
 
   def _get_browsers(self,
                     args: argparse.Namespace) -> Sequence[cb.browsers.Browser]:
@@ -552,7 +563,7 @@ class CrossBenchCLI:
   def _get_env_validation_mode(self, args) -> cb.env.ValidationMode:
     if args.use_checklist:
       return cb.env.ValidationMode.PROMPT
-    return cb.env.ValidationMode.SKIP
+    return cb.env.ValidationMode.WARN
 
   def _get_env_config(self, args) -> cb.env.HostEnvironmentConfig:
     if args.env:

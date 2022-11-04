@@ -9,7 +9,6 @@ import re
 from typing import Any, Dict, Iterable, List, Sequence, Type, cast
 import argparse
 import logging
-from urllib.error import HTTPError
 import urllib.request
 
 import crossbench as cb
@@ -23,7 +22,8 @@ class Benchmark(abc.ABC):
   DEFAULT_STORY_CLS: Type[cb.stories.Story] = cb.stories.Story
 
   @classmethod
-  def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
+  def add_cli_parser(cls, subparsers,
+                     aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
     assert cls.__doc__ and cls.__doc__, (
     f"Benchmark class {cls} must provide a doc string.")
     doc_title = cls.__doc__.strip().split("\n")[0]
@@ -31,7 +31,8 @@ class Benchmark(abc.ABC):
         cls.NAME,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         help=doc_title,
-        description=cls.__doc__.strip())
+        description=cls.__doc__.strip(),
+        aliases=aliases)
     return parser
 
   @classmethod
@@ -117,8 +118,9 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
   STORY_FILTER_CLS: Type[StoryFilter] = StoryFilter
 
   @classmethod
-  def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
-    parser = super().add_cli_parser(subparsers)
+  def add_cli_parser(cls, subparsers,
+                     aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
+    parser = super().add_cli_parser(subparsers, aliases)
     parser.add_argument(
         "--stories",
         default="all",
@@ -143,7 +145,7 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
     return kwargs
 
   @classmethod
-  def stories_from_cli_args(cls, args) -> Iterable[cb.stories.Story]:
+  def stories_from_cli_args(cls, args) -> Sequence[cb.stories.Story]:
     return cls.STORY_FILTER_CLS.from_cli_args(cls.DEFAULT_STORY_CLS,
                                               args).stories
 
@@ -274,8 +276,9 @@ class PressBenchmark(SubStoryBenchmark):
   STORY_FILTER_CLS = PressBenchmarkStoryFilter
 
   @classmethod
-  def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
-    parser = super().add_cli_parser(subparsers)
+  def add_cli_parser(cls, subparsers,
+                     aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
+    parser = super().add_cli_parser(subparsers, aliases)
     is_live_group = parser.add_mutually_exclusive_group()
     is_live_group.add_argument(
         "--live",

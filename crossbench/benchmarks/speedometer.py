@@ -113,7 +113,7 @@ class Speedometer20Story(cb.stories.PressBenchmarkStory):
         """,
             arguments=[self._substories])
       actions.wait(0.5)
-    with run.actions("Run") as actions:
+    with run.actions("Start Run") as actions:
       actions.js(
           """
         // Store all the results in the benchmarkClient
@@ -132,6 +132,7 @@ class Speedometer20Story(cb.stories.PressBenchmarkStory):
         runner.runMultipleIterations(iterationCount);
         """,
           arguments=[self.iterations])
+    with run.actions("Wait") as actions:
       actions.wait(1 * len(self._substories))
       actions.wait_js_condition(
           "return globalThis.testDone",
@@ -147,8 +148,9 @@ class Speedometer20Benchmark(cb.benchmarks.PressBenchmark):
   DEFAULT_STORY_CLS = Speedometer20Story
 
   @classmethod
-  def add_cli_parser(cls, subparsers) -> argparse.ArgumentParser:
-    parser = super().add_cli_parser(subparsers)
+  def add_cli_parser(cls, subparsers,
+                     aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
+    parser = super().add_cli_parser(subparsers, aliases)
     parser.add_argument(
         "--iterations",
         default=10,
@@ -175,6 +177,6 @@ class Speedometer20Benchmark(cb.benchmarks.PressBenchmark):
     for story in stories:
       assert isinstance(story, self.DEFAULT_STORY_CLS)
       if iterations is not None:
-        assert iterations > 1
+        assert iterations >= 1
         story.iterations = iterations
     super().__init__(stories, is_live)

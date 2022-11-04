@@ -6,6 +6,7 @@ import argparse
 import io
 import json
 import pathlib
+from typing import List
 import unittest
 import unittest.mock as mock
 
@@ -58,12 +59,15 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       self.assertGreater(len(stdout), 0)
 
   def test_help_subcommand(self):
-    for benchmark in cli.CrossBenchCLI.BENCHMARKS:
-      with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
-        stdout = self.run_cli(benchmark.NAME, "--help", raises=SysExitException)
-        self.assertTrue(exit_mock.called)
-        exit_mock.assert_called_with(0)
-        self.assertGreater(len(stdout), 0)
+    for benchmark_cls, aliases in cli.CrossBenchCLI.BENCHMARKS:
+      subcommands = (benchmark_cls.NAME,) + aliases
+      for subcommand in subcommands:
+        with mock.patch(
+            "sys.exit", side_effect=SysExitException()) as exit_mock:
+          stdout = self.run_cli(subcommand, "--help", raises=SysExitException)
+          self.assertTrue(exit_mock.called)
+          exit_mock.assert_called_with(0)
+          self.assertGreater(len(stdout), 0)
 
   def test_invalid_probe(self):
     with (self.assertRaises(ValueError),
@@ -467,6 +471,8 @@ class TestBrowserConfig(pyfakefs.fake_filesystem_unittest.TestCase):
     browser = config.variants[0]
     assert isinstance(browser, mockbenchmark.MockChromeStable)
     self.assertEqual(browser.app_path, mockbenchmark.MockChromeStable.APP_PATH)
+    browser = config.variants[1]
+    assert isinstance(browser, mockbenchmark.MockChromeDev)
     self.assertEqual(browser.app_path, mockbenchmark.MockChromeDev.APP_PATH)
 
   def test_inline_flags(self):

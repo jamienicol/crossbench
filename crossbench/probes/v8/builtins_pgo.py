@@ -24,7 +24,8 @@ class V8BuiltinsPGOProbe(base.Probe):
   def is_compatible(self, browser: cb.browsers.Browser):
     return browser.type == "chrome"
 
-  def attach(self, browser: cb.browsers.Browser):
+  def attach(self, browser):
+    # Use inline isinstance assert to hint that we have a Chrome browser.
     assert isinstance(browser, cb.browsers.Chrome)
     super().attach(browser)
     browser.js_flags.set("--allow-natives-syntax")

@@ -166,6 +166,16 @@ class Platform(abc.ABC):
         for p in psutil.process_iter(attrs=attrs)
     ]
 
+  def process_children(self, parent_pid: int,
+                       recursive=False) -> List[Dict[str, Any]]:
+    return [
+        p.as_dict()
+        for p in psutil.Process(parent_pid).children(recursive=recursive)
+    ]
+
+  def foreground_process(self) -> Optional[Dict[str, Any]]:
+    return None
+
   def sh_stdout(self, *args, shell=False, quiet=False, encoding="utf-8") -> str:
     completed_process = self.sh(
         *args, shell=shell, capture_output=True, quiet=quiet)
@@ -419,6 +429,17 @@ class MacOSPlatform(PosixPlatform):
     if not quiet:
       logging.debug("AppleScript: %s", script)
     return self.sh("/usr/bin/osascript", "-e", script)
+
+  def foreground_process(self) -> Optional[Dict[str, Any]]:
+    foreground_process_info = self.sh_stdout("lsappinfo", "front").strip()
+    if not foreground_process_info:
+      return None
+    foreground_info = self.sh_stdout("lsappinfo", "info", "-only", "pid",
+                                     foreground_process_info).strip()
+    _, pid = foreground_info.split("=")
+    if pid and pid.isdigit():
+      return psutil.Process(int(pid)).as_dict()
+    return None
 
   def get_relative_cpu_speed(self) -> float:
     try:

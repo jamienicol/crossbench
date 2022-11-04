@@ -116,7 +116,8 @@ class ProfilingProbe(base.Probe):
   def pre_check(self, env: cb.env.HostEnvironment):
     super().pre_check(env)
     if self.browser_platform.is_linux:
-      assert self.browser_platform.which("pprof"), "Please install pprof"
+      env.check_installed(binaries=["pprof"])
+      assert self.browser_platform.which("perf"), "Please install linux-perf"
     elif self.browser_platform.is_macos:
       assert self.browser_platform.which(
           "xctrace"), "Please install Xcode to use xctrace"

@@ -77,7 +77,7 @@ class RunDurationsProbe(JsonResultProbe):
 
 class RunResultsSummaryProbe(JsonResultProbe):
   """
-  Runner-internal meta-probe: Collects a summary json with all the Run
+  Runner-internal meta-probe: Collects a summary results.json with all the Run
   information, including all paths to the results of all attached Probes.
   """
   NAME = "results"

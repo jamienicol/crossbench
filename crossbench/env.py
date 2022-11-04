@@ -318,13 +318,17 @@ class HostEnvironment:
             f"headless={browser.is_headless}.")
 
   def _check_probes(self):
+    for probe in self._runner.probes:
+      try:
+        probe.pre_check(self)
+      except Exception as e:
+        raise ValidationError(
+            f"Probe='{probe.NAME}' validation failed: {e}") from e
     require_probes = self._config.require_probes
     if require_probes is HostEnvironmentConfig.Ignore:
       return
     if self._config.require_probes and not self._runner.probes:
       self.handle_warning("No probes specified.")
-    for probe in self._runner.probes:
-      probe.pre_check(self)
 
   def setup(self):
     self.validate()

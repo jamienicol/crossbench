@@ -228,13 +228,13 @@ class Chrome(Browser):
       "--no-first-run",
   ]
 
-  @property
   @classmethod
+  @property
   def default_path(cls):
     return cls.stable_path
 
-  @property
   @classmethod
+  @property
   def stable_path(cls):
     if helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome.app")
@@ -249,8 +249,8 @@ class Chrome(Browser):
           "Google/Chrome/Application/chrome.exe")
     raise NotImplementedError()
 
-  @property
   @classmethod
+  @property
   def dev_path(cls):
     if helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome Dev.app")
@@ -261,8 +261,8 @@ class Chrome(Browser):
       return helper.platform.search_binary("google-chrome-unstable")
     raise NotImplementedError()
 
-  @property
   @classmethod
+  @property
   def canary_path(cls):
     if helper.platform.is_macos:
       return pathlib.Path("/Applications/Google Chrome Canary.app")
@@ -429,6 +429,10 @@ class WebdriverMixin(Browser):
     self._driver = self._start_driver(run, self._driver_path)
     if hasattr(self._driver, "service"):
       self._driver_pid = self._driver.service.process.pid
+      for child in self.platform.process_children(self._driver_pid):
+        if str(child["exe"]) == str(self.path):
+          self._pid = int(child["pid"])
+          break
     self._is_running = True
     self._driver.set_window_position(self.x, self.y)
     self._driver.set_window_size(self.width, self.height)

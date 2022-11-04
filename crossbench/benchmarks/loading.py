@@ -176,8 +176,8 @@ class PageLoadBenchmark(cb.benchmarks.SubStoryBenchmark):
   STORY_FILTER_CLS = LoadingPageFilter
 
   @classmethod
-  def add_cli_parser(cls, subparsers):
-    parser = super().add_cli_parser(subparsers)
+  def add_cli_parser(cls, subparsers, aliases: Sequence[str] = ()):
+    parser = super().add_cli_parser(subparsers, aliases)
     parser.add_argument(
         "--urls",
         dest="stories",

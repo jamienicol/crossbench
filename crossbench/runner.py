@@ -636,13 +636,30 @@ class Run:
           logging.info("RUN: BROWSER=%s STORY=%s", self._browser.short_name,
                        self.story.name)
           assert self._state == self.STATE_RUN, "Invalid state"
-          with self._durations.measure("run"):
-            self._story.run(self)
-          self._run_success = True
+          try:
+            with self._durations.measure("run"):
+              self._story.run(self)
+            self._run_success = True
+          except TimeoutError as e:
+            # Handle TimeoutError earlier since they might be caused by
+            # throttled down non-foreground browser.
+            self._exceptions.handle(e)
+          self._check_browser_foreground()
       except Exception as e:
         self._exceptions.handle(e)
       finally:
         self.tear_down(probe_scopes)
+
+  def _check_browser_foreground(self):
+    if not self.browser.pid:
+      return
+    info = self.platform.foreground_process()
+    if not info:
+      return
+    assert info["pid"] == self.browser.pid, (
+        f"Browser(name={self.browser.short_name} pid={self.browser.pid})) "
+        "was not in the foreground at the end of the benchmark. "
+        "Background apps and tabs can be heavily throttled.")
 
   def _advance_state(self, expected, next):
     assert self._state == expected, (
@@ -737,7 +754,8 @@ class Actions(helper.TimeScope):
       if result:
         return time_spent
       assert result is False, (
-          f"js_code did not return a bool, but got: {result}")
+          f"js_code did not return a bool, but got: {result}\n"
+          f"js-code: {js_code}")
 
   def navigate_to(self, url: str):
     self._assert_is_active()
