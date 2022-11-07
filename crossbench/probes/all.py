@@ -18,17 +18,17 @@ from crossbench.probes.video import VideoProbe
 
 from typing import Tuple, Type
 
-ABSTRACT_PROBES : Tuple[Type[Probe], ...] = (Probe, JsonResultProbe)
+ABSTRACT_PROBES: Tuple[Type[Probe], ...] = (Probe, JsonResultProbe)
 
 # Probes that are not user-configurable
-INTERNAL_PROBES : Tuple[Type[Probe], ...] = (
+INTERNAL_PROBES: Tuple[Type[Probe], ...] = (
     RunResultsSummaryProbe,
     RunRunnerLogProbe,
     RunDurationsProbe,
 )
 
 # Probes that can be used on arbitrary stories and may be user configurable.
-GENERAL_PURPOSE_PROBES : Tuple[Type[Probe], ...] = (
+GENERAL_PURPOSE_PROBES: Tuple[Type[Probe], ...] = (
     PerformanceEntriesProbe,
     PowerSamplerProbe,
     ProfilingProbe,

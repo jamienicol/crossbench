@@ -98,10 +98,8 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           self.assertGreater(len(stdout), 0)
 
   def test_invalid_probe(self):
-    with (self.assertRaises(ValueError),
-          mock.patch.object(
-              cb.cli.CrossBenchCLI, "_get_browsers",
-              return_value=self.browsers)):
+    with self.assertRaises(ValueError), mock.patch.object(
+        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--probe=invalid_probe_name")
 
   def test_basic_probe_setting(self):
@@ -179,9 +177,9 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
     with config_file.open("w", encoding="utf-8") as f:
       json.dump(config_data, f)
 
-    with (mock.patch.object(
+    with mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers",
-        return_value=self.browsers), self.assertRaises(ValueError)):
+        return_value=self.browsers), self.assertRaises(ValueError):
       self.run_cli("loading", f"--probe-config={config_file}",
                    "--urls=http://test.com", "--skip-checklist")
 
@@ -208,7 +206,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
 
   def test_custom_chrome_browser_binary(self):
     browser_cls = mockbenchmark.MockChromeStable
-    browser_bin = browser_cls.APP_PATH.with_stem("Custom Google Chrome")
+    browser_bin = browser_cls.APP_PATH.with_name("Custom Google Chrome.app")
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
 
     with mock.patch.object(
@@ -219,7 +217,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
                    "--urls=http://test.com", "--skip-checklist")
       get_browser_cls.assert_called_once()
 
-  def test_browser_ientifiers(self):
+  def test_browser_identifiers(self):
     browsers = {
         "chrome": mockbenchmark.MockChromeStable,
         "chrome stable": mockbenchmark.MockChromeStable,
@@ -227,16 +225,20 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         "chrome beta": mockbenchmark.MockChromeBeta,
         "beta": mockbenchmark.MockChromeBeta,
         "chrome dev": mockbenchmark.MockChromeDev,
-        "canary": mockbenchmark.MockChromeCanary,
-        "chrome canary": mockbenchmark.MockChromeCanary,
-        # Not actually supported on other plaforms than macOs
-        "safari": mockbenchmark.MockSafari,
-        "tp": mockbenchmark.MockSafariTechnologyPreview,
-        "safari technology preview": mockbenchmark.MockSafariTechnologyPreview,
     }
+    if not self.platform.is_linux:
+      browsers["canary"] = mockbenchmark.MockChromeCanary,
+    if self.platform.is_macos:
+      browsers.update({
+          "safari":
+              mockbenchmark.MockSafari,
+          "tp":
+              mockbenchmark.MockSafariTechnologyPreview,
+          "safari technology preview":
+              mockbenchmark.MockSafariTechnologyPreview,
+      })
 
     for identifier, browser_cls in browsers.items():
-      browser_cls = mockbenchmark.MockChromeStable
       out_dir = self.out_dir / identifier
       self.assertFalse(out_dir.exists())
       with mock.patch.object(
@@ -256,10 +258,8 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         self.assertIn("test.com", results["stories"])
 
   def test_probe_invalid_inline_json_config(self):
-    with (self.assertRaises(ValueError),
-          mock.patch.object(
-              cb.cli.CrossBenchCLI, "_get_browsers",
-              return_value=self.browsers)):
+    with self.assertRaises(ValueError), mock.patch.object(
+        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--probe=v8.log{invalid json: d a t a}",
                    f"--urls=cnn", "--skip-checklist")
 
@@ -591,12 +591,12 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
     self.assertEqual(browser_1.app_path, mockbenchmark.MockChromeDev.APP_PATH)
 
   def test_inline_flags(self):
-    with (mock.patch.object(
-        cb.browsers.Chrome, "_extract_version", return_value="101.22.333.44"),
-          mock.patch.object(
-              cb.browsers.Chrome,
-              "stable_path",
-              new=mockbenchmark.MockChromeStable.APP_PATH)):
+    with mock.patch.object(
+        cb.browsers.Chrome, "_extract_version",
+        return_value="101.22.333.44"), mock.patch.object(
+            cb.browsers.Chrome,
+            "stable_path",
+            return_value=mockbenchmark.MockChromeStable.APP_PATH):
 
       config = cb.cli.BrowserConfig(
           {"browsers": {

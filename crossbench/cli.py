@@ -215,17 +215,17 @@ class BrowserConfig:
     # We're not using a dict-based lookup here, since not all browsers are
     # available on all platforms
     if identifier in ("chrome", "chrome stable", "stable"):
-      return cb.browsers.Chrome.stable_path
+      return cb.browsers.Chrome.stable_path()
     elif identifier in ("chrome beta", "beta"):
-      return cb.browsers.Chrome.beta_path
+      return cb.browsers.Chrome.beta_path()
     elif identifier in ("chrome dev", "dev"):
-      return cb.browsers.Chrome.dev_path
+      return cb.browsers.Chrome.dev_path()
     elif identifier in ("chrome canary", "canary"):
-      return cb.browsers.Chrome.canary_path
+      return cb.browsers.Chrome.canary_path()
     elif identifier == "safari":
-      return cb.browsers.Safari.default_path
+      return cb.browsers.Safari.default_path()
     elif identifier in ("safari technology preview", "tp"):
-      return cb.browsers.Safari.technology_preview_path
+      return cb.browsers.Safari.technology_preview_path()
     path = pathlib.Path(path_or_identifier)
     if path.exists():
       return path
@@ -424,8 +424,7 @@ class CrossBenchCLI:
           tabulate(
               data["probes"].items(),
               headers=["Probe", "Help"],
-              tablefmt="grid",
-              maxcolwidths=[12, None]))  # pytype: disable=wrong-keyword-args
+              tablefmt="grid"))
 
   def _setup_benchmark_subparser(self,
                                  benchmark_cls: Type[cb.benchmarks.Benchmark],

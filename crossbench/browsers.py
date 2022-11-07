@@ -222,12 +222,10 @@ class Chrome(Browser):
   ]
 
   @classmethod
-  @property
   def default_path(cls) -> pathlib.Path:
-    return cls.stable_path
+    return cls.stable_path()
 
   @classmethod
-  @property
   def stable_path(cls) -> pathlib.Path:
     return helper.search_app_or_executable(
         "Chrome Stable",
@@ -236,7 +234,6 @@ class Chrome(Browser):
         win=["Google/Chrome/Application/chrome.exe"])
 
   @classmethod
-  @property
   def beta_path(cls) -> pathlib.Path:
     return helper.search_app_or_executable(
         "Chrome Beta",
@@ -245,16 +242,14 @@ class Chrome(Browser):
         win=["Google/Chrome Beta/Application/chrome.exe"])
 
   @classmethod
-  @property
   def dev_path(cls) -> pathlib.Path:
     return helper.search_app_or_executable(
         "Chrome Dev",
         macos=["Google Chrome Dev.app"],
-        linux=["google_chrome_unstable"],
+        linux=["google-chrome-unstable"],
         win=["Google/Chrome Dev/Application/chrome.exe"])
 
   @classmethod
-  @property
   def canary_path(cls) -> pathlib.Path:
     return helper.search_app_or_executable(
         "Chrome Canary",
@@ -700,26 +695,16 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
     pass
 
 
-class SafariMeta(type(Browser)):
 
-  @property
-  def default(cls) -> Safari:
-    return cls("Safari", cls.default_path)
+class Safari(Browser):
 
-  @property
+  @classmethod
   def default_path(cls):
     return pathlib.Path("/Applications/Safari.app")
 
-  @property
-  def technology_preview(cls) -> Safari:
-    return cls("Safari Tech Preview", cls.technology_preview_path)
-
-  @property
+  @classmethod
   def technology_preview_path(cls):
     return pathlib.Path("/Applications/Safari Technology Preview.app")
-
-
-class Safari(Browser, metaclass=SafariMeta):
 
   def __init__(self,
                label: str,

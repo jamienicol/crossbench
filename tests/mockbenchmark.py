@@ -7,7 +7,7 @@ from __future__ import annotations
 import abc
 import pathlib
 import psutil
-from typing import List, Optional, Type
+from typing import List, Optional, Tuple, Type
 from pyfakefs import fake_filesystem_unittest
 
 import crossbench as cb
@@ -43,8 +43,17 @@ class MockPlatform(ActivePlatformClass):
   def sleep(self, duration):
     pass
 
+  def processes(self, attrs=[]):
+    return []
 
-mock_platform = MockPlatform() # pytype: disable=not-instantiable
+  def process_children(self, parent_pid: int, recursive=False):
+    return []
+
+  def foreground_process(self):
+    return None
+
+
+mock_platform = MockPlatform()  # pytype: disable=not-instantiable
 
 
 class MockBrowser(cb.browsers.Browser):
@@ -59,7 +68,8 @@ class MockBrowser(cb.browsers.Browser):
   def setup_bin(cls, fs, bin_path: pathlib.Path, bin_name: str):
     if cb.helper.platform.is_macos:
       assert bin_path.suffix == ".app"
-      fs.create_file(bin_path / "Contents" / "MacOS" / bin_name)
+      bin_path = bin_path / "Contents" / "MacOS" / bin_name
+    fs.create_file(bin_path)
 
   def __init__(self,
                label: str,
@@ -116,28 +126,28 @@ class MockChromeStable(MockBrowser):
   if helper.platform.is_macos:
     APP_PATH = pathlib.Path("/Applications/Google Chrome.app")
   else:
-    APP_PATH = pathlib.Path("/usr/bin/chrome")
+    APP_PATH = pathlib.Path("/usr/bin/google-chrome")
 
 
 class MockChromeBeta(MockBrowser):
   if cb.helper.platform.is_macos:
     APP_PATH = pathlib.Path("/Applications/Google Chrome Beta.app")
   else:
-    APP_PATH = pathlib.Path("/usr/bin/chrome-beta")
+    APP_PATH = pathlib.Path("/usr/bin/google-chrome-beta")
 
 
 class MockChromeDev(MockBrowser):
   if helper.platform.is_macos:
     APP_PATH = pathlib.Path("/Applications/Google Chrome Dev.app")
   else:
-    APP_PATH = pathlib.Path("/usr/bin/chrome-unstable")
+    APP_PATH = pathlib.Path("/usr/bin/google-chrome-unstable")
 
 
 class MockChromeCanary(MockBrowser):
   if helper.platform.is_macos:
     APP_PATH = pathlib.Path("/Applications/Google Chrome Canary.app")
   else:
-    APP_PATH = pathlib.Path("/usr/bin/chrome-canary")
+    APP_PATH = pathlib.Path("/usr/bin/google-chrome-canary")
 
 
 class MockSafari(MockBrowser):
@@ -173,6 +183,10 @@ class MockBenchmark(cb.benchmarks.base.SubStoryBenchmark):
 class MockCLI(cli.CrossBenchCLI):
 
   def _get_runner(self, args, benchmark, env_config, env_validation_mode):
+    if not args.out_dir:
+      # Use stable mock out dir
+      args.out_dir = pathlib.Path("/results")
+      assert not args.out_dir.exists()
     runner_kwargs = self.RUNNER_CLS.kwargs_from_cli(args)
     self.runner = self.RUNNER_CLS(
         benchmark=benchmark,
@@ -186,7 +200,7 @@ class MockCLI(cli.CrossBenchCLI):
 class BaseCrossbenchTestCase(
     fake_filesystem_unittest.TestCase, metaclass=abc.ABCMeta):
 
-  MOCK_BROWSERS = (
+  MOCK_BROWSERS: Tuple[Type[MockBrowser], ...] = (
       MockChromeCanary,
       MockChromeDev,
       MockChromeBeta,
@@ -199,8 +213,11 @@ class BaseCrossbenchTestCase(
     self.setUpPyfakefs(modules_to_reload=[cb])
     for mock_browser_cls in self.MOCK_BROWSERS:
       mock_browser_cls.setup_fs(self.fs)
+      # Reinitialize potentially non-pyfakefs paths
+      mock_browser_cls.APP_PATH = pathlib.Path(mock_browser_cls.APP_PATH)
+      self.assertTrue(mock_browser_cls.APP_PATH.exists())
     self.platform = mock_platform
-    self.out_dir = pathlib.Path("tmp/results/test")
+    self.out_dir = pathlib.Path("/tmp/results/test")
     self.out_dir.parent.mkdir(parents=True)
     self.browsers = [
         MockChromeDev("dev", platform=self.platform),
