@@ -142,8 +142,9 @@ class JetStream2Story(cb.stories.PressBenchmarkStory):
           """
         return document.querySelectorAll("#results>.benchmark").length > 0;
       """, helper.wait_range(0.5, 10))
-    with run.actions("Run") as actions:
+    with run.actions("Start") as actions:
       actions.js("JetStream.start()")
+    with run.actions("Wait Done") as actions:
       actions.wait(2 * len(self._substories))
       actions.wait_js_condition(
           """

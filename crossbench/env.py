@@ -8,7 +8,6 @@ import datetime as dt
 import enum
 import logging
 from numbers import Number
-import os
 import shutil
 from typing import TYPE_CHECKING, List, Optional
 
@@ -59,7 +58,7 @@ class HostEnvironmentConfig:
   disk_min_free_space_gib: Optional[float] = Ignore
   power_use_battery: Optional[bool] = Ignore
   screen_brightness_percent: Optional[int] = Ignore
-  cpu_max_usage_percent: Optional[int] = Ignore
+  cpu_max_usage_percent: Optional[float] = Ignore
   cpu_min_relative_speed: Optional[float] = Ignore
   system_allow_monitoring: Optional[bool] = Ignore
   browser_allow_existing_process: Optional[bool] = Ignore
@@ -188,6 +187,7 @@ class HostEnvironment:
         f"Runner/Host environment requests cannot be fulfilled: {message}")
 
   def _check_system_monitoring(self):
+    # TODO(cbruni): refactor to use list_... and disable_system_monitoring api
     if self._platform.is_macos:
       self._check_crowdstrike()
 
@@ -198,8 +198,10 @@ class HostEnvironment:
     is_disabled = False
     force_disable = self._config.system_allow_monitoring is False
     try:
+      # TODO(cbruni): refactor to use list_... and disable_system_monitoring api
       is_disabled = self._platform.check_system_monitoring(force_disable)
       if force_disable:
+        # Add cool-down period, crowdstrike caused CPU usage spikes
         self._add_min_delay(5)
     except helper.SubprocessError as e:
       self.handle_warning(

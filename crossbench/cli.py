@@ -8,7 +8,6 @@ import argparse
 import itertools
 import json
 import logging
-from multiprocessing.sharedctypes import Value
 import pathlib
 import hjson
 from tabulate import tabulate
@@ -189,13 +188,13 @@ class BrowserConfig:
       return cb.browsers.SafariWebDriver
     if "chrome" in path_str:
       return cb.browsers.ChromeWebDriver
-    raise Exception(f"Unsupported browser='{path}'")
+    raise ValueError(f"Unsupported browser='{path}'")
 
   def load_from_args(self, args):
     path = self._get_browser_path(args.browser or "chrome")
     logging.warning("SELECTED BROWSER: %s", path)
-    cls = self._get_browser_cls_from_path(path)
-    flags = cls.default_flags()
+    browser_cls = self._get_browser_cls_from_path(path)
+    flags = browser_cls.default_flags()
     if args.enable_features:
       for feature in args.enabled_features.split(","):
         flags.features.enable(feature)
@@ -208,22 +207,24 @@ class BrowserConfig:
       flags.set(*cb.flags.Flags.split(flag_str))
 
     label = cb.browsers.convert_flags_to_label(*flags.get_list())
-    browser = cls(label=label, path=path, flags=flags)  # pytype: disable=not-instantiable
+    browser = browser_cls(label=label, path=path, flags=flags)  # pytype: disable=not-instantiable
     self.variants.append(browser)
 
   def _get_browser_path(self, path_or_identifier: str) -> pathlib.Path:
     identifier = path_or_identifier.lower()
     # We're not using a dict-based lookup here, since not all browsers are
     # available on all platforms
-    if identifier == "chrome" or identifier == "stable":
+    if identifier in ("chrome", "chrome stable", "stable"):
       return cb.browsers.Chrome.stable_path
-    if identifier == "chrome dev" or identifier == "dev":
+    elif identifier in ("chrome beta", "beta"):
+      return cb.browsers.Chrome.beta_path
+    elif identifier in ("chrome dev", "dev"):
       return cb.browsers.Chrome.dev_path
-    if identifier == "chrome canary" or identifier == "canary":
+    elif identifier in ("chrome canary", "canary"):
       return cb.browsers.Chrome.canary_path
-    if identifier == "safari":
+    elif identifier == "safari":
       return cb.browsers.Safari.default_path
-    if identifier == "safari technology preview" or identifier == "tp":
+    elif identifier in ("safari technology preview", "tp"):
       return cb.browsers.Safari.technology_preview_path
     path = pathlib.Path(path_or_identifier)
     if path.exists():
@@ -232,8 +233,8 @@ class BrowserConfig:
     if path.exists():
       return path
     if len(path.parts) > 1:
-      raise Exception(f"Browser at '{path}' does not exist.")
-    raise Exception(
+      raise ValueError(f"Browser at '{path}' does not exist.")
+    raise ValueError(
         f"Unknown browser path or short name: '{path_or_identifier}'")
 
 

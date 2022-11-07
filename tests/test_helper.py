@@ -240,7 +240,7 @@ class WinxPlatformUnittest(unittest.TestCase):
     self.assertTrue(ls)
 
   def test_search_binary(self):
-    path = self.platform.search_binary("does not exist")
+    path = self.platform.search_binary(pathlib.Path("does not exist"))
     self.assertIsNone(path)
     path = self.platform.search_binary(
         pathlib.Path("Windows NT/Accessories/wordpad.exe"))
@@ -294,17 +294,19 @@ class MacOSPlatformHelperTestCase(unittest.TestCase):
     self.platform = helper.platform
 
   def test_search_binary_not_found(self):
-    bin = self.platform.search_binary("An App That Doesn't Exist")
+    with self.assertRaises(ValueError):
+      self.platform.search_binary(pathlib.Path("Invalid App Name"))
+    bin = self.platform.search_binary(pathlib.Path("Non Existant App.app"))
     self.assertIsNone(bin)
 
   def test_search_binary(self):
-    bin = self.platform.search_binary("Safari")
-    self.assertTrue(bin and bin.exists())
+    bin = self.platform.search_binary(pathlib.Path("Safari.app"))
+    self.assertTrue(bin and bin.is_file())
 
-  def test_find_app_binary_path(self):
-    bin = self.platform.find_app_binary_path(
-        pathlib.Path("/Applications/Safari.app"))
-    self.assertTrue(bin.exists())
+  def test_search_app(self):
+    bin = self.platform.search_app(pathlib.Path("Safari.app"))
+    self.assertTrue(bin and bin.exists())
+    self.assertTrue(bin and bin.is_dir())
 
   def test_short_name(self):
     self.assertEqual(self.platform.short_name, "macos")

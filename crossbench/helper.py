@@ -12,7 +12,6 @@ import os
 import pathlib
 import platform as py_platform
 import shlex
-import json
 import shutil
 import subprocess
 import sys
@@ -20,7 +19,7 @@ import time
 import traceback
 import urllib
 import urllib.request
-from typing import Any, Callable, Dict, Final, Iterable, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, Dict, Final, Iterable, List, Optional, Tuple, TypeVar, Sequence
 
 import psutil
 
@@ -140,12 +139,20 @@ class Platform(abc.ABC):
       return False
     return status.power_plugged
 
+  def search_app(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
+    return self.search_binary(app_path)
+
+  @abc.abstractmethod
+  def search_binary(self, app_name: pathlib.Path) -> Optional[pathlib.Path]:
+    pass
+
+  @abc.abstractmethod
+  def app_version(self, app_path: pathlib.Path) -> str:
+    pass
+
   @property
   def has_display(self) -> bool:
     return True
-
-  def find_app_binary_path(self, app_path):
-    return app_path
 
   def sleep(self, seconds):
     if isinstance(seconds, dt.timedelta):
@@ -237,6 +244,8 @@ class Platform(abc.ABC):
       level = logging.ERROR
     logging.log(level, messages)
 
+  # TODO(cbruni): split into separate list_system_monitoring and
+  # disable_system_monitoring methods
   def check_system_monitoring(self, disable: bool = False) -> bool:
     return True
 
@@ -339,12 +348,13 @@ class SubprocessError(subprocess.CalledProcessError):
 
 
 class WinPlatform(Platform):
-  SEARCH_PATHS = [
+  SEARCH_PATHS = (
+      pathlib.Path("."),
       pathlib.Path(os.path.expandvars("%ProgramFiles%")),
       pathlib.Path(os.path.expandvars("%ProgramFiles(x86)%")),
       pathlib.Path(os.path.expandvars("%APPDATA%")),
-      pathlib.Path(os.path.expandvars("%LOCALAPPDATA%"))
-  ]
+      pathlib.Path(os.path.expandvars("%LOCALAPPDATA%")),
+  )
 
   @property
   def is_win(self):
@@ -354,11 +364,15 @@ class WinPlatform(Platform):
   def short_name(self):
     return "win"
 
-  def search_binary(self, bin_name) -> Optional[pathlib.Path]:
+  def search_binary(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
+    if app_path.suffix != ".exe":
+      raise ValueError("Expected executable path with '.exe' suffix, "
+                       f"but got: '{app_path.name}'")
     for path in self.SEARCH_PATHS:
-      bin_path = path / bin_name
-      if bin_path.exists():
-        return bin_path
+      # Recreate Path object for easier pyfakefs testing
+      result_path = pathlib.Path(path) / app_path
+      if result_path.exists():
+        return result_path
     return None
 
   def app_version(self, bin: pathlib.Path) -> str:
@@ -375,6 +389,11 @@ class PosixPlatform(Platform, metaclass=abc.ABCMeta):
 
 
 class MacOSPlatform(PosixPlatform):
+  SEARCH_PATHS = (
+      pathlib.Path("."),
+      pathlib.Path("/Applications"),
+      pathlib.Path.home() / "Applications",
+  )
 
   @property
   def is_macos(self):
@@ -384,25 +403,41 @@ class MacOSPlatform(PosixPlatform):
   def short_name(self):
     return "macos"
 
-  def find_app_binary_path(self, app_path) -> pathlib.Path:
+  def _find_app_binary_path(self, app_path: pathlib.Path) -> pathlib.Path:
     bin_path = app_path / "Contents" / "MacOS" / app_path.stem
     if bin_path.exists():
       return bin_path
     binaries = bin_path.parent.iterdir()
     binaries = [path for path in binaries if path.is_file()]
     if len(binaries) != 1:
-      raise Exception(f"Invalid number of binaries found: {binaries}")
+      raise Exception(
+          f"Invalid number of binaries candidates found: {binaries}")
     return binaries[0]
 
-  def search_binary(self, app_name) -> Optional[pathlib.Path]:
-    try:
-      app_path = pathlib.Path("/Applications") / f"{app_name}.app"
-      bin_path = self.find_app_binary_path(app_path)
-      if not bin_path.exists():
-        return None
-      return bin_path
-    except Exception as e:
+  def search_binary(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
+    if app_path.suffix != ".app":
+      raise ValueError("Expected app name with '.app' suffix, "
+                       f"but got: '{app_path.name}'")
+    for search_path in self.SEARCH_PATHS:
+      # Recreate Path object for easier pyfakefs testing
+      result_path = pathlib.Path(search_path) / app_path
+      if not result_path.is_dir():
+        continue
+      result_path = self._find_app_binary_path(result_path)
+      if result_path.exists():
+        return result_path
+    return None
+
+  def search_app(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
+    binary = self.search_binary(app_path)
+    if not binary:
       return None
+    # input: /Applications/Safari.app/Contents/MacOS/Safari
+    # output: /Applications/Safari.app
+    app_path = binary.parents[2]
+    assert app_path.suffix == ".app"
+    assert app_path.is_dir()
+    return app_path
 
   def app_version(self, bin_path: pathlib.Path) -> str:
     assert bin_path.exists(), f"Binary {bin} does not exist."
@@ -417,7 +452,7 @@ class MacOSPlatform(PosixPlatform):
 
     if not app_path:
       # Most likely just a cli tool"
-      return self.sh_stdout(app_path, "--version")
+      return self.sh_stdout(bin_path, "--version")
 
     version_string = self.sh_stdout("mdls", "-name", "kMDItemVersion", app_path)
     # Filter output: "kMDItemVersion = "14.1"" => "14.1"
@@ -425,7 +460,7 @@ class MacOSPlatform(PosixPlatform):
     assert version_string != "(null)", f"Didn't find app at {bin_path}"
     return version_string[1:-1]
 
-  def exec_apple_script(self, script, quiet=False):
+  def exec_apple_script(self, script: str, quiet=False):
     if not quiet:
       logging.debug("AppleScript: %s", script)
     return self.sh("/usr/bin/osascript", "-e", script)
@@ -550,6 +585,7 @@ class MacOSPlatform(PosixPlatform):
 
 class LinuxPlatform(PosixPlatform):
   SEARCH_PATHS = (
+      pathlib.Path("."),
       pathlib.Path("/usr/local/sbin"),
       pathlib.Path("/usr/local/bin"),
       pathlib.Path("/usr/sbin"),
@@ -581,12 +617,14 @@ class LinuxPlatform(PosixPlatform):
         details[info_bin] = self.sh_stdout(info_bin)
     return details
 
-  def search_binary(self, bin_name) -> Optional[pathlib.Path]:
+  def search_binary(self, bin_path: pathlib.Path) -> Optional[pathlib.Path]:
     for path in self.SEARCH_PATHS:
-      bin_path = path / bin_name
-      if bin_path.exists():
-        return bin_path
+      # Recreate Path object for easier pyfakefs testing
+      result_path = pathlib.Path(path) / bin_path
+      if result_path.exists():
+        return result_path
     return None
+
 
 if sys.platform == "linux":
   platform = LinuxPlatform()
@@ -598,6 +636,28 @@ else:
   raise Exception("Unsupported Platform")
 
 log = platform.log
+
+
+def search_app_or_executable(name: str,
+                             macos: Sequence[str] = (),
+                             win: Sequence[str] = (),
+                             linux: Sequence[str] = ()) -> pathlib.Path:
+  executables = []
+  if platform.is_macos:
+    executables = macos
+  elif platform.is_win:
+    executables = win
+  elif platform.is_linux:
+    executables = linux
+
+  if not executables:
+    raise ValueError(
+        f"Executable {name} not supported on platform {platform.short_name}")
+  for name_or_path in executables:
+    binary = platform.search_app(pathlib.Path(name_or_path))
+    if binary and binary.exists():
+      return binary
+  raise Exception(f"Executable {name} not found on {platform.short_name}")
 
 # =============================================================================
 

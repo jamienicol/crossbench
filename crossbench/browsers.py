@@ -63,6 +63,7 @@ class Browser(abc.ABC):
     self.label: str = label
     self.path: pathlib.Path = path
     assert self.path.exists(), f"Binary at path={self.path} does not exist."
+    self.app_path = path
     if self.platform.is_macos:
       self._resolve_macos_binary()
     assert self.path.is_file(), (f"Binary at path={self.path} is not a file.")
@@ -100,20 +101,11 @@ class Browser(abc.ABC):
     return True
 
   def _resolve_macos_binary(self):
-    assert self.path.is_dir(
-    ), f"Expected a binary, ending in .app: path={self.path}"
-    mac_os_dir = self.path / "Contents" / "MacOS"
-    self.path = mac_os_dir / self.path.stem
-    if self.path.exists():
-      return
-    candidates = [
-        maybe_bin for maybe_bin in mac_os_dir.glob("*")
-        if self.type.lower() in maybe_bin.name.lower()
-    ]
-    assert len(candidates) == 1, (
-        f"Expected 1 browser candidate, got {len(candidates)} candidates={candidates}"
-    )
-    self.path = candidates[0]
+    assert self.platform.is_macos
+    candidate = self.platform.search_binary(self.path)
+    if not candidate or not candidate.is_file():
+      raise ValueError(f"Could not find browser executable in {self.path}")
+    self.path = candidate
 
   def attach_probe(self, probe: cb.probes.Probe):
     self._probes.add(probe)
@@ -209,7 +201,7 @@ class Browser(abc.ABC):
 _FLAG_TO_PATH_RE = re.compile(r"[-/\\:\.]")
 
 
-def convert_flags_to_label(*flags, index=None):
+def convert_flags_to_label(*flags, index: Optional[int] = None) -> str:
   label = "default"
   if flags:
     label = _FLAG_TO_PATH_RE.sub("_", "_".join(flags).replace("--", ""))
@@ -230,46 +222,43 @@ class Chrome(Browser):
 
   @classmethod
   @property
-  def default_path(cls):
+  def default_path(cls) -> pathlib.Path:
     return cls.stable_path
 
   @classmethod
   @property
-  def stable_path(cls):
-    if helper.platform.is_macos:
-      return pathlib.Path("/Applications/Google Chrome.app")
-    if helper.platform.is_linux:
-      for bin_name in ("google-chrome", "chrome"):
-        binary = helper.platform.search_binary(bin_name)
-        if binary:
-          return binary
-      raise Exception("Could not find binary")
-    if helper.platform.is_win:
-      return helper.platform.search_binary(
-          "Google/Chrome/Application/chrome.exe")
-    raise NotImplementedError()
+  def stable_path(cls) -> pathlib.Path:
+    return helper.search_app_or_executable(
+        "Chrome Stable",
+        macos=["Google Chrome.app"],
+        linux=["google-chrome", "chrome"],
+        win=["Google/Chrome/Application/chrome.exe"])
 
   @classmethod
   @property
-  def dev_path(cls):
-    if helper.platform.is_macos:
-      return pathlib.Path("/Applications/Google Chrome Dev.app")
-    if helper.platform.is_win:
-      return helper.platform.search_binary(
-          "Google/Chrome Dev/Application/chrome.exe")
-    if helper.platform.is_linux:
-      return helper.platform.search_binary("google-chrome-unstable")
-    raise NotImplementedError()
+  def beta_path(cls) -> pathlib.Path:
+    return helper.search_app_or_executable(
+        "Chrome Beta",
+        macos=["Google Chrome Beta.app"],
+        linux=["google-chrome-beta"],
+        win=["Google/Chrome Beta/Application/chrome.exe"])
 
   @classmethod
   @property
-  def canary_path(cls):
-    if helper.platform.is_macos:
-      return pathlib.Path("/Applications/Google Chrome Canary.app")
-    if helper.platform.is_win:
-      return helper.platform.search_binary(
-          "Google/Chrome SxS/Application/chrome.exe")
-    raise NotImplementedError()
+  def dev_path(cls) -> pathlib.Path:
+    return helper.search_app_or_executable(
+        "Chrome Dev",
+        macos=["Google Chrome Dev.app"],
+        linux=["google_chrome_unstable"],
+        win=["Google/Chrome Dev/Application/chrome.exe"])
+
+  @classmethod
+  @property
+  def canary_path(cls) -> pathlib.Path:
+    return helper.search_app_or_executable(
+        "Chrome Canary",
+        macos=["Google Chrome Canary.app"],
+        win=["Google/Chrome SxS/Application/chrome.exe"])
 
   @classmethod
   def default_flags(cls, initial_data: FlagsInitialDataType = None):
@@ -404,6 +393,7 @@ class WebdriverMixin(Browser):
   _driver: webdriver.Remote
   _driver_path: Optional[pathlib.Path]
   _driver_pid: int
+  log_file: pathlib.Path
 
   @property
   def driver_log_file(self):

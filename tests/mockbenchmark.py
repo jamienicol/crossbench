@@ -52,11 +52,14 @@ class MockBrowser(cb.browsers.Browser):
   VERSION = "100.22.33.44"
 
   @classmethod
-  def setup_fs(cls, fs, bin_name="Chrome"):
-    if helper.platform.is_macos:
-      fs.create_file(cls.APP_PATH / "Contents" / "MacOS" / bin_name)
-    else:
-      fs.create_file(cls.APP_PATH)
+  def setup_fs(cls, fs, bin_name: str = "Chrome"):
+    cls.setup_bin(fs, cls.APP_PATH, bin_name)
+
+  @classmethod
+  def setup_bin(cls, fs, bin_path: pathlib.Path, bin_name: str):
+    if cb.helper.platform.is_macos:
+      assert bin_path.suffix == ".app"
+      fs.create_file(bin_path / "Contents" / "MacOS" / bin_name)
 
   def __init__(self,
                label: str,
@@ -116,11 +119,18 @@ class MockChromeStable(MockBrowser):
     APP_PATH = pathlib.Path("/usr/bin/chrome")
 
 
+class MockChromeBeta(MockBrowser):
+  if cb.helper.platform.is_macos:
+    APP_PATH = pathlib.Path("/Applications/Google Chrome Beta.app")
+  else:
+    APP_PATH = pathlib.Path("/usr/bin/chrome-beta")
+
+
 class MockChromeDev(MockBrowser):
   if helper.platform.is_macos:
     APP_PATH = pathlib.Path("/Applications/Google Chrome Dev.app")
   else:
-    APP_PATH = pathlib.Path("/usr/bin/chrome-dev")
+    APP_PATH = pathlib.Path("/usr/bin/chrome-unstable")
 
 
 class MockChromeCanary(MockBrowser):
@@ -139,6 +149,17 @@ class MockSafari(MockBrowser):
   @classmethod
   def setup_fs(cls, fs):
     return super().setup_fs(fs, bin_name="Safari")
+
+
+class MockSafariTechnologyPreview(MockBrowser):
+  if cb.helper.platform.is_macos:
+    APP_PATH = pathlib.Path("/Applications/Safari Technology Preview.app")
+  else:
+    APP_PATH = pathlib.Path('/unsupported-platform/Safari Technology Preview')
+
+  @classmethod
+  def setup_fs(cls, fs):
+    return super().setup_fs(fs, bin_name="Safari Technology Preview")
 
 
 class MockStory(cb.stories.Story):
@@ -162,14 +183,22 @@ class MockCLI(cli.CrossBenchCLI):
         platform=mock_platform)
     return self.runner
 
-
 class BaseCrossbenchTestCase(
     fake_filesystem_unittest.TestCase, metaclass=abc.ABCMeta):
 
+  MOCK_BROWSERS = (
+      MockChromeCanary,
+      MockChromeDev,
+      MockChromeBeta,
+      MockChromeStable,
+      MockSafari,
+      MockSafariTechnologyPreview,
+  )
+
   def setUp(self):
     self.setUpPyfakefs(modules_to_reload=[cb])
-    MockChromeDev.setup_fs(self.fs)
-    MockChromeStable.setup_fs(self.fs)
+    for mock_browser_cls in self.MOCK_BROWSERS:
+      mock_browser_cls.setup_fs(self.fs)
     self.platform = mock_platform
     self.out_dir = pathlib.Path("tmp/results/test")
     self.out_dir.parent.mkdir(parents=True)
