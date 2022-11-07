@@ -16,17 +16,19 @@ from crossbench.probes.tracing import TracingProbe
 from crossbench.probes.v8 import V8BuiltinsPGOProbe, V8LogProbe, V8RCSProbe
 from crossbench.probes.video import VideoProbe
 
-ABSTRACT_PROBES = (Probe, JsonResultProbe)
+from typing import Tuple, Type
+
+ABSTRACT_PROBES : Tuple[Type[Probe], ...] = (Probe, JsonResultProbe)
 
 # Probes that are not user-configurable
-INTERNAL_PROBES = (
+INTERNAL_PROBES : Tuple[Type[Probe], ...] = (
     RunResultsSummaryProbe,
     RunRunnerLogProbe,
     RunDurationsProbe,
 )
 
 # Probes that can be used on arbitrary stories and may be user configurable.
-GENERAL_PURPOSE_PROBES = (
+GENERAL_PURPOSE_PROBES : Tuple[Type[Probe], ...] = (
     PerformanceEntriesProbe,
     PowerSamplerProbe,
     ProfilingProbe,

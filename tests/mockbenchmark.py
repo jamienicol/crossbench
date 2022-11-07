@@ -7,7 +7,7 @@ from __future__ import annotations
 import abc
 import pathlib
 import psutil
-from typing import List, Optional
+from typing import List, Optional, Type
 from pyfakefs import fake_filesystem_unittest
 
 import crossbench as cb
@@ -18,7 +18,7 @@ FlagsInitialDataType = cb.flags.Flags.InitialDataType
 
 GiB = 1014**3
 
-ActivePlatformClass = type(helper.platform)
+ActivePlatformClass: Type[cb.helper.Platform] = type(cb.helper.platform)
 
 
 class MockPlatform(ActivePlatformClass):
@@ -44,7 +44,7 @@ class MockPlatform(ActivePlatformClass):
     pass
 
 
-mock_platform = MockPlatform()
+mock_platform = MockPlatform() # pytype: disable=not-instantiable
 
 
 class MockBrowser(cb.browsers.Browser):

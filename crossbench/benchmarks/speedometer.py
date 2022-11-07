@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import argparse
 import csv
-from typing import TYPE_CHECKING, Optional, Sequence, Tuple
+import pathlib
+from typing import TYPE_CHECKING, Optional, Sequence, Tuple, List
 
 import crossbench as cb
 if TYPE_CHECKING:
@@ -50,8 +51,8 @@ class Speedometer20Probe(probes_json.JsonResultProbe):
     return self.write_group_result(group, merged, write_csv=True)
 
   def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
-    csv_files = []
-    headers = []
+    csv_files: List[pathlib.Path] = []
+    headers: List[str] = []
     for story_group in group.story_groups:
       csv_files.append(story_group.results[self]["csv"])
       headers.append(story_group.browser.label)

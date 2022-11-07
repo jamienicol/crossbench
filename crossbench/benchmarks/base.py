@@ -37,6 +37,7 @@ class Benchmark(abc.ABC):
 
   @classmethod
   def describe(cls) -> Dict[str, Any]:
+    assert cls.__doc__
     return {
         "name": cls.NAME,
         "description": cls.__doc__.strip(),

@@ -285,7 +285,6 @@ class PosixPlatformUnittest(unittest.TestCase):
     self.assertTrue(details)
 
 
-
 @unittest.skipIf(not helper.platform.is_macos, "Incompatible platform")
 class MacOSPlatformHelperTestCase(unittest.TestCase):
 

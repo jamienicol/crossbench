@@ -407,8 +407,7 @@ class MacOSPlatform(PosixPlatform):
     bin_path = app_path / "Contents" / "MacOS" / app_path.stem
     if bin_path.exists():
       return bin_path
-    binaries = bin_path.parent.iterdir()
-    binaries = [path for path in binaries if path.is_file()]
+    binaries = [path for path in bin_path.parent.iterdir() if path.is_file()]
     if len(binaries) != 1:
       raise Exception(
           f"Invalid number of binaries candidates found: {binaries}")

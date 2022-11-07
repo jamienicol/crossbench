@@ -149,7 +149,7 @@ class LoadingPageFilter(cb.benchmarks.StoryFilter):
         continue
       self.stories.append(page)
 
-  def create_stories(self) -> Iterable[Page]:
+  def create_stories(self) -> Sequence[Page]:
     if not self.separate and len(self.stories) > 1:
       combined_name = "_".join(page.name for page in self.stories)
       self.stories = (CombinedPage(self.stories, combined_name),)

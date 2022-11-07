@@ -18,7 +18,8 @@ import traceback
 import urllib.request
 import zipfile
 import pathlib
-from typing import Final, List, Optional, Sequence, Set
+import typing
+from typing import Any, Dict, Final, List, Optional, Sequence, Set, Tuple
 
 import selenium
 from selenium import webdriver
@@ -85,11 +86,11 @@ class Browser(abc.ABC):
     self._flags: cb.flags.Flags = self.default_flags(flags)
 
   @property
-  def is_headless(self):
+  def is_headless(self) -> bool:
     return False
 
   @property
-  def flags(self):
+  def flags(self) -> cb.flags.Flags:
     return self._flags
 
   @property
@@ -97,7 +98,7 @@ class Browser(abc.ABC):
     return self._pid
 
   @property
-  def is_local(self):
+  def is_local(self) -> bool:
     return True
 
   def _resolve_macos_binary(self):
@@ -111,7 +112,7 @@ class Browser(abc.ABC):
     self._probes.add(probe)
     probe.attach(self)
 
-  def details_json(self):
+  def details_json(self) -> Dict[str, Any]:
     return {
         "label": self.label,
         "app_name": self.app_name,
@@ -284,10 +285,10 @@ class Chrome(Browser):
     assert not isinstance(
         flags, str), (f"flags should be a list, but got: {repr(flags)}")
     self.default_page = "about://version"
-    self._flags = self.default_flags(Chrome.DEFAULT_FLAGS)
+    self._flags: cb.flags.ChromeFlags = self.default_flags(Chrome.DEFAULT_FLAGS)
     self._flags.update(flags)
     self.js_flags.update(js_flags)
-    self.log_file = None
+    self.log_file: Optional[pathlib.Path] = None
     self._stdout_log_file = None
 
   def _extract_version(self):
@@ -299,29 +300,31 @@ class Chrome(Browser):
     self.log_file = path
 
   @property
-  def is_headless(self):
+  def is_headless(self) -> bool:
     return "--headless" in self._flags
 
   @property
-  def chrome_log_file(self):
+  def chrome_log_file(self) -> pathlib.Path:
+    assert self.log_file
     return self.log_file.with_suffix(".chrome.log")
 
   @property
-  def stdout_log_file(self):
+  def stdout_log_file(self) -> pathlib.Path:
+    assert self.log_file
     return self.log_file.with_suffix(".stdout.log")
 
   @property
-  def js_flags(self):
+  def js_flags(self) -> cb.flags.JSFlags:
     return self._flags.js_flags
 
   @property
-  def features(self):
+  def features(self) -> cb.flags.ChromeFeatures:
     return self._flags.features
 
   def exec_apple_script(self, script):
     return self.platform.exec_apple_script(script)
 
-  def details_json(self):
+  def details_json(self) -> Dict[str, Any]:
     details = super().details_json()
     if self.log_file:
       details["log"]["chrome"] = str(self.chrome_log_file)
@@ -329,7 +332,7 @@ class Chrome(Browser):
     details["js_flags"] = tuple(self.js_flags.get_list())
     return details
 
-  def _get_chrome_args(self, run):
+  def _get_chrome_args(self, run) -> typing.Tuple[str, ...]:
     js_flags_copy = self.js_flags.copy()
     js_flags_copy.update(run.extra_js_flags)
 
@@ -348,7 +351,7 @@ class Chrome(Browser):
 
     return tuple(flags_copy.get_list()) + (self.default_page,)
 
-  def get_label_from_flags(self):
+  def get_label_from_flags(self) -> str:
     return convert_flags_to_label(*self.flags, *self.js_flags)
 
   def start(self, run):
@@ -393,11 +396,12 @@ class WebdriverMixin(Browser):
   _driver: webdriver.Remote
   _driver_path: Optional[pathlib.Path]
   _driver_pid: int
-  log_file: pathlib.Path
+  log_file: Optional[pathlib.Path]
 
   @property
-  def driver_log_file(self):
-    return self.log_file.with_suffix(".driver.log")
+  def driver_log_file(self) -> pathlib.Path:
+    assert self.log_file
+    return self.log_file.with_suffix(".driver.log")  # pytype: disable=attribute-error
 
   def setup_binary(self, runner: cb.runner.Runner):
     self._driver_path = self._find_driver()
@@ -434,8 +438,8 @@ class WebdriverMixin(Browser):
                     driver_path: pathlib.Path) -> webdriver.Remote:
     pass
 
-  def details_json(self):
-    details = super().details_json()  # pytype: disable=attribute-error
+  def details_json(self) -> Dict[str, Any]:
+    details: Dict[str, Any] = super().details_json()  # pytype: disable=attribute-error
     details["log"]["driver"] = str(self.driver_log_file)
     return details
 
@@ -506,7 +510,7 @@ class ChromeDriverFinder:
     assert self.browser.is_local, (
         "Cannot download chromedriver for remote browser yet")
 
-  def find_local_build(self):
+  def find_local_build(self) -> pathlib.Path:
     # assume it's a local build
     self.driver_path = self.browser.path.parent / "chromedriver"
     if not self.driver_path.exists():
@@ -514,7 +518,7 @@ class ChromeDriverFinder:
                       "Please build 'chromedriver' manually for local builds.")
     return self.driver_path
 
-  def download(self):
+  def download(self) -> pathlib.Path:
     extension = ""
     if self.platform.is_win:
       extension = ".exe"
@@ -659,7 +663,7 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
     super().__init__(label, path, js_flags, flags, cache_dir, platform)
     self._driver_path = driver_path
 
-  def _find_driver(self):
+  def _find_driver(self) -> pathlib.Path:
     finder = ChromeDriverFinder(self)
     if self.major_version == 0 or (self.path.parent / "args.gn").exists():
       return finder.find_local_build()
@@ -699,7 +703,7 @@ class ChromeWebDriver(WebdriverMixin, Chrome):
 class SafariMeta(type(Browser)):
 
   @property
-  def default(cls):
+  def default(cls) -> Safari:
     return cls("Safari", cls.default_path)
 
   @property
@@ -707,7 +711,7 @@ class SafariMeta(type(Browser)):
     return pathlib.Path("/Applications/Safari.app")
 
   @property
-  def technology_preview(cls):
+  def technology_preview(cls) -> Safari:
     return cls("Safari Tech Preview", cls.technology_preview_path)
 
   @property
@@ -732,7 +736,7 @@ class Safari(Browser, metaclass=SafariMeta):
     ).expanduser()
     self.default_page = "about://blank"
 
-  def _extract_version(self):
+  def _extract_version(self) -> str:
     app_path = self.path.parents[2]
     return self.platform.app_version(app_path)
 
@@ -786,7 +790,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
                platform: Optional[helper.MacOSPlatform] = None):
     super().__init__(label, path, flags, cache_dir, platform)
 
-  def _find_driver(self):
+  def _find_driver(self) -> pathlib.Path:
     driver_path = self.path.parent / "safaridriver"
     if not driver_path.exists():
       # The system-default Safari version doesn't come with the driver
