@@ -5,7 +5,7 @@
 import io
 import json
 import pathlib
-from typing import List
+from typing import Dict, Tuple, Type
 import unittest
 import unittest.mock as mock
 
@@ -218,7 +218,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       get_browser_cls.assert_called_once()
 
   def test_browser_identifiers(self):
-    browsers = {
+    browsers: Dict[str, Type[mockbenchmark.MockBrowser]] = {
         "chrome": mockbenchmark.MockChromeStable,
         "chrome stable": mockbenchmark.MockChromeStable,
         "stable": mockbenchmark.MockChromeStable,
@@ -227,7 +227,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         "chrome dev": mockbenchmark.MockChromeDev,
     }
     if not self.platform.is_linux:
-      browsers["canary"] = mockbenchmark.MockChromeCanary,
+      browsers["canary"] = mockbenchmark.MockChromeCanary
     if self.platform.is_macos:
       browsers.update({
           "safari":
@@ -327,7 +327,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
     config = pathlib.Path("/test.config.hjson")
     # No "env" property
     with config.open("w") as f:
-      f.write("{}")
+      json.dump({}, f)
     with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
       self.run_cli(
           "loading",
@@ -337,7 +337,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           raises=SysExitException)
     # "env" not a dict
     with config.open("w") as f:
-      f.write("{env:[]}")
+      json.dump({"env": []}, f)
     with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
       self.run_cli(
           "loading",
@@ -346,7 +346,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           "--skip-checklist",
           raises=SysExitException)
     with config.open("w") as f:
-      f.write("{env:{unknown_property_name:1}}")
+      json.dump({"env": {"unknown_property_name": 1}}, f)
     with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
       self.run_cli(
           "loading",
@@ -358,7 +358,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
   def test_env_config_file(self):
     config = pathlib.Path("/test.config.hjson")
     with config.open("w") as f:
-      f.write("{env:{}}")
+      json.dump({"env": {}}, f)
     with mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", f"--env-config={config}",
@@ -367,7 +367,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
   def test_env_invalid_inline_and_file(self):
     config = pathlib.Path("/test.config.hjson")
     with config.open("w") as f:
-      f.write("{env:{}}")
+      json.dump({"env": {}}, f)
     with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
       self.run_cli(
           "loading",
@@ -448,16 +448,19 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
 
   def setUp(self):
     super().setUp()
-    self.BROWSER_LOOKUP = {
-        "stable": (mockbenchmark.MockChromeStable,
-                   mockbenchmark.MockChromeStable.APP_PATH),
-        "dev":
-            (mockbenchmark.MockChromeDev, mockbenchmark.MockChromeDev.APP_PATH),
-        "chrome-stable": (mockbenchmark.MockChromeStable,
-                          mockbenchmark.MockChromeStable.APP_PATH),
-        "chrome-dev":
-            (mockbenchmark.MockChromeDev, mockbenchmark.MockChromeDev.APP_PATH),
-    }
+    self.BROWSER_LOOKUP: Dict[
+        str, Tuple[Type[mockbenchmark.MockBrowser], pathlib.Path]] = {
+            "stable": (mockbenchmark.MockChromeStable,
+                       mockbenchmark.MockChromeStable.APP_PATH),
+            "dev": (mockbenchmark.MockChromeDev,
+                    mockbenchmark.MockChromeDev.APP_PATH),
+            "chrome-stable": (mockbenchmark.MockChromeStable,
+                              mockbenchmark.MockChromeStable.APP_PATH),
+            "chrome-dev": (mockbenchmark.MockChromeDev,
+                           mockbenchmark.MockChromeDev.APP_PATH),
+        }
+    for identifier, (browser_cls, browser_path) in self.BROWSER_LOOKUP.items():
+      self.assertTrue(browser_path.exists())
 
   def test_load_browser_config_template(self):
     if not self.EXAMPLE_CONFIG_PATH.exists():
