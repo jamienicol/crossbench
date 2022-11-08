@@ -4,6 +4,7 @@
 
 import io
 import json
+import hjson
 import pathlib
 from typing import Dict, Tuple, Type
 import unittest
@@ -17,6 +18,7 @@ import crossbench.probes.all
 import crossbench.cli
 
 from tests import mockbenchmark
+from tests.mockbenchmark import browser as mock_browser
 
 
 class SysExitException(Exception):
@@ -129,7 +131,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
     config_file = pathlib.Path("/config.hjson")
     config_data = {"probes": {}}
     with config_file.open("w") as f:
-      json.dump(config_data, f)
+      hjson.dump(config_data, f)
     with mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
@@ -143,7 +145,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
     config_file = pathlib.Path("/config.hjson")
     config_data = {"probes": {"invalid probe name": {}}}
     with config_file.open("w") as f:
-      json.dump(config_data, f)
+      hjson.dump(config_data, f)
     with mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
@@ -159,7 +161,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
     js_flags = ["--log-foo", "--log-bar"]
     config_data = {"probes": {"v8.log": {"js_flags": js_flags}}}
     with config_file.open("w", encoding="utf-8") as f:
-      json.dump(config_data, f)
+      hjson.dump(config_data, f)
 
     with mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
@@ -175,7 +177,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
     config_file = pathlib.Path("/config.hjson")
     config_data = {"probes": {"invalid probe name": {}}}
     with config_file.open("w", encoding="utf-8") as f:
-      json.dump(config_data, f)
+      hjson.dump(config_data, f)
 
     with mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers",
@@ -205,7 +207,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           raises=SysExitException)
 
   def test_custom_chrome_browser_binary(self):
-    browser_cls = mockbenchmark.MockChromeStable
+    browser_cls = mock_browser.MockChromeStable
     browser_bin = browser_cls.APP_PATH.with_name("Custom Google Chrome.app")
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
 
@@ -218,24 +220,21 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       get_browser_cls.assert_called_once()
 
   def test_browser_identifiers(self):
-    browsers: Dict[str, Type[mockbenchmark.MockBrowser]] = {
-        "chrome": mockbenchmark.MockChromeStable,
-        "chrome stable": mockbenchmark.MockChromeStable,
-        "stable": mockbenchmark.MockChromeStable,
-        "chrome beta": mockbenchmark.MockChromeBeta,
-        "beta": mockbenchmark.MockChromeBeta,
-        "chrome dev": mockbenchmark.MockChromeDev,
+    browsers: Dict[str, Type[mock_browser.MockBrowser]] = {
+        "chrome": mock_browser.MockChromeStable,
+        "chrome stable": mock_browser.MockChromeStable,
+        "stable": mock_browser.MockChromeStable,
+        "chrome beta": mock_browser.MockChromeBeta,
+        "beta": mock_browser.MockChromeBeta,
+        "chrome dev": mock_browser.MockChromeDev,
     }
     if not self.platform.is_linux:
-      browsers["canary"] = mockbenchmark.MockChromeCanary
+      browsers["canary"] = mock_browser.MockChromeCanary
     if self.platform.is_macos:
       browsers.update({
-          "safari":
-              mockbenchmark.MockSafari,
-          "tp":
-              mockbenchmark.MockSafariTechnologyPreview,
-          "safari technology preview":
-              mockbenchmark.MockSafariTechnologyPreview,
+          "safari": mock_browser.MockSafari,
+          "tp": mock_browser.MockSafariTechnologyPreview,
+          "safari technology preview": mock_browser.MockSafariTechnologyPreview,
       })
 
     for identifier, browser_cls in browsers.items():
@@ -297,7 +296,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
   def test_env_config_inline_hjson(self):
     with mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
-      self.run_cli("loading", "--env={power_use_battery:false}",
+      self.run_cli("loading", "--env={\"power_use_battery\":false}",
                    "--urls=http://test.com", "--skip-checklist")
 
   def test_env_config_inline_invalid(self):
@@ -327,7 +326,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
     config = pathlib.Path("/test.config.hjson")
     # No "env" property
     with config.open("w") as f:
-      json.dump({}, f)
+      hjson.dump({}, f)
     with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
       self.run_cli(
           "loading",
@@ -337,7 +336,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           raises=SysExitException)
     # "env" not a dict
     with config.open("w") as f:
-      json.dump({"env": []}, f)
+      hjson.dump({"env": []}, f)
     with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
       self.run_cli(
           "loading",
@@ -346,7 +345,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           "--skip-checklist",
           raises=SysExitException)
     with config.open("w") as f:
-      json.dump({"env": {"unknown_property_name": 1}}, f)
+      hjson.dump({"env": {"unknown_property_name": 1}}, f)
     with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
       self.run_cli(
           "loading",
@@ -358,7 +357,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
   def test_env_config_file(self):
     config = pathlib.Path("/test.config.hjson")
     with config.open("w") as f:
-      json.dump({"env": {}}, f)
+      hjson.dump({"env": {}}, f)
     with mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", f"--env-config={config}",
@@ -367,7 +366,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
   def test_env_invalid_inline_and_file(self):
     config = pathlib.Path("/test.config.hjson")
     with config.open("w") as f:
-      json.dump({"env": {}}, f)
+      hjson.dump({"env": {}}, f)
     with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
       self.run_cli(
           "loading",
@@ -387,7 +386,7 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
   def parse_config(self, config_data) -> cb.cli.ProbeConfig:
     probe_config_file = pathlib.Path("/probe.config.hjson")
     with probe_config_file.open("w") as f:
-      json.dump(config_data, f)
+      hjson.dump(config_data, f)
     with probe_config_file.open() as f:
       return cb.cli.ProbeConfig.load(f)
 
@@ -449,19 +448,20 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
   def setUp(self):
     super().setUp()
     self.BROWSER_LOOKUP: Dict[
-        str, Tuple[Type[mockbenchmark.MockBrowser], pathlib.Path]] = {
-            "stable": (mockbenchmark.MockChromeStable,
-                       mockbenchmark.MockChromeStable.APP_PATH),
-            "dev": (mockbenchmark.MockChromeDev,
-                    mockbenchmark.MockChromeDev.APP_PATH),
-            "chrome-stable": (mockbenchmark.MockChromeStable,
-                              mockbenchmark.MockChromeStable.APP_PATH),
-            "chrome-dev": (mockbenchmark.MockChromeDev,
-                           mockbenchmark.MockChromeDev.APP_PATH),
+        str, Tuple[Type[mock_browser.MockBrowser], pathlib.Path]] = {
+            "stable": (mock_browser.MockChromeStable,
+                       mock_browser.MockChromeStable.APP_PATH),
+            "dev": (mock_browser.MockChromeDev,
+                    mock_browser.MockChromeDev.APP_PATH),
+            "chrome-stable": (mock_browser.MockChromeStable,
+                              mock_browser.MockChromeStable.APP_PATH),
+            "chrome-dev": (mock_browser.MockChromeDev,
+                           mock_browser.MockChromeDev.APP_PATH),
         }
     for identifier, (browser_cls, browser_path) in self.BROWSER_LOOKUP.items():
       self.assertTrue(browser_path.exists())
 
+  @unittest.skipIf(hjson.__name__ != "hjson", "hjson not available")
   def test_load_browser_config_template(self):
     if not self.EXAMPLE_CONFIG_PATH.exists():
       raise unittest.SkipTest(
@@ -548,7 +548,7 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
     browsers = config.variants
     self.assertEqual(len(browsers), 3)
     for browser in browsers:
-      assert isinstance(browser, mockbenchmark.MockChromeStable)
+      assert isinstance(browser, mock_browser.MockChromeStable)
       self.assertDictEqual(dict(browser.js_flags), {})
     self.assertDictEqual(dict(browsers[0].flags), {})
     self.assertDictEqual(dict(browsers[1].flags), {"--foo": None})
@@ -586,12 +586,11 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
         browser_lookup_override=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 2)
     browser_0 = config.variants[0]
-    assert isinstance(browser_0, mockbenchmark.MockChromeStable)
-    self.assertEqual(browser_0.app_path,
-                     mockbenchmark.MockChromeStable.APP_PATH)
+    assert isinstance(browser_0, mock_browser.MockChromeStable)
+    self.assertEqual(browser_0.app_path, mock_browser.MockChromeStable.APP_PATH)
     browser_1 = config.variants[1]
-    assert isinstance(browser_1, mockbenchmark.MockChromeDev)
-    self.assertEqual(browser_1.app_path, mockbenchmark.MockChromeDev.APP_PATH)
+    assert isinstance(browser_1, mock_browser.MockChromeDev)
+    self.assertEqual(browser_1.app_path, mock_browser.MockChromeDev.APP_PATH)
 
   def test_inline_flags(self):
     with mock.patch.object(
@@ -599,7 +598,7 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
         return_value="101.22.333.44"), mock.patch.object(
             cb.browsers.Chrome,
             "stable_path",
-            return_value=mockbenchmark.MockChromeStable.APP_PATH):
+            return_value=mock_browser.MockChromeStable.APP_PATH):
 
       config = cb.cli.BrowserConfig(
           {"browsers": {
@@ -611,8 +610,7 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
       self.assertEqual(len(config.variants), 1)
       browser = config.variants[0]
       # TODO: Fix once app lookup is cleaned up
-      self.assertEqual(browser.app_path,
-                       mockbenchmark.MockChromeStable.APP_PATH)
+      self.assertEqual(browser.app_path, mock_browser.MockChromeStable.APP_PATH)
       self.assertEqual(browser.version, "101.22.333.44")
 
   def test_inline_load_safari(self):
@@ -650,9 +648,8 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
         browser_lookup_override=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3)
     for browser in config.variants:
-      assert isinstance(browser, mockbenchmark.MockChromeStable)
-      self.assertEqual(browser.app_path,
-                       mockbenchmark.MockChromeStable.APP_PATH)
+      assert isinstance(browser, mock_browser.MockChromeStable)
+      self.assertEqual(browser.app_path, mock_browser.MockChromeStable.APP_PATH)
 
   def test_flag_group_combination(self):
     config = cb.cli.BrowserConfig(
