@@ -217,7 +217,28 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         return_value=browser_cls) as get_browser_cls:
       self.run_cli("loading", f"--browser={browser_bin}",
                    "--urls=http://test.com", "--skip-checklist")
-      get_browser_cls.assert_called_once()
+    get_browser_cls.assert_called_once_with(browser_bin)
+
+  def test_custom_chrome_browser_binary_custom_flags(self):
+    browser_cls = mock_browser.MockChromeStable
+    browser_bin = browser_cls.APP_PATH.with_name("Custom Google Chrome.app")
+    browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
+
+    with mock.patch.object(
+        cb.cli.BrowserConfig,
+        "_get_browser_cls_from_path",
+        return_value=browser_cls), mock.patch.object(
+            cb.cli.CrossBenchCLI, "_run_benchmark") as run_benchmark:
+      self.run_cli("loading", f"--browser={browser_bin}",
+                   "--urls=http://test.com", "--skip-checklist", "--",
+                   "--chrome-flag1=value1", "--chrome-flag2")
+    run_benchmark.assert_called_once()
+    runner = run_benchmark.call_args[0][1]
+    self.assertIsInstance(runner, cb.runner.Runner)
+    self.assertEqual(len(runner.browsers), 1)
+    browser = runner.browsers[0]
+    self.assertListEqual(["--chrome-flag1=value1", "--chrome-flag2"],
+                         list(browser.flags.get_list()))
 
   def test_browser_identifiers(self):
     browsers: Dict[str, Type[mock_browser.MockBrowser]] = {
@@ -573,6 +594,69 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
         browser_lookup_override=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3)
 
+  def test_flag_combination_mixed_inline(self):
+    config = cb.cli.BrowserConfig(
+        {
+            "flags": {
+                "compile-hints-experiment": {
+                    "--enable-features": [None, "ConsumeCompileHints"]
+                }
+            },
+            "browsers": {
+                "chrome-release": {
+                    "path": "stable",
+                    "flags": ["--no-sandbox", "compile-hints-experiment"]
+                }
+            }
+        },
+        browser_lookup_override=self.BROWSER_LOOKUP)
+    browsers = config.variants
+    self.assertEqual(len(browsers), 2)
+    self.assertListEqual(["--no-sandbox"], list(browsers[0].flags.get_list()))
+    self.assertListEqual(
+        ["--no-sandbox", "--enable-features=ConsumeCompileHints"],
+        list(browsers[1].flags.get_list()))
+
+  def test_flag_single_inline(self):
+    config = cb.cli.BrowserConfig(
+        {
+            "browsers": {
+                "chrome-release": {
+                    "path": "stable",
+                    "flags": "--no-sandbox",
+                }
+            }
+        },
+        browser_lookup_override=self.BROWSER_LOOKUP)
+    browsers = config.variants
+    self.assertEqual(len(browsers), 1)
+    self.assertListEqual(["--no-sandbox"], list(browsers[0].flags.get_list()))
+
+  def test_flag_combination_mixed_fixed(self):
+    config = cb.cli.BrowserConfig(
+        {
+            "flags": {
+                "compile-hints-experiment": {
+                    "--no-sandbox": "",
+                    "--no-sandbox": "",
+                    "--enable-features": [None, "ConsumeCompileHints"]
+                }
+            },
+            "browsers": {
+                "chrome-release": {
+                    "path": "stable",
+                    "flags": "compile-hints-experiment"
+                }
+            }
+        },
+        browser_lookup_override=self.BROWSER_LOOKUP)
+    browsers = config.variants
+    self.assertEqual(len(browsers), 2)
+    self.assertListEqual(["--no-sandbox"], list(browsers[0].flags.get_list()))
+    self.assertListEqual(
+        ["--no-sandbox", "--enable-features=ConsumeCompileHints"],
+        list(browsers[1].flags.get_list()))
+
   def test_no_flags(self):
     config = cb.cli.BrowserConfig(
         {"browsers": {
@@ -674,6 +758,47 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
         },
         browser_lookup_override=self.BROWSER_LOOKUP)
     self.assertEqual(len(config.variants), 3 * 3 * 2)
+
+  def test_from_cli_args_browser_config(self):
+    browser_cls = mock_browser.MockChromeStable
+    browser_bin = browser_cls.APP_PATH.with_name("Custom Google Chrome.app")
+    browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
+    config_data = {"browsers": {"stable": {"path": str(browser_bin),}}}
+    config_file = pathlib.Path("config.hjson")
+    with config_file.open("w") as f:
+      hjson.dump(config_data, f)
+
+    args = mock.Mock(browser=None, browser_config=config_file)
+    with mock.patch.object(
+        cb.cli.BrowserConfig,
+        "_get_browser_cls_from_path",
+        return_value=browser_cls):
+      config = cb.cli.BrowserConfig.from_cli_args(args)
+    self.assertEqual(len(config.variants), 1)
+    browser = config.variants[0]
+    self.assertIsInstance(browser, browser_cls)
+    self.assertEqual(browser.app_path, browser_bin)
+
+  def test_from_cli_args_browser(self):
+    browser_cls = mock_browser.MockChromeStable
+    browser_bin = browser_cls.APP_PATH.with_name("Custom Google Chrome.app")
+    browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
+    args = mock.Mock(
+        browser=str(browser_bin),
+        browser_config=None,
+        enable_features=None,
+        disable_features=None,
+        js_flags=None,
+        other_browser_args=[])
+    with mock.patch.object(
+        cb.cli.BrowserConfig,
+        "_get_browser_cls_from_path",
+        return_value=browser_cls):
+      config = cb.cli.BrowserConfig.from_cli_args(args)
+    self.assertEqual(len(config.variants), 1)
+    browser = config.variants[0]
+    self.assertIsInstance(browser, browser_cls)
+    self.assertEqual(browser.app_path, browser_bin)
 
 
 class TestFlagGroupConfig(unittest.TestCase):

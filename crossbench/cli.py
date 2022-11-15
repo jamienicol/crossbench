@@ -155,12 +155,19 @@ class BrowserConfig:
   def _parse_flags(self, name, data):
     flags_product = []
     flag_group_names = data.get("flags", [])
+    if isinstance(flag_group_names, str):
+      flag_group_names = [flag_group_names]
     assert isinstance(flag_group_names,
                       list), (f"'flags' is not a list for browser='{name}'")
     for flag_group_name in flag_group_names:
       # Use temporary FlagGroupConfig for inline fixed flag definition
       if flag_group_name.startswith("--"):
         flag_name, flag_value = cb.flags.Flags.split(flag_group_name)
+        # No-value-flags produce flag_value == None, convert this to the "" for
+        # compatibility with the flag variants, where None would mean removing
+        # the flag.
+        if flag_value is None:
+          flag_value = ""
         flag_group = FlagGroupConfig("temporary", {flag_name: flag_value})
         assert flag_group_name not in self.flag_groups
       else:
@@ -528,6 +535,9 @@ class CrossBenchCLI:
     runner = self._get_runner(args, benchmark, env_config, env_validation_mode)
     for probe in probes:
       runner.attach_probe(probe, matching_browser_only=True)
+    self._run_benchmark(args, runner)
+
+  def _run_benchmark(self, args: argparse.Namespace, runner: cb.runner.Runner):
     try:
       runner.run(is_dry_run=args.dry_run)
     except Exception as e:
