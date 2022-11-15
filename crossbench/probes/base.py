@@ -197,23 +197,18 @@ class Probe(abc.ABC):
     def __enter__(self):
       assert not self._is_active
       assert not self._is_success
-      try:
+      with self._run.exception_handler(f"Probe {self.name} start"):
         self._is_active = True
         self.start(self._run)
-      except Exception as e:
-        self._run.exceptions.handle(e)
       return self
 
     def __exit__(self, exc_type, exc_value, traceback):
       assert self._is_active
-      try:
+      with self._run.exception_handler(f"Probe {self.name} stop"):
         self.stop(self._run)
         self._is_success = True
         assert self._stop_time is None
-      except Exception as e:
-        self._run.exceptions.handle(e)
-      finally:
-        self._stop_time = dt.datetime.now()
+      self._stop_time = dt.datetime.now()
 
     @property
     def probe(self) -> ProbeT:
@@ -261,6 +256,10 @@ class Probe(abc.ABC):
     @property
     def results_file(self) -> pathlib.Path:
       return self._default_results_file
+
+    @property
+    def name(self) -> str:
+      return self.probe.name
 
     def setup(self, run):
       """
@@ -340,7 +339,10 @@ class ProbeResultDict:
           f"strings, but got: {result}")
 
   def __getitem__(self, probe: Probe) -> ProbeResultType:
-    return self._dict[probe.name]
+    name = probe.name
+    if name not in self._dict:
+      raise KeyError(f"No results for probe='{name}'")
+    return self._dict[name]
 
   def __contains__(self, probe: Probe) -> bool:
     return probe.name in self._dict

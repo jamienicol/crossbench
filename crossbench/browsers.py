@@ -23,7 +23,7 @@ from typing import Any, Dict, Final, List, Optional, Sequence, Set, Tuple
 
 import selenium
 from selenium import webdriver
-from selenium.common.exceptions import InvalidSessionIdException
+import selenium.common.exceptions
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
@@ -446,7 +446,7 @@ class WebdriverMixin(Browser):
     except selenium.common.exceptions.WebDriverException as e:
       if e.msg and "net::ERR_CONNECTION_REFUSED" in e.msg:
         raise Exception(f"Browser failed to load URL={url}. "
-                        "The URL is likely unreachable.") from e
+                        "The URL is likely unreachable.")
       raise
 
   def js(self,
@@ -456,11 +456,13 @@ class WebdriverMixin(Browser):
          arguments: Sequence[object] = ()):
     logging.info("RUN SCRIPT timeout=%s, script: %s", timeout, script[:100])
     assert self._is_running
-    if timeout is not None:
-      assert timeout > 0, f"timeout must be a positive number, got: {timeout}"
-      self._driver.set_script_timeout(timeout)
+    try:
+      if timeout is not None:
+        assert timeout > 0, f"timeout must be a positive number, got: {timeout}"
+        self._driver.set_script_timeout(timeout)
       return self._driver.execute_script(script, *arguments)
-    return self._driver.execute_script(script, *arguments)
+    except selenium.common.exceptions.WebDriverException as e:
+      raise Exception(f"Could not execute JS: {e.msg}")
 
   def quit(self, runner: cb.runner.Runner):
     assert self._is_running
@@ -471,12 +473,16 @@ class WebdriverMixin(Browser):
       return
     logging.info("QUIT")
     try:
-      # Close the current window
-      self._driver.close()
-      time.sleep(0.1)
+      try:
+        # Close the current window.
+        self._driver.close()
+        time.sleep(0.1)
+      except selenium.common.exceptions.NoSuchWindowException:
+        # No window is good.
+        pass
       try:
         self._driver.quit()
-      except InvalidSessionIdException:
+      except selenium.common.exceptions.InvalidSessionIdException:
         return True
       # Sometimes a second quit is needed, ignore any warnings there
       try:
@@ -485,7 +491,7 @@ class WebdriverMixin(Browser):
         pass
       return True
     except Exception:
-      traceback.print_exc(file=sys.stdout)
+      logging.debug(traceback.format_exc())
     finally:
       self._is_running = False
     return False
@@ -549,7 +555,7 @@ class ChromeDriverFinder:
           driver_version = response.read().decode("utf-8")
         listing_url = f"{self.URL}/index.html?path={driver_version}/"
       except urllib.error.HTTPError as e:
-        if e.status != 404:
+        if e.code != 404:
           raise
     if driver_version is not None:
       if self.platform.is_linux:

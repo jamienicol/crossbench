@@ -98,6 +98,8 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
   ) -> base.ProbeResultType:
     merger = helper.ValuesMerger()
     for run in group.runs:
+      if self not in run.results:
+        raise Exception(f"Probe {self.NAME} produced no data to merge.")
       source_file = self.get_mergeable_result_file(run.results[self])
       assert source_file.is_file()
       with source_file.open("r") as f:

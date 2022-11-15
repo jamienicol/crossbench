@@ -42,6 +42,24 @@ class TTYColor:
   RESET = "\033[0m"
 
 
+class ColoredLogFormatter(logging.Formatter):
+
+  FORMAT = "%(message)s"
+
+  FORMATS = {
+      logging.DEBUG: FORMAT + " (%(filename)s:%(lineno)d)",
+      logging.INFO: TTYColor.GREEN + FORMAT + TTYColor.RESET,
+      logging.WARNING: TTYColor.YELLOW + FORMAT + TTYColor.RESET,
+      logging.ERROR: TTYColor.RED + FORMAT + TTYColor.RESET,
+      logging.CRITICAL: TTYColor.BOLD + TTYColor.RED + FORMAT + TTYColor.RESET,
+  }
+
+  def format(self, record):
+    log_fmt = self.FORMATS.get(record.levelno)
+    formatter = logging.Formatter(log_fmt)
+    return formatter.format(record)
+
+
 InputT = TypeVar('InputT')
 KeyT = TypeVar('KeyT')
 GroupT = TypeVar('GroupT')
@@ -714,6 +732,10 @@ class TimeScope:
     self._level = level
     self._start: Optional[dt.datetime] = None
 
+  @property
+  def message(self) -> str:
+    return self._message
+
   def __enter__(self):
     self._start = dt.datetime.now()
 
@@ -770,19 +792,6 @@ class Durations:
   Helper object to track durations.
   """
 
-  def __init__(self):
-    self._durations: Dict[str, dt.timedelta] = {}
-
-  def __getitem__(self, name) -> dt.timedelta:
-    return self._durations[name]
-
-  def __setitem__(self, name, duration: dt.timedelta):
-    assert name not in self._durations, (f"Cannot set '{name}' duration twice!")
-    self._durations[name] = duration
-
-  def __len__(self):
-    return len(self._durations)
-
   class _DurationMeasureContext:
 
     def __init__(self, durations, name):
@@ -796,6 +805,19 @@ class Durations:
     def __exit__(self, exc_type, exc_value, traceback):
       delta = dt.datetime.now() - self._start_time
       self._durations[self._name] = delta
+
+  def __init__(self):
+    self._durations: Dict[str, dt.timedelta] = {}
+
+  def __getitem__(self, name) -> dt.timedelta:
+    return self._durations[name]
+
+  def __setitem__(self, name, duration: dt.timedelta):
+    assert name not in self._durations, (f"Cannot set '{name}' duration twice!")
+    self._durations[name] = duration
+
+  def __len__(self):
+    return len(self._durations)
 
   def measure(self, name) -> "_DurationMeasureContext":
     assert name not in self._durations, (

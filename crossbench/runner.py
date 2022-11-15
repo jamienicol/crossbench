@@ -13,60 +13,154 @@ import logging
 import pathlib
 import sys
 import traceback
-from typing import TYPE_CHECKING, Iterable, Sequence, List, Optional, Tuple
+from dataclasses import dataclass
+from types import TracebackType
+from typing import (TYPE_CHECKING, Dict, Iterable, List, Optional, Sequence,
+                    Tuple, Type)
 
 if TYPE_CHECKING:
   import crossbench.runner
 
 import crossbench as cb
-
+import crossbench.benchmarks
+import crossbench.browsers
 import crossbench.env
-from crossbench import helper
 import crossbench.flags
-import crossbench.stories
 import crossbench.probes
 import crossbench.probes.runner
-import crossbench.browsers
-import crossbench.benchmarks
+import crossbench.stories
+from crossbench import helper
+
+TInfoStack = Tuple[str, ...]
+
+TExceptionTypes = Tuple[Type[BaseException], ...]
 
 
 class ExceptionHandler:
 
-  def __init__(self, throw=False):
-    self._exceptions: List[Tuple[str, BaseException]] = []
+  @dataclass
+  class Entry:
+    traceback: str
+    exception: BaseException
+    info_stack: TInfoStack
+
+  class _ContextManager:
+
+    def __init__(self, exception_handler: ExceptionHandler,
+                 exception_types: TExceptionTypes, entries: Tuple[str]):
+      self._handler = exception_handler
+      self._exception_types = exception_types
+      self._added_info_stack_entries = entries
+      self._previous_info_stack: TInfoStack = ()
+
+    def __enter__(self):
+      self._handler._pending_exceptions.clear()
+      self._previous_info_stack = self._handler.info_stack
+      self._handler._info_stack = self._previous_info_stack + (
+          self._added_info_stack_entries)
+
+    def __exit__(self, exception_type: Optional[Type[BaseException]],
+                 exception_value: Optional[BaseException],
+                 traceback: Optional[TracebackType]) -> bool:
+      if not exception_value:
+        self._handler._info_stack = self._previous_info_stack
+        return False
+      if self._exception_types and issubclass(exception_type,
+                                              self._exception_types):
+        # Handle matching exceptions directly here and prevent further
+        # exception handlers by returning True.
+        self._handler.handle(exception_value)
+        self._handler._info_stack = self._previous_info_stack
+        return True
+      if exception_value not in self._handler._pending_exceptions:
+        self._handler._pending_exceptions[
+            exception_value] = self._handler.info_stack
+
+  def __init__(self, throw: bool = False):
+    self._exceptions: List[ExceptionHandler.Entry] = []
     self.throw: bool = throw
+    # The info_stack adds additional meta information to handle exceptions.
+    # Unlike the source-based backtrace, this can contain dynamic information
+    # for easier debugging.
+    self._info_stack: TInfoStack = ()
+    # Associates raised exception with the info_stack at that time for later
+    # use in the `handle` method.
+    # This is cleared whenever we enter a  new _ContextManager.
+    self._pending_exceptions: Dict[BaseException, TInfoStack] = {}
 
   @property
   def is_success(self) -> bool:
     return len(self._exceptions) == 0
 
   @property
-  def exceptions(self) -> List[Tuple[str, BaseException]]:
+  def info_stack(self) -> TInfoStack:
+    return self._info_stack
+
+  @property
+  def exceptions(self) -> List[ExceptionHandler.Entry]:
     return self._exceptions
 
-  def extend(self, handler: ExceptionHandler):
-    self._exceptions.extend(handler.exceptions)
+  def info(self, *stack_entries: str) -> _ContextManager:
+    return self._ContextManager(self, tuple(), stack_entries)
+
+  def handler(self,
+              *stack_entries: str,
+              exceptions: TExceptionTypes = (Exception,)) -> _ContextManager:
+    return self._ContextManager(self, exceptions, stack_entries)
+
+  def extend(self, handler: ExceptionHandler, is_nested: bool = False):
+    if is_nested:
+      self._extend_with_prepended_stack_info(handler)
+    else:
+      self._exceptions.extend(handler.exceptions)
+
+  def _extend_with_prepended_stack_info(self, handler: ExceptionHandler):
+    for entry in handler.exceptions:
+      merged_info_stack = self.info_stack + entry.info_stack
+      merged_entry = self.Entry(entry.traceback, entry.exception,
+                                merged_info_stack)
+      self._exceptions.append(merged_entry)
 
   def handle(self, e: BaseException):
     if isinstance(e, KeyboardInterrupt):
+      # Fast exit on KeyboardInterrupts for a better user experience.
       sys.exit(0)
-    # TODO: Log acton stacks / state for easier debugging
-    tb = traceback.format_exc()
-    self._exceptions.append((tb, e))
+    tb: str = traceback.format_exc()
+    stack = self.info_stack
+    if e in self._pending_exceptions:
+      stack = self._pending_exceptions[e]
+    self._exceptions.append(self.Entry(tb, e, stack))
     logging.info("Intermediate Exception: %s", e)
-    logging.info(tb)
+    logging.debug(tb)
     if self.throw:
       raise
 
-  def print(self):
-    logging.error("ERRORS occurred")
-    for tb, exception in self._exceptions:
-      logging.error(tb)
-    for tb, exception in self._exceptions:
-      logging.error(exception)
+  def log(self):
+    if self.is_success:
+      return
+    logging.error("ERRORS occurred:")
+    for entry in self._exceptions:
+      logging.debug("-" * 80)
+      logging.debug(entry.exception)
+      logging.debug(entry.traceback)
+    for info_stack, entries in helper.group_by(
+        self._exceptions, key=lambda entry: tuple(entry.info_stack)).items():
+      logging.error("=" * 80)
+      if info_stack:
+        info = "Info: "
+        joiner = "\n" + (" " * (len(info) - 2)) + "> "
+        logging.error(f"{info}{joiner.join(info_stack)}")
+      for entry in entries:
+        logging.error("- " * 40)
+        logging.error(f"Type: {entry.exception.__class__.__name__}:")
+        logging.error(f"      {entry.exception}")
 
   def to_json(self) -> list:
-    return [{"title": str(e), "trace": str(tb)} for tb, e in self._exceptions]
+    return [{
+        "title": str(entry.exception),
+        "trace": str(entry.traceback),
+        "info_stack": entry.info_stack
+    } for entry in self._exceptions]
 
 
 class Runner:
@@ -244,41 +338,54 @@ class Runner:
               story,
               iteration,
               self.out_dir,
+              name=f"{story.name}[{iteration}]",
               throw=self._exceptions.throw)
 
   def run(self, is_dry_run=False):
     try:
       with helper.SystemSleepPreventer():
-        self._setup()
-        for run in self._runs:
-          run.run(is_dry_run)
-          self._exceptions.extend(run.exceptions)
-        if not is_dry_run:
-          self._tear_down()
-        logging.info("RESULTS DIR: %s", self.out_dir)
-        if not self.is_success:
-          self._exceptions.print()
-          raise Exception("Runs failed")
+        self._run(is_dry_run)
     except KeyboardInterrupt:
       # Fast exit in case without a stacktrace for better usability
-      pass
+      return
+
+  def _run(self, is_dry_run=False):
+    self._setup()
+    failed: List[Run] = []
+    for run in self._runs:
+      run.run(is_dry_run)
+      if not run.exceptions.is_success:
+        self._exceptions.extend(run.exceptions)
+        failed.append(run)
+    if not is_dry_run:
+      self._tear_down()
+    logging.info("RESULTS DIR: %s", self.out_dir)
+    if not self.is_success:
+      self._exceptions.log()
+      raise Exception(
+          f"Runs Failed: {len(failed)}/{len(self._runs)} runs failed.")
 
   def _tear_down(self):
     logging.info("MERGING PROBE DATA: iterations")
     throw = self._exceptions.throw
     repetitions_groups = RepetitionsRunGroup.groups(self._runs, throw)
-    for repetitions_group in repetitions_groups:
-      repetitions_group.merge(self)
-      self._exceptions.extend(repetitions_group.exceptions)
+    with self._exceptions.info("Merging results from multiple repetitions"):
+      for repetitions_group in repetitions_groups:
+        repetitions_group.merge(self)
+        self._exceptions.extend(repetitions_group.exceptions, is_nested=True)
+
     logging.info("MERGING PROBE DATA: stories")
     story_groups = StoriesRunGroup.groups(repetitions_groups, throw)
-    for story_group in story_groups:
-      story_group.merge(self)
-      self._exceptions.extend(story_group.exceptions)
+    with self._exceptions.info("Merging results from multiple stories"):
+      for story_group in story_groups:
+        story_group.merge(self)
+        self._exceptions.extend(story_group.exceptions, is_nested=True)
+
     logging.info("MERGING PROBE DATA: browsers")
     browser_group = BrowsersRunGroup(story_groups, throw)
-    browser_group.merge(self)
-    self._exceptions.extend(browser_group.exceptions)
+    with self._exceptions.info("Merging results from multiple browsers"):
+      browser_group.merge(self)
+      self._exceptions.extend(browser_group.exceptions, is_nested=True)
 
   def cool_down(self, default_wait=None):
     # Cool down between runs
@@ -319,6 +426,10 @@ class RunGroup:
   def exceptions(self) -> ExceptionHandler:
     return self._exceptions
 
+  @property
+  def info_stack(self) -> TInfoStack:
+    return ()
+
   def get_probe_results_file(self, probe: cb.probes.Probe) -> pathlib.Path:
     new_file = self.path / probe.results_file_name
     assert not new_file.exists(), (
@@ -326,14 +437,13 @@ class RunGroup:
     return new_file
 
   def merge(self, runner: Runner):
-    for probe in reversed(runner.probes):
-      try:
-        results = self._merge_probe_results(probe)
-        if results is None:
-          continue
-        self._merged_probe_results[probe] = results
-      except Exception as e:
-        self._exceptions.handle(e)
+    with self._exceptions.info(*self.info_stack):
+      for probe in reversed(runner.probes):
+        with self._exceptions.handler(f"Probe {probe.name} merge results"):
+          results = self._merge_probe_results(probe)
+          if results is None:
+            continue
+          self._merged_probe_results[probe] = results
 
   def _merge_probe_results(self, probe: cb.probes.Probe):
     return None
@@ -382,6 +492,10 @@ class RepetitionsRunGroup(RunGroup):
   def browser(self) -> cb.browsers.Browser:
     return self._browser
 
+  @property
+  def info_stack(self) -> TInfoStack:
+    return (f"browser={self.browser.label}", f"story={self.story}")
+
   def _merge_probe_results(self, probe: cb.probes.Probe
                           ) -> Optional[cb.probes.ProbeResultType]:
     return probe.merge_repetitions(self)
@@ -426,6 +540,10 @@ class StoriesRunGroup(RunGroup):
   @property
   def browser(self) -> cb.browsers.Browser:
     return self._browser
+
+  @property
+  def info_stack(self) -> TInfoStack:
+    return (f"browser={self.browser.label}",)
 
   @property
   def stories(self) -> Iterable[cb.stories.Story]:
@@ -506,6 +624,15 @@ class Run:
     return Actions(name, self)
 
   @property
+  def info_stack(self) -> TInfoStack:
+    return (
+        f"Run({self.name})",
+        f"browser={self.browser.label} binary={self.browser.path}",
+        f"story={self.story}",
+        f"iteration={self.iteration}",
+    )
+
+  @property
   def temperature(self):
     return self._temperature
 
@@ -565,6 +692,20 @@ class Run:
   def is_success(self) -> bool:
     return self._exceptions.is_success
 
+  @contextlib.contextmanager
+  def measure(self, label):
+    # Return a combined context manager that adds an named exception info
+    # and measures the time during the with-scope.
+    with self._exceptions.info(label) as stack, self._durations.measure(
+        label) as timer:
+      yield (stack, timer)
+
+  def exception_info(self, *stack_entries: str):
+    return self._exceptions.info(*stack_entries)
+
+  def exception_handler(self, *stack_entries: str, exceptions=(Exception,)):
+    return self._exceptions.handler(*stack_entries, exceptions=exceptions)
+
   def get_browser_details_json(self) -> dict:
     details_json = self.browser.details_json()
     details_json["js_flags"] += tuple(self.extra_js_flags.get_list())
@@ -585,12 +726,12 @@ class Run:
         f"Default browser log file {browser_log_file} already exists.")
     self._browser.set_log_file(browser_log_file)
 
-    with self._durations.measure("runner-cooldown"):
+    with self.measure("runner-cooldown"):
       # self._runner.cool_down()
       self._runner.wait(self._runner.default_wait)
 
     probe_run_scopes: List[cb.probes.Probe.Scope] = []
-    with self._durations.measure("probes-creation"):
+    with self.measure("probes-creation"):
       probe_set = set()
       for probe in self.probes:
         assert probe not in probe_set, (
@@ -600,11 +741,12 @@ class Run:
           self._probe_results[probe] = None
         probe_run_scopes.append(probe.get_scope(self))
 
-    with self._durations.measure("probes-setup"):
+    with self.measure("probes-setup"):
       for probe_scope in probe_run_scopes:
-        probe_scope.setup(self)
+        with self.exception_info(f"Probe {probe_scope.name} setup"):
+          probe_scope.setup(self)
 
-    with self._durations.measure("browser-setup"):
+    with self.measure("browser-setup"):
       try:
         # pytype somehow gets the package path wrong here, disabling for now.
         self._browser.setup(self)  # pytype: disable=wrong-arg-types
@@ -619,36 +761,41 @@ class Run:
       # TODO(cbruni): Implement better logging for dry-runs
       return
     self._out_dir.mkdir(parents=True, exist_ok=True)
-    with helper.ChangeCWD(self._out_dir):
+
+    with helper.ChangeCWD(self._out_dir), self.exception_info(*self.info_stack):
       probe_scopes = self.setup()
       self._advance_state(self.STATE_PREPARE, self.STATE_RUN)
       self._run_success = False
       logging.debug("CWD %s", self._out_dir)
       try:
-        probe_start_time = dt.datetime.now()
-        probe_scope_manager = contextlib.ExitStack()
-        for probe_scope in probe_scopes:
-          probe_scope.set_start_time(probe_start_time)
-          probe_scope_manager.enter_context(probe_scope)
-        with probe_scope_manager:
-          self._durations["probes-start"] = (
-              dt.datetime.now() - probe_start_time)
-          logging.info("RUN: BROWSER=%s STORY=%s", self._browser.short_name,
-                       self.story.name)
-          assert self._state == self.STATE_RUN, "Invalid state"
-          try:
-            with self._durations.measure("run"):
-              self._story.run(self)
-            self._run_success = True
-          except TimeoutError as e:
-            # Handle TimeoutError earlier since they might be caused by
-            # throttled down non-foreground browser.
-            self._exceptions.handle(e)
-          self._check_browser_foreground()
+        self._run(probe_scopes)
       except Exception as e:
         self._exceptions.handle(e)
       finally:
         self.tear_down(probe_scopes)
+
+  def _run(self, probe_scopes: Sequence[cb.probes.Probe.Scope]):
+    probe_start_time = dt.datetime.now()
+    probe_scope_manager = contextlib.ExitStack()
+
+    for probe_scope in probe_scopes:
+      probe_scope.set_start_time(probe_start_time)
+      probe_scope_manager.enter_context(probe_scope)
+
+    with probe_scope_manager:
+      self._durations["probes-start"] = (dt.datetime.now() - probe_start_time)
+      logging.info("RUN: BROWSER=%s STORY=%s", self._browser.short_name,
+                   self.story.name)
+      assert self._state == self.STATE_RUN, "Invalid state"
+      try:
+        with self.measure("run"):
+          self._story.run(self)
+        self._run_success = True
+      except TimeoutError as e:
+        # Handle TimeoutError earlier since they might be caused by
+        # throttled down non-foreground browser.
+        self._exceptions.handle(e)
+      self._check_browser_foreground()
 
   def _check_browser_foreground(self):
     if not self.browser.pid:
@@ -670,25 +817,22 @@ class Run:
                 probe_scopes: List[cb.probes.Probe.Scope],
                 is_shutdown=False):
     self._advance_state(self.STATE_RUN, self.STATE_DONE)
-    with self._durations.measure("browser-TearDown"):
+    with self.measure("browser-tear_down"):
       if is_shutdown:
         try:
           self._browser.quit(self._runner)  # pytype: disable=wrong-arg-types
         except Exception as e:
           logging.warning("Error quitting browser: %s", e)
           return
-      try:
+      with self._exceptions.handler("Quit browser"):
         self._browser.quit(self._runner)  # pytype: disable=wrong-arg-types
-      except Exception as e:
-        logging.warning("Error quitting browser: %s", e)
-        self._exceptions.handle(e)
-    with self._durations.measure("probes-TearDown"):
+    with self.measure("probes-tear_down"):
       logging.info("TEARDOWN")
       self._tear_down_probe_scopes(probe_scopes)
 
   def _tear_down_probe_scopes(self, probe_scopes: List[cb.probes.Probe.Scope]):
     for probe_scope in reversed(probe_scopes):
-      try:
+      with self.exceptions.handler(f"Probe {probe_scope.name} teardown"):
         assert probe_scope.run == self
         probe_results: Optional[
             cb.probes.ProbeResultType] = probe_scope.tear_down(self)
@@ -697,8 +841,6 @@ class Run:
           logging.warning("Probe did not extract any data. probe=%s run=%s",
                           probe, self)
         self._probe_results[probe] = probe_results
-      except Exception as e:
-        self._exceptions.handle(e)
 
 
 class Actions(helper.TimeScope):
@@ -707,14 +849,13 @@ class Actions(helper.TimeScope):
                message: str,
                run: Run,
                runner: Optional[cb.runner.Runner] = None,
-               browser: Optional[cb.browsers.Browser] = None,
-               parent: Optional[cb.runner.Actions] = None):
+               browser: Optional[cb.browsers.Browser] = None):
     assert message, "Actions need a name"
     super().__init__(message)
+    self._stack = run.exceptions.info(f"Action: {message}")
     self._run = run
     self._browser = browser or run.browser
     self._runner = runner or run.runner
-    self._parent = parent
     self._is_active: bool = False
 
   @property
@@ -726,6 +867,7 @@ class Actions(helper.TimeScope):
     return self._run.platform
 
   def __enter__(self):
+    self._stack.__enter__()
     super().__enter__()
     self._is_active = True
     logging.info("ACTION START %s", self._message)
@@ -733,6 +875,7 @@ class Actions(helper.TimeScope):
 
   def __exit__(self, exc_type, exc_value, exc_traceback):
     self._is_active = False
+    self._stack.__exit__(exc_type, exc_value, exc_traceback)
     logging.info("ACTION END %s", self._message)
     super().__exit__(exc_type, exc_value, exc_traceback)
 

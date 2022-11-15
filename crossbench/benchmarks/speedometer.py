@@ -114,7 +114,7 @@ class Speedometer20Story(cb.stories.PressBenchmarkStory):
         """,
             arguments=[self._substories])
       actions.wait(0.5)
-    with run.actions("Start Run") as actions:
+    with run.actions("Start") as actions:
       actions.js(
           """
         // Store all the results in the benchmarkClient
@@ -133,7 +133,7 @@ class Speedometer20Story(cb.stories.PressBenchmarkStory):
         runner.runMultipleIterations(iterationCount);
         """,
           arguments=[self.iterations])
-    with run.actions("Wait") as actions:
+    with run.actions("Wait Done") as actions:
       actions.wait(1 * len(self._substories))
       actions.wait_js_condition(
           "return globalThis.testDone",

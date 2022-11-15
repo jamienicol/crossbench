@@ -372,6 +372,12 @@ class CrossBenchCLI:
         action="count",
         default=0,
         help="Increase output verbosity (0..2)")
+    self.parser.add_argument(
+        "--no-color",
+        dest="color",
+        action="store_false",
+        default=True,
+        help="Disable colored output")
 
   def _setup_subparser(self):
     self.subparsers = self.parser.add_subparsers(
@@ -544,10 +550,16 @@ class CrossBenchCLI:
       if args.throw:
         raise
       logging.error("")
-      logging.error(f"ERROR {e.__class__.__name__.upper()}:")
-      logging.error("  use --throw for detailed stack traces")
+      logging.error("#" * 80)
+      logging.error(f"SUBCOMMAND UNSUCCESSFUL got {e.__class__.__name__}:")
       logging.error("")
       logging.error(e)
+      logging.error("")
+      logging.error(f"  Running {benchmark.NAME} was not successful")
+      logging.error("  - Check run results.json for detailed backtraces")
+      logging.error("  - Use --throw to throw on the first logged exception")
+      logging.error("  - Use --vv for detailed logging")
+      logging.error("#" * 80)
       exit(3)
     print(f"RESULTS: {runner.out_dir}")
 
@@ -609,4 +621,6 @@ class CrossBenchCLI:
       console_handler.setLevel(logging.DEBUG)
       logging.getLogger().setLevel(logging.DEBUG)
     console_handler.addFilter(logging.Filter("root"))
+    if args.color:
+      console_handler.setFormatter(cb.helper.ColoredLogFormatter())
     logging.getLogger().addHandler(console_handler)
