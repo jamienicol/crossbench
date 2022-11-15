@@ -29,7 +29,7 @@ class MockBrowser(cb.browsers.Browser):
     fs.create_file(bin_path)
 
   @classmethod
-  def default_flags(cls, initial_data: FlagsInitialDataType = None):
+  def default_flags(cls, initial_data: cb.flags.Flags.InitialDataType = None):
     return cb.flags.ChromeFlags(initial_data)
 
   def __init__(self,

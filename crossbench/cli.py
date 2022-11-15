@@ -559,9 +559,10 @@ class CrossBenchCLI:
     runner = self._get_runner(args, benchmark, env_config, env_validation_mode)
     for probe in probes:
       runner.attach_probe(probe, matching_browser_only=True)
-    self._run_benchmark(args, runner)
+    self._run_benchmark(args, runner, benchmark)
 
-  def _run_benchmark(self, args: argparse.Namespace, runner: cb.runner.Runner):
+  def _run_benchmark(self, args: argparse.Namespace, runner: cb.runner.Runner,
+                     benchmark: cb.benchmarks.Benchmark):
     try:
       runner.run(is_dry_run=args.dry_run)
     except Exception as e:

@@ -6,7 +6,7 @@ import unittest
 from unittest import mock
 
 import crossbench as cb
-from crossbench import runner
+import crossbench.exception
 
 import sys
 import pytest
@@ -15,7 +15,7 @@ import pytest
 class ExceptionHandlerTestCase(unittest.TestCase):
 
   def test_empty(self):
-    handler = runner.ExceptionHandler()
+    handler = cb.exception.Handler()
     self.assertTrue(handler.is_success)
     self.assertListEqual(handler.exceptions, [])
     self.assertListEqual(handler.to_json(), [])
@@ -25,7 +25,7 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     logging_mock.assert_not_called()
 
   def test_handle_exception(self):
-    handler = runner.ExceptionHandler()
+    handler = cb.exception.Handler()
     exception = ValueError("custom message")
     try:
       raise exception
@@ -40,7 +40,7 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     logging_mock.assert_has_calls([mock.call(exception)])
 
   def test_handle_rethrow(self):
-    handler = runner.ExceptionHandler(throw=True)
+    handler = cb.exception.Handler(throw=True)
     exception = ValueError("custom message")
     with self.assertRaises(ValueError) as cm:
       try:
@@ -54,7 +54,7 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     self.assertEqual(serialized[0]["title"], str(exception))
 
   def test_info_stack(self):
-    handler = runner.ExceptionHandler(throw=True)
+    handler = cb.exception.Handler(throw=True)
     exception = ValueError("custom message")
     with self.assertRaises(ValueError) as cm, handler.info("info 1", "info 2"):
       self.assertTupleEqual(handler.info_stack, ("info 1", "info 2"))
@@ -73,7 +73,7 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     self.assertEqual(serialized[0]["info_stack"], ("info 1", "info 2"))
 
   def test_info_stack_logging(self):
-    handler = runner.ExceptionHandler()
+    handler = cb.exception.Handler()
     try:
       with handler.info("info 1", "info 2"):
         raise ValueError("custom message")
@@ -87,7 +87,7 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     self.assertIn("custom message", output)
 
   def test_handle_keyboard_interrupt(self):
-    handler = runner.ExceptionHandler()
+    handler = cb.exception.Handler()
     keyboard_interrupt = KeyboardInterrupt()
     with mock.patch("sys.exit", side_effect=ValueError) as exit_mock:
       with self.assertRaises(ValueError) as cm:
@@ -99,18 +99,18 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     exit_mock.assert_called_once_with(0)
 
   def test_extend(self):
-    handler_1 = runner.ExceptionHandler()
+    handler_1 = cb.exception.Handler()
     try:
       raise ValueError("error_1")
     except ValueError as e:
       handler_1.handle(e)
-    handler_2 = runner.ExceptionHandler()
+    handler_2 = cb.exception.Handler()
     try:
       raise ValueError("error_2")
     except ValueError as e:
       handler_2.handle(e)
-    handler_3 = runner.ExceptionHandler()
-    handler_4 = runner.ExceptionHandler()
+    handler_3 = cb.exception.Handler()
+    handler_4 = cb.exception.Handler()
     self.assertFalse(handler_1.is_success)
     self.assertFalse(handler_2.is_success)
     self.assertTrue(handler_3.is_success)
@@ -133,8 +133,8 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     self.assertTrue(handler_4.is_success)
 
   def test_extend_nested(self):
-    handler_1 = runner.ExceptionHandler()
-    handler_2 = runner.ExceptionHandler()
+    handler_1 = cb.exception.Handler()
+    handler_2 = cb.exception.Handler()
     exception_1 = ValueError("error_1")
     exception_2 = ValueError("error_2")
     with handler_1.handler("info 1", "info 2", exceptions=(ValueError,)):
