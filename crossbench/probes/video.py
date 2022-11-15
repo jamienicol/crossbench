@@ -49,8 +49,10 @@ class VideoProbe(base.Probe):
           f"Probe={self.NAME} might not be able to merge so many "
           f"repetitions={env.runner.repetitions}.")
     env.check_installed(
-        binaries=("ffmpeg", "montage"),
-        message="Missing binaries for video probe: %s")
+        binaries=("ffmpeg",), message="Missing binaries for video probe: %s")
+    env.check_installed(
+        binaries=("montage",),
+        message="Missing 'montage' binary, please install imagemagick.")
 
   class Scope(base.Probe.Scope):
     IMAGE_FORMAT = "png"
@@ -79,6 +81,8 @@ class VideoProbe(base.Probe):
           stderr=subprocess.STDOUT,
           stdout=self._recorder_log_file)
       assert self._record_process is not None, "Could not start screen recorder"
+      # TODO: Add common start-story-delay on runner for these cases.
+      self.runner_platform.sleep(1)
 
     def _record_cmd(self, x, y, width, height):
       if self.browser_platform.is_linux:
@@ -93,6 +97,10 @@ class VideoProbe(base.Probe):
 
     def stop(self, run: cb.runner.Run):
       if self.browser_platform.is_macos:
+        assert not self._record_process.poll(), (
+            "screencapture stopped early. "
+            "Please ensure that the parent application has screen recording "
+            "permissions")
         # The mac screencapture stops on the first (arbitrary) input.
         self._record_process.communicate(input=b"stop")
       else:
@@ -102,6 +110,8 @@ class VideoProbe(base.Probe):
       self._recorder_log_file.close()
       if self._record_process.poll() is not None:
         self._record_process.wait(timeout=5)
+      assert self.results_file.exists(), (
+          f"No screen recording video found at: {self.results_file}")
       with tempfile.TemporaryDirectory() as tmp_dir:
         timestrip_file = self._create_time_strip(pathlib.Path(tmp_dir))
       return (self.results_file, timestrip_file)
@@ -114,10 +124,11 @@ class VideoProbe(base.Probe):
       timeline_dir.mkdir(exist_ok=True)
       # Try detect scene changes / steps
       self.runner_platform.sh(
-          "ffmpeg", "-hide_banner", "-i", self.results_file, "-filter_complex",
-          "scale=1000:-2,"
-          "select='gt(scene\\,0.011)'," + self.FFMPEG_TIMELINE_TEXT, "-vsync",
-          "vfr", f"{progress_dir}/%02d.{self.IMAGE_FORMAT}")
+          "ffmpeg", "-hide_banner", "-i", self.results_file, \
+            "-filter_complex", "scale=1000:-2,"
+          "select='gt(scene\\,0.011)'," + self.FFMPEG_TIMELINE_TEXT, \
+          "-fps_mode", "vfr", \
+            f"{progress_dir}/%02d.{self.IMAGE_FORMAT}")
       # Extract at regular intervals of 100ms, assuming 60fps input
       every_nth_frame = 60 / 20
       # TODO
@@ -146,6 +157,7 @@ class VideoProbe(base.Probe):
     if len(runs) == 1:
       # In the simple case just copy the files
       run_result_file, run_timeline_strip_file = runs[0].results[self]
+      # TODO migrate to platform
       shutil.copy(run_result_file, result_file)
       shutil.copy(run_timeline_strip_file, timeline_strip_file)
       return (result_file, timeline_strip_file)
@@ -190,11 +202,20 @@ class VideoProbe(base.Probe):
   def _merge_stories_for_browser(
       self, result_dir: pathlib.Path, story: cb.stories.Story,
       repetitions_groups: List[cb.runner.RepetitionsRunGroup]):
-    input_files: List[str] = []
+
     story = repetitions_groups[0].story
+    result_file = result_dir / f"{story.name}_combined.mp4"
+
+    if len(repetitions_groups) == 1:
+      # In the simple case just copy files
+      input_file: str = repetitions_groups[0].results[self][0]
+      # TODO migrate to platform
+      shutil.copy(input_file, result_file)
+      return result_file
+
+    input_files: List[str] = []
     for repetitions_group in repetitions_groups:
       input_files += ["-i", repetitions_group.results[self][0]]
-    result_file = result_dir / f"{story.name}_combined.mp4"
     self.runner_platform.sh("ffmpeg", "-hide_banner", *input_files,
                             "-filter_complex",
                             f"vstack=inputs={len(repetitions_groups)}",

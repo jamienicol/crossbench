@@ -11,7 +11,6 @@ import re
 import shlex
 import shutil
 import stat
-import sys
 import tempfile
 import time
 import traceback
@@ -19,7 +18,7 @@ import urllib.request
 import zipfile
 import pathlib
 import typing
-from typing import Any, Dict, Final, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, Final, List, Optional, Sequence, Set
 
 import selenium
 from selenium import webdriver
