@@ -8,6 +8,9 @@ import crossbench.benchmarks as bm
 
 from tests.benchmarks import helper
 
+import sys
+import pytest
+
 
 class JetStream2Test(helper.PressBaseBenchmarkTestCase):
 
@@ -47,3 +50,7 @@ class JetStream2Test(helper.PressBaseBenchmarkTestCase):
     for browser in self.browsers:
       self.assertEqual(len(browser.url_list), repetitions)
       self.assertIn(bm.jetstream.JetStream2Probe.JS, browser.js_list)
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))

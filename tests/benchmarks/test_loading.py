@@ -15,6 +15,9 @@ from crossbench.benchmarks import loading
 
 from tests.benchmarks import helper
 
+import sys
+import pytest
+
 
 class TestPageLoadBenchmark(helper.SubStoryTestCase):
 
@@ -87,3 +90,7 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
                      [story.url for story in stories])
     self.assertTrue(self.browsers[0].did_run)
     self.assertTrue(self.browsers[1].did_run)
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))

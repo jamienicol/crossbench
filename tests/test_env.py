@@ -11,6 +11,9 @@ import crossbench as cb
 import crossbench.runner
 import crossbench.env
 
+import sys
+import pytest
+
 
 class HostEnvironmentConfigTestCase(unittest.TestCase):
 
@@ -263,3 +266,7 @@ class HostEnvironmentTestCase(unittest.TestCase):
     with self.assertRaises(cb.env.ValidationError) as cm:
       env.validate()
     self.assertIn("is_headless", str(cm.exception))
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))

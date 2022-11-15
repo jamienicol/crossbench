@@ -7,6 +7,9 @@ import unittest
 from crossbench.probes.config import ProbeConfigParser
 from crossbench.probes import Probe
 
+import sys
+import pytest
+
 
 class MockProbe(Probe):
   """
@@ -155,3 +158,7 @@ class TestProbeConfig(unittest.TestCase):
     result = kwargs["custom"]
     self.assertIsInstance(result, CustomArgType)
     self.assertListEqual(result.value, [1, 2, "stuff"])
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))

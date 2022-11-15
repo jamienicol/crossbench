@@ -6,6 +6,9 @@ import unittest
 
 from crossbench.probes.all import V8LogProbe
 
+import sys
+import pytest
+
 
 class TestV8LogProbe(unittest.TestCase):
 
@@ -64,3 +67,7 @@ class TestV8LogProbe(unittest.TestCase):
     })
     self.assertSetEqual({"--no-log-ic", "--no-log-maps"},
                         set(probe.js_flags.keys()))
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))

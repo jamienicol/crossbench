@@ -8,6 +8,9 @@ from unittest import mock
 import crossbench as cb
 from crossbench import runner
 
+import sys
+import pytest
+
 
 class ExceptionHandlerTestCase(unittest.TestCase):
 
@@ -150,3 +153,7 @@ class ExceptionHandlerTestCase(unittest.TestCase):
                           ("info 1", "info 2", "info 3", "info 4"))
     self.assertTupleEqual(handler_2.exceptions[0].info_stack,
                           ("info 3", "info 4"))
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))

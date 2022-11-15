@@ -9,6 +9,9 @@ import pyfakefs.fake_filesystem_unittest
 
 from crossbench import helper
 
+import sys
+import pytest
+
 
 class WaitTestCase(unittest.TestCase):
 
@@ -324,3 +327,7 @@ class MacOSPlatformHelperTestCase(unittest.TestCase):
                      helper.platform.get_main_display_brightness())
     helper.platform.set_main_display_brightness(prev_level)
     self.assertEqual(prev_level, helper.platform.get_main_display_brightness())
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))

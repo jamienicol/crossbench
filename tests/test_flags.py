@@ -6,6 +6,9 @@ import unittest
 
 from crossbench.flags import ChromeFeatures, ChromeFlags, Flags, JSFlags
 
+import sys
+import pytest
+
 
 class TestFlags(unittest.TestCase):
 
@@ -374,3 +377,7 @@ class ChromeFeaturesTestCase(unittest.TestCase):
     features.disable("feature1:k1/v1")
     features_str = str(features)
     self.assertEqual(features_str, "--disable-features=feature1")
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))

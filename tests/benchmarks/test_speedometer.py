@@ -11,6 +11,9 @@ import crossbench.env
 
 from tests.benchmarks import helper
 
+import sys
+import pytest
+
 
 class Speedometer2Test(helper.PressBaseBenchmarkTestCase):
 
@@ -143,3 +146,7 @@ class Speedometer2Test(helper.PressBaseBenchmarkTestCase):
     for browser in self.browsers:
       self.assertEqual(len(browser.url_list), repetitions)
       self.assertIn(speedometer.Speedometer20Probe.JS, browser.js_list)
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))

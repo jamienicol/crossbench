@@ -20,6 +20,9 @@ import crossbench.cli
 from tests import mockbenchmark
 from tests.mockbenchmark import browser as mock_browser
 
+import sys
+import pytest
+
 
 class SysExitException(Exception):
 
@@ -928,3 +931,7 @@ class TestFlagGroupConfig(unittest.TestCase):
         ("--bar", "b1"),
         ("--bar", "b2"),
     ))
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))

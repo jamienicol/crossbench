@@ -1,5 +1,6 @@
 *.pyc
 .*
+!.vpython3
 __pycache__
 dist
 results

@@ -11,6 +11,9 @@ import pyfakefs.fake_filesystem_unittest
 
 import crossbench.probes.helper as helper
 
+import sys
+import pytest
+
 
 class TestMergeCSV(pyfakefs.fake_filesystem_unittest.TestCase):
 
@@ -374,3 +377,7 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
                                                   merge_duplicate_paths=False)
     data = merger.data
     self.assertListEqual(list(data.keys()), ["a/a", "a/b"])
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))
