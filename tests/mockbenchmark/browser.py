@@ -28,6 +28,10 @@ class MockBrowser(cb.browsers.Browser):
       bin_path = bin_path / "Contents" / "MacOS" / bin_name
     fs.create_file(bin_path)
 
+  @classmethod
+  def default_flags(cls, initial_data: FlagsInitialDataType = None):
+    return cb.flags.ChromeFlags(initial_data)
+
   def __init__(self,
                label: str,
                path: Optional[pathlib.Path] = None,
@@ -45,7 +49,7 @@ class MockBrowser(cb.browsers.Browser):
     self.run_js_side_effect: List[str] = []
     self.did_run: bool = False
     self.clear_cache_dir: bool = False
-    self.js_flags: cb.flags.JSFlags = cb.flags.JSFlags()
+    self.js_flags = self.flags.js_flags
 
   def clear_cache(self, runner: cb.runner.Runner):
     pass

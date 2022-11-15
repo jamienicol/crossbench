@@ -107,6 +107,9 @@ class TestChromeFlags(TestFlags):
     self.assertIsNone(flags["--foo"])
     self.assertEqual(flags["--bar"], "v1")
     self.assertNotIn("--js-flags", flags)
+    with self.assertRaises(ValueError):
+      flags["--js-flags"] = None
+    self.assertNotIn("--js-flags", flags)
     with self.assertRaises(AssertionError):
       flags["--js-flags"] = "--js-foo, --no-js-foo"
     flags["--js-flags"] = "--js-foo=v3, --no-js-bar"
@@ -137,6 +140,17 @@ class TestChromeFlags(TestFlags):
     self.assertEqual(features.enabled, {"F1": None, "F2": None})
     self.assertEqual(features.disabled, set(("F3", "F4")))
 
+  def test_features_invalid_none(self):
+    flags = self.CLASS()
+    features = flags.features
+    self.assertTrue(features.is_empty)
+    with self.assertRaises(ValueError):
+      flags["--disable-features"] = None
+    self.assertTrue(features.is_empty)
+    with self.assertRaises(ValueError):
+      flags["--enable-features"] = None
+    self.assertTrue(features.is_empty)
+
   def test_get_list(self):
     flags = self.CLASS()
     flags["--js-flags"] = "--js-foo=v3, --no-js-bar"
@@ -147,6 +161,54 @@ class TestChromeFlags(TestFlags):
         "--js-flags=--js-foo=v3,--no-js-bar", "--enable-features=F1,F2",
         "--disable-features=F3,F4"
     ])
+
+  def test_initial_data_empty(self):
+    flags = self.CLASS()
+    flags_copy = self.CLASS(flags)
+    self.assertListEqual(list(flags.get_list()), list(flags_copy.get_list()))
+    flags_copy = self.CLASS()
+    flags_copy.update(flags)
+    self.assertListEqual(list(flags.get_list()), list(flags_copy.get_list()))
+
+  def test_initial_data_simple(self):
+    flags = self.CLASS()
+    flags["--no-sandbox"] = None
+    flags_copy = self.CLASS(flags)
+    self.assertListEqual(list(flags.get_list()), list(flags_copy.get_list()))
+    flags_copy = self.CLASS()
+    flags_copy.update(flags)
+    self.assertListEqual(list(flags.get_list()), list(flags_copy.get_list()))
+
+  def test_initial_data_js_flags(self):
+    flags = self.CLASS()
+    flags["--js-flags"] = "--js-foo=v3, --no-js-bar"
+    flags_copy = self.CLASS(flags)
+    self.assertListEqual(list(flags.get_list()), list(flags_copy.get_list()))
+    flags_copy = self.CLASS()
+    flags_copy.update(flags)
+    self.assertListEqual(list(flags.get_list()), list(flags_copy.get_list()))
+
+  def test_initial_data_features(self):
+    flags = self.CLASS()
+    flags["--enable-features"] = "F1,F2"
+    flags["--disable-features"] = "F3,F4"
+    flags_copy = self.CLASS(flags)
+    self.assertListEqual(list(flags.get_list()), list(flags_copy.get_list()))
+    flags_copy = self.CLASS()
+    flags_copy.update(flags)
+    self.assertListEqual(list(flags.get_list()), list(flags_copy.get_list()))
+
+  def test_initial_data_all(self):
+    flags = self.CLASS()
+    flags["--no-sandbox"] = None
+    flags["--js-flags"] = "--js-foo=v3, --no-js-bar"
+    flags["--enable-features"] = "F1,F2"
+    flags["--disable-features"] = "F3,F4"
+    flags_copy = self.CLASS(flags)
+    self.assertListEqual(list(flags.get_list()), list(flags_copy.get_list()))
+    flags_copy = self.CLASS()
+    flags_copy.update(flags)
+    self.assertListEqual(list(flags.get_list()), list(flags_copy.get_list()))
 
 
 class TestJSFlags(TestFlags):
@@ -192,6 +254,26 @@ class TestJSFlags(TestFlags):
         "--flag3": "value3"
     })
     self.assertEqual(str(flags), "--flag1=value1,--flag2,--flag3=value3")
+
+  def test_initial_data_empty(self):
+    flags = self.CLASS()
+    flags_copy = self.CLASS(flags)
+    self.assertEqual(str(flags), str(flags_copy))
+    flags_copy = self.CLASS()
+    flags_copy.update(flags)
+    self.assertEqual(str(flags), str(flags_copy))
+
+  def test_initial_data(self):
+    flags = self.CLASS({
+        "--flag1": "value1",
+        "--flag2": None,
+        "--flag3": "value3"
+    })
+    flags_copy = self.CLASS(flags)
+    self.assertEqual(str(flags), str(flags_copy))
+    flags_copy = self.CLASS()
+    flags_copy.update(flags)
+    self.assertEqual(str(flags), str(flags_copy))
 
 
 class ChromeFeaturesTestCase(unittest.TestCase):

@@ -32,6 +32,10 @@ def _map_flag_group_item(flag_name: str, flag_value: Optional[str]):
   return (flag_name, flag_value)
 
 
+class ConfigFileError(ValueError):
+  pass
+
+
 class FlagGroupConfig:
   """
   This object is create from configuration files and mainly contains a mapping
@@ -84,9 +88,10 @@ class BrowserConfig:
            browser_lookup_override: BrowserLookupTable = {}) -> BrowserConfig:
     try:
       config = hjson.load(f)
+      return cls(config, browser_lookup_override)
     except ValueError as e:
-      raise ValueError(f"Failed to parse config file: {f}") from e
-    return cls(config, browser_lookup_override)
+      raise ConfigFileError(
+          f"Failed to parse config file: {f.name}\n{str(e)}") from e
 
   flag_groups: Dict[str, FlagGroupConfig]
   variants: List[cb.browsers.Browser]
@@ -101,18 +106,20 @@ class BrowserConfig:
       if "flags" in raw_config_data:
         for flag_name, group_config in raw_config_data["flags"].items():
           self._parse_flag_group(flag_name, group_config)
-      assert "browsers" in raw_config_data, (
-          "Config does not provide a 'browsers' dict.")
-      assert len(raw_config_data["browsers"]), ("Config contains empty 'browsers' dict.")
+      if "browsers" not in raw_config_data:
+        raise ConfigFileError("Config does not provide a 'browsers' dict.")
+      if not raw_config_data["browsers"]:
+        raise ConfigFileError("Config contains empty 'browsers' dict.")
       for name, browser_config in raw_config_data["browsers"].items():
         self._parse_browser(name, browser_config)
 
   def _parse_flag_group(self, name, raw_flag_group_data):
-    assert name not in self.flag_groups, (f"flag-group='{name}' exists already")
+    if name in self.flag_groups:
+      raise ConfigFileError(f"flag-group='{name}' exists already")
     variants: Dict[str, List[str]] = {}
     for flag_name, values in raw_flag_group_data.items():
       if not flag_name.startswith("-"):
-        raise ValueError(f"Invalid flag name: '{flag_name}'")
+        raise ConfigFileError(f"Invalid flag name: '{flag_name}'")
       if flag_name not in variants:
         flag_values = variants[flag_name] = []
       else:
@@ -120,10 +127,15 @@ class BrowserConfig:
       if isinstance(values, str):
         values = [values]
       for value in values:
+        if value == "None,":
+          raise ConfigFileError(
+              f"Please use null instead of None for flag '{flag_name}' "
+              f"in flag group '{name}' in config files.")
         # O(n^2) check, assuming very few values per flag.
         if value in flag_values:
-          raise ValueError("Same flag variant was specified more than once: "
-                           f"'{value}' for entry '{flag_name}'")
+          raise ConfigFileError(
+              "Same flag variant was specified more than once: "
+              f"'{value}' for entry '{flag_name}'")
         flag_values.append(value)
     self.flag_groups[name] = FlagGroupConfig(name, variants)
 
@@ -134,10 +146,10 @@ class BrowserConfig:
     else:
       path = self._get_browser_path(path_or_identifier)
       cls = self._get_browser_cls_from_path(path)
-    assert path.exists(), f"Browser='{name}' path='{path}' does not exist."
-    variants_flags = tuple(
-        cls.default_flags(flags)
-        for flags in self._parse_flags(name, raw_browser_data))
+    if not path.exists():
+      raise ConfigFileError(f"Browser='{name}' path='{path}' does not exist.")
+    raw_flags = self._parse_flags(name, raw_browser_data)
+    variants_flags = tuple(cls.default_flags(flags) for flags in raw_flags)
     logging.info("Running browser '%s' with %s flag variants:", name,
                  len(variants_flags))
     for i in range(len(variants_flags)):
@@ -157,9 +169,14 @@ class BrowserConfig:
     flag_group_names = data.get("flags", [])
     if isinstance(flag_group_names, str):
       flag_group_names = [flag_group_names]
-    assert isinstance(flag_group_names,
-                      list), (f"'flags' is not a list for browser='{name}'")
+    if not isinstance(flag_group_names, list):
+      raise ConfigFileError(f"'flags' is not a list for browser='{name}'")
+    seen_flag_group_names = set()
     for flag_group_name in flag_group_names:
+      if flag_group_name in seen_flag_group_names:
+        raise ConfigFileError(
+            f"Duplicate group name '{flag_group_name}' for browser='{name}'")
+      seen_flag_group_names.add(flag_group_name)
       # Use temporary FlagGroupConfig for inline fixed flag definition
       if flag_group_name.startswith("--"):
         flag_name, flag_value = cb.flags.Flags.split(flag_group_name)
@@ -172,8 +189,9 @@ class BrowserConfig:
         assert flag_group_name not in self.flag_groups
       else:
         flag_group = self.flag_groups.get(flag_group_name, None)
-        assert flag_group is not None, (f"Flag-group='{flag_group_name}' "
-                                        f"for browser='{name}' does not exist.")
+        if flag_group is None:
+          raise ConfigFileError(f"Flag-group='{flag_group_name}' "
+                                f"for browser='{name}' does not exist.")
       flags_product += flag_group.get_variant_items()
     if len(flags_product) == 0:
       # use empty default

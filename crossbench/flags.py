@@ -127,12 +127,18 @@ class ChromeFlags(Flags):
 
   def _set(self, flag_name, flag_value, override=False):
     if flag_name == ChromeFeatures._ENABLE_FLAG:
+      if flag_value is None:
+        raise ValueError(f"{ChromeFeatures._ENABLE_FLAG} cannot be None")
       for feature in flag_value.split(","):
         self._features.enable(feature)
     elif flag_name == ChromeFeatures._DISABLE_FLAG:
+      if flag_value is None:
+        raise ValueError(f"{ChromeFeatures._DISABLE_FLAG} cannot be None")
       for feature in flag_value.split(","):
         self._features.disable(feature)
     elif flag_name == self._JS_FLAG:
+      if flag_value is None:
+        raise ValueError(f"{self._JS_FLAG} cannot be None")
       new_js_flags = JSFlags(self._js_flags)
       for js_flag in flag_value.split(","):
         js_flag_name, js_flag_value = Flags.split(js_flag.lstrip())
@@ -149,12 +155,11 @@ class ChromeFlags(Flags):
   def js_flags(self) -> JSFlags:
     return self._js_flags
 
-  def get_list(self):
-    yield from super().get_list()
-    if len(self._js_flags):
-      yield f"{self._JS_FLAG}={self._js_flags}"
-    if not self._features.is_empty:
-      yield from self._features.get_list()
+  def items(self):
+    yield from super().items()
+    if self._js_flags:
+      yield (self._JS_FLAG, str(self.js_flags))
+    yield from self.features.items()
 
 
 class ChromeFeatures:
@@ -220,14 +225,18 @@ class ChromeFeatures:
       raise ValueError(f"Cannot disable previously enabled feature={name}")
     self._disabled[name] = None
 
-  def get_list(self) -> Iterable[str]:
+  def items(self) -> Iterable[Tuple[str, str]]:
     if self._enabled:
       joined = ",".join(
           k if v is None else f"{k}{v}" for k, v in self._enabled.items())
-      yield f"{self._ENABLE_FLAG}={joined}"
+      yield (self._ENABLE_FLAG, joined)
     if self._disabled:
       joined = ",".join(self._disabled.keys())
-      yield f"{self._DISABLE_FLAG}={joined}"
+      yield (self._DISABLE_FLAG, joined)
+
+  def get_list(self) -> Iterable[str]:
+    for flag_name, features_str in self.items():
+      yield f"{flag_name}={features_str}"
 
   def __str__(self):
     result = " ".join(self.get_list())
