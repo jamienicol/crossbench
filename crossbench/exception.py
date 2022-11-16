@@ -84,6 +84,16 @@ class Handler:
   def exceptions(self) -> List[Entry]:
     return self._exceptions
 
+  def assert_success(self,
+                     exception_cls: Type[BaseException] = AssertionError,
+                     message: Optional[str] = None):
+    if self.is_success:
+      return
+    self.log()
+    if message is None:
+      message = f"Got Exceptions: {self}"
+    raise exception_cls(message)
+
   def info(self, *stack_entries: str) -> ContextManager:
     return ContextManager(self, tuple(), stack_entries)
 
@@ -144,3 +154,6 @@ class Handler:
         "trace": str(entry.traceback),
         "info_stack": entry.info_stack
     } for entry in self._exceptions]
+
+  def __str__(self) -> str:
+    return "\n".join(list(entry.exception for entry in self._exceptions))

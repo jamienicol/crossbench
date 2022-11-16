@@ -225,10 +225,8 @@ class Runner:
     if not is_dry_run:
       self._tear_down()
     logging.info("RESULTS DIR: %s", self.out_dir)
-    if not self.is_success:
-      self._exceptions.log()
-      raise Exception(
-          f"Runs Failed: {len(failed)}/{len(self._runs)} runs failed.")
+    self._exceptions.assert_success(
+        Exception, f"Runs Failed: {len(failed)}/{len(self._runs)} runs failed.")
 
   def _tear_down(self):
     logging.info("MERGING PROBE DATA: iterations")

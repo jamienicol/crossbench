@@ -492,8 +492,8 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
           f"Test file {self.EXAMPLE_CONFIG_PATH} does not exist")
     self.fs.add_real_file(self.EXAMPLE_CONFIG_PATH)
     with self.EXAMPLE_CONFIG_PATH.open() as f:
-      config = cb.cli.BrowserConfig.load(
-          f, browser_lookup_override=self.BROWSER_LOOKUP)
+      config = cb.cli.BrowserConfig(browser_lookup_override=self.BROWSER_LOOKUP)
+      config.load(f)
     self.assertIn("default", config.flag_groups)
     self.assertGreaterEqual(len(config.flag_groups), 1)
     self.assertGreaterEqual(len(config.variants), 1)
@@ -514,10 +514,10 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
                   }
               }
           },
-          browser_lookup_override=self.BROWSER_LOOKUP)
+          browser_lookup_override=self.BROWSER_LOOKUP).variants
 
   def test_flag_combination_duplicate(self):
-    with self.assertRaises(AssertionError):
+    with self.assertRaises(ValueError):
       cb.cli.BrowserConfig(
           {
               "flags": {
@@ -535,13 +535,13 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
                   }
               }
           },
-          browser_lookup_override=self.BROWSER_LOOKUP)
+          browser_lookup_override=self.BROWSER_LOOKUP).variants
 
   def test_empty(self):
     with self.assertRaises(ValueError):
-      cb.cli.BrowserConfig({"other": {}})
+      cb.cli.BrowserConfig({"other": {}}).variants
     with self.assertRaises(ValueError):
-      cb.cli.BrowserConfig({"browsers": {}})
+      cb.cli.BrowserConfig({"browsers": {}}).variants
 
   def test_unknown_group(self):
     with self.assertRaises(ValueError):
@@ -552,7 +552,7 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
                   "flags": ["unknown-flag-group"]
               }
           }
-      })
+      }).variants
 
   def test_duplicate_group(self):
     with self.assertRaises(ValueError):
@@ -566,7 +566,7 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
                   "flags": ["group1", "group1"]
               }
           }
-      })
+      }).variants
 
   def test_duplicate_flag_variant_value(self):
     with self.assertRaises(ValueError):
@@ -582,23 +582,25 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
                   "flags": "group1",
               }
           }
-      })
+      }).variants
 
   def test_unknown_path(self):
     with self.assertRaises(Exception):
-      cb.cli.BrowserConfig(
-          {"browsers": {
+      cb.cli.BrowserConfig({
+          "browsers": {
               "stable": {
                   "path": "path/does/not/exist",
               }
-          }})
+          }
+      }).variants
     with self.assertRaises(Exception):
-      cb.cli.BrowserConfig(
-          {"browsers": {
+      cb.cli.BrowserConfig({
+          "browsers": {
               "stable": {
                   "path": "chrome-unknown",
               }
-          }})
+          }
+      }).variants
 
   def test_flag_combination_simple(self):
     config = cb.cli.BrowserConfig(

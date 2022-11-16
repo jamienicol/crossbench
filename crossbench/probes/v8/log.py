@@ -27,7 +27,7 @@ class V8LogProbe(base.Probe):
   _FLAG_RE = re.compile("^--(prof|log-.*|no-log-.*|)$")
 
   @classmethod
-  def config_parser(cls):
+  def config_parser(cls) -> cb.probes.config.ProbeConfigParser:
     parser = super().config_parser()
     parser.add_argument(
         "log_all",

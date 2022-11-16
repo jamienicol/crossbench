@@ -11,7 +11,7 @@ import logging
 import pathlib
 import hjson
 from tabulate import tabulate
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import crossbench as cb
 import crossbench.flags
@@ -21,6 +21,7 @@ import crossbench.probes
 import crossbench.probes.all
 import crossbench.benchmarks
 import crossbench.benchmarks.all
+import crossbench.exception
 import crossbench.env
 
 
@@ -75,47 +76,61 @@ class BrowserConfig:
 
   @classmethod
   def from_cli_args(cls, args) -> BrowserConfig:
+    browser_config = BrowserConfig()
     if args.browser_config:
       path = args.browser_config.expanduser()
       with path.open() as f:
-        return cls.load(f)
-    browser_config = BrowserConfig()
-    browser_config.load_from_args(args)
+        browser_config.load(f)
+    else:
+      browser_config.load_from_args(args)
     return browser_config
-
-  @classmethod
-  def load(cls, f,
-           browser_lookup_override: BrowserLookupTable = {}) -> BrowserConfig:
-    try:
-      config = hjson.load(f)
-      return cls(config, browser_lookup_override)
-    except ValueError as e:
-      raise ConfigFileError(
-          f"Failed to parse config file: {f.name}\n{str(e)}") from e
-
-  flag_groups: Dict[str, FlagGroupConfig]
-  variants: List[cb.browsers.Browser]
 
   def __init__(self,
                raw_config_data: Optional[Dict] = None,
                browser_lookup_override: BrowserLookupTable = {}):
-    self.flag_groups = {}
-    self.variants = []
+    self.flag_groups: Dict[str, FlagGroupConfig] = {}
+    self._variants: List[cb.browsers.Browser] = []
     self._browser_lookup_override = browser_lookup_override
+    self._exceptions = crossbench.exception.Handler()
     if raw_config_data:
+      self.load_dict(raw_config_data)
+
+  @property
+  def variants(self) -> List[cb.browsers.Browser]:
+    self._exceptions.assert_success(
+        ConfigFileError, "Could not create variants from config files")
+    return self._variants
+
+  def load(self, f):
+    with self._exceptions.handler(f"Loading browser config file: {f.name}"):
+      with self._exceptions.info(f"Parsing {hjson.__name__}"):
+        config = hjson.load(f)
+      with self._exceptions.info(f"Parsing config file: {f.name}"):
+        self.load_dict(config)
+
+  def load_dict(self, raw_config_data: Dict):
+    try:
       if "flags" in raw_config_data:
-        for flag_name, group_config in raw_config_data["flags"].items():
-          self._parse_flag_group(flag_name, group_config)
+        with self._exceptions.info(f"Parsing config['flags']"):
+          self._parse_flag_groups(raw_config_data["flags"])
       if "browsers" not in raw_config_data:
         raise ConfigFileError("Config does not provide a 'browsers' dict.")
       if not raw_config_data["browsers"]:
         raise ConfigFileError("Config contains empty 'browsers' dict.")
-      for name, browser_config in raw_config_data["browsers"].items():
-        self._parse_browser(name, browser_config)
+      with self._exceptions.info(f"Parsing config['browsers']"):
+        self._parse_browsers(raw_config_data["browsers"])
+    except Exception as e:
+      self._exceptions.handle(e)
+
+  def _parse_flag_groups(self, data: Dict[str, Any]):
+    for flag_name, group_config in data.items():
+      with self._exceptions.handler(
+          f"Parsing flag-group: flags['{flag_name}']"):
+        self._parse_flag_group(flag_name, group_config)
 
   def _parse_flag_group(self, name, raw_flag_group_data):
     if name in self.flag_groups:
-      raise ConfigFileError(f"flag-group='{name}' exists already")
+      raise ConfigFileError(f"flag-group flags['{name}'] exists already")
     variants: Dict[str, List[str]] = {}
     for flag_name, values in raw_flag_group_data.items():
       if not flag_name.startswith("-"):
@@ -129,8 +144,7 @@ class BrowserConfig:
       for value in values:
         if value == "None,":
           raise ConfigFileError(
-              f"Please use null instead of None for flag '{flag_name}' "
-              f"in flag group '{name}' in config files.")
+              f"Please use null instead of None for flag '{flag_name}' ")
         # O(n^2) check, assuming very few values per flag.
         if value in flag_values:
           raise ConfigFileError(
@@ -138,6 +152,11 @@ class BrowserConfig:
               f"'{value}' for entry '{flag_name}'")
         flag_values.append(value)
     self.flag_groups[name] = FlagGroupConfig(name, variants)
+
+  def _parse_browsers(self, data: Dict[str, Any]):
+    for name, browser_config in data.items():
+      with self._exceptions.info(f"Parsing browsers['{name}']"):
+        self._parse_browser(name, browser_config)
 
   def _parse_browser(self, name, raw_browser_data):
     path_or_identifier = raw_browser_data["path"]
@@ -147,15 +166,18 @@ class BrowserConfig:
       path = self._get_browser_path(path_or_identifier)
       cls = self._get_browser_cls_from_path(path)
     if not path.exists():
-      raise ConfigFileError(f"Browser='{name}' path='{path}' does not exist.")
-    raw_flags = self._parse_flags(name, raw_browser_data)
-    variants_flags = tuple(cls.default_flags(flags) for flags in raw_flags)
+      raise ConfigFileError(f"browsers['{name}'].path='{path}' does not exist.")
+    with self._exceptions.info(f"Parsing browsers['{name}'].flags"):
+      raw_flags = self._parse_flags(name, raw_browser_data)
+    with self._exceptions.info(
+        f"Expand browsers['{name}'].flags into full variants"):
+      variants_flags = tuple(cls.default_flags(flags) for flags in raw_flags)
     logging.info("Running browser '%s' with %s flag variants:", name,
                  len(variants_flags))
     for i in range(len(variants_flags)):
       logging.info("   %s: %s", i, variants_flags[i])
     # pytype: disable=not-instantiable
-    self.variants += [
+    self._variants += [
         cls(label=self._flags_to_label(name, flags), path=path, flags=flags)
         for flags in variants_flags
     ]
@@ -190,7 +212,7 @@ class BrowserConfig:
       else:
         flag_group = self.flag_groups.get(flag_group_name, None)
         if flag_group is None:
-          raise ConfigFileError(f"Flag-group='{flag_group_name}' "
+          raise ConfigFileError(f"group='{flag_group_name}' "
                                 f"for browser='{name}' does not exist.")
       flags_product += flag_group.get_variant_items()
     if len(flags_product) == 0:
@@ -233,7 +255,7 @@ class BrowserConfig:
 
     label = cb.browsers.convert_flags_to_label(*flags.get_list())
     browser = browser_cls(label=label, path=path, flags=flags)  # pytype: disable=not-instantiable
-    self.variants.append(browser)
+    self._variants.append(browser)
 
   def _get_browser_path(self, path_or_identifier: str) -> pathlib.Path:
     identifier = path_or_identifier.lower()
@@ -283,6 +305,7 @@ class ProbeConfig:
     return probe_config
 
   def __init__(self, probe_names_with_args: Optional[Iterable[str]] = None):
+    self._exceptions = cb.exception.Handler()
     self._probes: List[cb.probes.Probe] = []
     if probe_names_with_args:
       for probe_name_with_args in probe_names_with_args:
@@ -290,6 +313,8 @@ class ProbeConfig:
 
   @property
   def probes(self) -> List[cb.probes.Probe]:
+    self._exceptions.assert_success(ConfigFileError,
+                                    "Could not load probe config from files")
     return self._probes
 
   def add_probe(self, probe_name_with_args: str):
@@ -308,15 +333,21 @@ class ProbeConfig:
     self._probes.append(probe_cls.from_config(inline_config))
 
   def load_config_file(self, file):
-    data = hjson.load(file)
-    if "probes" not in data:
-      raise ValueError(
-          "Probe config file does not contain a 'probes' dict value.")
-    for probe_name, config_data in data['probes'].items():
-      if probe_name not in self.LOOKUP:
-        raise ValueError(f"Unknown probe name: '{probe_name}'")
-      probe_cls = self.LOOKUP[probe_name]
-      self._probes.append(probe_cls.from_config(config_data))
+    with self._exceptions.handler(f"Loading probe config file: {file.name}"):
+      with self._exceptions.info(f"Parsing {hjson.__name__}"):
+        data = hjson.load(file)
+      if "probes" not in data:
+        raise ValueError(
+            "Probe config file does not contain a 'probes' dict value.")
+      self.load_dict(data['probes'])
+
+  def load_dict(self, data: Dict[str, Any]):
+    for probe_name, config_data in data.items():
+      with self._exceptions.info(f"Parsing probe probes['{probe_name}']"):
+        if probe_name not in self.LOOKUP:
+          raise ValueError(f"Unknown probe name: '{probe_name}'")
+        probe_cls = self.LOOKUP[probe_name]
+        self._probes.append(probe_cls.from_config(config_data))
 
 
 def existing_file_type(str_value):
@@ -551,20 +582,9 @@ class CrossBenchCLI:
         subcommand=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
 
   def benchmark_subcommand(self, args: argparse.Namespace):
-    benchmark = self._get_benchmark(args)
-    args.browsers = self._get_browsers(args)
-    probes = self._get_probes(args)
-    env_config = self._get_env_config(args)
-    env_validation_mode = self._get_env_validation_mode(args)
-    runner = self._get_runner(args, benchmark, env_config, env_validation_mode)
-    for probe in probes:
-      runner.attach_probe(probe, matching_browser_only=True)
-    self._run_benchmark(args, runner, benchmark)
-
-  def _run_benchmark(self, args: argparse.Namespace, runner: cb.runner.Runner,
-                     benchmark: cb.benchmarks.Benchmark):
     try:
-      runner.run(is_dry_run=args.dry_run)
+      benchmark = self._get_benchmark(args)
+      self._benchmark_subcommand(args, benchmark)
     except Exception as e:
       if args.throw:
         raise
@@ -580,7 +600,24 @@ class CrossBenchCLI:
       logging.error("  - Use --vv for detailed logging")
       logging.error("#" * 80)
       exit(3)
-    print(f"RESULTS: {runner.out_dir}")
+
+  def _benchmark_subcommand(self, args: argparse.Namespace,
+                            benchmark: cb.benchmarks.Benchmark):
+    args.browsers = self._get_browsers(args)
+    probes = self._get_probes(args)
+    env_config = self._get_env_config(args)
+    env_validation_mode = self._get_env_validation_mode(args)
+    runner = self._get_runner(args, benchmark, env_config, env_validation_mode)
+    for probe in probes:
+      runner.attach_probe(probe, matching_browser_only=True)
+    self._run_benchmark(args, runner, benchmark)
+
+  def _run_benchmark(self, args: argparse.Namespace, runner: cb.runner.Runner,
+                     benchmark: cb.benchmarks.Benchmark):
+    try:
+      runner.run(is_dry_run=args.dry_run)
+    finally:
+      print(f"RESULTS: {runner.out_dir}")
 
   def _get_browsers(self,
                     args: argparse.Namespace) -> Sequence[cb.browsers.Browser]:
