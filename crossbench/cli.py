@@ -9,6 +9,7 @@ import itertools
 import json
 import logging
 import pathlib
+import sys
 import hjson
 from tabulate import tabulate
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
@@ -421,11 +422,13 @@ class CrossBenchCLI:
         action="count",
         default=0,
         help="Increase output verbosity (0..2)")
+    # Disable colors by default when piped to a file.
+    has_color = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
     self.parser.add_argument(
         "--no-color",
         dest="color",
         action="store_false",
-        default=True,
+        default=has_color,
         help="Disable colored output")
 
   def _setup_subparser(self):
