@@ -585,8 +585,8 @@ class CrossBenchCLI:
         subcommand=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
 
   def benchmark_subcommand(self, args: argparse.Namespace):
+    benchmark = self._get_benchmark(args)
     try:
-      benchmark = self._get_benchmark(args)
       self._benchmark_subcommand(args, benchmark)
     except Exception as e:
       if args.throw:

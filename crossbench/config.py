@@ -20,7 +20,7 @@ ArgParserType = Callable[[Any], Any]
 class _ConfigArg:
 
   def __init__(self,
-               parser: ProbeConfigParser,
+               parser: ConfigParser,
                name: str,
                type: Optional[ArgParserType],
                default: Any = None,
@@ -116,7 +116,7 @@ class _ConfigArg:
     return self.type(data)
 
 
-class ProbeConfigParser:
+class ConfigParser:
 
   def __init__(self, probe_cls: Type[cb.probes.Probe]):
     self.probe_cls = probe_cls

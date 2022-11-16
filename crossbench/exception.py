@@ -156,4 +156,4 @@ class Handler:
     } for entry in self._exceptions]
 
   def __str__(self) -> str:
-    return "\n".join(list(entry.exception for entry in self._exceptions))
+    return "\n".join(str(entry.exception) for entry in self._exceptions)

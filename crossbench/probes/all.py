@@ -5,7 +5,6 @@
 from crossbench.probes.base import Probe
 from crossbench.probes.json import JsonResultProbe
 
-from crossbench.probes.config import ProbeConfigParser
 from crossbench.probes.performance_entries import PerformanceEntriesProbe
 from crossbench.probes.power_sampler import PowerSamplerProbe
 from crossbench.probes.profiling import ProfilingProbe

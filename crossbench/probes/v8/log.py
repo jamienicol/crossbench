@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 import crossbench.flags
 from crossbench import helper
 from crossbench.probes import base
+import crossbench.config
 
 
 class V8LogProbe(base.Probe):
@@ -27,7 +28,7 @@ class V8LogProbe(base.Probe):
   _FLAG_RE = re.compile("^--(prof|log-.*|no-log-.*|)$")
 
   @classmethod
-  def config_parser(cls) -> cb.probes.config.ProbeConfigParser:
+  def config_parser(cls) -> cb.config.ConfigParser:
     parser = super().config_parser()
     parser.add_argument(
         "log_all",

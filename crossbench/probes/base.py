@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 from crossbench import helper
 
-from crossbench.probes.config import ProbeConfigParser
+from crossbench.config import ConfigParser
 
 ProbeT = TypeVar('ProbeT', bound="cb.probes.Probe")
 
@@ -58,8 +58,8 @@ class Probe(abc.ABC):
     pass
 
   @classmethod
-  def config_parser(cls) -> ProbeConfigParser:
-    return ProbeConfigParser(cls)
+  def config_parser(cls) -> ConfigParser:
+    return ConfigParser(cls)
 
   @classmethod
   def from_config(cls, config_data: Dict) -> Probe:
