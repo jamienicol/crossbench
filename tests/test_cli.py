@@ -211,7 +211,10 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
 
   def test_custom_chrome_browser_binary(self):
     browser_cls = mock_browser.MockChromeStable
-    browser_bin = browser_cls.APP_PATH.with_name("Custom Google Chrome.app")
+    # TODO: migrate to with_stem once python 3.9 is available everywhere
+    suffix = browser_cls.APP_PATH.suffix
+    browser_bin = browser_cls.APP_PATH.with_name(
+        f"Custom Google Chrome{suffix}")
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
 
     with mock.patch.object(
@@ -224,7 +227,10 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
 
   def test_custom_chrome_browser_binary_custom_flags(self):
     browser_cls = mock_browser.MockChromeStable
-    browser_bin = browser_cls.APP_PATH.with_name("Custom Google Chrome.app")
+    # TODO: migrate to with_stem once python 3.9 is available everywhere
+    suffix = browser_cls.APP_PATH.suffix
+    browser_bin = browser_cls.APP_PATH.with_name(
+        f"Custom Google Chrome{suffix}")
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
 
     with mock.patch.object(
@@ -813,7 +819,10 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
 
   def test_from_cli_args_browser_config(self):
     browser_cls = mock_browser.MockChromeStable
-    browser_bin = browser_cls.APP_PATH.with_name("Custom Google Chrome.app")
+    # TODO: migrate to with_stem once python 3.9 is available everywhere
+    suffix = browser_cls.APP_PATH.suffix
+    browser_bin = browser_cls.APP_PATH.with_name(
+        f"Custom Google Chrome{suffix}")
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
     config_data = {"browsers": {"stable": {"path": str(browser_bin),}}}
     config_file = pathlib.Path("config.hjson")
@@ -833,7 +842,10 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
 
   def test_from_cli_args_browser(self):
     browser_cls = mock_browser.MockChromeStable
-    browser_bin = browser_cls.APP_PATH.with_name("Custom Google Chrome.app")
+    # TODO: migrate to with_stem once python 3.9 is available everywhere
+    suffix = browser_cls.APP_PATH.suffix
+    browser_bin = browser_cls.APP_PATH.with_name(
+        f"Custom Google Chrome{suffix}")
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
     args = mock.Mock(
         browser=str(browser_bin),

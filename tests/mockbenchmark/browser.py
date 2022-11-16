@@ -26,6 +26,8 @@ class MockBrowser(cb.browsers.Browser):
     if cb.helper.platform.is_macos:
       assert bin_path.suffix == ".app"
       bin_path = bin_path / "Contents" / "MacOS" / bin_name
+    elif cb.helper.platform.is_win:
+      assert bin_path.suffix == ".exe"
     fs.create_file(bin_path)
 
   @classmethod
@@ -83,37 +85,55 @@ class MockBrowser(cb.browsers.Browser):
     return self.run_js_side_effect.pop(0)
 
 
+if helper.platform.is_macos:
+  APP_ROOT = pathlib.Path("/Applications")
+elif helper.platform.is_win:
+  APP_ROOT = pathlib.Path("C:/Program Files/Google")
+else:
+  APP_ROOT = pathlib.Path("/usr/bin")
+
+
 class MockChromeStable(MockBrowser):
   if helper.platform.is_macos:
-    APP_PATH = pathlib.Path("/Applications/Google Chrome.app")
+    APP_PATH = APP_ROOT / "Google Chrome.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Chrome/Application/chrome.exe"
   else:
-    APP_PATH = pathlib.Path("/usr/bin/google-chrome")
+    APP_PATH = APP_ROOT / "google-chrome"
 
 
 class MockChromeBeta(MockBrowser):
   if cb.helper.platform.is_macos:
-    APP_PATH = pathlib.Path("/Applications/Google Chrome Beta.app")
+    APP_PATH = APP_ROOT / "Google Chrome Beta.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Chrome Beta/Application/chrome.exe"
   else:
-    APP_PATH = pathlib.Path("/usr/bin/google-chrome-beta")
+    APP_PATH = APP_ROOT / "google-chrome-beta"
 
 
 class MockChromeDev(MockBrowser):
   if helper.platform.is_macos:
-    APP_PATH = pathlib.Path("/Applications/Google Chrome Dev.app")
+    APP_PATH = APP_ROOT / "Google Chrome Dev.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Chrome Dev/Application/chrome.exe"
   else:
-    APP_PATH = pathlib.Path("/usr/bin/google-chrome-unstable")
+    APP_PATH = APP_ROOT / "google-chrome-unstable"
 
 
 class MockChromeCanary(MockBrowser):
   if helper.platform.is_macos:
-    APP_PATH = pathlib.Path("/Applications/Google Chrome Canary.app")
+    APP_PATH = APP_ROOT / "Google Chrome Canary.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Chrome SxS/Application/chrome.exe"
   else:
-    APP_PATH = pathlib.Path("/usr/bin/google-chrome-canary")
+    APP_PATH = APP_ROOT / "google-chrome-canary"
 
 
 class MockSafari(MockBrowser):
   if helper.platform.is_macos:
-    APP_PATH = pathlib.Path("/Applications/Safari.app")
+    APP_PATH = APP_ROOT / "Safari.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Unsupported/Safari.exe"
   else:
     APP_PATH = pathlib.Path('/unsupported-platform/Safari')
 
@@ -124,7 +144,9 @@ class MockSafari(MockBrowser):
 
 class MockSafariTechnologyPreview(MockBrowser):
   if cb.helper.platform.is_macos:
-    APP_PATH = pathlib.Path("/Applications/Safari Technology Preview.app")
+    APP_PATH = APP_ROOT / "Safari Technology Preview.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Unsupported/Safari Technology Preview.exe"
   else:
     APP_PATH = pathlib.Path('/unsupported-platform/Safari Technology Preview')
 

@@ -243,8 +243,8 @@ class WinxPlatformUnittest(unittest.TestCase):
     self.assertTrue(ls)
 
   def test_search_binary(self):
-    path = self.platform.search_binary(pathlib.Path("does not exist"))
-    self.assertIsNone(path)
+    with self.assertRaises(ValueError):
+      self.platform.search_binary(pathlib.Path("does not exist"))
     path = self.platform.search_binary(
         pathlib.Path("Windows NT/Accessories/wordpad.exe"))
     self.assertTrue(path and path.exists())
