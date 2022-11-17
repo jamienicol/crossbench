@@ -418,13 +418,7 @@ class CrossBenchCLI:
     self._setup_subparser()
 
   def _setup_parser(self):
-    self.parser.add_argument(
-        "-v",
-        "--verbose",
-        dest="verbosity",
-        action="count",
-        default=0,
-        help="Increase output verbosity (0..2)")
+    self._add_verbosity_argument(self.parser)
     # Disable colors by default when piped to a file.
     has_color = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
     self.parser.add_argument(
@@ -433,6 +427,15 @@ class CrossBenchCLI:
         action="store_false",
         default=has_color,
         help="Disable colored output")
+
+  def _add_verbosity_argument(self, parser):
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbosity",
+        action="count",
+        default=0,
+        help="Increase output verbosity (0..2)")
 
   def _setup_subparser(self):
     self.subparsers = self.parser.add_subparsers(
@@ -461,6 +464,7 @@ class CrossBenchCLI:
                                  action="store_true",
                                  help="Print the data as json data")
     describe_parser.set_defaults(subcommand=self.describe_subcommand)
+    self._add_verbosity_argument(describe_parser)
 
   def describe_subcommand(self, args: argparse.Namespace):
     data = {
@@ -597,6 +601,7 @@ class CrossBenchCLI:
         default="")
     subparser.set_defaults(
         subcommand=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
+    self._add_verbosity_argument(subparser)
 
   def benchmark_subcommand(self, args: argparse.Namespace):
     benchmark = self._get_benchmark(args)
