@@ -11,8 +11,11 @@ import tabulate
 from typing import Any, Callable, Dict, List, Optional, Sequence, Type, TYPE_CHECKING
 
 import crossbench as cb
+import crossbench.exception
+
 if TYPE_CHECKING:
   import crossbench.probes
+
 
 ArgParserType = Callable[[Any], Any]
 
@@ -118,8 +121,10 @@ class _ConfigArg:
 
 class ConfigParser:
 
-  def __init__(self, probe_cls: Type[cb.probes.Probe]):
-    self.probe_cls = probe_cls
+  def __init__(self, title: str, probe_cls: Type[object]):
+    self.title = title
+    assert title, "No title provided"
+    self._cls = probe_cls
     self._args: Dict[str, _ConfigArg] = dict()
 
   def add_argument(self,
@@ -133,28 +138,38 @@ class ConfigParser:
     self._args[name] = _ConfigArg(self, name, type, default, choices, help,
                                   is_list)
 
-  @property
-  def doc(self) -> str:
-    assert self.probe_cls.__doc__
-    return self.probe_cls.__doc__.strip()
-
   def kwargs_from_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
     kwargs: Dict[str, Any] = {}
+    exceptions = cb.exception.Annotator()
     for arg in self._args.values():
-      kwargs[arg.name] = arg.parse(config_data)
+      with exceptions.capture(f"Parsing ...['{arg.name}']:"):
+        kwargs[arg.name] = arg.parse(config_data)
+    exceptions.assert_success("Failed to parse config: {}")
     return kwargs
 
-  def __str__(self):
-    doc = ["\n".join(textwrap.wrap(self.doc, width=60))]
-    if not self._args:
-      return doc[0]
-    doc.extend(["", "Probe Configuration:", ""])
-    for arg in self._args.values():
-      doc.append(f"{arg.name}:")
-      doc.extend(wrap_lines(arg.help_text, width=58, indent="  "))
-      doc.append("")
+  @property
+  def doc(self) -> str:
+    if not self._cls.__doc__:
+      return ""
+    return self._cls.__doc__.strip()
 
-    return "\n".join(doc)
+  def __str__(self):
+    parts: List[str] = []
+    doc_string = self.doc
+    if doc_string:
+      parts.append("\n".join(textwrap.wrap(doc_string, width=60)))
+      parts.append("")
+    if not self._args:
+      if parts:
+        return parts[0]
+      return ""
+    parts.append(f"{self.title} Configuration:")
+    parts.append("")
+    for arg in self._args.values():
+      parts.append(f"{arg.name}:")
+      parts.extend(wrap_lines(arg.help_text, width=58, indent="  "))
+      parts.append("")
+    return "\n".join(parts)
 
 
 def wrap_lines(body, width, indent):

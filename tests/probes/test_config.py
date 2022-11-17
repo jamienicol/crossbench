@@ -4,8 +4,7 @@
 
 import unittest
 
-from crossbench.config import ConfigParser
-from crossbench.probes import Probe
+from crossbench.probes import Probe, ProbeConfigParser
 
 import sys
 import pytest
@@ -31,7 +30,7 @@ def custom_arg_type(value):
 class TestProbeConfig(unittest.TestCase):
 
   def test_help_text(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     parser.add_argument("bool", type=bool)
     parser.add_argument("bool_default", type=bool, default=False)
     parser.add_argument("bool_list", type=bool, default=(False,), is_list=True)
@@ -47,19 +46,19 @@ class TestProbeConfig(unittest.TestCase):
     self.assertIn("custom_help", help)
 
   def test_invalid_config_duplicate(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     parser.add_argument("bool", type=bool)
     with self.assertRaises(AssertionError):
       parser.add_argument("bool", type=bool)
 
   def test_config_defaults(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     with self.assertRaises(AssertionError):
       parser.add_argument("bool", type=bool, default=1)
     parser.add_argument("any", type=object, default=1)
 
   def test_config_defaults_list(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     with self.assertRaises(AssertionError):
       parser.add_argument("bool", type=bool, is_list=True, default=True)
     with self.assertRaises(AssertionError):
@@ -83,7 +82,7 @@ class TestProbeConfig(unittest.TestCase):
         ))
 
   def test_bool_missing_property(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     parser.add_argument("bool_argument_name", type=bool)
     with self.assertRaises(ValueError):
       parser.kwargs_from_config({})
@@ -91,7 +90,7 @@ class TestProbeConfig(unittest.TestCase):
       parser.kwargs_from_config({"other": True})
 
   def test_bool_invalid_value(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     parser.add_argument("bool_argument_name", type=bool)
     with self.assertRaises(ValueError):
       parser.kwargs_from_config({"bool_argument_name": "not a bool"})
@@ -107,7 +106,7 @@ class TestProbeConfig(unittest.TestCase):
       parser.kwargs_from_config({"bool_argument_name": 0})
 
   def test_bool_default(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     parser.add_argument("bool_argument_name", type=bool, default=False)
 
     config_data = {}
@@ -121,7 +120,7 @@ class TestProbeConfig(unittest.TestCase):
     self.assertDictEqual(kwargs, {"bool_argument_name": True})
 
   def test_bool(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     parser.add_argument("bool_argument_name", type=bool)
     config_data = {"bool_argument_name": True}
     kwargs = parser.kwargs_from_config(config_data)
@@ -129,7 +128,7 @@ class TestProbeConfig(unittest.TestCase):
     self.assertDictEqual(kwargs, {"bool_argument_name": True})
 
   def test_int_list_invalid(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     parser.add_argument("int_list", type=int, is_list=True, default=[111, 222])
     with self.assertRaises(ValueError):
       parser.kwargs_from_config({"int_list": 9})
@@ -139,7 +138,7 @@ class TestProbeConfig(unittest.TestCase):
       parser.kwargs_from_config({"int_list": "0,1"})
 
   def test_int_list(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     parser.add_argument("int_list", type=int, is_list=True, default=[111, 222])
     kwargs = parser.kwargs_from_config({})
     self.assertDictEqual(kwargs, {"int_list": [111, 222]})
@@ -150,7 +149,7 @@ class TestProbeConfig(unittest.TestCase):
     self.assertDictEqual(kwargs, {"int_list": [0, 1]})
 
   def test_custom_type(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     parser.add_argument("custom", type=custom_arg_type)
     config_data = {"custom": [1, 2, "stuff"]}
     kwargs = parser.kwargs_from_config(config_data)

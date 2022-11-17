@@ -101,7 +101,7 @@ class Runner:
     self.throttle = throttle
     self._probes: List[cb.probes.Probe] = []
     self._runs: List[Run] = []
-    self._exceptions = exception.Handler(throw)
+    self._exceptions = exception.Annotator(throw)
     self._platform = platform
     self._env = cb.env.HostEnvironment(
         self,  # pytype: disable=wrong-arg-types
@@ -155,7 +155,7 @@ class Runner:
     return list(self._probes)
 
   @property
-  def exceptions(self) -> exception.Handler:
+  def exceptions(self) -> exception.Annotator:
     return self._exceptions
 
   @property
@@ -226,7 +226,7 @@ class Runner:
       self._tear_down()
     logging.info("RESULTS DIR: %s", self.out_dir)
     self._exceptions.assert_success(
-        Exception, f"Runs Failed: {len(failed)}/{len(self._runs)} runs failed.")
+        f"Runs Failed: {len(failed)}/{len(self._runs)} runs failed.")
 
   def _tear_down(self):
     logging.info("MERGING PROBE DATA: iterations")
@@ -268,7 +268,7 @@ class Runner:
 class RunGroup:
 
   def __init__(self, throw=False):
-    self._exceptions = exception.Handler(throw)
+    self._exceptions = exception.Annotator(throw)
     self._path = None
     self._merged_probe_results = None
 
@@ -286,7 +286,7 @@ class RunGroup:
     return self._path
 
   @property
-  def exceptions(self) -> exception.Handler:
+  def exceptions(self) -> exception.Annotator:
     return self._exceptions
 
   @property
@@ -302,7 +302,7 @@ class RunGroup:
   def merge(self, runner: Runner):
     with self._exceptions.info(*self.info_stack):
       for probe in reversed(runner.probes):
-        with self._exceptions.handler(f"Probe {probe.name} merge results"):
+        with self._exceptions.capture(f"Probe {probe.name} merge results"):
           results = self._merge_probe_results(probe)
           if results is None:
             continue
@@ -473,7 +473,7 @@ class Run:
     self._extra_flags = cb.flags.Flags()
     self._durations = helper.Durations()
     self._temperature = temperature
-    self._exceptions = exception.Handler(throw)
+    self._exceptions = exception.Annotator(throw)
 
   def get_out_dir(self, root_dir) -> pathlib.Path:
     return root_dir / self.browser.short_name / self.story.name / str(
@@ -548,7 +548,7 @@ class Run:
     return self._probe_results
 
   @property
-  def exceptions(self) -> exception.Handler:
+  def exceptions(self) -> exception.Annotator:
     return self._exceptions
 
   @property
@@ -567,7 +567,7 @@ class Run:
     return self._exceptions.info(*stack_entries)
 
   def exception_handler(self, *stack_entries: str, exceptions=(Exception,)):
-    return self._exceptions.handler(*stack_entries, exceptions=exceptions)
+    return self._exceptions.capture(*stack_entries, exceptions=exceptions)
 
   def get_browser_details_json(self) -> dict:
     details_json = self.browser.details_json()
@@ -633,7 +633,7 @@ class Run:
       try:
         self._run(probe_scopes)
       except Exception as e:
-        self._exceptions.handle(e)
+        self._exceptions.append(e)
       finally:
         self.tear_down(probe_scopes)
 
@@ -657,7 +657,7 @@ class Run:
       except TimeoutError as e:
         # Handle TimeoutError earlier since they might be caused by
         # throttled down non-foreground browser.
-        self._exceptions.handle(e)
+        self._exceptions.append(e)
       self._check_browser_foreground()
 
   def _check_browser_foreground(self):
@@ -687,7 +687,7 @@ class Run:
         except Exception as e:
           logging.warning("Error quitting browser: %s", e)
           return
-      with self._exceptions.handler("Quit browser"):
+      with self._exceptions.capture("Quit browser"):
         self._browser.quit(self._runner)  # pytype: disable=wrong-arg-types
     with self.measure("probes-tear_down"):
       logging.info("TEARDOWN")
@@ -695,7 +695,7 @@ class Run:
 
   def _tear_down_probe_scopes(self, probe_scopes: List[cb.probes.Probe.Scope]):
     for probe_scope in reversed(probe_scopes):
-      with self.exceptions.handler(f"Probe {probe_scope.name} teardown"):
+      with self.exceptions.capture(f"Probe {probe_scope.name} teardown"):
         assert probe_scope.run == self
         probe_results: Optional[
             cb.probes.ProbeResultType] = probe_scope.tear_down(self)

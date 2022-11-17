@@ -15,143 +15,144 @@ import pytest
 class ExceptionHandlerTestCase(unittest.TestCase):
 
   def test_empty(self):
-    handler = cb.exception.Handler()
-    self.assertTrue(handler.is_success)
-    self.assertListEqual(handler.exceptions, [])
-    self.assertListEqual(handler.to_json(), [])
+    annotator = cb.exception.Annotator()
+    self.assertTrue(annotator.is_success)
+    self.assertListEqual(annotator.exceptions, [])
+    self.assertListEqual(annotator.to_json(), [])
     with mock.patch("logging.error") as logging_mock:
-      handler.log()
+      annotator.log()
     # No exceptions => no error output
     logging_mock.assert_not_called()
 
   def test_handle_exception(self):
-    handler = cb.exception.Handler()
+    annotator = cb.exception.Annotator()
     exception = ValueError("custom message")
     try:
       raise exception
     except ValueError as e:
-      handler.handle(e)
-    self.assertFalse(handler.is_success)
-    serialized = handler.to_json()
+      annotator.append(e)
+    self.assertFalse(annotator.is_success)
+    serialized = annotator.to_json()
     self.assertEqual(len(serialized), 1)
     self.assertEqual(serialized[0]["title"], str(exception))
     with mock.patch("logging.debug") as logging_mock:
-      handler.log()
+      annotator.log()
     logging_mock.assert_has_calls([mock.call(exception)])
 
   def test_handle_rethrow(self):
-    handler = cb.exception.Handler(throw=True)
+    annotator = cb.exception.Annotator(throw=True)
     exception = ValueError("custom message")
     with self.assertRaises(ValueError) as cm:
       try:
         raise exception
       except ValueError as e:
-        handler.handle(e)
+        annotator.append(e)
     self.assertEqual(cm.exception, exception)
-    self.assertFalse(handler.is_success)
-    serialized = handler.to_json()
+    self.assertFalse(annotator.is_success)
+    serialized = annotator.to_json()
     self.assertEqual(len(serialized), 1)
     self.assertEqual(serialized[0]["title"], str(exception))
 
   def test_info_stack(self):
-    handler = cb.exception.Handler(throw=True)
+    annotator = cb.exception.Annotator(throw=True)
     exception = ValueError("custom message")
-    with self.assertRaises(ValueError) as cm, handler.info("info 1", "info 2"):
-      self.assertTupleEqual(handler.info_stack, ("info 1", "info 2"))
+    with self.assertRaises(ValueError) as cm, annotator.info(
+        "info 1", "info 2"):
+      self.assertTupleEqual(annotator.info_stack, ("info 1", "info 2"))
       try:
         raise exception
       except ValueError as e:
-        handler.handle(e)
+        annotator.append(e)
     self.assertEqual(cm.exception, exception)
-    self.assertFalse(handler.is_success)
-    self.assertEqual(len(handler.exceptions), 1)
-    entry = handler.exceptions[0]
+    self.assertFalse(annotator.is_success)
+    self.assertEqual(len(annotator.exceptions), 1)
+    entry = annotator.exceptions[0]
     self.assertTupleEqual(entry.info_stack, ("info 1", "info 2"))
-    serialized = handler.to_json()
+    serialized = annotator.to_json()
     self.assertEqual(len(serialized), 1)
     self.assertEqual(serialized[0]["title"], str(exception))
     self.assertEqual(serialized[0]["info_stack"], ("info 1", "info 2"))
 
   def test_info_stack_logging(self):
-    handler = cb.exception.Handler()
+    annotator = cb.exception.Annotator()
     try:
-      with handler.info("info 1", "info 2"):
+      with annotator.info("info 1", "info 2"):
         raise ValueError("custom message")
     except ValueError as e:
-      handler.handle(e)
+      annotator.append(e)
     with self.assertLogs(level="ERROR") as cm:
-      handler.log()
+      annotator.log()
     output = "\n".join(cm.output)
     self.assertIn("info 1", output)
     self.assertIn("info 2", output)
     self.assertIn("custom message", output)
 
   def test_handle_keyboard_interrupt(self):
-    handler = cb.exception.Handler()
+    annotator = cb.exception.Annotator()
     keyboard_interrupt = KeyboardInterrupt()
     with mock.patch("sys.exit", side_effect=ValueError) as exit_mock:
       with self.assertRaises(ValueError) as cm:
         try:
           raise keyboard_interrupt
         except KeyboardInterrupt as e:
-          handler.handle(e)
+          annotator.append(e)
       self.assertNotEqual(cm.exception, keyboard_interrupt)
     exit_mock.assert_called_once_with(0)
 
   def test_extend(self):
-    handler_1 = cb.exception.Handler()
+    annotator_1 = cb.exception.Annotator()
     try:
       raise ValueError("error_1")
     except ValueError as e:
-      handler_1.handle(e)
-    handler_2 = cb.exception.Handler()
+      annotator_1.append(e)
+    annotator_2 = cb.exception.Annotator()
     try:
       raise ValueError("error_2")
     except ValueError as e:
-      handler_2.handle(e)
-    handler_3 = cb.exception.Handler()
-    handler_4 = cb.exception.Handler()
-    self.assertFalse(handler_1.is_success)
-    self.assertFalse(handler_2.is_success)
-    self.assertTrue(handler_3.is_success)
-    self.assertTrue(handler_4.is_success)
+      annotator_2.append(e)
+    annotator_3 = cb.exception.Annotator()
+    annotator_4 = cb.exception.Annotator()
+    self.assertFalse(annotator_1.is_success)
+    self.assertFalse(annotator_2.is_success)
+    self.assertTrue(annotator_3.is_success)
+    self.assertTrue(annotator_4.is_success)
 
-    self.assertEqual(len(handler_1.exceptions), 1)
-    self.assertEqual(len(handler_2.exceptions), 1)
-    handler_2.extend(handler_1)
-    self.assertEqual(len(handler_2.exceptions), 2)
-    self.assertFalse(handler_1.is_success)
-    self.assertFalse(handler_2.is_success)
+    self.assertEqual(len(annotator_1.exceptions), 1)
+    self.assertEqual(len(annotator_2.exceptions), 1)
+    annotator_2.extend(annotator_1)
+    self.assertEqual(len(annotator_2.exceptions), 2)
+    self.assertFalse(annotator_1.is_success)
+    self.assertFalse(annotator_2.is_success)
 
-    self.assertEqual(len(handler_1.exceptions), 1)
-    self.assertEqual(len(handler_3.exceptions), 0)
-    self.assertEqual(len(handler_4.exceptions), 0)
-    handler_3.extend(handler_1)
-    handler_3.extend(handler_4)
-    self.assertEqual(len(handler_3.exceptions), 1)
-    self.assertFalse(handler_3.is_success)
-    self.assertTrue(handler_4.is_success)
+    self.assertEqual(len(annotator_1.exceptions), 1)
+    self.assertEqual(len(annotator_3.exceptions), 0)
+    self.assertEqual(len(annotator_4.exceptions), 0)
+    annotator_3.extend(annotator_1)
+    annotator_3.extend(annotator_4)
+    self.assertEqual(len(annotator_3.exceptions), 1)
+    self.assertFalse(annotator_3.is_success)
+    self.assertTrue(annotator_4.is_success)
 
   def test_extend_nested(self):
-    handler_1 = cb.exception.Handler()
-    handler_2 = cb.exception.Handler()
+    annotator_1 = cb.exception.Annotator()
+    annotator_2 = cb.exception.Annotator()
     exception_1 = ValueError("error_1")
     exception_2 = ValueError("error_2")
-    with handler_1.handler("info 1", "info 2", exceptions=(ValueError,)):
+    with annotator_1.capture("info 1", "info 2", exceptions=(ValueError,)):
       raise exception_1
-    self.assertEqual(len(handler_1.exceptions), 1)
-    self.assertEqual(len(handler_2.exceptions), 0)
-    with handler_1.info("info 1", "info 2"):
-      with handler_2.handler("info 3", "info 4", exceptions=(ValueError,)):
+    self.assertEqual(len(annotator_1.exceptions), 1)
+    self.assertEqual(len(annotator_2.exceptions), 0)
+    with annotator_1.info("info 1", "info 2"):
+      with annotator_2.capture("info 3", "info 4", exceptions=(ValueError,)):
         raise exception_2
-      handler_1.extend(handler_2, is_nested=True)
-    self.assertEqual(len(handler_1.exceptions), 2)
-    self.assertEqual(len(handler_2.exceptions), 1)
-    self.assertTupleEqual(handler_1.exceptions[0].info_stack,
+      annotator_1.extend(annotator_2, is_nested=True)
+    self.assertEqual(len(annotator_1.exceptions), 2)
+    self.assertEqual(len(annotator_2.exceptions), 1)
+    self.assertTupleEqual(annotator_1.exceptions[0].info_stack,
                           ("info 1", "info 2"))
-    self.assertTupleEqual(handler_1.exceptions[1].info_stack,
+    self.assertTupleEqual(annotator_1.exceptions[1].info_stack,
                           ("info 1", "info 2", "info 3", "info 4"))
-    self.assertTupleEqual(handler_2.exceptions[0].info_stack,
+    self.assertTupleEqual(annotator_2.exceptions[0].info_stack,
                           ("info 3", "info 4"))
 
 

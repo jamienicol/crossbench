@@ -92,18 +92,18 @@ class BrowserConfig:
     self.flag_groups: Dict[str, FlagGroupConfig] = {}
     self._variants: List[cb.browsers.Browser] = []
     self._browser_lookup_override = browser_lookup_override
-    self._exceptions = crossbench.exception.Handler()
+    self._exceptions = crossbench.exception.Annotator()
     if raw_config_data:
       self.load_dict(raw_config_data)
 
   @property
   def variants(self) -> List[cb.browsers.Browser]:
     self._exceptions.assert_success(
-        ConfigFileError, "Could not create variants from config files")
+        "Could not create variants from config files: {}", ConfigFileError)
     return self._variants
 
   def load(self, f):
-    with self._exceptions.handler(f"Loading browser config file: {f.name}"):
+    with self._exceptions.capture(f"Loading browser config file: {f.name}"):
       with self._exceptions.info(f"Parsing {hjson.__name__}"):
         config = hjson.load(f)
       with self._exceptions.info(f"Parsing config file: {f.name}"):
@@ -121,11 +121,11 @@ class BrowserConfig:
       with self._exceptions.info(f"Parsing config['browsers']"):
         self._parse_browsers(raw_config_data["browsers"])
     except Exception as e:
-      self._exceptions.handle(e)
+      self._exceptions.append(e)
 
   def _parse_flag_groups(self, data: Dict[str, Any]):
     for flag_name, group_config in data.items():
-      with self._exceptions.handler(
+      with self._exceptions.capture(
           f"Parsing flag-group: flags['{flag_name}']"):
         self._parse_flag_group(flag_name, group_config)
 
@@ -306,16 +306,18 @@ class ProbeConfig:
     return probe_config
 
   def __init__(self, probe_names_with_args: Optional[Iterable[str]] = None):
-    self._exceptions = cb.exception.Handler()
+    self._exceptions = cb.exception.Annotator()
     self._probes: List[cb.probes.Probe] = []
-    if probe_names_with_args:
-      for probe_name_with_args in probe_names_with_args:
+    if not probe_names_with_args:
+      return
+    for probe_name_with_args in probe_names_with_args:
+      with self._exceptions.capture(f"Parsing --probe={probe_name_with_args}"):
         self.add_probe(probe_name_with_args)
 
   @property
   def probes(self) -> List[cb.probes.Probe]:
-    self._exceptions.assert_success(ConfigFileError,
-                                    "Could not load probe config from files")
+    self._exceptions.assert_success(
+        "Could not load probe config from files: {}", ConfigFileError)
     return self._probes
 
   def add_probe(self, probe_name_with_args: str):
@@ -334,7 +336,7 @@ class ProbeConfig:
     self._probes.append(probe_cls.from_config(inline_config))
 
   def load_config_file(self, file):
-    with self._exceptions.handler(f"Loading probe config file: {file.name}"):
+    with self._exceptions.capture(f"Loading probe config file: {file.name}"):
       with self._exceptions.info(f"Parsing {hjson.__name__}"):
         data = hjson.load(file)
       if "probes" not in data:
@@ -344,7 +346,8 @@ class ProbeConfig:
 
   def load_dict(self, data: Dict[str, Any]):
     for probe_name, config_data in data.items():
-      with self._exceptions.info(f"Parsing probe probes['{probe_name}']"):
+      with self._exceptions.info(
+          f"Parsing probe config probes['{probe_name}']"):
         if probe_name not in self.LOOKUP:
           raise ValueError(f"Unknown probe name: '{probe_name}'")
         probe_cls = self.LOOKUP[probe_name]

@@ -24,6 +24,13 @@ from crossbench.config import ConfigParser
 ProbeT = TypeVar('ProbeT', bound="cb.probes.Probe")
 
 
+class ProbeConfigParser(ConfigParser):
+
+  def __init__(self, probe_cls: Type[cb.probes.Probe]):
+    super().__init__("Probe", probe_cls)
+    self._probe_cls = probe_cls
+
+
 class Probe(abc.ABC):
   """
   Abstract Probe class.
@@ -58,8 +65,8 @@ class Probe(abc.ABC):
     pass
 
   @classmethod
-  def config_parser(cls) -> ConfigParser:
-    return ConfigParser(cls)
+  def config_parser(cls) -> ProbeConfigParser:
+    return ProbeConfigParser(cls)
 
   @classmethod
   def from_config(cls, config_data: Dict) -> Probe:

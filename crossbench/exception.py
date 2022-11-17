@@ -25,40 +25,57 @@ class Entry:
   info_stack: TInfoStack
 
 
-class ContextManager:
+class MultiException(ValueError):
+  """Default exception thrown by ExceptionAnnotator.assert_success.
+  It holds on to the ExceptionAnnotator and its previously captured exceptions
+  are automatically added to active ExceptionAnnotator in an
+  ExceptionAnnotationScope."""
 
-  def __init__(self, exception_handler: Handler,
+  def __init__(self, message: str, exceptions: ExceptionAnnotator):
+    super().__init__(message)
+    self.exceptions = exceptions
+
+
+class ExceptionAnnotationScope:
+
+  def __init__(self, annotator: ExceptionAnnotator,
                exception_types: TExceptionTypes, entries: Tuple[str]):
-    self._handler = exception_handler
+    self._annotator = annotator
     self._exception_types = exception_types
     self._added_info_stack_entries = entries
     self._previous_info_stack: TInfoStack = ()
 
   def __enter__(self):
-    self._handler._pending_exceptions.clear()
-    self._previous_info_stack = self._handler.info_stack
-    self._handler._info_stack = self._previous_info_stack + (
+    self._annotator._pending_exceptions.clear()
+    self._previous_info_stack = self._annotator.info_stack
+    self._annotator._info_stack = self._previous_info_stack + (
         self._added_info_stack_entries)
 
   def __exit__(self, exception_type: Optional[Type[BaseException]],
                exception_value: Optional[BaseException],
                traceback: Optional[TracebackType]) -> bool:
     if not exception_value:
-      self._handler._info_stack = self._previous_info_stack
+      self._annotator._info_stack = self._previous_info_stack
       return False
-    if self._exception_types and issubclass(exception_type,
-                                            self._exception_types):
+    if self._exception_types and (issubclass(exception_type, MultiException) or
+                                  issubclass(exception_type,
+                                             self._exception_types)):
       # Handle matching exceptions directly here and prevent further
-      # exception handlers by returning True.
-      self._handler.handle(exception_value)
-      self._handler._info_stack = self._previous_info_stack
+      # exception handling by returning True.
+      self._annotator.append(exception_value)
+      self._annotator._info_stack = self._previous_info_stack
       return True
-    if exception_value not in self._handler._pending_exceptions:
-      self._handler._pending_exceptions[
-          exception_value] = self._handler.info_stack
+    if exception_value not in self._annotator._pending_exceptions:
+      self._annotator._pending_exceptions[
+          exception_value] = self._annotator.info_stack
 
 
-class Handler:
+class ExceptionAnnotator:
+  """Collects exceptions with full backtraces and user-provided info stacks.
+
+  Additional stack information is constructed from active 
+  ExceptionAnnotationScopes.
+  """
 
   def __init__(self, throw: bool = False):
     self._exceptions: List[Entry] = []
@@ -69,7 +86,7 @@ class Handler:
     self._info_stack: TInfoStack = ()
     # Associates raised exception with the info_stack at that time for later
     # use in the `handle` method.
-    # This is cleared whenever we enter a  new ContextManager.
+    # This is cleared whenever we enter a  new ExceptionAnnotationScope.
     self._pending_exceptions: Dict[BaseException, TInfoStack] = {}
 
   @property
@@ -85,46 +102,57 @@ class Handler:
     return self._exceptions
 
   def assert_success(self,
-                     exception_cls: Type[BaseException] = AssertionError,
-                     message: Optional[str] = None):
+                     message: Optional[str] = None,
+                     exception_cls: Optional[Type[BaseException]] = None):
     if self.is_success:
       return
     self.log()
     if message is None:
-      message = f"Got Exceptions: {self}"
-    raise exception_cls(message)
-
-  def info(self, *stack_entries: str) -> ContextManager:
-    return ContextManager(self, tuple(), stack_entries)
-
-  def handler(self,
-              *stack_entries: str,
-              exceptions: TExceptionTypes = (Exception,)) -> ContextManager:
-    return ContextManager(self, exceptions, stack_entries)
-
-  def extend(self, handler: Handler, is_nested: bool = False):
-    if is_nested:
-      self._extend_with_prepended_stack_info(handler)
+      message = "Got Exceptions: {}"
+    message = message.format(self)
+    if exception_cls:
+      raise exception_cls(message)
     else:
-      self._exceptions.extend(handler.exceptions)
+      raise MultiException(message, self)
 
-  def _extend_with_prepended_stack_info(self, handler: Handler):
-    for entry in handler.exceptions:
+  def info(self, *stack_entries: str) -> ExceptionAnnotationScope:
+    """Only sets info stack entries, exceptions are passed-through."""
+    return ExceptionAnnotationScope(self, tuple(), stack_entries)
+
+  def capture(self,
+              *stack_entries: str,
+              exceptions: TExceptionTypes = (Exception,)
+             ) -> ExceptionAnnotationScope:
+    """Sets info stack entries and captures exceptions."""
+    return ExceptionAnnotationScope(self, exceptions, stack_entries)
+
+  def extend(self, annotator: ExceptionAnnotator, is_nested: bool = False):
+    if is_nested:
+      self._extend_with_prepended_stack_info(annotator)
+    else:
+      self._exceptions.extend(annotator.exceptions)
+
+  def _extend_with_prepended_stack_info(self, annotator: ExceptionAnnotator):
+    for entry in annotator.exceptions:
       merged_info_stack = self.info_stack + entry.info_stack
       merged_entry = Entry(entry.traceback, entry.exception, merged_info_stack)
       self._exceptions.append(merged_entry)
 
-  def handle(self, e: BaseException):
-    if isinstance(e, KeyboardInterrupt):
+  def append(self, exception: BaseException):
+    tb: str = traceback.format_exc()
+    logging.info("Intermediate Exception: %s", exception)
+    logging.debug(tb)
+    if isinstance(exception, KeyboardInterrupt):
       # Fast exit on KeyboardInterrupts for a better user experience.
       sys.exit(0)
-    tb: str = traceback.format_exc()
-    stack = self.info_stack
-    if e in self._pending_exceptions:
-      stack = self._pending_exceptions[e]
-    self._exceptions.append(Entry(tb, e, stack))
-    logging.info("Intermediate Exception: %s", e)
-    logging.debug(tb)
+    if isinstance(exception, MultiException):
+      # Directly add exceptions from nested annotators.
+      self.extend(exception.exceptions, is_nested=True)
+    else:
+      stack = self.info_stack
+      if exception in self._pending_exceptions:
+        stack = self._pending_exceptions[exception]
+      self._exceptions.append(Entry(tb, exception, stack))
     if self.throw:
       raise
 
@@ -157,3 +185,6 @@ class Handler:
 
   def __str__(self) -> str:
     return "\n".join(str(entry.exception) for entry in self._exceptions)
+
+# Expose simpler name
+Annotator = ExceptionAnnotator
