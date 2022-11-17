@@ -33,15 +33,20 @@ class TestProbeConfig(unittest.TestCase):
     parser = ProbeConfigParser(MockProbe)
     parser.add_argument("bool", type=bool)
     parser.add_argument("bool_default", type=bool, default=False)
+    parser.add_argument("str_empty_default", type=str, default="")
     parser.add_argument("bool_list", type=bool, default=(False,), is_list=True)
     parser.add_argument("any_list", type=None, default=(1,), is_list=True)
+    parser.add_argument(
+        "empty_default_list", type=None, default=[], is_list=True)
     parser.add_argument("custom_type", type=custom_arg_type)
     parser.add_argument("custom_help", type=bool, help="custom help")
     help = str(parser)
     self.assertIn("Probe DOC Text", help)
     self.assertIn("bool_default", help)
+    self.assertIn("str_empty_default", help)
     self.assertIn("bool_list", help)
     self.assertIn("any_list", help)
+    self.assertIn("empty_default_list", help)
     self.assertIn("custom_type", help)
     self.assertIn("custom_help", help)
 
@@ -61,6 +66,8 @@ class TestProbeConfig(unittest.TestCase):
     parser = ProbeConfigParser(MockProbe)
     with self.assertRaises(AssertionError):
       parser.add_argument("bool", type=bool, is_list=True, default=True)
+    with self.assertRaises(AssertionError):
+      parser.add_argument("str", type=str, is_list=True, default="str")
     with self.assertRaises(AssertionError):
       parser.add_argument(
           "bool", type=bool, is_list=True, default=(
@@ -157,6 +164,14 @@ class TestProbeConfig(unittest.TestCase):
     result = kwargs["custom"]
     self.assertIsInstance(result, CustomArgType)
     self.assertListEqual(result.value, [1, 2, "stuff"])
+
+  def test_no_type(self):
+    parser = ConfigParser(MockProbe)
+    parser.add_argument("custom", type=None)
+    for data in ["", "a", {"a": 1}, set(), []]:
+      config_data = {"custom": data}
+      kwargs = parser.kwargs_from_config(config_data)
+      self.assertIs(kwargs['custom'], data)
 
 
 if __name__ == "__main__":

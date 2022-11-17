@@ -46,7 +46,9 @@ class _ConfigArg:
   def _validate_default(self):
     if self.is_list:
       assert isinstance(self.default, collections.abc.Sequence), (
-          "List default must be a sequence, but got: {self.default}")
+          f"List default must be a sequence, but got: {self.default}")
+      assert not isinstance(self.default, str), (
+          f"List default should not be a string, but got: {repr(self.default)}")
       if inspect.isclass(self.type):
         for default_item in self.default:
           assert isinstance(
@@ -70,18 +72,21 @@ class _ConfigArg:
       items.append(self.help)
     if self.type is None:
       if self.is_list:
-        items.append(f"type = list")
+        items.append(f"type    = list")
     else:
       if self.is_list:
-        items.append(f"type = List[{self.type}]")
+        items.append(f"type    = List[{self.type}]")
       else:
-        items.append(f"type = {self.type}")
+        items.append(f"type    = {self.type}")
 
     if self.default is None:
       items.append("default = not set")
     else:
       if self.is_list:
-        items.append(f"default = {','.join(map(str, self.default))}")
+        if not self.default:
+          items.append(f"default = []")
+        else:
+          items.append(f"default = {','.join(map(str, self.default))}")
       else:
         items.append(f"default = {self.default}")
     if self.choices:

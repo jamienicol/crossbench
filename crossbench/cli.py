@@ -437,18 +437,25 @@ class CrossBenchCLI:
   def _setup_subparser(self):
     self.subparsers = self.parser.add_subparsers(
         title="Subcommands", dest="subcommand", required=True)
-
     for benchmark_cls, alias in self.BENCHMARKS:
       self._setup_benchmark_subparser(benchmark_cls, alias)
+    self._setup_describe_subparser()
 
+  def _setup_describe_subparser(self):
     describe_parser = self.subparsers.add_parser(
         "describe", aliases=["desc"], help="Print all benchmarks and stories")
     describe_parser.add_argument(
-        "filter",
+        "category",
         nargs="?",
         choices=["all", "benchmarks", "probes"],
         default="all",
         help="Limit output to the given category, defaults to 'all'")
+    describe_parser.add_argument(
+        "filter",
+        nargs="?",
+        help=("Only display the given item from the provided category. "
+              "By default all items are displayed. "
+              "Example: describe probes v8.log"))
     describe_parser.add_argument("--json",
                                  default=False,
                                  action="store_true",
@@ -460,23 +467,25 @@ class CrossBenchCLI:
         "benchmarks": {
             benchmark_cls.NAME: benchmark_cls.describe()
             for benchmark_cls, _ in self.BENCHMARKS
+            if not args.filter or benchmark_cls.NAME == args.filter
         },
         "probes": {
             probe_cls.NAME: probe_cls.help_text()
             for probe_cls in cb.probes.all.GENERAL_PURPOSE_PROBES
+            if not args.filter or probe_cls.NAME == args.filter
         }
     }
     if args.json:
-      if args.filter == "probes":
+      if args.category == "probes":
         data = data["probes"]
-      elif args.filter == "benchmarks":
+      elif args.category == "benchmarks":
         data = data["benchmarks"]
       else:
-        assert args.filter == "all"
+        assert args.category == "all"
       print(json.dumps(data, indent=2))
       return
     # Create tabular format
-    if args.filter == "all" or args.filter == "benchmarks":
+    if args.category == "all" or args.category == "benchmarks":
       table = [["Benchmark", "Property", "Value"]]
       for benchmark_name, values in data['benchmarks'].items():
         table.append([benchmark_name, ])
@@ -486,13 +495,15 @@ class CrossBenchCLI:
           elif isinstance(value, dict):
             value = tabulate(value.items(), tablefmt="plain")
           table.append([None, name, value])
-      print(tabulate(table, tablefmt="grid"))
-    if args.filter == "all" or args.filter == "probes":
-      print(
-          tabulate(
-              data["probes"].items(),
-              headers=["Probe", "Help"],
-              tablefmt="grid"))
+      if len(table) > 1:
+        print(tabulate(table, tablefmt="grid"))
+
+    if args.category == "all" or args.category == "probes":
+      table = [["Probe", "Help"]]
+      for probe_name, probe_desc in data["probes"].items():
+        table.append([probe_name, probe_desc])
+      if len(table) > 1:
+        print(tabulate(table, tablefmt="grid"))
 
   def _setup_benchmark_subparser(self,
                                  benchmark_cls: Type[cb.benchmarks.Benchmark],
