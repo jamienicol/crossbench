@@ -12,6 +12,13 @@ import unittest.mock as mock
 
 import pyfakefs.fake_filesystem_unittest
 
+import sys
+from pathlib import Path
+
+# Fix the path so that crossbench modules are importable
+root_dir = Path(__file__).parents[1]
+sys.path.insert(0, str(root_dir))
+
 import crossbench as cb
 from crossbench import helper
 import crossbench.probes.all
@@ -20,7 +27,6 @@ import crossbench.cli
 from tests import mockbenchmark
 from tests.mockbenchmark import browser as mock_browser
 
-import sys
 import pytest
 
 

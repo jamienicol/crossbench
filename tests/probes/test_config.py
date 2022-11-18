@@ -4,9 +4,15 @@
 
 import unittest
 
+import sys
+from pathlib import Path
+
+# Fix the path so that crossbench modules are importable
+root_dir = Path(__file__).parents[2]
+sys.path.insert(0, str(root_dir))
+
 from crossbench.probes import Probe, ProbeConfigParser
 
-import sys
 import pytest
 
 
@@ -166,7 +172,7 @@ class TestProbeConfig(unittest.TestCase):
     self.assertListEqual(result.value, [1, 2, "stuff"])
 
   def test_no_type(self):
-    parser = ConfigParser(MockProbe)
+    parser = ProbeConfigParser(MockProbe)
     parser.add_argument("custom", type=None)
     for data in ["", "a", {"a": 1}, set(), []]:
       config_data = {"custom": data}

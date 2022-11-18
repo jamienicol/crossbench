@@ -8,6 +8,13 @@ from __future__ import annotations
 
 from typing import Sequence, cast
 
+import sys
+from pathlib import Path
+
+# Fix the path so that crossbench modules are importable
+root_dir = Path(__file__).parents[2]
+sys.path.insert(0, str(root_dir))
+
 import crossbench as cb
 import crossbench.runner
 import crossbench.env
@@ -15,7 +22,6 @@ from crossbench.benchmarks import loading
 
 from tests.benchmarks import helper
 
-import sys
 import pytest
 
 
