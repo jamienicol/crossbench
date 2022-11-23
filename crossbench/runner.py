@@ -28,6 +28,10 @@ from crossbench import helper
 from crossbench import exception
 
 
+class RunnerException(exception.MultiException):
+  pass
+
+
 class Runner:
 
   @classmethod
@@ -170,6 +174,10 @@ class Runner:
   def browser_platform(self) -> helper.Platform:
     return self._browser_platform
 
+  @property
+  def runs(self) -> List[Run]:
+    return self._runs
+
   def sh(self, *args, shell=False, stdout=None):
     return self._platform.sh(*args, shell=shell, stdout=stdout)
 
@@ -228,7 +236,7 @@ class Runner:
     if not is_dry_run:
       self._tear_down()
     self._exceptions.assert_success(
-        f"Runs Failed: {len(failed)}/{run_count} runs failed.")
+        f"Runs Failed: {len(failed)}/{run_count} runs failed.", RunnerException)
 
   def _tear_down(self):
     logging.info("=" * 80)

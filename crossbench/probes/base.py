@@ -354,6 +354,9 @@ class ProbeResultDict:
   def __contains__(self, probe: Probe) -> bool:
     return probe.name in self._dict
 
+  def get(self, probe: Probe, default=None):
+    return self._dict.get(probe.name, default)
+
   def to_json(self):
     data: Dict[str, Any] = {}
     for probe_name, results in self._dict.items():

@@ -103,17 +103,16 @@ class ExceptionAnnotator:
 
   def assert_success(self,
                      message: Optional[str] = None,
-                     exception_cls: Optional[Type[BaseException]] = None):
+                     exception_cls: Type[BaseException] = MultiException):
     if self.is_success:
       return
     self.log()
     if message is None:
       message = "Got Exceptions: {}"
     message = message.format(self)
-    if exception_cls:
-      raise exception_cls(message)
-    else:
-      raise MultiException(message, self)
+    if issubclass(exception_cls, MultiException):
+      raise exception_cls(message, self)
+    raise exception_cls(message)
 
   def info(self, *stack_entries: str) -> ExceptionAnnotationScope:
     """Only sets info stack entries, exceptions are passed-through."""

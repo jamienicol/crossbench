@@ -606,42 +606,71 @@ class CrossBenchCLI:
 
   def benchmark_subcommand(self, args: argparse.Namespace):
     benchmark = self._get_benchmark(args)
+    runner = None
     try:
-      self._benchmark_subcommand(args, benchmark)
+      args.browsers = self._get_browsers(args)
+      probes = self._get_probes(args)
+      env_config = self._get_env_config(args)
+      env_validation_mode = self._get_env_validation_mode(args)
+      runner = self._get_runner(args, benchmark, env_config,
+                                env_validation_mode)
+      for probe in probes:
+        runner.attach_probe(probe, matching_browser_only=True)
+
+      self._run_benchmark(args, runner, benchmark)
+    except KeyboardInterrupt as e:
+      exit(2)
     except Exception as e:
       if args.throw:
         raise
-      logging.debug(e)
-      logging.error("")
-      logging.error("#" * 80)
-      logging.error(f"SUBCOMMAND UNSUCCESSFUL got {e.__class__.__name__}:")
-      logging.error("")
-      logging.error(e)
-      logging.error("")
-      logging.error(f"  Running {benchmark.NAME} was not successful")
-      logging.error("  - Check run results.json for detailed backtraces")
-      logging.error("  - Use --throw to throw on the first logged exception")
-      logging.error("  - Use --vv for detailed logging")
-      logging.error("#" * 80)
+      self._log_benchmark_subcommand_failure(benchmark, runner, e)
       exit(3)
 
-  def _benchmark_subcommand(self, args: argparse.Namespace,
-                            benchmark: cb.benchmarks.Benchmark):
-    args.browsers = self._get_browsers(args)
-    probes = self._get_probes(args)
-    env_config = self._get_env_config(args)
-    env_validation_mode = self._get_env_validation_mode(args)
-    runner = self._get_runner(args, benchmark, env_config, env_validation_mode)
-    for probe in probes:
-      runner.attach_probe(probe, matching_browser_only=True)
-    self._run_benchmark(args, runner, benchmark)
+  def _log_benchmark_subcommand_failure(self, benchmark,
+                                        runner: Optional[cb.runner.Runner],
+                                        e: Exception):
+    logging.debug(e)
+    logging.error("")
+    logging.error("#" * 80)
+    logging.error(f"SUBCOMMAND UNSUCCESSFUL got {e.__class__.__name__}:")
+    logging.error("-" * 80)
+    logging.error(e)
+    logging.error("-" * 80)
+    logging.error(f"Running '{benchmark.NAME}' was not successful:")
+    logging.error("- Check run results.json for detailed backtraces")
+    logging.error("- Use --throw to throw on the first logged exception")
+    logging.error("- Use --vv for detailed logging")
+    if runner and runner.runs:
+      self._log_runner_debug_hints(runner)
+    logging.error("#" * 80)
+
+  def _log_runner_debug_hints(self, runner: cb.runner.Runner):
+    failed_runs = [run for run in runner.runs if not run.is_success]
+    if not failed_runs:
+      return
+    failed_run = failed_runs[0]
+    logging.error("- Check log outputs (first out of %d failed runs): %s",
+                  len(failed_runs), failed_run.out_dir)
+    for log_file in failed_run.out_dir.glob("*.log"):
+      try:
+        log_file = log_file.relative_to(pathlib.Path.cwd())
+      finally:
+        pass
+      logging.error("  - %s", log_file)
 
   def _run_benchmark(self, args: argparse.Namespace, runner: cb.runner.Runner,
                      benchmark: cb.benchmarks.Benchmark):
     try:
       runner.run(is_dry_run=args.dry_run)
-    finally:
-      print(f"RESULTS: {runner.out_dir}")
+      logging.info("")
+      logging.info("=" * 80)
+      logging.info(f"RESULTS: {runner.out_dir}")
+      logging.info("=" * 80)
+    except:
+      logging.info("=" * 80)
+      logging.info(f"RESULTS (maybe incomplete/broken): {runner.out_dir}")
+      logging.info("=" * 80)
+      raise
 
   def _get_browsers(self,
                     args: argparse.Namespace) -> Sequence[cb.browsers.Browser]:
