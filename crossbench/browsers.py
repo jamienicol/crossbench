@@ -51,7 +51,7 @@ class Browser(abc.ABC):
 
   def __init__(self,
                label: str,
-               path: pathlib.Path,
+               path: Optional[pathlib.Path],
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                type: Optional[str] = None,
@@ -61,16 +61,19 @@ class Browser(abc.ABC):
     assert type
     self.type: str = type
     self.label: str = label
-    self.path: pathlib.Path = path
-    assert self.path.exists(), f"Binary at path={self.path} does not exist."
-    self.app_path = path
-    if self.platform.is_macos:
-      self._resolve_macos_binary()
-    assert self.path.is_file(), (f"Binary at path={self.path} is not a file.")
-    self.app_name: str = path.stem
-    self.version: str = self._extract_version()
-    self.major_version: int = int(self.version.split(".")[0])
-    short_name = f"{self.label}_{self.type}_v{self.major_version}".lower()
+    self.path: Optional[pathlib.Path] = path
+    if path:
+      assert path.exists(), f"Binary at path={self.path} does not exist."
+      self.app_path = path
+      if self.platform.is_macos:
+        self._resolve_macos_binary()
+      assert path.is_file(), (f"Binary at path={self.path} is not a file.")
+      self.app_name: str = path.stem
+      self.version: str = self._extract_version()
+      self.major_version: int = int(self.version.split(".")[0])
+      short_name = f"{self.label}_{self.type}_v{self.major_version}".lower()
+    else:
+      short_name = f"{self.label}_{self.type}".lower()
     self.short_name: str = short_name.replace(" ", "_")
     self.width: int = 1500
     self.height: int = 1000
@@ -829,3 +832,47 @@ class SafariWebDriver(WebdriverMixin, Safari):
     quit
   end tell
       """)
+
+
+class RemoteWebDriver(WebdriverMixin, Browser):
+  """Represent a remote WebDriver that has already been started"""
+
+  def __init__(self,
+               label: str,
+               driver: webdriver.Remote):
+    super().__init__(label=label, path=None, type="remote")
+    self._driver = driver
+
+  def _check_driver_version(self):
+    raise NotImplementedError()
+
+  def _extract_version(self):
+    raise NotImplementedError()
+
+  def _find_driver(self) -> pathlib.Path:
+    raise NotImplementedError()
+
+  def _start_driver(self, run: cb.runner.Run, driver_path: pathlib.Path):
+    raise NotImplementedError()
+
+  def setup_binary(self, runner: cb.runner.Runner):
+    pass
+
+  def start(self, run: cb.runner.Run):
+    # Driver has already been started. We just need to mark it as running.
+    self._is_running = True
+    self._driver.set_window_position(self.x, self.y)
+    self._driver.set_window_size(self.width, self.height)
+
+  def quit(self, runner: cb.runner.Runner):
+    # External code that started the driver is responsible for shutting it down.
+    self._is_running = False
+
+  def details_json(self) -> Dict[str, Any]:
+    return {
+        "label": self.label,
+        "app_name": "remote webdriver",
+        "flags": (),
+        "js_flags": (),
+        "log": {},
+    }
