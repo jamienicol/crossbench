@@ -8,7 +8,7 @@ import abc
 import datetime as dt
 import logging
 import pathlib
-from typing import Any, Iterable, Optional, Set, Dict, Tuple, TypeVar, Generic, Union, TYPE_CHECKING
+from typing import Any, Iterable, Optional, Set, Dict, Tuple, TypeVar, Generic, Union, Type, TYPE_CHECKING
 
 import crossbench as cb
 if TYPE_CHECKING:
