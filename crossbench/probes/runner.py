@@ -38,6 +38,7 @@ class RunRunnerLogProbe(base.Probe):
           "[%(name)s]  %(message)s")
       self._log_handler = logging.FileHandler(self.results_file)
       self._log_handler.setFormatter(log_formatter)
+      self._log_handler.setLevel(logging.DEBUG)
       logging.getLogger().addHandler(self._log_handler)
 
     def start(self, run: cb.runner.Run):

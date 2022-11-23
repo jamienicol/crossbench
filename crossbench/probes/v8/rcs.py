@@ -48,7 +48,8 @@ class V8RCSProbe(base.Probe):
     def tear_down(self, run):
       if not getattr(self, "_rcs_table", None):
         raise Exception("Chrome didn't produce any RCS data. "
-                        "Please make sure to enable the compile-time flag.")
+                        "Use Chrome Canary or make sure to enable the "
+                        "v8_enable_runtime_call_stats compile-time flag.")
       rcs_file = run.get_probe_results_file(self.probe)
       with rcs_file.open("a") as f:
         f.write(self._rcs_table)

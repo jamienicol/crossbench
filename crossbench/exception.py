@@ -140,7 +140,7 @@ class ExceptionAnnotator:
 
   def append(self, exception: BaseException):
     tb: str = traceback.format_exc()
-    logging.info("Intermediate Exception: %s", exception)
+    logging.debug("Intermediate Exception: %s", exception)
     logging.debug(tb)
     if isinstance(exception, KeyboardInterrupt):
       # Fast exit on KeyboardInterrupts for a better user experience.
@@ -159,14 +159,15 @@ class ExceptionAnnotator:
   def log(self):
     if self.is_success:
       return
+    logging.error("=" * 80)
     logging.error("ERRORS occurred:")
+    logging.error("=" * 80)
     for entry in self._exceptions:
-      logging.debug("-" * 80)
       logging.debug(entry.exception)
       logging.debug(entry.traceback)
+      logging.debug("-" * 80)
     for info_stack, entries in helper.group_by(
         self._exceptions, key=lambda entry: tuple(entry.info_stack)).items():
-      logging.error("=" * 80)
       if info_stack:
         info = "Info: "
         joiner = "\n" + (" " * (len(info) - 2)) + "> "
@@ -175,6 +176,7 @@ class ExceptionAnnotator:
         logging.error("- " * 40)
         logging.error(f"Type: {entry.exception.__class__.__name__}:")
         logging.error(f"      {entry.exception}")
+      logging.error("-" * 80)
 
   def to_json(self) -> list:
     return [{

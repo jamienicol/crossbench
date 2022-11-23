@@ -144,8 +144,8 @@ class PowerSamplerProbe(base.Probe):
       battery is no longer reporting being fully charged before crossbench.
       """
 
-      logging.warning("POWER SAMPLER: Waiting for non-100% battery or "
-                      "initial sample to synchronize")
+      logging.info("POWER SAMPLER: Waiting for non-100% battery or "
+                   "initial sample to synchronize")
       while True:
         assert self.browser_platform.is_battery_powered, (
             "Cannot wait for draining if power is connected.")
@@ -158,6 +158,6 @@ class PowerSamplerProbe(base.Probe):
           max_capacity = float(row["battery_max_capacity(Ah)"])
           current_capacity = float(row["battery_current_capacity(Ah)"])
           percent = 100 * current_capacity / max_capacity
-          logging.info("POWER SAMPLER: Battery level is %.2f%%", percent)
+          logging.debug("POWER SAMPLER: Battery level is %.2f%%", percent)
           if max_capacity != current_capacity:
             return

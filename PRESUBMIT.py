@@ -11,12 +11,6 @@ USE_PYTHON3 = True
 
 def CheckChangeOnUpload(input_api, output_api):
   results = []
-
-  # Validate that all the files have the license header
-  results.extend(
-      input_api.canned_checks.CheckLicense(
-          input_api, output_api, project_name='Chromium'))
-
   # Validate the vpython spec
   results.extend(
       input_api.RunTests(
@@ -30,19 +24,33 @@ def CheckChangeOnUpload(input_api, output_api):
   # results += input_api.RunTests(pylint_checks)
   # Run Python unittests.
   test_file_pattern = r'.*test_.*\.py$'
-
-  tests = input_api.canned_checks.GetUnitTestsRecursively(
-      input_api,
-      output_api,
-      '.', [test_file_pattern], [],
-      run_on_python3=True,
-      run_on_python2=False,
-      skip_shebang_check=True)
-
-  results.extend(input_api.RunTests(tests))
+  test_directories = GetTestDirectories(input_api, test_file_pattern)
+  tests = []
+  for test_dir in test_directories:
+    test_cmds = input_api.canned_checks.GetUnitTestsInDirectory(
+        input_api,
+        output_api,
+        test_dir, [test_file_pattern],
+        run_on_python3=True,
+        run_on_python2=False,
+        skip_shebang_check=True)
+    tests.extend(test_cmds)
+  results += input_api.RunTests(tests)
 
   return results
 
 
 def CheckChangeOnCommit(input_api, output_api):
   return CheckChangeOnUpload(input_api, output_api)
+
+
+def GetTestDirectories(input_api, test_file_filter):
+  tests_root_dir = os.path.join(input_api.PresubmitLocalPath(), 'tests')
+  test_directories = set()
+  # Get all the directories under "tests" that have files that
+  # follow the test_file_filter naming format
+  for root, subdir, files in os.walk(tests_root_dir):
+    if (os.path.isdir(root) and not root.endswith('__pycache__') and
+        any(True for f in files if input_api.re.match(test_file_filter, f))):
+      test_directories.add(root)
+  return test_directories

@@ -7,17 +7,11 @@ import hjson
 import unittest
 from unittest import mock
 
-import sys
-from pathlib import Path
-
-# Fix the path so that crossbench modules are importable
-root_dir = Path(__file__).parents[1]
-sys.path.insert(0, str(root_dir))
-
 import crossbench as cb
 import crossbench.runner
 import crossbench.env
 
+import sys
 import pytest
 
 

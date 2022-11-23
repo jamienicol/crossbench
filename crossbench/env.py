@@ -350,8 +350,15 @@ class HostEnvironment:
     self._check_probes()
     self._wait_min_time()
 
-  def check_installed(self, binaries, message="Missing binaries: %s"):
+  def check_installed(self, binaries, message="Missing binaries: {}"):
     missing_binaries = list(
         binary for binary in binaries if not self._platform.which(binary))
     if missing_binaries:
-      self.handle_warning((message % missing_binaries))
+      self.handle_warning(message.format(missing_binaries))
+
+  def check_sh_success(self, *args, message="Could not execute: {}"):
+    assert args, "Missing sh arguments"
+    try:
+      assert self._platform.sh_stdout(*args, quiet=True)
+    except cb.helper.SubprocessError as e:
+      self.handle_warning(message.format(e))

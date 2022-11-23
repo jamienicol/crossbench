@@ -177,7 +177,7 @@ class Platform(abc.ABC):
       seconds = seconds.total_seconds()
     if seconds == 0:
       return
-    logging.info("WAIT %ss", seconds)
+    logging.debug("WAIT %ss", seconds)
     time.sleep(seconds)
 
   def which(self, binary):
@@ -323,7 +323,7 @@ class Platform(abc.ABC):
     pass
 
   def download_to(self, url, path):
-    logging.info("DOWNLOAD: %s\n       TO: %s", url, path)
+    logging.debug("DOWNLOAD: %s\n       TO: %s", url, path)
     assert not path.exists(), f"Download destination {path} exists already."
     try:
       urllib.request.urlretrieve(url, path)

@@ -4,13 +4,6 @@
 
 from unittest import mock
 
-import sys
-from pathlib import Path
-
-# Fix the path so that crossbench modules are importable
-root_dir = Path(__file__).parents[2]
-sys.path.insert(0, str(root_dir))
-
 import crossbench as cb
 from crossbench.benchmarks import speedometer
 import crossbench.runner
@@ -18,6 +11,7 @@ import crossbench.env
 
 from tests.benchmarks import helper
 
+import sys
 import pytest
 
 

@@ -182,6 +182,9 @@ class Runner:
       json.dump(details, f, indent=2)
 
   def _setup(self):
+    logging.info("-" * 80)
+    logging.info("SETUP")
+    logging.info("-" * 80)
     assert self.repetitions > 0, f"Invalid repetitions count: {self.repetitions}"
     assert self.browsers, "No browsers provided: self.browsers is empty"
     assert self.stories, "No stories provided: self.stories is empty"
@@ -207,29 +210,32 @@ class Runner:
               throw=self._exceptions.throw)
 
   def run(self, is_dry_run=False):
-    try:
-      with helper.SystemSleepPreventer():
-        self._run(is_dry_run)
-    except KeyboardInterrupt:
-      # Fast exit in case without a stacktrace for better usability
-      return
+    with helper.SystemSleepPreventer():
+      self._run(is_dry_run)
 
   def _run(self, is_dry_run=False):
     self._setup()
     failed: List[Run] = []
-    for run in self._runs:
+    run_count = len(self._runs)
+    for i, run in enumerate(self._runs):
+      logging.info("-" * 80)
+      logging.info("RUN %s/%s", i, run_count)
+      logging.info("-" * 80)
       run.run(is_dry_run)
       if not run.exceptions.is_success:
         self._exceptions.extend(run.exceptions)
         failed.append(run)
     if not is_dry_run:
       self._tear_down()
-    logging.info("RESULTS DIR: %s", self.out_dir)
     self._exceptions.assert_success(
-        f"Runs Failed: {len(failed)}/{len(self._runs)} runs failed.")
+        f"Runs Failed: {len(failed)}/{run_count} runs failed.")
 
   def _tear_down(self):
-    logging.info("MERGING PROBE DATA: iterations")
+    logging.info("=" * 80)
+    logging.info("RUNS COMPLETED")
+    logging.info("-" * 80)
+    logging.info("MERGING PROBE DATA")
+    logging.debug("MERGING PROBE DATA: iterations")
     throw = self._exceptions.throw
     repetitions_groups = RepetitionsRunGroup.groups(self._runs, throw)
     with self._exceptions.info("Merging results from multiple repetitions"):
@@ -237,14 +243,14 @@ class Runner:
         repetitions_group.merge(self)
         self._exceptions.extend(repetitions_group.exceptions, is_nested=True)
 
-    logging.info("MERGING PROBE DATA: stories")
+    logging.debug("MERGING PROBE DATA: stories")
     story_groups = StoriesRunGroup.groups(repetitions_groups, throw)
     with self._exceptions.info("Merging results from multiple stories"):
       for story_group in story_groups:
         story_group.merge(self)
         self._exceptions.extend(story_group.exceptions, is_nested=True)
 
-    logging.info("MERGING PROBE DATA: browsers")
+    logging.debug("MERGING PROBE DATA: browsers")
     browser_group = BrowsersRunGroup(story_groups, throw)
     with self._exceptions.info("Merging results from multiple browsers"):
       browser_group.merge(self)
@@ -581,8 +587,12 @@ class Run:
     return file
 
   def setup(self) -> List[cb.probes.Probe.Scope]:
-    logging.info("PREPARE")
     self._advance_state(self.STATE_INITIAL, self.STATE_PREPARE)
+    logging.debug("PREPARE")
+    logging.info("STORY: %s", self.story)
+    logging.info("STORY DURATION: %ss", self.story.duration)
+    logging.info("RUN DIR: %s", self._out_dir)
+
     self._run_success = None
     browser_log_file = self._out_dir / "browser.log"
     assert not browser_log_file.exists(), (
@@ -647,8 +657,7 @@ class Run:
 
     with probe_scope_manager:
       self._durations["probes-start"] = (dt.datetime.now() - probe_start_time)
-      logging.info("RUN: BROWSER=%s STORY=%s", self._browser.short_name,
-                   self.story.name)
+      logging.info("RUNNING STORY")
       assert self._state == self.STATE_RUN, "Invalid state"
       try:
         with self.measure("run"):
@@ -690,7 +699,7 @@ class Run:
       with self._exceptions.capture("Quit browser"):
         self._browser.quit(self._runner)  # pytype: disable=wrong-arg-types
     with self.measure("probes-tear_down"):
-      logging.info("TEARDOWN")
+      logging.debug("TEARDOWN")
       self._tear_down_probe_scopes(probe_scopes)
 
   def _tear_down_probe_scopes(self, probe_scopes: List[cb.probes.Probe.Scope]):
@@ -733,13 +742,13 @@ class Actions(helper.TimeScope):
     self._stack.__enter__()
     super().__enter__()
     self._is_active = True
-    logging.info("ACTION START %s", self._message)
+    logging.debug("ACTION START %s", self._message)
     return self
 
   def __exit__(self, exc_type, exc_value, exc_traceback):
     self._is_active = False
     self._stack.__exit__(exc_type, exc_value, exc_traceback)
-    logging.info("ACTION END %s", self._message)
+    logging.debug("ACTION END %s", self._message)
     super().__exit__(exc_type, exc_value, exc_traceback)
 
   def _assert_is_active(self):

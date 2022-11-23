@@ -4,15 +4,9 @@
 
 import unittest
 
-import sys
-from pathlib import Path
-
-# Fix the path so that crossbench modules are importable
-root_dir = Path(__file__).parents[1]
-sys.path.insert(0, str(root_dir))
-
 from crossbench.flags import ChromeFeatures, ChromeFlags, Flags, JSFlags
 
+import sys
 import pytest
 
 

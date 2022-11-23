@@ -137,8 +137,8 @@ class Speedometer20Story(cb.stories.PressBenchmarkStory):
       actions.wait(1 * len(self._substories))
       actions.wait_js_condition(
           "return globalThis.testDone",
-          helper.wait_range(1, 10 +
-                               2 * len(self._substories) * self.iterations))
+          helper.wait_range(1,
+                            12 + 4 * len(self._substories) * self.iterations))
 
 
 class Speedometer20Benchmark(cb.benchmarks.PressBenchmark):

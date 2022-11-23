@@ -22,16 +22,29 @@ class Benchmark(abc.ABC):
   DEFAULT_STORY_CLS: Type[cb.stories.Story] = cb.stories.Story
 
   @classmethod
+  def cli_help(cls) -> str:
+    assert cls.__doc__, (f"Benchmark class {cls} must provide a doc string.")
+    # Return the first non-empty line
+    return cls.__doc__.strip().split("\n")[0]
+
+  @classmethod
+  def cli_description(cls) -> str:
+    assert cls.__doc__
+    return cls.__doc__.strip()
+
+  @classmethod
+  def cli_epilog(cls) -> str:
+    return ""
+
+  @classmethod
   def add_cli_parser(cls, subparsers,
                      aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
-    assert cls.__doc__ and cls.__doc__, (
-    f"Benchmark class {cls} must provide a doc string.")
-    doc_title = cls.__doc__.strip().split("\n")[0]
     parser = subparsers.add_parser(
         cls.NAME,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        help=doc_title,
-        description=cls.__doc__.strip(),
+        help=cls.cli_help(),
+        description=cls.cli_description(),
+        epilog=cls.cli_epilog(),
         aliases=aliases)
     return parser
 
@@ -104,7 +117,6 @@ class StoryFilter(Generic[StoryT], metaclass=abc.ABCMeta):
     self.stories: Sequence[StoryT] = []
     self.process_all(names)
     self.stories = self.create_stories()
-    logging.info("STORIES: %s", list(map(str, self.stories)))
 
   @abc.abstractmethod
   def process_all(self, names: Sequence[str]):
@@ -140,6 +152,19 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
     return parser
 
   @classmethod
+  def cli_description(cls) -> str:
+    desc = super().cli_description()
+    desc += "\n\n"
+    desc += "Stories (alternatively use 'describe' command):\n"
+    desc += ", ".join(cls.story_names())
+    desc += "\n\n"
+    desc += "Filtering (for --stories): "
+    assert cls.STORY_FILTER_CLS.__doc__
+    desc += cls.STORY_FILTER_CLS.__doc__.strip()
+
+    return desc
+
+  @classmethod
   def kwargs_from_cli(cls, args) -> Dict[str, Any]:
     kwargs = super().kwargs_from_cli(args)
     kwargs["stories"] = cls.stories_from_cli_args(args)
@@ -157,8 +182,8 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
     return data
 
   @classmethod
-  def story_names(cls) -> Iterable[str]:
-    return cls.DEFAULT_STORY_CLS.story_names()
+  def story_names(cls) -> Sequence[str]:
+    return sorted(cls.DEFAULT_STORY_CLS.story_names())
 
 
 class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
@@ -191,7 +216,7 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
     self.separate = separate
     self.is_live: bool = is_live
     # Using dict instead as ordered set
-    self._filtered_names: Dict[str, None] = dict()
+    self._selected_names: Dict[str, None] = dict()
     super().__init__(story_cls, names)
     assert issubclass(self.story_cls, cb.stories.PressBenchmarkStory)
     for name in self._known_names:
@@ -240,13 +265,13 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
 
   def _add_matching(self, regexp: re.Pattern, original_pattern: str):
     substories = self._regexp_match(regexp, original_pattern)
-    self._filtered_names.update(dict.fromkeys(substories))
+    self._selected_names.update(dict.fromkeys(substories))
 
   def _remove_matching(self, regexp: re.Pattern, original_pattern: str):
     substories = self._regexp_match(regexp, original_pattern)
     for substory in substories:
       try:
-        del self._filtered_names[substory]
+        del self._selected_names[substory]
       except KeyError as e:
         raise ValueError(
             "Removing Story failed: "
@@ -260,15 +285,15 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
     ]
     if not substories:
       raise ValueError(f"'{original_pattern}' didn't match any stories.")
-    logging.info("FILTERED SUB-STORIES story=%s selected=%s",
-                 self.story_cls.NAME, substories)
-    if len(substories) == len(self._known_names) and self._filtered_names:
+    if len(substories) == len(self._known_names) and self._selected_names:
       raise ValueError(f"'{original_pattern}' matched all and overrode all"
                        "previously filtered story names.")
     return substories
 
   def create_stories(self) -> Sequence[StoryT]:
-    names = list(self._filtered_names.keys())
+    logging.info("SELECTED STORIES: %s",
+                 str(list(map(str, self._selected_names))))
+    names = list(self._selected_names.keys())
     return self.story_cls.from_names(
         names, separate=self.separate, is_live=self.is_live)
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import abc
+import logging
 import re
 from typing import Iterable, Optional, Sequence, Type
 from urllib.parse import urlparse
@@ -150,6 +151,7 @@ class LoadingPageFilter(cb.benchmarks.StoryFilter):
       self.stories.append(page)
 
   def create_stories(self) -> Sequence[Page]:
+    logging.info("SELECTED STORIES: %s", str(list(map(str, self.stories))))
     if not self.separate and len(self.stories) > 1:
       combined_name = "_".join(page.name for page in self.stories)
       self.stories = (CombinedPage(self.stories, combined_name),)

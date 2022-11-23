@@ -39,9 +39,8 @@ class ConfigFileError(ValueError):
 
 
 class FlagGroupConfig:
-  """
-  This object is create from configuration files and mainly contains a mapping
-  from flag-names to multiple values.
+  """This object corresponds to a flag-group in a configuration file.
+  It contains mappings from flags to multiple values.
   """
 
   _variants: Dict[str, Iterable[Optional[str]]]
@@ -162,24 +161,26 @@ class BrowserConfig:
   def _parse_browser(self, name, raw_browser_data):
     path_or_identifier = raw_browser_data["path"]
     if path_or_identifier in self._browser_lookup_override:
-      cls, path = self._browser_lookup_override[path_or_identifier]
+      browser_cls, path = self._browser_lookup_override[path_or_identifier]
     else:
       path = self._get_browser_path(path_or_identifier)
-      cls = self._get_browser_cls_from_path(path)
+      browser_cls = self._get_browser_cls_from_path(path)
     if not path.exists():
       raise ConfigFileError(f"browsers['{name}'].path='{path}' does not exist.")
     with self._exceptions.info(f"Parsing browsers['{name}'].flags"):
       raw_flags = self._parse_flags(name, raw_browser_data)
     with self._exceptions.info(
         f"Expand browsers['{name}'].flags into full variants"):
-      variants_flags = tuple(cls.default_flags(flags) for flags in raw_flags)
-    logging.info("Running browser '%s' with %s flag variants:", name,
+      variants_flags = tuple(
+          browser_cls.default_flags(flags) for flags in raw_flags)
+    logging.info("SELECTED BROWSER: '%s' with %s flag variants:", name,
                  len(variants_flags))
     for i in range(len(variants_flags)):
       logging.info("   %s: %s", i, variants_flags[i])
     # pytype: disable=not-instantiable
     self._variants += [
-        cls(label=self._flags_to_label(name, flags), path=path, flags=flags)
+        browser_cls(
+            label=self._flags_to_label(name, flags), path=path, flags=flags)
         for flags in variants_flags
     ]
     # pytype: enable=not-instantiable
@@ -240,7 +241,7 @@ class BrowserConfig:
 
   def load_from_args(self, args):
     path = self._get_browser_path(args.browser or "chrome")
-    logging.warning("SELECTED BROWSER: %s", path)
+    logging.info("SELECTED BROWSER: %s", path)
     browser_cls = self._get_browser_cls_from_path(path)
     flags = browser_cls.default_flags()
     if args.enable_features:
@@ -693,10 +694,8 @@ class CrossBenchCLI:
     logging.getLogger().setLevel(logging.INFO)
     console_handler = logging.StreamHandler()
     if args.verbosity == 0:
-      console_handler.setLevel(logging.WARNING)
-    elif args.verbosity == 1:
       console_handler.setLevel(logging.INFO)
-    elif args.verbosity > 1:
+    elif args.verbosity >= 1:
       console_handler.setLevel(logging.DEBUG)
       logging.getLogger().setLevel(logging.DEBUG)
     console_handler.addFilter(logging.Filter("root"))

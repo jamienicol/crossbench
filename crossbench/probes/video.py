@@ -49,10 +49,14 @@ class VideoProbe(base.Probe):
           f"Probe={self.NAME} might not be able to merge so many "
           f"repetitions={env.runner.repetitions}.")
     env.check_installed(
-        binaries=("ffmpeg",), message="Missing binaries for video probe: %s")
+        binaries=("ffmpeg",), message="Missing binaries for video probe: {}")
+    # Check that ffmpeg can be executed
+    env.check_sh_success("ffmpeg", "-version")
     env.check_installed(
         binaries=("montage",),
         message="Missing 'montage' binary, please install imagemagick.")
+    # Check that montage can be executed
+    env.check_sh_success("montage", "--version")
 
   class Scope(base.Probe.Scope):
     IMAGE_FORMAT = "png"

@@ -74,9 +74,9 @@ class Browser(abc.ABC):
       self.app_name: str = path.stem
       self.version: str = self._extract_version()
       self.major_version: int = int(self.version.split(".")[0])
-      short_name = f"{self.label}_{self.type}_v{self.major_version}".lower()
+      short_name = f"{self.type}_v{self.major_version}_{self.label}".lower()
     else:
-      short_name = f"{self.label}_{self.type}".lower()
+      short_name = f"{self.type}_{self.label}".lower()
     self.short_name: str = short_name.replace(" ", "_")
     self.width: int = 1500
     self.height: int = 1000
@@ -448,6 +448,8 @@ class WebdriverMixin(Browser):
           self._pid = int(child["pid"])
           break
     self._is_running = True
+    # Force main window to foreground.
+    self._driver.switch_to.window(self._driver.current_window_handle)
     self._driver.set_window_position(self.x, self.y)
     self._driver.set_window_size(self.width, self.height)
     self._check_driver_version()
@@ -464,7 +466,8 @@ class WebdriverMixin(Browser):
     return details
 
   def show_url(self, runner: cb.runner.Runner, url):
-    logging.info("SHOW_URL %s", url)
+    logging.debug("SHOW_URL %s", url)
+    assert self._driver.window_handles, "Browser has no more opened windows."
     self._driver.switch_to.window(self._driver.window_handles[0])
     try:
       self._driver.get(url)
@@ -479,7 +482,7 @@ class WebdriverMixin(Browser):
          script: str,
          timeout: Optional[float] = None,
          arguments: Sequence[object] = ()):
-    logging.info("RUN SCRIPT timeout=%s, script: %s", timeout, script[:100])
+    logging.debug("RUN SCRIPT timeout=%s, script: %s", timeout, script[:100])
     assert self._is_running
     try:
       if timeout is not None:
@@ -496,7 +499,7 @@ class WebdriverMixin(Browser):
   def force_quit(self):
     if getattr(self, "_driver", None) is None:
       return
-    logging.info("QUIT")
+    logging.debug("QUIT")
     try:
       try:
         # Close the current window.
