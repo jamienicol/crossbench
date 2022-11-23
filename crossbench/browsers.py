@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import abc
+import html
 import json
 import logging
 import re
@@ -18,11 +19,13 @@ import urllib.request
 import zipfile
 import pathlib
 import typing
+import urllib.parse
 from typing import Any, Dict, Final, List, Optional, Sequence, Set
 
 import selenium
 from selenium import webdriver
 import selenium.common.exceptions
+from selenium.webdriver.safari.options import Options as SafariOptions
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
@@ -117,6 +120,8 @@ class Browser(abc.ABC):
   def details_json(self) -> Dict[str, Any]:
     return {
         "label": self.label,
+        "browser": self.type,
+        "short_name": self.short_name,
         "app_name": self.app_name,
         "version": self.version,
         "flags": tuple(self.flags.get_list()),
@@ -137,6 +142,8 @@ class Browser(abc.ABC):
     self.start(run)
     assert self._is_running
     self._prepare_temperature(run)
+    self.show_url(runner, self.info_data_url(run))
+    runner.wait(runner.default_wait)
 
   @abc.abstractmethod
   def _extract_version(self) -> str:
@@ -156,18 +163,37 @@ class Browser(abc.ABC):
   def _prepare_temperature(self, run: cb.runner.Run):
     """Warms up the browser by loading the page 3 times."""
     runner = run.runner
-    if run.temperature == "cold":
-      return
-    if run.temperature is None:
-      return
-    for _ in range(3):
-      # TODO(cbruni): add no_collect argument
-      run.story.run(run)
-      runner.wait(run.story.duration / 2)
-      self.show_url(runner, "about://version")
-      runner.wait(runner.default_wait)
-    self.show_url(runner, "about://blank")
-    runner.wait(runner.default_wait * 3)
+    if run.temperature != "cold" and run.temperature:
+      for _ in range(3):
+        # TODO(cbruni): add no_collect argument
+        run.story.run(run)
+        runner.wait(run.story.duration / 2)
+        self.show_url(runner, "about:blank")
+        runner.wait(runner.default_wait)
+
+  def info_data_url(self, run):
+    page = ("<html><head>"
+            "<title>Browser Details</title>"
+            "<style>"
+            """
+            html { font-family: sans-serif; }
+            dl {
+              display: grid;
+              grid-template-columns: max-content auto;
+            }
+            dt { grid-column-start: 1; }
+            dd { grid-column-start: 2;  font-family: monospace; }
+            """
+            "</style>"
+            "<head><body>"
+            f"<h1>{html.escape(self.type)} {html.escape(self.version)}</h2>"
+            "<dl>")
+    for property_name, value in self.details_json().items():
+      page += f"<dt>{html.escape(property_name)}</dt>"
+      page += f"<dd>{html.escape(str(value))}</dd>"
+    page += "</dl></body></html>"
+    data_url = f"data:text/html;charset=utf-8,{urllib.parse.quote(page)}"
+    return data_url
 
   def quit(self, runner: cb.runner.Runner):
     assert self._is_running
@@ -281,7 +307,6 @@ class Chrome(Browser):
         f"js_flags should be a list, but got: {repr(js_flags)}")
     assert not isinstance(
         flags, str), (f"flags should be a list, but got: {repr(flags)}")
-    self.default_page = "about://version"
     self._flags: cb.flags.ChromeFlags = self.default_flags(Chrome.DEFAULT_FLAGS)
     self._flags.update(flags)
     self.js_flags.update(js_flags)
@@ -346,7 +371,7 @@ class Chrome(Browser):
       flags_copy.set("--enable-logging")
       flags_copy["--log-file"] = str(self.chrome_log_file)
 
-    return tuple(flags_copy.get_list()) + (self.default_page,)
+    return tuple(flags_copy.get_list())
 
   def get_label_from_flags(self) -> str:
     return convert_flags_to_label(*self.flags, *self.js_flags)
@@ -363,12 +388,10 @@ class Chrome(Browser):
         self.bin_path,
         *self._get_chrome_args(run),
         stdout=self._stdout_log_file)
-    runner.wait(1)
-    self.show_url(runner, self.default_page)
+    runner.wait(0.5)
     self.exec_apple_script(f"""
 tell application '{self.app_name}'
     activate
-    set URL of active tab of front window to "about://version"
     set the bounds of the first window to {{50,50,1050,1050}}
 end tell
     """)
@@ -428,7 +451,7 @@ class WebdriverMixin(Browser):
     self._driver.set_window_position(self.x, self.y)
     self._driver.set_window_size(self.width, self.height)
     self._check_driver_version()
-    self.show_url(run.runner, "about://blank")
+    self.show_url(run.runner, self.info_data_url(run))
 
   @abc.abstractmethod
   def _start_driver(self, run: cb.runner.Run,
@@ -727,7 +750,6 @@ class Safari(Browser):
     self.cache_dir = pathlib.Path(
         f"~/Library/Containers/com.apple.{self.bundle_name}/Data/Library/Caches"
     ).expanduser()
-    self.default_page = "about://blank"
 
   def _extract_version(self) -> str:
     app_path = self.path.parents[2]
@@ -748,7 +770,7 @@ tell application '{self.app_name}'
       to click menu item "New Private Window"
       of menu "File" of menu bar 1
       of process '{self.bundle_name}'
-  set URL of current tab of front window to '{self.default_page}'
+  set URL of current tab of front window to ''
   set the bounds of the first window
       to {{{self.x},{self.y},{self.width},{self.height}}}
   tell application "System Events"
@@ -794,15 +816,18 @@ class SafariWebDriver(WebdriverMixin, Safari):
     assert not self._is_running
     logging.info("STARTING BROWSER: browser: %s driver: %s", self.path,
                  driver_path)
+    options = SafariOptions()
+    options.binary_location = str(self.path)
     capabilities = DesiredCapabilities.SAFARI.copy()
     capabilities["safari.cleanSession"] = "true"
     # Enable browser logging
     capabilities["safari:diagnose"] = "true"
     if "Technology Preview" in self.app_name:
       capabilities["browserName"] = "Safari Technology Preview"
-    capabilities["browserVersion"] = str(self.major_version)
-    driver = webdriver.Safari(
-        executable_path=str(driver_path), desired_capabilities=capabilities)
+    driver = webdriver.Safari(  # pytype: disable=wrong-keyword-args
+        executable_path=str(driver_path),
+        desired_capabilities=capabilities,
+        options=options)
     assert driver.session_id, "Could not start webdriver"
     logs = (
         pathlib.Path("~/Library/Logs/com.apple.WebDriver/").expanduser() /

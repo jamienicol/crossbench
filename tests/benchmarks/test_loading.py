@@ -90,10 +90,10 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
         env_validation_mode=cb.env.ValidationMode.SKIP,
         platform=self.platform)
     runner.run()
-    self.assertEqual(self.browsers[0].url_list,
-                     [story.url for story in stories])
-    self.assertEqual(self.browsers[1].url_list,
-                     [story.url for story in stories])
+    urls = self.filter_data_urls(self.browsers[0].url_list)
+    self.assertEqual(urls, [story.url for story in stories])
+    urls = self.filter_data_urls(self.browsers[1].url_list)
+    self.assertEqual(urls, [story.url for story in stories])
     self.assertTrue(self.browsers[0].did_run)
     self.assertTrue(self.browsers[1].did_run)
 

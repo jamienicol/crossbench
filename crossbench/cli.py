@@ -610,6 +610,7 @@ class CrossBenchCLI:
     except Exception as e:
       if args.throw:
         raise
+      logging.debug(e)
       logging.error("")
       logging.error("#" * 80)
       logging.error(f"SUBCOMMAND UNSUCCESSFUL got {e.__class__.__name__}:")

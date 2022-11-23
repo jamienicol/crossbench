@@ -120,7 +120,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       self.run_cli("loading", "--probe=v8.log", f"--urls={url}",
                    "--skip-checklist")
       for browser in self.browsers:
-        self.assertListEqual([url], browser.url_list)
+        self.assertListEqual([url], browser.url_list[1:])
         self.assertIn("--log-all", browser.js_flags)
 
   def test_invalid_empty_probe_config_file(self):
@@ -133,7 +133,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         self.run_cli("loading", f"--probe-config={config_file}",
                      f"--urls={url}", "--skip-checklist", "--throw")
       for browser in self.browsers:
-        self.assertListEqual([], browser.url_list)
+        self.assertListEqual([], browser.url_list[1:])
         self.assertNotIn("--log", browser.js_flags)
 
   def test_empty_probe_config_file(self):
@@ -147,7 +147,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       self.run_cli("loading", f"--probe-config={config_file}", f"--urls={url}",
                    "--skip-checklist")
       for browser in self.browsers:
-        self.assertListEqual([url], browser.url_list)
+        self.assertListEqual([url], browser.url_list[1:])
         self.assertNotIn("--log", browser.js_flags)
 
   def test_invalid_probe_config_file(self):
@@ -178,7 +178,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       self.run_cli("loading", f"--probe-config={config_file}", f"--urls={url}",
                    "--skip-checklist")
       for browser in self.browsers:
-        self.assertListEqual([url], browser.url_list)
+        self.assertListEqual([url], browser.url_list[1:])
         for flag in js_flags:
           self.assertIn(flag, browser.js_flags)
 
@@ -308,7 +308,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       self.run_cli("loading", "--probe=v8.log{}", f"--urls={url}",
                    "--skip-checklist")
       for browser in self.browsers:
-        self.assertListEqual([url], browser.url_list)
+        self.assertListEqual([url], browser.url_list[1:])
         for flag in js_flags:
           self.assertNotIn(flag, browser.js_flags)
 
@@ -321,7 +321,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       self.run_cli("loading", f"--probe=v8.log{json_config}", f"--urls={url}",
                    "--skip-checklist")
       for browser in self.browsers:
-        self.assertListEqual([url], browser.url_list)
+        self.assertListEqual([url], browser.url_list[1:])
         for flag in js_flags:
           self.assertIn(flag, browser.js_flags)
 

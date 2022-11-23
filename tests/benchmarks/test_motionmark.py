@@ -86,7 +86,8 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
       runner.run()
     cm.assert_called_once()
     for browser in self.browsers:
-      self.assertEqual(len(browser.url_list), repetitions)
+      urls = self.filter_data_urls(browser.url_list)
+      self.assertEqual(len(urls), repetitions)
       self.assertIn(bm.motionmark.MotionMark12Probe.JS, browser.js_list)
 
 

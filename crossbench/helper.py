@@ -471,10 +471,12 @@ class MacOSPlatform(PosixPlatform):
       # Most likely just a cli tool"
       return self.sh_stdout(bin_path, "--version")
 
-    version_string = self.sh_stdout("mdls", "-name", "kMDItemVersion", app_path)
-    # Filter output: "kMDItemVersion = "14.1"" => "14.1"
+    version_string = self.sh_stdout("mdls", "-name", "kMDItemVersion",
+                                    app_path).strip()
+    # Filter output: 'kMDItemVersion = "14.1"' => '"14.1"'
     prefix, version_string = version_string.split(" = ", maxsplit=1)
     assert version_string != "(null)", f"Didn't find app at {bin_path}"
+    # Strip quotes: '"14.1"' => '14.1'
     return version_string[1:-1]
 
   def exec_apple_script(self, script: str, quiet=False):

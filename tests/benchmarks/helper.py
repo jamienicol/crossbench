@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 import abc
-from typing import Sequence, Type
+from typing import List, Sequence, Type
 
 from tests import mockbenchmark
 
@@ -53,6 +53,9 @@ class SubStoryTestCase(BaseBenchmarkTestCase, metaclass=abc.ABCMeta):
         story_cls=self.story_cls,
         names=names,
         **kwargs)
+
+  def filter_data_urls(self, urls: Sequence[str]) -> List[str]:
+    return [url for url in urls if not url.startswith("data:")]
 
   def test_stories_creation(self):
     for name in self.story_cls.story_names():
