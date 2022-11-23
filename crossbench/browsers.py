@@ -66,14 +66,7 @@ class Browser(abc.ABC):
     self.label: str = label
     self.path: Optional[pathlib.Path] = path
     if path:
-      assert path.exists(), f"Binary at path={self.path} does not exist."
-      self.app_path = path
-      if self.platform.is_macos:
-        self._resolve_macos_binary()
-      assert path.is_file(), (f"Binary at path={self.path} is not a file.")
-      self.app_name: str = path.stem
-      self.version: str = self._extract_version()
-      self.major_version: int = int(self.version.split(".")[0])
+      self.path = self._resolve_binary(path)
       short_name = f"{self.type}_v{self.major_version}_{self.label}".lower()
     else:
       short_name = f"{self.type}_{self.label}".lower()
@@ -84,7 +77,7 @@ class Browser(abc.ABC):
     # Move down to avoid menu bars
     self.y: int = 50
     self._is_running: bool = False
-    self.cache_dir = cache_dir
+    self.cache_dir: Optional[pathlib.Path] = cache_dir
     self.clear_cache_dir: bool = True
     self._pid = None
     self._probes: Set[cb.probes.Probe] = set()
@@ -106,12 +99,23 @@ class Browser(abc.ABC):
   def is_local(self) -> bool:
     return True
 
-  def _resolve_macos_binary(self):
+  def _resolve_binary(self, path: pathlib.Path) -> pathlib.Path:
+    assert path.exists(), f"Binary at path={path} does not exist."
+    self.app_path = path
+    self.app_name: str = self.app_path.stem
+    if self.platform.is_macos:
+      path = self._resolve_macos_binary(path)
+    assert path.is_file(), (f"Binary at path={path} is not a file.")
+    self.version: str = self._extract_version()
+    self.major_version: int = int(self.version.split(".")[0])
+    return path
+
+  def _resolve_macos_binary(self, path: pathlib.Path) -> pathlib.Path:
     assert self.platform.is_macos
-    candidate = self.platform.search_binary(self.path)
+    candidate = self.platform.search_binary(path)
     if not candidate or not candidate.is_file():
-      raise ValueError(f"Could not find browser executable in {self.path}")
-    self.path = candidate
+      raise ValueError(f"Could not find browser executable in {path}")
+    return candidate
 
   def attach_probe(self, probe: cb.probes.Probe):
     self._probes.add(probe)
