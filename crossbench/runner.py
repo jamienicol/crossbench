@@ -74,7 +74,7 @@ class Runner:
       args.out_dir = cls.get_out_dir(cli_dir, label)
     return {
         "out_dir": args.out_dir,
-        "browsers": args.browsers,
+        "browsers": args.browser,
         "repetitions": args.repeat,
         "throw": args.throw,
     }
@@ -122,9 +122,9 @@ class Runner:
 
   def _validate_browsers(self):
     assert self.browsers, "No browsers provided"
-    browser_labels = [browser.label for browser in self.browsers]
-    assert len(browser_labels) == len(
-        set(browser_labels)), (f"Duplicated browser labels in {browser_labels}")
+    browser_short_names = [browser.short_name for browser in self.browsers]
+    assert len(browser_short_names) == len(set(browser_short_names)), (
+        f"Duplicated browser names in {browser_short_names}")
     browser_platforms = set(browser.platform for browser in self.browsers)
     assert len(browser_platforms) == 1, (
         "Browsers running on multiple platforms are not supported: "
@@ -373,7 +373,7 @@ class RepetitionsRunGroup(RunGroup):
 
   @property
   def info_stack(self) -> exception.TInfoStack:
-    return (f"browser={self.browser.label}", f"story={self.story}")
+    return (f"browser={self.browser.short_name}", f"story={self.story}")
 
   def _merge_probe_results(self, probe: cb.probes.Probe
                           ) -> Optional[cb.probes.ProbeResultType]:
@@ -422,7 +422,7 @@ class StoriesRunGroup(RunGroup):
 
   @property
   def info_stack(self) -> exception.TInfoStack:
-    return (f"browser={self.browser.label}",)
+    return (f"browser={self.browser.short_name}",)
 
   @property
   def stories(self) -> Iterable[cb.stories.Story]:
@@ -506,7 +506,7 @@ class Run:
   def info_stack(self) -> exception.TInfoStack:
     return (
         f"Run({self.name})",
-        f"browser={self.browser.label} binary={self.browser.path}",
+        f"browser={self.browser.type} label={self.browser.label} binary={self.browser.path}",
         f"story={self.story}",
         f"iteration={self.iteration}",
     )

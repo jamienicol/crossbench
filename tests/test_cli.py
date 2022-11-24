@@ -6,7 +6,7 @@ import io
 import json
 import hjson
 import pathlib
-from typing import Dict, Tuple, Type
+from typing import Dict, List, Tuple, Type
 import unittest
 import unittest.mock as mock
 
@@ -254,19 +254,21 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
   def test_browser_identifiers(self):
     browsers: Dict[str, Type[mock_browser.MockBrowser]] = {
         "chrome": mock_browser.MockChromeStable,
-        "chrome stable": mock_browser.MockChromeStable,
+        "chrome-stable": mock_browser.MockChromeStable,
         "stable": mock_browser.MockChromeStable,
-        "chrome beta": mock_browser.MockChromeBeta,
+        "chrome-beta": mock_browser.MockChromeBeta,
         "beta": mock_browser.MockChromeBeta,
-        "chrome dev": mock_browser.MockChromeDev,
+        "chrome-dev": mock_browser.MockChromeDev,
     }
     if not self.platform.is_linux:
       browsers["canary"] = mock_browser.MockChromeCanary
     if self.platform.is_macos:
       browsers.update({
           "safari": mock_browser.MockSafari,
+          "sf": mock_browser.MockSafari,
+          "safari-technology-preview": mock_browser.MockSafariTechnologyPreview,
+          "sf-tp": mock_browser.MockSafariTechnologyPreview,
           "tp": mock_browser.MockSafariTechnologyPreview,
-          "safari technology preview": mock_browser.MockSafariTechnologyPreview,
       })
 
     for identifier, browser_cls in browsers.items():
@@ -287,6 +289,46 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           results = json.load(f)
         self.assertEqual(results["browser"]["version"], browser_cls.VERSION)
         self.assertIn("test.com", results["stories"])
+
+  def test_browser_identifiers_duplicate(self):
+    with self.assertRaises(ValueError):
+      self.run_cli("loading", "--browser=chrome", "--browser=chrome",
+                   "--urls=http://test.com", "--skip-checklist", "--throw")
+
+  def test_browser_identifiers_multiple(self):
+    mock_browsers: List[Type[mock_browser.MockBrowser]] = [
+        mock_browser.MockChromeStable,
+        mock_browser.MockChromeBeta,
+        mock_browser.MockChromeDev,
+    ]
+
+    def mock_get_browser_cls_from_path(path):
+      for mock_browser_cls in mock_browsers:
+        if mock_browser_cls.APP_PATH == path:
+          return mock_browser_cls
+      raise ValueError("Unknown browser path")
+
+    with mock.patch.object(
+        cb.cli.BrowserConfig,
+        "_get_browser_cls_from_path",
+        side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
+      url = "http://test.com"
+      cli, stdout = self.run_cli("loading", "--browser=beta",
+                                 "--browser=stable", "--browser=dev",
+                                 f"--urls={url}", "--skip-checklist",
+                                 f"--out-dir={self.out_dir}")
+      self.assertTrue(self.out_dir.exists())
+      get_browser_cls.assert_called()
+      result_files = list(self.out_dir.glob("*/results.json"))
+      self.assertEqual(len(result_files), 3)
+      versions = []
+      for result_file in result_files:
+        with result_file.open() as f:
+          results = json.load(f)
+        versions.append(results["browser"]["version"])
+        self.assertIn("test.com", results["stories"])
+      for mock_browser_cls in mock_browsers:
+        self.assertIn(mock_browser_cls.VERSION, versions)
 
   def test_probe_invalid_inline_json_config(self):
     with self.assertRaises(ValueError), mock.patch.object(
@@ -850,7 +892,9 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
         f"Custom Google Chrome{suffix}")
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
     args = mock.Mock(
-        browser=str(browser_bin),
+        browser=[
+            str(browser_bin),
+        ],
         browser_config=None,
         enable_features=None,
         disable_features=None,

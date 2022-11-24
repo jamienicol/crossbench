@@ -103,6 +103,7 @@ class MockChromeStable(MockBrowser):
 
 
 class MockChromeBeta(MockBrowser):
+  VERSION = "101.22.33.44"
   if cb.helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome Beta.app"
   elif helper.platform.is_win:
@@ -112,6 +113,7 @@ class MockChromeBeta(MockBrowser):
 
 
 class MockChromeDev(MockBrowser):
+  VERSION = "102.22.33.44"
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome Dev.app"
   elif helper.platform.is_win:
@@ -121,6 +123,7 @@ class MockChromeDev(MockBrowser):
 
 
 class MockChromeCanary(MockBrowser):
+  VERSION = "103.22.33.44"
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome Canary.app"
   elif helper.platform.is_win:

@@ -240,40 +240,79 @@ class BrowserConfig:
     raise ValueError(f"Unsupported browser='{path}'")
 
   def load_from_args(self, args):
-    path = self._get_browser_path(args.browser or "chrome")
-    logging.info("SELECTED BROWSER: %s", path)
+    browsers = args.browser or ["chrome-stable"]
+    assert isinstance(browsers, list)
+    if len(browsers) != len(set(browsers)):
+      raise ValueError(f"Got duplicate --browser arguments: {browsers}")
+    for browser in browsers:
+      self._append_browser(args, browser)
+    self._verify_browser_flags(args)
+
+  def _verify_browser_flags(self, args):
+    if len(self._variants) == 1:
+      return
+    chrome_args = {
+        "--enable-features": args.enable_features,
+        "--disable-features": args.disable_features,
+        "--js-flags": args.js_flags
+    }
+    for flag_name, value in chrome_args.items():
+      if not value:
+        continue
+      for browser in self._variants:
+        if not isinstance(browser, cb.browsers.Chrome):
+          raise ValueError(f"Used chrome-specific flags {flag_name} "
+                           f"for non-chrome {browser.short_name}.\n"
+                           "Use --browser-config for complex variants.")
+    if not args.other_browser_args:
+      return
+    browser_types = set(browser.type for browser in self._variants)
+    if len(browser_types) > 1:
+      raise ValueError(f"Multiple browser types {browser_types} "
+                       "cannot be used with common extra browser flags: "
+                       f"{args.other_browser_args}.\n"
+                       "Use --browser-config for complex variants.")
+
+  def _append_browser(self, args, browser: str):
+    assert browser, "Expected non-empty browser name"
+    path = self._get_browser_path(browser)
     browser_cls = self._get_browser_cls_from_path(path)
     flags = browser_cls.default_flags()
-    if args.enable_features:
-      for feature in args.enabled_features.split(","):
-        flags.features.enable(feature)
-    if args.disable_features:
-      for feature in args.disabled_features.split(","):
-        flags.features.disable(feature)
-    if args.js_flags:
-      flags.js_flags.update(args.js_flags.split(","))
+
+    if issubclass(browser_cls, cb.browsers.Chrome):
+      if args.enable_features:
+        for feature in args.enable_features.split(","):
+          flags.features.enable(feature)
+      if args.disable_features:
+        for feature in args.disable_features.split(","):
+          flags.features.disable(feature)
+      if args.js_flags:
+        flags.js_flags.update(args.js_flags.split(","))
+
     for flag_str in args.other_browser_args:
       flags.set(*cb.flags.Flags.split(flag_str))
 
     label = cb.browsers.convert_flags_to_label(*flags.get_list())
     browser = browser_cls(label=label, path=path, flags=flags)  # pytype: disable=not-instantiable
+    logging.info("SELECTED BROWSER: name=%s path='%s' ", browser.short_name,
+                 path)
     self._variants.append(browser)
 
   def _get_browser_path(self, path_or_identifier: str) -> pathlib.Path:
     identifier = path_or_identifier.lower()
     # We're not using a dict-based lookup here, since not all browsers are
     # available on all platforms
-    if identifier in ("chrome", "chrome stable", "stable"):
+    if identifier in ("chrome", "chrome-stable", "stable"):
       return cb.browsers.Chrome.stable_path()
-    elif identifier in ("chrome beta", "beta"):
+    elif identifier in ("chrome-beta", "beta"):
       return cb.browsers.Chrome.beta_path()
-    elif identifier in ("chrome dev", "dev"):
+    elif identifier in ("chrome-dev", "dev"):
       return cb.browsers.Chrome.dev_path()
-    elif identifier in ("chrome canary", "canary"):
+    elif identifier in ("chrome-canary", "canary"):
       return cb.browsers.Chrome.canary_path()
-    elif identifier == "safari":
+    elif identifier in ("safari", "sf"):
       return cb.browsers.Safari.default_path()
-    elif identifier in ("safari technology preview", "tp"):
+    elif identifier in ("safari-technology-preview", "sf-tp", "tp"):
       return cb.browsers.Safari.technology_preview_path()
     path = pathlib.Path(path_or_identifier)
     if path.exists():
@@ -553,10 +592,13 @@ class CrossBenchCLI:
     browser_group = subparser.add_mutually_exclusive_group()
     browser_group.add_argument(
         "--browser",
-        help="Browser binary. Use this to test a single browser. "
-        "Use a shortname [chrome, stable, dev, canary, safari] "
+        action="append",
+        default=[],
+        help="Browser binary. Use this to test a simple browser variant. "
+        "Use [chrome, stable, dev, canary, safari] "
         "for system default browsers or a full path. "
-        "Defaults to 'chrome'. "
+        "Repeat for adding multiple browsers. "
+        "Defaults to 'chrome-stable'. "
         "Cannot be used with --browser-config")
     browser_group.add_argument(
         "--browser-config",
@@ -610,7 +652,7 @@ class CrossBenchCLI:
     benchmark = self._get_benchmark(args)
     runner = None
     try:
-      args.browsers = self._get_browsers(args)
+      args.browser = self._get_browsers(args)
       probes = self._get_probes(args)
       env_config = self._get_env_config(args)
       env_validation_mode = self._get_env_validation_mode(args)

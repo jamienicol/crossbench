@@ -67,6 +67,8 @@ class Browser(abc.ABC):
     self.path: Optional[pathlib.Path] = path
     if path:
       self.path = self._resolve_binary(path)
+      self.version: str = self._extract_version()
+      self.major_version: int = int(self.version.split(".")[0])
       short_name = f"{self.type}_v{self.major_version}_{self.label}".lower()
     else:
       short_name = f"{self.type}_{self.label}".lower()
@@ -106,8 +108,6 @@ class Browser(abc.ABC):
     if self.platform.is_macos:
       path = self._resolve_macos_binary(path)
     assert path.is_file(), (f"Binary at path={path} is not a file.")
-    self.version: str = self._extract_version()
-    self.major_version: int = int(self.version.split(".")[0])
     return path
 
   def _resolve_macos_binary(self, path: pathlib.Path) -> pathlib.Path:

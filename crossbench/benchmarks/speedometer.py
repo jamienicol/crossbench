@@ -56,7 +56,7 @@ class Speedometer2Probe(probes_json.JsonResultProbe):
     headers: List[str] = []
     for story_group in group.story_groups:
       csv_files.append(story_group.results[self]["csv"])
-      headers.append(story_group.browser.label)
+      headers.append(story_group.browser.short_name)
 
     merged_table = probes_helper.merge_csv(csv_files)
 
