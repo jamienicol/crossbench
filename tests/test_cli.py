@@ -259,6 +259,14 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         "chrome-beta": mock_browser.MockChromeBeta,
         "beta": mock_browser.MockChromeBeta,
         "chrome-dev": mock_browser.MockChromeDev,
+        "ff": mock_browser.MockFirefox,
+        "firefox": mock_browser.MockFirefox,
+        "firefox-dev": mock_browser.MockFirefoxDeveloperEdition,
+        "firefox-developer-edition": mock_browser.MockFirefoxDeveloperEdition,
+        "ff-dev": mock_browser.MockFirefoxDeveloperEdition,
+        "firefox-nightly": mock_browser.MockFirefoxNightly,
+        "ff-nightly": mock_browser.MockFirefoxNightly,
+        "ff-trunk": mock_browser.MockFirefoxNightly,
     }
     if not self.platform.is_linux:
       browsers["canary"] = mock_browser.MockChromeCanary
@@ -293,7 +301,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
   def test_browser_identifiers_duplicate(self):
     with self.assertRaises(ValueError):
       self.run_cli("loading", "--browser=chrome", "--browser=chrome",
-                   "--urls=http://test.com", "--skip-checklist", "--throw")
+                   "--urls=http://test.com", "--skip-env-check", "--throw")
 
   def test_browser_identifiers_multiple(self):
     mock_browsers: List[Type[mock_browser.MockBrowser]] = [
@@ -315,7 +323,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       url = "http://test.com"
       cli, stdout = self.run_cli("loading", "--browser=beta",
                                  "--browser=stable", "--browser=dev",
-                                 f"--urls={url}", "--skip-checklist",
+                                 f"--urls={url}", "--skip-env-check",
                                  f"--out-dir={self.out_dir}")
       self.assertTrue(self.out_dir.exists())
       get_browser_cls.assert_called()

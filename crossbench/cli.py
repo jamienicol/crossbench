@@ -237,6 +237,8 @@ class BrowserConfig:
       return cb.browsers.SafariWebDriver
     if "chrome" in path_str:
       return cb.browsers.ChromeWebDriver
+    if "firefox" in path_str:
+      return cb.browsers.FirefoxWebDriver
     raise ValueError(f"Unsupported browser='{path}'")
 
   def load_from_args(self, args):
@@ -314,6 +316,12 @@ class BrowserConfig:
       return cb.browsers.Safari.default_path()
     elif identifier in ("safari-technology-preview", "sf-tp", "tp"):
       return cb.browsers.Safari.technology_preview_path()
+    elif identifier in ("firefox", "ff"):
+      return cb.browsers.Firefox.default_path()
+    elif identifier in ("firefox-dev", "firefox-developer-edition", "ff-dev"):
+      return cb.browsers.Firefox.developer_edition_path()
+    elif identifier in ("firefox-nightly", "ff-nightly", "ff-trunk"):
+      return cb.browsers.Firefox.nightly_path()
     path = pathlib.Path(path_or_identifier)
     if path.exists():
       return path
@@ -371,7 +379,7 @@ class ProbeConfig:
       # Default case without the additional hjson payload
       probe_name = probe_name_with_args
     if probe_name not in self.LOOKUP:
-      raise ValueError(f"Unknown probe name: '{probe_name}'")
+      self.raise_unknown_probe(probe_name)
     probe_cls: Type[cb.probes.Probe] = self.LOOKUP[probe_name]
     self._probes.append(probe_cls.from_config(inline_config))
 
@@ -389,9 +397,13 @@ class ProbeConfig:
       with self._exceptions.info(
           f"Parsing probe config probes['{probe_name}']"):
         if probe_name not in self.LOOKUP:
-          raise ValueError(f"Unknown probe name: '{probe_name}'")
+          self.raise_unknown_probe(probe_name)
         probe_cls = self.LOOKUP[probe_name]
         self._probes.append(probe_cls.from_config(config_data))
+
+  def raise_unknown_probe(self, probe_name: str):
+    raise ValueError(f"Unknown probe name: '{probe_name}'\n"
+                     f"Options are: {list(self.LOOKUP.keys())}")
 
 
 def existing_file_type(str_value):

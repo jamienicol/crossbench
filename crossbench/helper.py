@@ -129,8 +129,16 @@ class Platform(abc.ABC):
     return py_platform.machine()
 
   @property
+  def is_ia32(self) -> bool:
+    return self.machine in ("i386", "i686", "x86")
+
+  @property
+  def is_x64(self) -> bool:
+    return self.machine in ("x86_64", "AMD64")
+
+  @property
   def is_arm64(self) -> bool:
-    return self.machine == "arm64"
+    return self.machine in ("arm64", "aarch64")
 
   @property
   def is_macos(self) -> bool:

@@ -32,7 +32,7 @@ class Speedometer2Probe(probes_json.JsonResultProbe):
   """
   NAME = "speedometer_2"
   IS_GENERAL_PURPOSE = False
-  JS = "return globalThis.suiteValues;"
+  JS = "return window.suiteValues;"
 
   def to_json(self, actions):
     return actions.js(self.JS)
@@ -100,7 +100,7 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
       actions.navigate_to(self._url)
       actions.wait_js_condition(
           """
-        return globalThis.Suites !== undefined;
+        return window.Suites !== undefined;
       """, helper.wait_range(0.5, 10))
       if self._substories != self.SUBSTORIES:
         actions.js(
@@ -116,14 +116,14 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
       actions.js(
           """
         // Store all the results in the benchmarkClient
-        globalThis.testDone = false;
-        globalThis.suiteValues = [];
+        window.testDone = false;
+        window.suiteValues = [];
         const benchmarkClient = {
           didRunSuites(measuredValues) {
-            globalThis.suiteValues.push(measuredValues);
+            window.suiteValues.push(measuredValues);
           },
           didFinishLastIteration() {
-            globalThis.testDone = true;
+            window.testDone = true;
           }
         };
         const runner = new BenchmarkRunner(Suites, benchmarkClient);
@@ -134,7 +134,7 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
     with run.actions("Wait Done") as actions:
       actions.wait(1 * len(self._substories))
       actions.wait_js_condition(
-          "return globalThis.testDone",
+          "return window.testDone",
           helper.wait_range(1,
                             12 + 4 * len(self._substories) * self.iterations))
 

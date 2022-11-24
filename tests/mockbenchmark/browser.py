@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+import abc
 
 import pathlib
 from typing import List, Optional, Tuple, Type
@@ -13,19 +14,23 @@ from crossbench import flags
 from crossbench import helper
 
 
-class MockBrowser(cb.browsers.Browser):
+class MockBrowser(cb.browsers.Browser, metaclass=abc.ABCMeta):
   APP_PATH: pathlib.Path = pathlib.Path("/")
+  MACOS_BIN_NAME: str = ""
   VERSION = "100.22.33.44"
 
   @classmethod
-  def setup_fs(cls, fs, bin_name: str = "Chrome"):
-    cls.setup_bin(fs, cls.APP_PATH, bin_name)
+  def setup_fs(cls, fs):
+    macos_bin_name = cls.APP_PATH.stem
+    if cls.MACOS_BIN_NAME:
+      macos_bin_name = cls.MACOS_BIN_NAME
+    cls.setup_bin(fs, cls.APP_PATH, macos_bin_name)
 
   @classmethod
-  def setup_bin(cls, fs, bin_path: pathlib.Path, bin_name: str):
+  def setup_bin(cls, fs, bin_path: pathlib.Path, macos_bin_name: str):
     if cb.helper.platform.is_macos:
       assert bin_path.suffix == ".app"
-      bin_path = bin_path / "Contents" / "MacOS" / bin_name
+      bin_path = bin_path / "Contents" / "MacOS" / macos_bin_name
     elif cb.helper.platform.is_win:
       assert bin_path.suffix == ".exe"
     fs.create_file(bin_path)
@@ -37,9 +42,10 @@ class MockBrowser(cb.browsers.Browser):
   def __init__(self,
                label: str,
                path: Optional[pathlib.Path] = None,
-               browser_name: str = "chrome",
+               browser_name: str = "",
                *args,
                **kwargs):
+    assert browser_name, "Mock browser needs a name / type"
     assert self.APP_PATH
     path = path or pathlib.Path(self.APP_PATH)
     self.app_path = path
@@ -93,7 +99,17 @@ else:
   APP_ROOT = pathlib.Path("/usr/bin")
 
 
-class MockChromeStable(MockBrowser):
+class MockChromeBrowser(MockBrowser, metaclass=abc.ABCMeta):
+
+  def __init__(self,
+               label: str,
+               path: Optional[pathlib.Path] = None,
+               *args,
+               **kwargs):
+    super().__init__(label, path, browser_name="chrome", *args, **kwargs)
+
+
+class MockChromeStable(MockChromeBrowser):
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome.app"
   elif helper.platform.is_win:
@@ -102,9 +118,9 @@ class MockChromeStable(MockBrowser):
     APP_PATH = APP_ROOT / "google-chrome"
 
 
-class MockChromeBeta(MockBrowser):
+class MockChromeBeta(MockChromeBrowser):
   VERSION = "101.22.33.44"
-  if cb.helper.platform.is_macos:
+  if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome Beta.app"
   elif helper.platform.is_win:
     APP_PATH = APP_ROOT / "Chrome Beta/Application/chrome.exe"
@@ -112,7 +128,7 @@ class MockChromeBeta(MockBrowser):
     APP_PATH = APP_ROOT / "google-chrome-beta"
 
 
-class MockChromeDev(MockBrowser):
+class MockChromeDev(MockChromeBrowser):
   VERSION = "102.22.33.44"
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome Dev.app"
@@ -122,7 +138,7 @@ class MockChromeDev(MockBrowser):
     APP_PATH = APP_ROOT / "google-chrome-unstable"
 
 
-class MockChromeCanary(MockBrowser):
+class MockChromeCanary(MockChromeBrowser):
   VERSION = "103.22.33.44"
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome Canary.app"
@@ -132,7 +148,17 @@ class MockChromeCanary(MockBrowser):
     APP_PATH = APP_ROOT / "google-chrome-canary"
 
 
-class MockSafari(MockBrowser):
+class MockSafariBrowser(MockBrowser, metaclass=abc.ABCMeta):
+
+  def __init__(self,
+               label: str,
+               path: Optional[pathlib.Path] = None,
+               *args,
+               **kwargs):
+    super().__init__(label, path, browser_name="safari", *args, **kwargs)
+
+
+class MockSafari(MockSafariBrowser):
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Safari.app"
   elif helper.platform.is_win:
@@ -140,12 +166,8 @@ class MockSafari(MockBrowser):
   else:
     APP_PATH = pathlib.Path('/unsupported-platform/Safari')
 
-  @classmethod
-  def setup_fs(cls, fs):
-    return super().setup_fs(fs, bin_name="Safari")
 
-
-class MockSafariTechnologyPreview(MockBrowser):
+class MockSafariTechnologyPreview(MockSafariBrowser):
   if cb.helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Safari Technology Preview.app"
   elif helper.platform.is_win:
@@ -153,9 +175,42 @@ class MockSafariTechnologyPreview(MockBrowser):
   else:
     APP_PATH = pathlib.Path('/unsupported-platform/Safari Technology Preview')
 
-  @classmethod
-  def setup_fs(cls, fs):
-    return super().setup_fs(fs, bin_name="Safari Technology Preview")
+
+class MockFirefoxBrowser(MockBrowser, metaclass=abc.ABCMeta):
+
+  def __init__(self,
+               label: str,
+               path: Optional[pathlib.Path] = None,
+               *args,
+               **kwargs):
+    super().__init__(label, path, browser_name="firefox", *args, **kwargs)
+
+
+class MockFirefox(MockFirefoxBrowser):
+  if cb.helper.platform.is_macos:
+    APP_PATH = APP_ROOT / "Firefox.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Mozilla Firefox/firefox.exe"
+  else:
+    APP_PATH = APP_ROOT / "firefox"
+
+
+class MockFirefoxDeveloperEdition(MockFirefoxBrowser):
+  if cb.helper.platform.is_macos:
+    APP_PATH = APP_ROOT / "Firefox Developer Edition.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Firefox Developer Edition/firefox.exe"
+  else:
+    APP_PATH = APP_ROOT / "firefox-developer-edition"
+
+
+class MockFirefoxNightly(MockFirefoxBrowser):
+  if cb.helper.platform.is_macos:
+    APP_PATH = APP_ROOT / "Firefox Nightly.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Firefox Nightly/firefox.exe"
+  else:
+    APP_PATH = APP_ROOT / "firefox-trunk"
 
 
 ALL: Tuple[Type[MockBrowser], ...] = (
@@ -165,4 +220,7 @@ ALL: Tuple[Type[MockBrowser], ...] = (
     MockChromeStable,
     MockSafari,
     MockSafariTechnologyPreview,
+    MockFirefox,
+    MockFirefoxDeveloperEdition,
+    MockFirefoxNightly,
 )

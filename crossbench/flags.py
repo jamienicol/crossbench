@@ -39,7 +39,9 @@ class Flags(collections.UserDict):
     assert "=" not in flag_name, (
         f"Flag name contains '=': {flag_name}, please split")
     assert flag_name.startswith("-"), f"Invalid flag name: {flag_name}"
-    assert flag_value is None or isinstance(flag_value, str)
+    assert flag_value is None or isinstance(flag_value, str), (
+        f"Expected None or string flag-value for flag '{flag_name}', "
+        f"but got: {repr(flag_value)}")
     self.data[flag_name] = flag_value
 
   def update(self, initial_data: Flags.InitialDataType = None, override=False):
