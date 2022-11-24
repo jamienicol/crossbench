@@ -21,7 +21,7 @@ poetry install
 ## Basic usage:
 
 ```
-poetry run crossbench speedometer_2.0 \
+poetry run cb speedometer \
     --browser=/path/to/chromium \
     --stories=VanillaJS.* \
     --probe=profiling \

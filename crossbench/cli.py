@@ -537,17 +537,18 @@ class CrossBenchCLI:
         "See config/env.config.hjson for more details."
         "Mutually exclusive with --env")
     env_group.add_argument(
+        "--skip-env-check",
+        dest="use_env_checks",
+        action="store_false",
+        default=True,
+        help="Only warn about potential issues on the target machine that could"
+        "negatively impact benchmark numbers or probe processing. "
+        "Environment checks are enabled by default.")
+    env_group.add_argument(
         "--dry-run",
         action="store_true",
         default=False,
         help="Don't run any browsers or probes")
-    env_group.add_argument(
-        "--skip-checklist",
-        dest="use_checklist",
-        action="store_false",
-        default=True,
-        help="Do not check for potential SetUp issues "
-        "before running the benchmark. Enabled by default.")
 
     browser_group = subparser.add_mutually_exclusive_group()
     browser_group.add_argument(
@@ -693,7 +694,7 @@ class CrossBenchCLI:
     return args.benchmark_cls
 
   def _get_env_validation_mode(self, args) -> cb.env.ValidationMode:
-    if args.use_checklist:
+    if args.use_env_checks:
       return cb.env.ValidationMode.PROMPT
     return cb.env.ValidationMode.WARN
 

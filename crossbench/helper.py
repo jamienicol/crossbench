@@ -528,7 +528,7 @@ class MacOSPlatform(PosixPlatform):
                     falconctl)
       return True
     try:
-      logging.warn("Checking falcon sensor status:")
+      logging.warning("Checking falcon sensor status:")
       status = self.sh_stdout("sudo", falconctl, "stats", "agent_info")
     except SubprocessError as e:
       return True
@@ -537,7 +537,7 @@ class MacOSPlatform(PosixPlatform):
       return True
     if disable:
       # Try disabling the process
-      logging.warn("Disabling crowdstrike monitoring:")
+      logging.warning("Disabling crowdstrike monitoring:")
       self.sh("sudo", falconctl, "unload")
       return True
     return False

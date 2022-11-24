@@ -9,7 +9,7 @@ import enum
 import logging
 from numbers import Number
 import shutil
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Iterable, List, Optional
 
 import dataclasses
 
@@ -170,7 +170,7 @@ class HostEnvironment:
       logging.debug("Skipped Runner/Host environment warning: %s", message)
       return
     elif self._validation_mode == ValidationMode.WARN:
-      logging.warn(message)
+      logging.warning(message)
       return
     elif self._validation_mode == ValidationMode.THROW:
       pass
@@ -332,10 +332,22 @@ class HostEnvironment:
     if self._config.require_probes and not self._runner.probes:
       self.handle_warning("No probes specified.")
 
+  def _check_results_dir(self):
+    results_dir = self._runner.out_dir.parent
+    if not results_dir.exists():
+      return
+    results = [path for path in results_dir.iterdir() if path.is_dir()]
+    num_results = len(results)
+    if num_results > 20:
+      logging.warning(f"Found {num_results} existing crossbench results. "
+                      f"Consider cleaning stale results in '{results_dir}'")
+
   def setup(self):
     self.validate()
 
   def validate(self):
+    logging.info("-" * 80)
+    logging.info("VALIDATE ENVIRONMENT (--skip-env-checks for soft warnings")
     if self._validation_mode == ValidationMode.SKIP:
       return
     self._check_system_monitoring()
@@ -347,10 +359,14 @@ class HostEnvironment:
     self._check_running_binaries()
     self._check_screen_brightness()
     self._check_headless()
+    self._check_results_dir()
     self._check_probes()
     self._wait_min_time()
 
-  def check_installed(self, binaries, message="Missing binaries: {}"):
+  def check_installed(self,
+                      binaries: Iterable[str],
+                      message="Missing binaries: {}"):
+    assert not isinstance(binaries, str), "Expected iterable of strings."
     missing_binaries = list(
         binary for binary in binaries if not self._platform.which(binary))
     if missing_binaries:

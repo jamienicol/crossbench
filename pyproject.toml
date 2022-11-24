@@ -24,6 +24,7 @@ tabulate = "^0.8.10"
 
 [tool.poetry.scripts]
 crossbench = 'scripts:crossbench'
+cb = 'scripts:crossbench'
 
 [tool.poetry.group.dev.dependencies]
 pyfakefs = "^4.6.3"

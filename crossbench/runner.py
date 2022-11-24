@@ -196,10 +196,12 @@ class Runner:
     assert self.repetitions > 0, f"Invalid repetitions count: {self.repetitions}"
     assert self.browsers, "No browsers provided: self.browsers is empty"
     assert self.stories, "No stories provided: self.stories is empty"
+    logging.info("PREPARING %d BROWSER(S)", len(self.browsers))
     for browser in self.browsers:
       browser.setup_binary(self)  # pytype: disable=wrong-arg-types
     self._runs = list(self.get_runs())
     assert self._runs, f"{type(self)}.get_runs() produced no runs"
+    logging.info("DISCOVERED %d RUN(S)", len(self._runs))
     self._env.setup()
     self._benchmark.setup()
     self.collect_system_details()

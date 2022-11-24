@@ -6,6 +6,7 @@ import pathlib
 import hjson
 import unittest
 from unittest import mock
+import pyfakefs.fake_filesystem_unittest
 
 import crossbench as cb
 import crossbench.runner
@@ -82,13 +83,19 @@ class HostEnvironmentConfigTestCase(unittest.TestCase):
     config = cb.env.HostEnvironmentConfig(**data["env"])
 
 
-class HostEnvironmentTestCase(unittest.TestCase):
+class HostEnvironmentTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
 
   def setUp(self):
+    self.setUpPyfakefs()
     self.mock_platform = mock.Mock()
     self.mock_platform.processes.return_value = []
+    self.out_dir = pathlib.Path("results/current_benchmark_run_results")
+    self.fs.create_file(self.out_dir)
     self.mock_runner = mock.Mock(
-        platform=self.mock_platform, probes=[], browsers=[])
+        platform=self.mock_platform,
+        probes=[],
+        browsers=[],
+        out_dir=self.out_dir)
 
   def test_instantiate(self):
     env = cb.env.HostEnvironment(self.mock_runner)
@@ -131,7 +138,7 @@ class HostEnvironmentTestCase(unittest.TestCase):
     config = cb.env.HostEnvironmentConfig()
     env = cb.env.HostEnvironment(self.mock_runner, config,
                                  cb.env.ValidationMode.WARN)
-    with mock.patch("logging.warn") as cm:
+    with mock.patch("logging.warning") as cm:
       env.handle_warning("custom env check warning")
     cm.assert_called_once()
     self.assertIn("custom env check warning", cm.call_args[0][0])
@@ -146,7 +153,7 @@ class HostEnvironmentTestCase(unittest.TestCase):
     env = cb.env.HostEnvironment(self.mock_runner,
                                  cb.env.HostEnvironmentConfig(),
                                  cb.env.ValidationMode.WARN)
-    with mock.patch("logging.warn") as cm:
+    with mock.patch("logging.warning") as cm:
       env.validate()
     cm.assert_not_called()
     self.mock_platform.sh_stdout.assert_not_called()
@@ -156,7 +163,7 @@ class HostEnvironmentTestCase(unittest.TestCase):
     env = cb.env.HostEnvironment(
         self.mock_runner, cb.env.HostEnvironmentConfig(require_probes=True),
         cb.env.ValidationMode.WARN)
-    with mock.patch("logging.warn") as cm:
+    with mock.patch("logging.warning") as cm:
       env.validate()
     cm.assert_called_once()
     self.mock_platform.sh_stdout.assert_not_called()
@@ -266,6 +273,58 @@ class HostEnvironmentTestCase(unittest.TestCase):
     with self.assertRaises(cb.env.ValidationError) as cm:
       env.validate()
     self.assertIn("is_headless", str(cm.exception))
+
+  def test_results_dir_single(self):
+    env = cb.env.HostEnvironment(self.mock_runner)
+    with mock.patch("logging.warning") as cm:
+      env.validate()
+    cm.assert_not_called()
+
+  def test_results_dir_non_existent(self):
+    self.mock_runner.out_dir = pathlib.Path("does/not/exist")
+    env = cb.env.HostEnvironment(self.mock_runner)
+    with mock.patch("logging.warning") as cm:
+      env.validate()
+    cm.assert_not_called()
+
+  def test_results_dir_too_many(self):
+    # Create fake test result dirs:
+    for i in range(100):
+      (self.out_dir.parent / str(i)).mkdir()
+    env = cb.env.HostEnvironment(self.mock_runner)
+    with mock.patch("logging.warning") as cm:
+      env.validate()
+    cm.assert_called_once()
+
+  def test_check_installed_missing(self):
+
+    def which_none(binary):
+      return None
+
+    self.mock_platform.which = which_none
+    env = cb.env.HostEnvironment(self.mock_runner)
+    with self.assertRaises(cb.env.ValidationError) as cm:
+      env.check_installed(["custom_binary"])
+    self.assertIn("custom_binary", str(cm.exception))
+    with self.assertRaises(cb.env.ValidationError) as cm:
+      env.check_installed(["custom_binary_a", "custom_binary_b"])
+    self.assertIn("custom_binary_a", str(cm.exception))
+    self.assertIn("custom_binary_b", str(cm.exception))
+
+  def test_check_installed_partially_missing(self):
+
+    def which_custom(binary):
+      if binary == "custom_binary_b":
+        return "/bin/custom_binary_b"
+      return None
+
+    self.mock_platform.which = which_custom
+    env = cb.env.HostEnvironment(self.mock_runner)
+    env.check_installed(["custom_binary_b"])
+    with self.assertRaises(cb.env.ValidationError) as cm:
+      env.check_installed(["custom_binary_a", "custom_binary_b"])
+    self.assertIn("custom_binary_a", str(cm.exception))
+    self.assertNotIn("custom_binary_b", str(cm.exception))
 
 
 if __name__ == "__main__":
