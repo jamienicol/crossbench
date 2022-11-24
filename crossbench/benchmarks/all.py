@@ -5,4 +5,5 @@
 from crossbench.benchmarks.jetstream import JetStream2Benchmark
 from crossbench.benchmarks.loading import PageLoadBenchmark
 from crossbench.benchmarks.motionmark import MotionMark12Benchmark
-from crossbench.benchmarks.speedometer import Speedometer20Benchmark
+from crossbench.benchmarks.speedometer import (Speedometer20Benchmark,
+                                               Speedometer21Benchmark)

@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+import abc
 
 import argparse
 import csv
@@ -24,12 +25,12 @@ def _probe_remove_tests_segments(path: Tuple[str, ...]):
   return "/".join(segment for segment in path if segment != "tests")
 
 
-class Speedometer20Probe(probes_json.JsonResultProbe):
+class Speedometer2Probe(probes_json.JsonResultProbe):
   """
-  Speedometer2-specific probe.
+  Speedometer2-specific probe (compatible with v2.0 and v2.1).
   Extracts all speedometer times and scores.
   """
-  NAME = "speedometer_2.0"
+  NAME = "speedometer_2"
   IS_GENERAL_PURPOSE = False
   JS = "return globalThis.suiteValues;"
 
@@ -66,10 +67,7 @@ class Speedometer20Probe(probes_json.JsonResultProbe):
       csv.writer(f, delimiter="\t").writerows(merged_table)
 
 
-class Speedometer20Story(cb.stories.PressBenchmarkStory):
-  NAME = "speedometer_2.0"
-  PROBES = (Speedometer20Probe,)
-  URL = "https://browserbench.org/Speedometer2.0/InteractiveRunner.html"
+class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
   URL_LOCAL = "http://localhost:8000/InteractiveRunner.html"
   SUBSTORIES = (
       "VanillaJS-TodoMVC",
@@ -141,12 +139,22 @@ class Speedometer20Story(cb.stories.PressBenchmarkStory):
                             12 + 4 * len(self._substories) * self.iterations))
 
 
-class Speedometer20Benchmark(cb.benchmarks.PressBenchmark):
-  """
-  Benchmark runner for Speedometer 2.0
-  """
+class Speedometer20Story(Speedometer2Story):
   NAME = "speedometer_2.0"
-  DEFAULT_STORY_CLS = Speedometer20Story
+  PROBES = (Speedometer2Probe,)
+  URL = "https://browserbench.org/Speedometer2.0/InteractiveRunner.html"
+
+
+class Speedometer21Story(Speedometer2Story):
+  NAME = "speedometer_2.1"
+  PROBES = (Speedometer2Probe,)
+  URL = "https://browserbench.org/Speedometer2.1/InteractiveRunner.html"
+
+
+class Speedometer2Benchmark(
+    cb.benchmarks.PressBenchmark, metaclass=abc.ABCMeta):
+
+  DEFAULT_STORY_CLS = Speedometer2Story
 
   @classmethod
   def add_cli_parser(cls, subparsers,
@@ -170,7 +178,7 @@ class Speedometer20Benchmark(cb.benchmarks.PressBenchmark):
     return kwargs
 
   def __init__(self,
-               stories: Optional[Sequence[Speedometer20Story]] = None,
+               stories: Optional[Sequence[Speedometer2Story]] = None,
                is_live: bool = True,
                iterations: Optional[int] = None):
     if stories is None:
@@ -181,3 +189,19 @@ class Speedometer20Benchmark(cb.benchmarks.PressBenchmark):
         assert iterations >= 1
         story.iterations = iterations
     super().__init__(stories, is_live)
+
+
+class Speedometer20Benchmark(Speedometer2Benchmark):
+  """
+  Benchmark runner for Speedometer 2.0
+  """
+  NAME = "speedometer_2.0"
+  DEFAULT_STORY_CLS = Speedometer20Story
+
+
+class Speedometer21Benchmark(Speedometer2Benchmark):
+  """
+  Benchmark runner for Speedometer 2.1
+  """
+  NAME = "speedometer_2.1"
+  DEFAULT_STORY_CLS = Speedometer21Story
