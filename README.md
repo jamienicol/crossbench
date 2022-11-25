@@ -55,7 +55,7 @@ You can specify a single browser with `--browser=<name>`
 ```
 poetry run crossbench speedometer_2.0 \
     --browser=/path/to/chromium  \
-    -- \
+    -- -- \
         --browser-flag-foo \
         --browser-flag-bar \
 ```

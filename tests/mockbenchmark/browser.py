@@ -28,10 +28,10 @@ class MockBrowser(cb.browsers.Browser, metaclass=abc.ABCMeta):
 
   @classmethod
   def setup_bin(cls, fs, bin_path: pathlib.Path, macos_bin_name: str):
-    if cb.helper.platform.is_macos:
+    if helper.platform.is_macos:
       assert bin_path.suffix == ".app"
       bin_path = bin_path / "Contents" / "MacOS" / macos_bin_name
-    elif cb.helper.platform.is_win:
+    elif helper.platform.is_win:
       assert bin_path.suffix == ".exe"
     fs.create_file(bin_path)
 
@@ -94,7 +94,7 @@ class MockBrowser(cb.browsers.Browser, metaclass=abc.ABCMeta):
 if helper.platform.is_macos:
   APP_ROOT = pathlib.Path("/Applications")
 elif helper.platform.is_win:
-  APP_ROOT = pathlib.Path("C:/Program Files/Google")
+  APP_ROOT = pathlib.Path("C:/Program Files")
 else:
   APP_ROOT = pathlib.Path("/usr/bin")
 
@@ -113,7 +113,7 @@ class MockChromeStable(MockChromeBrowser):
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome.app"
   elif helper.platform.is_win:
-    APP_PATH = APP_ROOT / "Chrome/Application/chrome.exe"
+    APP_PATH = APP_ROOT / "Google/Chrome/Application/chrome.exe"
   else:
     APP_PATH = APP_ROOT / "google-chrome"
 
@@ -123,7 +123,7 @@ class MockChromeBeta(MockChromeBrowser):
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome Beta.app"
   elif helper.platform.is_win:
-    APP_PATH = APP_ROOT / "Chrome Beta/Application/chrome.exe"
+    APP_PATH = APP_ROOT / "Google/Chrome Beta/Application/chrome.exe"
   else:
     APP_PATH = APP_ROOT / "google-chrome-beta"
 
@@ -133,7 +133,7 @@ class MockChromeDev(MockChromeBrowser):
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome Dev.app"
   elif helper.platform.is_win:
-    APP_PATH = APP_ROOT / "Chrome Dev/Application/chrome.exe"
+    APP_PATH = APP_ROOT / "Google/Chrome Dev/Application/chrome.exe"
   else:
     APP_PATH = APP_ROOT / "google-chrome-unstable"
 
@@ -143,7 +143,7 @@ class MockChromeCanary(MockChromeBrowser):
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome Canary.app"
   elif helper.platform.is_win:
-    APP_PATH = APP_ROOT / "Chrome SxS/Application/chrome.exe"
+    APP_PATH = APP_ROOT / "Google/Chrome SxS/Application/chrome.exe"
   else:
     APP_PATH = APP_ROOT / "google-chrome-canary"
 
@@ -168,7 +168,7 @@ class MockSafari(MockSafariBrowser):
 
 
 class MockSafariTechnologyPreview(MockSafariBrowser):
-  if cb.helper.platform.is_macos:
+  if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Safari Technology Preview.app"
   elif helper.platform.is_win:
     APP_PATH = APP_ROOT / "Unsupported/Safari Technology Preview.exe"
@@ -187,7 +187,7 @@ class MockFirefoxBrowser(MockBrowser, metaclass=abc.ABCMeta):
 
 
 class MockFirefox(MockFirefoxBrowser):
-  if cb.helper.platform.is_macos:
+  if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Firefox.app"
   elif helper.platform.is_win:
     APP_PATH = APP_ROOT / "Mozilla Firefox/firefox.exe"
@@ -196,7 +196,7 @@ class MockFirefox(MockFirefoxBrowser):
 
 
 class MockFirefoxDeveloperEdition(MockFirefoxBrowser):
-  if cb.helper.platform.is_macos:
+  if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Firefox Developer Edition.app"
   elif helper.platform.is_win:
     APP_PATH = APP_ROOT / "Firefox Developer Edition/firefox.exe"
@@ -205,7 +205,7 @@ class MockFirefoxDeveloperEdition(MockFirefoxBrowser):
 
 
 class MockFirefoxNightly(MockFirefoxBrowser):
-  if cb.helper.platform.is_macos:
+  if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Firefox Nightly.app"
   elif helper.platform.is_win:
     APP_PATH = APP_ROOT / "Firefox Nightly/firefox.exe"

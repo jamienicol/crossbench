@@ -144,9 +144,9 @@ class FirefoxDriverFinder:
     return self.driver_path
 
   def _download(self):
-    url = self._find_driver_download_url()
+    url, archive_type = self._find_driver_download_url()
     with tempfile.TemporaryDirectory() as tmp_dir:
-      tar_file = pathlib.Path(tmp_dir) / "download.tar.gz"
+      tar_file = pathlib.Path(tmp_dir) / f"download.{archive_type}"
       self.platform.download_to(url, tar_file)
       unpack_dir = pathlib.Path(tmp_dir) / "extracted"
       shutil.unpack_archive(tar_file, unpack_dir)
@@ -156,7 +156,7 @@ class FirefoxDriverFinder:
       driver.rename(self.driver_path)
       self.driver_path.chmod(self.driver_path.stat().st_mode | stat.S_IEXEC)
 
-  def _find_driver_download_url(self) -> str:
+  def _find_driver_download_url(self) -> Tuple[str, str]:
     driver_version = self._get_driver_version()
     all_releases = self._load_releases()
     matching_release = {}
@@ -181,7 +181,7 @@ class FirefoxDriverFinder:
       raise ValueError(
           f"Could not find geckodriver {version} for platform {arch}")
     logging.info(f"GECKODRIVER downloading {version}: {url}")
-    return url
+    return url, archive_type
 
   def _get_driver_version(self) -> Tuple[int, int, int]:
     version = self.browser.major_version
@@ -220,7 +220,7 @@ class FirefoxDriverFinder:
     elif self.platform.is_macos:
       arch = "macos"
     elif self.platform.is_win:
-      arch = "win64"
+      arch = "win"
     else:
       raise ValueError(f"Unsupported geckodriver platform {self.platform}")
     if not self.platform.is_macos:
