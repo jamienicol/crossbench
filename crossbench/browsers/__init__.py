@@ -7,3 +7,4 @@ from crossbench.browsers.webdriver import RemoteWebDriver
 from crossbench.browsers.firefox import Firefox, FirefoxWebDriver
 from crossbench.browsers.safari import Safari, SafariWebDriver
 from crossbench.browsers.chrome import Chrome, ChromeWebDriver
+from crossbench.browsers.edge import Edge, EdgeWebDriver

@@ -148,6 +148,55 @@ class MockChromeCanary(MockChromeBrowser):
     APP_PATH = APP_ROOT / "google-chrome-canary"
 
 
+class MockEdgeBrowser(MockBrowser, metaclass=abc.ABCMeta):
+
+  def __init__(self,
+               label: str,
+               path: Optional[pathlib.Path] = None,
+               *args,
+               **kwargs):
+    super().__init__(label, path, browser_name="edge", *args, **kwargs)
+
+
+class MockEdgeStable(MockEdgeBrowser):
+  if helper.platform.is_macos:
+    APP_PATH = APP_ROOT / "Microsoft Edge.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Microsoft/Edge/Application/msedge.exe"
+  else:
+    APP_PATH = APP_ROOT / "unssuported/msedge"
+
+
+class MockEdgeBeta(MockEdgeBrowser):
+  VERSION = "101.22.33.44"
+  if helper.platform.is_macos:
+    APP_PATH = APP_ROOT / "Microsoft Beta.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Microsoft/Edge Beta/Application/msedge.exe"
+  else:
+    APP_PATH = APP_ROOT / "unssuported/msedge-beta"
+
+
+class MockEdgeDev(MockEdgeBrowser):
+  VERSION = "102.22.33.44"
+  if helper.platform.is_macos:
+    APP_PATH = APP_ROOT / "Microsoft Edge Dev.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Microsoft/Edge Dev/Application/msedge.exe"
+  else:
+    APP_PATH = APP_ROOT / "unssuported/msedge-dev"
+
+
+class MockEdgeCanary(MockEdgeBrowser):
+  VERSION = "103.22.33.44"
+  if helper.platform.is_macos:
+    APP_PATH = APP_ROOT / "Microsoft Edge Canary.app"
+  elif helper.platform.is_win:
+    APP_PATH = APP_ROOT / "Microsoft/Edge SxS/Application/msedge.exe"
+  else:
+    APP_PATH = APP_ROOT / "unssuported/msedge-canary"
+
+
 class MockSafariBrowser(MockBrowser, metaclass=abc.ABCMeta):
 
   def __init__(self,
@@ -218,6 +267,10 @@ ALL: Tuple[Type[MockBrowser], ...] = (
     MockChromeDev,
     MockChromeBeta,
     MockChromeStable,
+    MockEdgeCanary,
+    MockEdgeDev,
+    MockEdgeBeta,
+    MockEdgeStable,
     MockSafari,
     MockSafariTechnologyPreview,
     MockFirefox,

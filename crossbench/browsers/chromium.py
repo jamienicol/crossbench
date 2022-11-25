@@ -159,7 +159,7 @@ end tell
       self._stdout_log_file = None
 
   def show_url(self, runner, url):
-    
+
     self.exec_apple_script(f"""
 tell application '{self.app_name}'
     activate
@@ -169,6 +169,10 @@ end tell
 
 
 class ChromiumWebDriver(WebdriverMixin, Chromium):
+
+  WebDriverOptions = ChromeOptions
+  WebDriverService = ChromeService
+  WebDriver = webdriver.Chrome
 
   def __init__(self,
                label: str,
@@ -191,7 +195,7 @@ class ChromiumWebDriver(WebdriverMixin, Chromium):
   def _start_driver(self, run: cb.runner.Run, driver_path: pathlib.Path):
     assert not self._is_running
     assert self.log_file
-    options = ChromeOptions()
+    options = self.WebDriverOptions()
     options.set_capability("browserVersion", str(self.major_version))
     args = self._get_browser_flags(run)
     for arg in args:
@@ -201,12 +205,12 @@ class ChromiumWebDriver(WebdriverMixin, Chromium):
     logging.info("STARTING BROWSER: driver: %s", driver_path)
     logging.info("STARTING BROWSER: args: %s", shlex.join(args))
     # pytype: disable=wrong-keyword-args
-    service = ChromeService(
+    service = self.WebDriverService(
         executable_path=str(driver_path),
         log_path=self.driver_log_file,
         service_args=[])
     service.log_file = self.stdout_log_file.open("w")
-    driver = webdriver.Chrome(options=options, service=service)
+    driver = self.WebDriver(options=options, service=service)
     # pytype: enable=wrong-keyword-args
     # Prevent debugging overhead.
     driver.execute_cdp_cmd("Runtime.setMaxCallStackSizeToCapture", {"size": 0})

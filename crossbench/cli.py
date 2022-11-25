@@ -239,6 +239,8 @@ class BrowserConfig:
       return cb.browsers.ChromeWebDriver
     if "firefox" in path_str:
       return cb.browsers.FirefoxWebDriver
+    if "edge" in path_str:
+      return cb.browsers.EdgeWebDriver
     raise ValueError(f"Unsupported browser='{path}'")
 
   def load_from_args(self, args):
@@ -312,6 +314,14 @@ class BrowserConfig:
       return cb.browsers.Chrome.dev_path()
     elif identifier in ("chrome-canary", "canary"):
       return cb.browsers.Chrome.canary_path()
+    elif identifier in ("edge", "edge-stable"):
+      return cb.browsers.Edge.stable_path()
+    elif identifier == "edge-beta":
+      return cb.browsers.Edge.beta_path()
+    elif identifier == "edge-dev":
+      return cb.browsers.Edge.dev_path()
+    elif identifier == "edge-canary":
+      return cb.browsers.Edge.canary_path()
     elif identifier in ("safari", "sf"):
       return cb.browsers.Safari.default_path()
     elif identifier in ("safari-technology-preview", "sf-tp", "tp"):
