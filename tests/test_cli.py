@@ -788,7 +788,7 @@ class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
 
   def test_inline_flags(self):
     with mock.patch.object(
-        cb.browsers.Chrome, "_extract_version",
+        cb.browsers.ChromeWebDriver, "_extract_version",
         return_value="101.22.333.44"), mock.patch.object(
             cb.browsers.Chrome,
             "stable_path",
