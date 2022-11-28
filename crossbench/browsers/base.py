@@ -200,7 +200,7 @@ class Browser(abc.ABC):
     logging.info("QUIT")
     if self.platform.is_macos:
       self.platform.exec_apple_script(f"""
-  tell application '{self.app_name}'
+  tell application "{self.app_name}"
     quit
   end tell
       """)

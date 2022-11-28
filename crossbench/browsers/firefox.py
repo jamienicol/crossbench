@@ -20,6 +20,7 @@ from selenium.webdriver.firefox.service import Service as FirefoxService
 
 import crossbench as cb
 import crossbench.flags
+import crossbench.exception
 from crossbench import helper
 from crossbench.browsers.base import BROWSERS_CACHE, Browser
 from crossbench.browsers.webdriver import WebdriverMixin
@@ -142,7 +143,9 @@ class FirefoxDriverFinder:
 
   def download(self) -> pathlib.Path:
     if not self.driver_path.exists():
-      self._download()
+      with cb.exception.annotate(
+          f"Downloading geckodriver for {self.browser.version}"):
+        self._download()
     return self.driver_path
 
   def _download(self):

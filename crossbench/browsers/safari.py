@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import textwrap
 import pathlib
 from typing import TYPE_CHECKING, Optional
 
@@ -56,13 +57,13 @@ class Safari(Browser):
     assert self.platform.is_macos
     assert not self._is_running
     self.platform.exec_apple_script(f"""
-tell application '{self.app_name}'
+tell application "{self.app_name}"
   activate
 end tell
     """)
     self.platform.sleep(1)
     self.platform.exec_apple_script(f"""
-tell application '{self.app_name}'
+tell application "{self.app_name}"
   tell application "System Events"
       to click menu item "New Private Window"
       of menu "File" of menu bar 1
@@ -85,7 +86,7 @@ end tell
 
   def show_url(self, runner: cb.runner.Runner, url):
     self.platform.exec_apple_script(f"""
-tell application '{self.app_name}'
+tell application "{self.app_name}"
     activate
     set URL of current tab of front window to '{url}'
 end tell
@@ -150,7 +151,6 @@ class SafariWebDriver(WebdriverMixin, Safari):
     super().quit(runner)
     # Safari needs some additional push to quit properly
     self.platform.exec_apple_script(f"""
-  tell application '{self.app_name}'
-    quit
-  end tell
-      """)
+        tell application "{self.app_name}"
+          quit
+        end tell""")

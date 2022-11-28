@@ -17,6 +17,7 @@ from selenium.webdriver.edge.service import Service as EdgeService
 
 import crossbench as cb
 import crossbench.flags
+import crossbench.exception
 from crossbench import helper
 from crossbench.browsers.base import BROWSERS_CACHE
 from crossbench.browsers.chromium import Chromium, ChromiumWebDriver
@@ -130,7 +131,9 @@ class EdgeWebDriverDownloader:
 
   def download(self) -> pathlib.Path:
     if not self.driver_path.exists():
-      self._download()
+      with cb.exception.annotate(
+          f"Downloading edgedriver for {self.browser.version}"):
+        self._download()
     return self.driver_path
 
   def _download(self):

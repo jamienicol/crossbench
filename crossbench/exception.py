@@ -38,11 +38,15 @@ class MultiException(ValueError):
 
 class ExceptionAnnotationScope:
 
-  def __init__(self, annotator: ExceptionAnnotator,
-               exception_types: TExceptionTypes, entries: Tuple[str, ...]):
+  def __init__(self,
+               annotator: ExceptionAnnotator,
+               exception_types: TExceptionTypes,
+               entries: Tuple[str, ...],
+               rethrow: bool = False):
     self._annotator = annotator
     self._exception_types = exception_types
     self._added_info_stack_entries = entries
+    self.rethrow = rethrow
     self._previous_info_stack: TInfoStack = ()
 
   def __enter__(self):
@@ -65,6 +69,8 @@ class ExceptionAnnotationScope:
       # exception handling by returning True.
       self._annotator.append(exception_value)
       self._annotator._info_stack = self._previous_info_stack
+      if self.rethrow:
+        self._annotator.assert_success(log=False)
       return True
     if exception_value not in self._annotator._pending_exceptions:
       self._annotator._pending_exceptions[
@@ -106,10 +112,12 @@ class ExceptionAnnotator:
 
   def assert_success(self,
                      message: Optional[str] = None,
-                     exception_cls: Type[BaseException] = MultiException):
+                     exception_cls: Type[BaseException] = MultiException,
+                     log: bool = True):
     if self.is_success:
       return
-    self.log()
+    if log:
+      self.log()
     if message is None:
       message = "Got Exceptions: {}"
     message = message.format(self)
@@ -123,10 +131,10 @@ class ExceptionAnnotator:
 
   def capture(self,
               *stack_entries: str,
-              exceptions: TExceptionTypes = (Exception,)
-             ) -> ExceptionAnnotationScope:
+              exceptions: TExceptionTypes = (Exception,),
+              rethrow: bool = False) -> ExceptionAnnotationScope:
     """Sets info stack entries and captures exceptions."""
-    return ExceptionAnnotationScope(self, exceptions, stack_entries)
+    return ExceptionAnnotationScope(self, exceptions, stack_entries, rethrow)
 
   def extend(self, annotator: ExceptionAnnotator, is_nested: bool = False):
     if is_nested:
@@ -192,3 +200,8 @@ class ExceptionAnnotator:
 
 # Expose simpler name
 Annotator = ExceptionAnnotator
+
+
+def annotate(*stack_entries: str, exceptions: TExceptionTypes = (Exception,)):
+  return ExceptionAnnotator().capture(
+      *stack_entries, exceptions=exceptions, rethrow=True)

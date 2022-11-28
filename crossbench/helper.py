@@ -19,6 +19,7 @@ import time
 import traceback
 import urllib
 import urllib.request
+import urllib.error
 from typing import Any, Callable, Dict, Final, Iterable, List, Optional, Tuple, TypeVar, Sequence
 
 import psutil
@@ -331,7 +332,7 @@ class Platform(abc.ABC):
     assert not path.exists(), f"Download destination {path} exists already."
     try:
       urllib.request.urlretrieve(url, path)
-    except urllib.error.HTTPError as e:
+    except (urllib.error.HTTPError, urllib.error.URLError) as e:
       raise OSError(f"Could not load {url}") from e
     assert path.exists(), (
         f"Downloading {url} failed. Downloaded file {path} doesn't exist.")

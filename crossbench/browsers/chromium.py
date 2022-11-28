@@ -20,6 +20,7 @@ from selenium.webdriver.chromium.webdriver import ChromiumDriver
 
 import crossbench as cb
 import crossbench.flags
+import crossbench.exception
 from crossbench import helper
 from crossbench.browsers.base import (BROWSERS_CACHE, Browser,
                                       convert_flags_to_label)
@@ -146,7 +147,7 @@ class Chromium(Browser):
         self.path, *self._get_browser_flags(run), stdout=self._stdout_log_file)
     runner.wait(0.5)
     self.exec_apple_script(f"""
-tell application '{self.app_name}'
+tell application "{self.app_name}"
     activate
     set the bounds of the first window to {{50,50,1050,1050}}
 end tell
@@ -162,7 +163,7 @@ end tell
   def show_url(self, runner, url):
 
     self.exec_apple_script(f"""
-tell application '{self.app_name}'
+tell application "{self.app_name}"
     activate
     set URL of active tab of front window to '{url}'
 end tell
@@ -240,6 +241,12 @@ class ChromeDriverFinder:
     self.platform = browser.platform
     assert self.browser.is_local, (
         "Cannot download chromedriver for remote browser yet")
+    extension = ""
+    if self.platform.is_win:
+      extension = ".exe"
+    self.driver_path = (
+        BROWSERS_CACHE /
+        f"chromedriver-{self.browser.major_version}{extension}")
 
   def find_local_build(self) -> pathlib.Path:
     # assume it's a local build
@@ -250,17 +257,14 @@ class ChromeDriverFinder:
     return self.driver_path
 
   def download(self) -> pathlib.Path:
-    extension = ""
-    if self.platform.is_win:
-      extension = ".exe"
-    self.driver_path = (
-        BROWSERS_CACHE /
-        f"chromedriver-{self.browser.major_version}{extension}")
     if not self.driver_path.exists():
-      self._find_driver_download()
+      with cb.exception.annotate(
+          f"Downloading chromedriver for {self.browser.version}"):
+        self._download()
+
     return self.driver_path
 
-  def _find_driver_download(self):
+  def _download(self):
     major_version = self.browser.major_version
     logging.info("CHROMEDRIVER Downloading from %s for %s v%s", self.URL,
                  self.browser.type, major_version)

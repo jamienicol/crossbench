@@ -198,13 +198,21 @@ class Runner:
     assert self.stories, "No stories provided: self.stories is empty"
     logging.info("PREPARING %d BROWSER(S)", len(self.browsers))
     for browser in self.browsers:
-      browser.setup_binary(self)  # pytype: disable=wrong-arg-types
-    self._runs = list(self.get_runs())
-    assert self._runs, f"{type(self)}.get_runs() produced no runs"
-    logging.info("DISCOVERED %d RUN(S)", len(self._runs))
-    self._env.setup()
-    self._benchmark.setup()
+      with self._exceptions.capture(f"Preparing browser type={browser.type} "
+                                    f"short_name={browser.short_name}"):
+        browser.setup_binary(self)  # pytype: disable=wrong-arg-types
+    self._exceptions.assert_success()
+    with self._exceptions.capture("Preparing Runs"):
+      self._runs = list(self.get_runs())
+      assert self._runs, f"{type(self)}.get_runs() produced no runs"
+      logging.info("DISCOVERED %d RUN(S)", len(self._runs))
+    self._exceptions.assert_success()
+    with self._exceptions.capture("Preparing Environment"):
+      self._env.setup()
+    with self._exceptions.capture(f"Preparing Benchmark: {self._benchmark}"):
+      self._benchmark.setup()
     self.collect_system_details()
+    self._exceptions.assert_success()
 
   def get_runs(self) -> Iterable[Run]:
     for iteration in range(self.repetitions):
