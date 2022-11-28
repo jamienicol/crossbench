@@ -221,12 +221,18 @@ class Platform(abc.ABC):
             stdout=None,
             stderr=None,
             stdin=None,
+            env=None,
             quiet=False) -> subprocess.Popen:
     if not quiet:
       logging.debug("SHELL: %s", shlex.join(map(str, args)))
       logging.debug("CWD: %s", os.getcwd())
     return subprocess.Popen(
-        args=args, shell=shell, stdin=stdin, stderr=stderr, stdout=stdout)
+        args=args,
+        shell=shell,
+        stdin=stdin,
+        stderr=stderr,
+        stdout=stdout,
+        env=env)
 
   def sh(self,
          *args,
@@ -235,6 +241,7 @@ class Platform(abc.ABC):
          stdout=None,
          stderr=None,
          stdin=None,
+         env=None,
          quiet=False) -> subprocess.CompletedProcess:
     if not quiet:
       logging.debug("SHELL: %s", shlex.join(map(str, args)))
@@ -245,6 +252,7 @@ class Platform(abc.ABC):
         stdin=stdin,
         stdout=stdout,
         stderr=stderr,
+        env=env,
         capture_output=capture_output)
     if process.returncode != 0:
       raise SubprocessError(process)

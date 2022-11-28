@@ -118,6 +118,8 @@ class SafariWebDriver(WebdriverMixin, Safari):
     options.binary_location = str(self.path)
     capabilities = DesiredCapabilities.SAFARI.copy()
     capabilities["safari.cleanSession"] = "true"
+    # Don't wait for document-ready.
+    capabilities["pageLoadStrategy"] = "eager"
     # Enable browser logging
     capabilities["safari:diagnose"] = "true"
     if "Technology Preview" in self.app_name:

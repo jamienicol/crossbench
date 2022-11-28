@@ -43,6 +43,7 @@ class ExceptionAnnotationScope:
                exception_types: TExceptionTypes,
                entries: Tuple[str, ...],
                rethrow: bool = False):
+    logging.debug("ExceptionAnnotationScope: %s", entries)
     self._annotator = annotator
     self._exception_types = exception_types
     self._added_info_stack_entries = entries

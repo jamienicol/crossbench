@@ -5,6 +5,7 @@
 from __future__ import annotations
 import collections
 import inspect
+import pathlib
 import textwrap
 import tabulate
 
@@ -29,7 +30,8 @@ class _ConfigArg:
                default: Any = None,
                choices: Optional[Sequence[Any]] = None,
                help: Optional[str] = None,
-               is_list: bool = False):
+               is_list: bool = False,
+               required: bool = False):
     self.parser = parser
     self.name = name
     self.type = type
@@ -37,6 +39,7 @@ class _ConfigArg:
     self.choices = choices
     self.help = help
     self.is_list = is_list
+    self.required = required
     if self.type:
       assert callable(self.type), (
           f"Expected type to be a class or a callable, but got: {self.type}")
@@ -99,11 +102,13 @@ class _ConfigArg:
   def parse(self, config_data: Dict[str, Any]):
     data = config_data.pop(self.name, None)
     if data is None:
-      if self.default is None:
+      if self.required and self.default is None:
         raise ValueError(
             f"{self.cls}: "
             f"No value provided for required config option '{self.name}'")
       data = self.default
+    if data is None:
+      return None
     if self.is_list:
       return self.parse_list_data(data)
     return self.parse_data(data)
@@ -128,6 +133,18 @@ class _ConfigArg:
 
 class ConfigParser:
 
+  # TODO: combine with the similar method in cli.py and find a better name
+  def existing_file_type(self, str_value):
+    try:
+      path = pathlib.Path(str_value).expanduser()
+    except RuntimeError as e:
+      raise ValueError(f"Invalid Path '{str_value}': {e}") from e
+    if not path.exists():
+      raise ValueError(f"Path '{path}', does not exist.")
+    if not path.is_file():
+      raise ValueError(f"Path '{path}', is not a file.")
+    return path
+
   def __init__(self, title: str, cls: Type[object]):
     self.title = title
     assert title, "No title provided"
@@ -140,14 +157,15 @@ class ConfigParser:
                    default: Any = None,
                    choices: Optional[Sequence[Any]] = None,
                    help: Optional[str] = None,
-                   is_list: bool = False):
+                   is_list: bool = False,
+                   required: bool = False):
     assert name not in self._args, f"Duplicate argument: {name}"
     self._args[name] = _ConfigArg(self, name, type, default, choices, help,
-                                  is_list)
+                                  is_list, required)
 
   def kwargs_from_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
     kwargs: Dict[str, Any] = {}
-    exceptions = cb.exception.Annotator()
+    exceptions = cb.exception.Annotator(throw=True)
     for arg in self._args.values():
       with exceptions.capture(f"Parsing ...['{arg.name}']:"):
         kwargs[arg.name] = arg.parse(config_data)

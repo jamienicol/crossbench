@@ -106,6 +106,8 @@ class FirefoxWebDriver(WebdriverMixin, Firefox):
     assert self.log_file
     options = FirefoxOptions()
     options.set_capability("browserVersion", str(self.major_version))
+    # Don't wait for document-ready.
+    options.set_capability("pageLoadStrategy", "eager")
     args = self._get_browser_flags(run)
     for arg in args:
       options.add_argument(arg)

@@ -199,6 +199,8 @@ class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
     assert self.log_file
     options = self.WebDriverOptions()
     options.set_capability("browserVersion", str(self.major_version))
+    # Don't wait for document-ready.
+    options.set_capability("pageLoadStrategy", "eager")
     args = self._get_browser_flags(run)
     for arg in args:
       options.add_argument(arg)

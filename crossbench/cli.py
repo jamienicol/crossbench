@@ -368,7 +368,7 @@ class ProbeConfig:
     return probe_config
 
   def __init__(self, probe_names_with_args: Optional[Iterable[str]] = None):
-    self._exceptions = cb.exception.Annotator()
+    self._exceptions = cb.exception.Annotator(throw=True)
     self._probes: List[cb.probes.Probe] = []
     if not probe_names_with_args:
       return

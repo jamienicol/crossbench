@@ -90,7 +90,7 @@ class TestProbeConfig(unittest.TestCase):
 
   def test_bool_missing_property(self):
     parser = ProbeConfigParser(MockProbe)
-    parser.add_argument("bool_argument_name", type=bool)
+    parser.add_argument("bool_argument_name", type=bool, required=True)
     with self.assertRaises(ValueError):
       parser.kwargs_from_config({})
     with self.assertRaises(ValueError):
@@ -99,6 +99,8 @@ class TestProbeConfig(unittest.TestCase):
   def test_bool_invalid_value(self):
     parser = ProbeConfigParser(MockProbe)
     parser.add_argument("bool_argument_name", type=bool)
+    parser_required = ProbeConfigParser(MockProbe)
+    parser_required.add_argument("bool_argument_name", type=bool, required=True)
     with self.assertRaises(ValueError):
       parser.kwargs_from_config({"bool_argument_name": "not a bool"})
     with self.assertRaises(ValueError):
@@ -107,8 +109,10 @@ class TestProbeConfig(unittest.TestCase):
       parser.kwargs_from_config({"bool_argument_name": {}})
     with self.assertRaises(ValueError):
       parser.kwargs_from_config({"bool_argument_name": []})
+    # Argument is not required, this should pass
+    parser.kwargs_from_config({"bool_argument_name": None})
     with self.assertRaises(ValueError):
-      parser.kwargs_from_config({"bool_argument_name": None})
+      parser_required.kwargs_from_config({"bool_argument_name": None})
     with self.assertRaises(ValueError):
       parser.kwargs_from_config({"bool_argument_name": 0})
 
