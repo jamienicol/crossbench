@@ -3,6 +3,10 @@
 Crossbench is a cross-browser/cross-benchmark runner to extract performance
 numbers.
 
+Supported Browsers: Chrome/Chromium, Firefox, Safari and Edge.
+
+Supported OS: macOS, linux and windows.
+
 ## Setup:
 This project uses [poetry](https://python-poetry.org/) deps and package scripts
 to setup the correct environment for testing and debugging.
@@ -50,24 +54,26 @@ poetry run pytype -j auto crossbench
 Crossbench supports running benchmarks on one or multiple browser configurations.
 The main implementation uses selenium for maximum system independence.
 
-You can specify a single browser with `--browser=<name>`
+You can specify a browser with `--browser=<name>`. You can repeat the 
+`--browser` argument to run multiple browser. If you need custom flags for
+multiple browsers use `--browser-config`.
 
 ```
-poetry run crossbench speedometer_2.0 \
+poetry run cb speedometer \
     --browser=/path/to/chromium  \
     -- -- \
         --browser-flag-foo \
-        --browser-flag-bar \
+        --browser-flag-bar
 ```
 
+#### Browser Config File
 For more complex scenarios you can use a
 [browser.config.hjson](config/browser.config.example.hjson) file.
 It allows you to specify multiple browser and multiple flag configurations in
 a single file and produce performance numbers with a single invocation.
 
 ```
-poetry run crossbench speedometer_2.0 \
-    --browser-config=config.hjson
+poetry run cb speedometer --browser-config=config.hjson
 ```
 
 The [example file](config/browser.config.example.hjson) lists and explains all
@@ -82,14 +88,30 @@ Multiple probes can be added with repeated `--probe=XXX` options.
 You can use the `describe` subcommand to list all probes:
 
 ```
-poetry run crossbench describe probes
+poetry run cb describe probes
 ```
+
+#### Inline Probe Config
+Some probes can be configured, either with inline json when using `--probe` or
+in a separate `--probe-config` hjson file. Use the `describe` command to list
+all options.
+
+```
+poetry run cb describe probes v8.log
+poetry run cb speedometer --probe='v8.log{prof:true}'
+```
+
+#### Probe Config File
+For complex probe setups you can use `--probe-config=<file>`.
+The [example file](config/probe.config.example.hjson) lists and explains all
+configuration details. For the specific probe configuration properties consult
+the `describe` command.
 
 ### Benchmarks
 Use the `describe` command to list all benchmark details:
 
 ```
-poetry run crossbench describe benchmarks
+poetry run cb describe benchmarks
 ```
 
 ### Stories
@@ -100,14 +122,14 @@ scenarios, actively interact with a page and navigate multiple times.
 Use `--help` or describe to list all stories for a benchmark:
 
 ```
-poetry run crossbench speedometer_2.0 --help
+poetry run cb speedometer --help
 ```
 
 Use `--stories` to list individual comma-separated story names, or use a
 regular expression as filter.
 
 ```
-poetry run crossbench speedometer_2.0 \
+poetry run cb speedometer \
     --browser=/path/to/chromium \
     --stories=VanillaJS.*
 ```
