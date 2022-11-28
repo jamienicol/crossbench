@@ -65,7 +65,7 @@ class Browser(abc.ABC):
     self._is_running: bool = False
     self.cache_dir: Optional[pathlib.Path] = cache_dir
     self.clear_cache_dir: bool = True
-    self._pid = None
+    self._pid: Optional[int] = None
     self._probes: Set[cb.probes.Probe] = set()
     self._flags: cb.flags.Flags = self.default_flags(flags)
     self.log_file: Optional[pathlib.Path] = None

@@ -164,17 +164,17 @@ class MockEdgeStable(MockEdgeBrowser):
   elif helper.platform.is_win:
     APP_PATH = APP_ROOT / "Microsoft/Edge/Application/msedge.exe"
   else:
-    APP_PATH = APP_ROOT / "unssuported/msedge"
+    APP_PATH = APP_ROOT / "microsoft-edge"
 
 
 class MockEdgeBeta(MockEdgeBrowser):
   VERSION = "101.22.33.44"
   if helper.platform.is_macos:
-    APP_PATH = APP_ROOT / "Microsoft Beta.app"
+    APP_PATH = APP_ROOT / "Microsoft Edge Beta.app"
   elif helper.platform.is_win:
     APP_PATH = APP_ROOT / "Microsoft/Edge Beta/Application/msedge.exe"
   else:
-    APP_PATH = APP_ROOT / "unssuported/msedge-beta"
+    APP_PATH = APP_ROOT / "microsoft-edge-beta"
 
 
 class MockEdgeDev(MockEdgeBrowser):
@@ -184,7 +184,7 @@ class MockEdgeDev(MockEdgeBrowser):
   elif helper.platform.is_win:
     APP_PATH = APP_ROOT / "Microsoft/Edge Dev/Application/msedge.exe"
   else:
-    APP_PATH = APP_ROOT / "unssuported/msedge-dev"
+    APP_PATH = APP_ROOT / "microsoft-edge-dev"
 
 
 class MockEdgeCanary(MockEdgeBrowser):

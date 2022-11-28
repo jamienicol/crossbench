@@ -284,23 +284,27 @@ class BrowserConfig:
     flags = browser_cls.default_flags()
 
     if issubclass(browser_cls, cb.browsers.Chrome):
-      if args.enable_features:
-        for feature in args.enable_features.split(","):
-          flags.features.enable(feature)
-      if args.disable_features:
-        for feature in args.disable_features.split(","):
-          flags.features.disable(feature)
-      if args.js_flags:
-        flags.js_flags.update(args.js_flags.split(","))
+      assert isinstance(flags, cb.flags.ChromeFlags)
+      self._init_chrome_flags(args, flags)
 
     for flag_str in args.other_browser_args:
       flags.set(*cb.flags.Flags.split(flag_str))
 
     label = cb.browsers.convert_flags_to_label(*flags.get_list())
-    browser = browser_cls(label=label, path=path, flags=flags)  # pytype: disable=not-instantiable
-    logging.info("SELECTED BROWSER: name=%s path='%s' ", browser.short_name,
-                 path)
-    self._variants.append(browser)
+    browser_instance = browser_cls(label=label, path=path, flags=flags)  # pytype: disable=not-instantiable
+    logging.info("SELECTED BROWSER: name=%s path='%s' ",
+                 browser_instance.short_name, path)
+    self._variants.append(browser_instance)
+
+  def _init_chrome_flags(self, args, flags: cb.flags.ChromeFlags):
+    if args.enable_features:
+      for feature in args.enable_features.split(","):
+        flags.features.enable(feature)
+    if args.disable_features:
+      for feature in args.disable_features.split(","):
+        flags.features.disable(feature)
+    if args.js_flags:
+      flags.js_flags.update(args.js_flags.split(","))
 
   def _get_browser_path(self, path_or_identifier: str) -> pathlib.Path:
     identifier = path_or_identifier.lower()

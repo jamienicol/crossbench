@@ -39,7 +39,7 @@ class MultiException(ValueError):
 class ExceptionAnnotationScope:
 
   def __init__(self, annotator: ExceptionAnnotator,
-               exception_types: TExceptionTypes, entries: Tuple[str]):
+               exception_types: TExceptionTypes, entries: Tuple[str, ...]):
     self._annotator = annotator
     self._exception_types = exception_types
     self._added_info_stack_entries = entries
@@ -56,10 +56,11 @@ class ExceptionAnnotationScope:
                traceback: Optional[TracebackType]) -> bool:
     if not exception_value:
       self._annotator._info_stack = self._previous_info_stack
+      # False => exception not handled
       return False
-    if self._exception_types and (issubclass(exception_type, MultiException) or
-                                  issubclass(exception_type,
-                                             self._exception_types)):
+    if self._exception_types and exception_type and (
+        issubclass(exception_type, MultiException) or
+        issubclass(exception_type, self._exception_types)):
       # Handle matching exceptions directly here and prevent further
       # exception handling by returning True.
       self._annotator.append(exception_value)
@@ -68,12 +69,14 @@ class ExceptionAnnotationScope:
     if exception_value not in self._annotator._pending_exceptions:
       self._annotator._pending_exceptions[
           exception_value] = self._annotator.info_stack
+    # False => exception not handled
+    return False
 
 
 class ExceptionAnnotator:
   """Collects exceptions with full backtraces and user-provided info stacks.
 
-  Additional stack information is constructed from active 
+  Additional stack information is constructed from active
   ExceptionAnnotationScopes.
   """
 

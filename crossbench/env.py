@@ -7,9 +7,8 @@ from __future__ import annotations
 import datetime as dt
 import enum
 import logging
-from numbers import Number
 import shutil
-from typing import TYPE_CHECKING, Iterable, List, Optional
+from typing import TYPE_CHECKING, Iterable, List, Optional, Union
 
 import dataclasses
 
@@ -33,8 +32,11 @@ def merge_bool(name: str, left: Optional[bool],
   return left
 
 
-def merge_number_max(name: str, left: Optional[Number],
-                     right: Optional[Number]) -> Optional[Number]:
+NumberT = Union[float, int]
+
+
+def merge_number_max(name: str, left: Optional[NumberT],
+                     right: Optional[NumberT]) -> Optional[NumberT]:
   if left is None:
     return right
   if right is None:
@@ -42,8 +44,8 @@ def merge_number_max(name: str, left: Optional[Number],
   return max(left, right)
 
 
-def merge_number_min(name: str, left: Optional[Number],
-                     right: Optional[Number]) -> Optional[Number]:
+def merge_number_min(name: str, left: Optional[NumberT],
+                     right: Optional[NumberT]) -> Optional[NumberT]:
   if left is None:
     return right
   if right is None:
@@ -66,7 +68,7 @@ class HostEnvironmentConfig:
   require_probes: Optional[bool] = Ignore
 
   def merge(self, other: HostEnvironmentConfig) -> HostEnvironmentConfig:
-    merger = {
+    mergers = {
         "disk_min_free_space_gib": merge_number_max,
         "power_use_battery": merge_bool,
         "screen_brightness_percent": merge_number_max,
@@ -78,7 +80,7 @@ class HostEnvironmentConfig:
         "require_probes": merge_bool
     }
     kwargs = {}
-    for name, merger in merger.items():
+    for name, merger in mergers.items():
       self_value = getattr(self, name)
       other_value = getattr(other, name)
       kwargs[name] = merger(name, self_value, other_value)

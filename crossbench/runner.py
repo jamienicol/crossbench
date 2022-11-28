@@ -476,7 +476,7 @@ class Run:
                temperature: Optional[int] = None,
                throw=False):
     self._state = self.STATE_INITIAL
-    self._run_success = None
+    self._run_success: Optional[bool] = None
     self._runner = runner
     self._browser = browser
     self._story = story

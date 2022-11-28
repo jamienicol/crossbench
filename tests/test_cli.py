@@ -274,6 +274,8 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
     }
     if not self.platform.is_linux:
       browsers["canary"] = mock_browser.MockChromeCanary
+      browsers["chrome-canary"] = mock_browser.MockChromeCanary
+      browsers["edge-canary"] = mock_browser.MockEdgeCanary
     if self.platform.is_macos:
       browsers.update({
           "safari": mock_browser.MockSafari,

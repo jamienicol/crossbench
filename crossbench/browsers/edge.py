@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import logging
 import pathlib
 import shutil
@@ -20,6 +22,7 @@ from crossbench.browsers.base import BROWSERS_CACHE
 from crossbench.browsers.chromium import Chromium, ChromiumWebDriver
 
 if TYPE_CHECKING:
+  from selenium.webdriver.chromium.webdriver import ChromiumDriver
   import crossbench.runner
 
 FlagsInitialDataType = cb.flags.Flags.InitialDataType
@@ -83,7 +86,6 @@ class EdgeWebDriver(ChromiumWebDriver):
 
   WebDriverOptions = EdgeOptions
   WebDriverService = EdgeService
-  WebDriver = webdriver.Edge
 
   def __init__(self,
                label: str,
@@ -106,6 +108,9 @@ class EdgeWebDriver(ChromiumWebDriver):
   def _find_driver(self) -> pathlib.Path:
     finder = EdgeWebDriverDownloader(self)
     return finder.download()
+
+  def _create_driver(self, options, service) -> ChromiumDriver:
+    return webdriver.Edge(options=options, service=service)
 
 
 class EdgeWebDriverDownloader:

@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import abc
 import json
 import logging
 import pathlib
@@ -11,11 +12,11 @@ import stat
 import tempfile
 import urllib.error
 import zipfile
-from typing import TYPE_CHECKING, Any, Dict, Final, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Final, List, Optional, Tuple, Type
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options as ChromeOptions
-from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.chromium.options import ChromiumOptions
+from selenium.webdriver.chromium.service import ChromiumService
+from selenium.webdriver.chromium.webdriver import ChromiumDriver
 
 import crossbench as cb
 import crossbench.flags
@@ -168,11 +169,10 @@ end tell
     """)
 
 
-class ChromiumWebDriver(WebdriverMixin, Chromium):
+class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
 
-  WebDriverOptions = ChromeOptions
-  WebDriverService = ChromeService
-  WebDriver = webdriver.Chrome
+  WebDriverOptions: Type[ChromiumOptions] = ChromiumOptions
+  WebDriverService: Type[ChromiumService] = ChromiumService
 
   def __init__(self,
                label: str,
@@ -192,7 +192,8 @@ class ChromiumWebDriver(WebdriverMixin, Chromium):
       return finder.find_local_build()
     return finder.download()
 
-  def _start_driver(self, run: cb.runner.Run, driver_path: pathlib.Path):
+  def _start_driver(self, run: cb.runner.Run,
+                    driver_path: pathlib.Path) -> ChromiumDriver:
     assert not self._is_running
     assert self.log_file
     options = self.WebDriverOptions()
@@ -207,14 +208,18 @@ class ChromiumWebDriver(WebdriverMixin, Chromium):
     # pytype: disable=wrong-keyword-args
     service = self.WebDriverService(
         executable_path=str(driver_path),
-        log_path=self.driver_log_file,
+        log_path=str(self.driver_log_file),
         service_args=[])
     service.log_file = self.stdout_log_file.open("w")
-    driver = self.WebDriver(options=options, service=service)
+    driver = self._create_driver(options, service)
     # pytype: enable=wrong-keyword-args
     # Prevent debugging overhead.
     driver.execute_cdp_cmd("Runtime.setMaxCallStackSizeToCapture", {"size": 0})
     return driver
+
+  @abc.abstractmethod
+  def _create_driver(self, options, service) -> ChromiumDriver:
+    pass
 
   def _check_driver_version(self):
     # TODO

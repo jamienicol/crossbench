@@ -16,6 +16,8 @@ import crossbench.benchmarks
 
 class Page(cb.stories.Story, metaclass=abc.ABCMeta):
 
+  url: Optional[str]
+
   @classmethod
   def story_names(cls):
     return tuple(page.name for page in PAGE_LIST)

@@ -81,7 +81,7 @@ def group_by(collection: Iterable[InputT],
   assert key, "No key function provided"
   key_fn = key
   value_fn = value or (lambda item: item)
-  group_fn = group or (lambda key: [])
+  group_fn: Callable[[KeyT], GroupT] = group or (lambda key: [])
   groups: Dict[KeyT, GroupT] = {}
   for input_item in collection:
     group_key: KeyT = key_fn(input_item)
@@ -325,10 +325,6 @@ class Platform(abc.ABC):
         },
         "CPU": self.cpu_details(),
     }
-
-  @abc.abstractmethod
-  def app_version(self, bin_path: pathlib.Path) -> str:
-    pass
 
   def download_to(self, url, path):
     logging.debug("DOWNLOAD: %s\n       TO: %s", url, path)
@@ -669,7 +665,7 @@ def search_app_or_executable(name: str,
                              macos: Sequence[str] = (),
                              win: Sequence[str] = (),
                              linux: Sequence[str] = ()) -> pathlib.Path:
-  executables = []
+  executables: Sequence[str] = []
   if platform.is_macos:
     executables = macos
   elif platform.is_win:

@@ -8,7 +8,7 @@ import inspect
 import textwrap
 import tabulate
 
-from typing import Any, Callable, Dict, List, Optional, Sequence, Type, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Sequence, Type, TYPE_CHECKING, Union
 
 import crossbench as cb
 import crossbench.exception
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
   import crossbench.probes
 
 
-ArgParserType = Callable[[Any], Any]
+ArgParserType = Union[Callable[[Any], Any], Type]
 
 
 class _ConfigArg:
@@ -44,29 +44,31 @@ class _ConfigArg:
       self._validate_default()
 
   def _validate_default(self):
+    # TODO: Remove once pytype can handle self.type
+    maybe_class: ArgParserType = self.type
     if self.is_list:
       assert isinstance(self.default, collections.abc.Sequence), (
           f"List default must be a sequence, but got: {self.default}")
       assert not isinstance(self.default, str), (
           f"List default should not be a string, but got: {repr(self.default)}")
-      if inspect.isclass(self.type):
+      if inspect.isclass(maybe_class):
         for default_item in self.default:
           assert isinstance(
               default_item,
               self.type), (f"Expected default list item of type={self.type}, "
                            f"but got type={type(default_item)}: {default_item}")
-    elif inspect.isclass(self.type):
+    elif self.type and inspect.isclass(maybe_class):
       assert isinstance(
           self.default,
           self.type), (f"Expected default value of type={self.type}, "
                        f"but got type={type(self.default)}: {self.default}")
 
   @property
-  def probe_name(self) -> str:
-    return self.parser.probe_cls.NAME
+  def cls(self) -> Type:
+    return self.parser.cls
 
   @property
-  def help_text(self):
+  def help_text(self) -> str:
     items: List[str] = []
     if self.help:
       items.append(self.help)
@@ -99,7 +101,7 @@ class _ConfigArg:
     if data is None:
       if self.default is None:
         raise ValueError(
-            f"Probe {self.probe_name}: "
+            f"{self.cls}: "
             f"No value provided for required config option '{self.name}'")
       data = self.default
     if self.is_list:
@@ -108,7 +110,7 @@ class _ConfigArg:
 
   def parse_list_data(self, data: Any) -> List[Any]:
     if not isinstance(data, (list, tuple)):
-      raise ValueError(f"Probe {self.probe_name}.{self.name}: "
+      raise ValueError(f"{self.cls}.{self.name}: "
                        f"Expected sequence got {type(data)}")
     return [self.parse_data(value) for value in data]
 
@@ -126,10 +128,10 @@ class _ConfigArg:
 
 class ConfigParser:
 
-  def __init__(self, title: str, probe_cls: Type[object]):
+  def __init__(self, title: str, cls: Type[object]):
     self.title = title
     assert title, "No title provided"
-    self._cls = probe_cls
+    self._cls = cls
     self._args: Dict[str, _ConfigArg] = dict()
 
   def add_argument(self,
@@ -151,6 +153,10 @@ class ConfigParser:
         kwargs[arg.name] = arg.parse(config_data)
     exceptions.assert_success("Failed to parse config: {}")
     return kwargs
+
+  @property
+  def cls(self) -> Type:
+    return self._cls
 
   @property
   def doc(self) -> str:

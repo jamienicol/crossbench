@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import annotations
+
 import json
 import logging
 import pathlib
@@ -56,7 +58,7 @@ class Firefox(Browser):
                path: pathlib.Path,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
-               platform: Optional[helper.MacOSPlatform] = None):
+               platform: Optional[helper.Platform] = None):
     if cache_dir is None:
       self.cache_dir = pathlib.Path(
           tempfile.TemporaryDirectory(prefix="firefox").name)
