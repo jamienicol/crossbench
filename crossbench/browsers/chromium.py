@@ -37,7 +37,7 @@ class Chromium(Browser):
       "--no-default-browser-check",
       "--disable-sync",
       "--no-experiments",
-      "--enable-crossbench",
+      "--enable-benchmarking",
       "--disable-extensions",
       "--no-first-run",
   ]

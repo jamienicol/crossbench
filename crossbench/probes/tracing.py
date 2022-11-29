@@ -23,7 +23,6 @@ class TracingProbe(base.Probe):
   FLAGS = (
       "--enable-perfetto",
       "--disable-fre",
-      "--danger-disable-safebrowsing-for-crossbench",
   )
 
   def __init__(self,
