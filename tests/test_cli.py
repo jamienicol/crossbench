@@ -112,7 +112,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", "--probe=v8.log", f"--urls={url}",
-                   "--skip-env-check")
+                   "--env-validation=skip")
       for browser in self.browsers:
         self.assertListEqual([url], browser.url_list[1:])
         self.assertIn("--log-all", browser.js_flags)
@@ -125,7 +125,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       url = "http://test.com"
       with self.assertRaises(ValueError):
         self.run_cli("loading", f"--probe-config={config_file}",
-                     f"--urls={url}", "--skip-env-check", "--throw")
+                     f"--urls={url}", "--env-validation=skip", "--throw")
       for browser in self.browsers:
         self.assertListEqual([], browser.url_list[1:])
         self.assertNotIn("--log", browser.js_flags)
@@ -139,7 +139,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", f"--probe-config={config_file}", f"--urls={url}",
-                   "--skip-env-check")
+                   "--env-validation=skip")
       for browser in self.browsers:
         self.assertListEqual([url], browser.url_list[1:])
         self.assertNotIn("--log", browser.js_flags)
@@ -154,7 +154,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       url = "http://test.com"
       with self.assertRaises(ValueError):
         self.run_cli("loading", f"--probe-config={config_file}",
-                     f"--urls={url}", "--skip-env-check", "--throw")
+                     f"--urls={url}", "--env-validation=skip", "--throw")
       for browser in self.browsers:
         self.assertListEqual([], browser.url_list)
         self.assertEqual(len(browser.js_flags), 0)
@@ -170,7 +170,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", f"--probe-config={config_file}", f"--urls={url}",
-                   "--skip-env-check")
+                   "--env-validation=skip")
       for browser in self.browsers:
         self.assertListEqual([url], browser.url_list[1:])
         for flag in js_flags:
@@ -186,7 +186,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         cb.cli.CrossBenchCLI, "_get_browsers",
         return_value=self.browsers), self.assertRaises(ValueError):
       self.run_cli("loading", f"--probe-config={config_file}",
-                   "--urls=http://test.com", "--skip-env-check", "--throw")
+                   "--urls=http://test.com", "--env-validation=skip", "--throw")
 
   def test_invalid_browser_identifier(self):
     with self.assertRaises(ValueError):
@@ -194,7 +194,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           "loading",
           "--browser=unknown_browser_identifier",
           "--urls=http://test.com",
-          "--skip-env-check",
+          "--env-validation=skip",
           "--throw",
           raises=SysExitException)
 
@@ -207,7 +207,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           "loading",
           f"--browser={browser_bin}",
           "--urls=http://test.com",
-          "--skip-env-check",
+          "--env-validation=skip",
           "--throw",
           raises=SysExitException)
 
@@ -224,7 +224,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         "_get_browser_cls_from_path",
         return_value=browser_cls) as get_browser_cls:
       self.run_cli("loading", f"--browser={browser_bin}",
-                   "--urls=http://test.com", "--skip-env-check")
+                   "--urls=http://test.com", "--env-validation=skip")
     get_browser_cls.assert_called_once_with(browser_bin)
 
   def test_custom_chrome_browser_binary_custom_flags(self):
@@ -241,7 +241,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         return_value=browser_cls), mock.patch.object(
             cb.cli.CrossBenchCLI, "_run_benchmark") as run_benchmark:
       self.run_cli("loading", f"--browser={browser_bin}",
-                   "--urls=http://test.com", "--skip-env-check", "--",
+                   "--urls=http://test.com", "--env-validation=skip", "--",
                    "--chrome-flag1=value1", "--chrome-flag2")
     run_benchmark.assert_called_once()
     runner = run_benchmark.call_args[0][1]
@@ -294,7 +294,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           return_value=browser_cls) as get_browser_cls:
         url = "http://test.com"
         cli, stdout = self.run_cli("loading", f"--browser={identifier}",
-                                   f"--urls={url}", "--skip-env-check",
+                                   f"--urls={url}", "--env-validation=skip",
                                    f"--out-dir={out_dir}")
         self.assertTrue(out_dir.exists())
         get_browser_cls.assert_called_once()
@@ -307,7 +307,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
   def test_browser_identifiers_duplicate(self):
     with self.assertRaises(ValueError):
       self.run_cli("loading", "--browser=chrome", "--browser=chrome",
-                   "--urls=http://test.com", "--skip-env-check", "--throw")
+                   "--urls=http://test.com", "--env-validation=skip", "--throw")
 
   def test_browser_identifiers_multiple(self):
     mock_browsers: List[Type[mock_browser.MockBrowser]] = [
@@ -329,7 +329,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
       url = "http://test.com"
       cli, stdout = self.run_cli("loading", "--browser=beta",
                                  "--browser=stable", "--browser=dev",
-                                 f"--urls={url}", "--skip-env-check",
+                                 f"--urls={url}", "--env-validation=skip",
                                  f"--out-dir={self.out_dir}")
       self.assertTrue(self.out_dir.exists())
       get_browser_cls.assert_called()
@@ -348,7 +348,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
     with self.assertRaises(ValueError), mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--probe=v8.log{invalid json: d a t a}",
-                   f"--urls=cnn", "--skip-env-check", "--throw")
+                   f"--urls=cnn", "--env-validation=skip", "--throw")
 
   def test_probe_empty_inline_json_config(self):
     js_flags = ["--log-foo", "--log-bar"]
@@ -356,7 +356,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", "--probe=v8.log{}", f"--urls={url}",
-                   "--skip-env-check")
+                   "--env-validation=skip")
       for browser in self.browsers:
         self.assertListEqual([url], browser.url_list[1:])
         for flag in js_flags:
@@ -369,7 +369,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", f"--probe=v8.log{json_config}", f"--urls={url}",
-                   "--skip-env-check")
+                   "--env-validation=skip")
       for browser in self.browsers:
         self.assertListEqual([url], browser.url_list[1:])
         for flag in js_flags:
@@ -379,13 +379,13 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
     with mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--env=strict", "--urls=http://test.com",
-                   "--skip-env-check")
+                   "--env-validation=skip")
 
   def test_env_config_inline_hjson(self):
     with mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--env={\"power_use_battery\":false}",
-                   "--urls=http://test.com", "--skip-env-check")
+                   "--urls=http://test.com", "--env-validation=skip")
 
   def test_env_config_inline_invalid(self):
     with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
@@ -393,21 +393,21 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           "loading",
           "--env=not a valid name",
           "--urls=http://test.com",
-          "--skip-env-check",
+          "--env-validation=skip",
           raises=SysExitException)
     with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
       self.run_cli(
           "loading",
           "--env={not valid hjson}",
           "--urls=http://test.com",
-          "--skip-env-check",
+          "--env-validation=skip",
           raises=SysExitException)
     with mock.patch("sys.exit", side_effect=SysExitException()) as exit_mock:
       self.run_cli(
           "loading",
           "--env={unknown_property:1}",
           "--urls=http://test.com",
-          "--skip-env-check",
+          "--env-validation=skip",
           raises=SysExitException)
 
   def test_env_config_invalid_file(self):
@@ -420,7 +420,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           "loading",
           f"--env-config={config}",
           "--urls=http://test.com",
-          "--skip-env-check",
+          "--env-validation=skip",
           raises=SysExitException)
     # "env" not a dict
     with config.open("w") as f:
@@ -430,7 +430,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           "loading",
           f"--env-config={config}",
           "--urls=http://test.com",
-          "--skip-env-check",
+          "--env-validation=skip",
           raises=SysExitException)
     with config.open("w") as f:
       hjson.dump({"env": {"unknown_property_name": 1}}, f)
@@ -439,7 +439,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           "loading",
           f"--env-config={config}",
           "--urls=http://test.com",
-          "--skip-env-check",
+          "--env-validation=skip",
           raises=SysExitException)
 
   def test_env_config_file(self):
@@ -449,7 +449,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
     with mock.patch.object(
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", f"--env-config={config}",
-                   "--urls=http://test.com", "--skip-env-check")
+                   "--urls=http://test.com", "--env-validation=skip")
 
   def test_env_invalid_inline_and_file(self):
     config = pathlib.Path("/test.config.hjson")
@@ -461,7 +461,7 @@ class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
           "--env=strict",
           f"--env-config={config}",
           "--urls=http://test.com",
-          "--skip-env-check",
+          "--env-validation=skip",
           raises=SysExitException)
 
 

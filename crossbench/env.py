@@ -88,9 +88,9 @@ class HostEnvironmentConfig:
 
 
 class ValidationMode(enum.Enum):
+  THROW = "throw"
   PROMPT = "prompt"
   WARN = "warn"
-  THROW = "throw"
   SKIP = "skip"
 
 
@@ -349,9 +349,14 @@ class HostEnvironment:
 
   def validate(self):
     logging.info("-" * 80)
-    logging.info("VALIDATE ENVIRONMENT (--skip-env-checks for soft warnings")
     if self._validation_mode == ValidationMode.SKIP:
+      logging.info("VALIDATE ENVIRONMENT: SKIP")
       return
+    message = "VALIDATE ENVIRONMENT"
+    if self._validation_mode != ValidationMode.WARN:
+      message += " (--env-validation=warn for soft warnings)"
+    message += ": %s"
+    logging.info(message, self._validation_mode.name)
     self._check_system_monitoring()
     self._check_power()
     self._check_disk_space()

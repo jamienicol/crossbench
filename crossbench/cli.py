@@ -10,6 +10,7 @@ import json
 import logging
 import pathlib
 import sys
+import textwrap
 import hjson
 from tabulate import tabulate
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
@@ -601,14 +602,19 @@ class CrossBenchCLI:
         "runner environment settings and requirements. "
         "See config/env.config.hjson for more details."
         "Mutually exclusive with --env")
-    env_group.add_argument(
-        "--skip-env-check",
-        dest="use_env_checks",
-        action="store_false",
-        default=True,
-        help="Only warn about potential issues on the target machine that could"
-        "negatively impact benchmark numbers or probe processing. "
-        "Environment checks are enabled by default.")
+
+    env_check_mode_group = env_group.add_mutually_exclusive_group()
+    env_check_mode_group.add_argument(
+        "--env-validation",
+        default="prompt",
+        choices=[mode.value for mode in cb.env.ValidationMode],
+        help=textwrap.dedent("""
+          Set how runner env is validated (see als --env-config/--env):
+            throw:  Strict mode, throw and abort on env issues,
+            prompt: Prompt to accept potential env issues,
+            warn:   Only display a warning for env issues,
+            skip:   Don't perform any env validation". 
+          """))
     env_group.add_argument(
         "--dry-run",
         action="store_true",
@@ -762,9 +768,7 @@ class CrossBenchCLI:
     return args.benchmark_cls
 
   def _get_env_validation_mode(self, args) -> cb.env.ValidationMode:
-    if args.use_env_checks:
-      return cb.env.ValidationMode.PROMPT
-    return cb.env.ValidationMode.WARN
+    return cb.env.ValidationMode[args.env_validation.upper()]
 
   def _get_env_config(self, args) -> cb.env.HostEnvironmentConfig:
     if args.env:
