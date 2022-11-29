@@ -5,3 +5,4 @@
 from crossbench.probes.v8.builtins_pgo import V8BuiltinsPGOProbe
 from crossbench.probes.v8.log import V8LogProbe
 from crossbench.probes.v8.rcs import V8RCSProbe
+from crossbench.probes.v8.turbolizer import V8TurbolizerProbe

@@ -2,20 +2,20 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from typing import Tuple, Type
+
 from crossbench.probes.base import Probe
 from crossbench.probes.json import JsonResultProbe
-
 from crossbench.probes.performance_entries import PerformanceEntriesProbe
 from crossbench.probes.power_sampler import PowerSamplerProbe
 from crossbench.probes.profiling import ProfilingProbe
 from crossbench.probes.runner import (RunDurationsProbe, RunResultsSummaryProbe,
-                     RunRunnerLogProbe)
+                                      RunRunnerLogProbe)
 from crossbench.probes.system_stats import SystemStatsProbe
 from crossbench.probes.tracing import TracingProbe
-from crossbench.probes.v8 import V8BuiltinsPGOProbe, V8LogProbe, V8RCSProbe
+from crossbench.probes.v8 import (V8BuiltinsPGOProbe, V8LogProbe, V8RCSProbe,
+                                  V8TurbolizerProbe)
 from crossbench.probes.video import VideoProbe
-
-from typing import Tuple, Type
 
 ABSTRACT_PROBES: Tuple[Type[Probe], ...] = (Probe, JsonResultProbe)
 
@@ -36,6 +36,7 @@ GENERAL_PURPOSE_PROBES: Tuple[Type[Probe], ...] = (
     V8BuiltinsPGOProbe,
     V8LogProbe,
     V8RCSProbe,
+    V8TurbolizerProbe,
     VideoProbe,
 )
 
