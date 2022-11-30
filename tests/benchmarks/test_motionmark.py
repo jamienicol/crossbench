@@ -4,8 +4,8 @@
 
 from unittest import mock
 import crossbench as cb
-import crossbench.benchmarks as bm
 
+from crossbench.benchmarks import motionmark
 from tests.benchmarks import helper
 
 import sys
@@ -16,7 +16,7 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
 
   @property
   def benchmark_cls(self):
-    return bm.motionmark.MotionMark12Benchmark
+    return motionmark.MotionMark12Benchmark
 
   EXAMPLE_PROBE_DATA = [{
       "testsResults": {
@@ -54,8 +54,27 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
       "scoreUpperBound": 1210.464520355893
   }]
 
+  def test_all_stories(self):
+    stories = self.story_filter(["all"], separate=True).stories
+    self.assertGreater(len(stories), 1)
+    for story in stories:
+      self.assertIsInstance(story, motionmark.MotionMark12Story)
+    names = set(story.name for story in stories)
+    self.assertEqual(len(names), len(stories))
+    self.assertEqual(len(names), len(motionmark.MotionMark12Story.SUBSTORIES))
+
+  def test_default_stories(self):
+    stories = self.story_filter(["default"], separate=True).stories
+    self.assertGreater(len(stories), 1)
+    for story in stories:
+      self.assertIsInstance(story, motionmark.MotionMark12Story)
+    names = set(story.name for story in stories)
+    self.assertEqual(len(names), len(stories))
+    self.assertEqual(
+        len(names), len(motionmark.MotionMark12Story.ALL_STORIES["MotionMark"]))
+
   def test_run(self):
-    stories = bm.motionmark.MotionMark12Story.from_names(["Multiply"])
+    stories = motionmark.MotionMark12Story.from_names(['Multiply'])
     for browser in self.browsers:
       browser.js_side_effect = [
           True,  # Page is ready
@@ -81,7 +100,7 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
     for browser in self.browsers:
       urls = self.filter_data_urls(browser.url_list)
       self.assertEqual(len(urls), repetitions)
-      self.assertIn(bm.motionmark.MotionMark12Probe.JS, browser.js_list)
+      self.assertIn(motionmark.MotionMark12Probe.JS, browser.js_list)
 
 
 if __name__ == "__main__":

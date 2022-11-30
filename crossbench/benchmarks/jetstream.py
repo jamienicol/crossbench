@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import crossbench
-
 import crossbench.probes.json
 import crossbench.probes.helper
 import crossbench.stories
@@ -125,6 +123,10 @@ class JetStream2Story(cb.stories.PressBenchmarkStory):
   )
   DEFAULT_PROBES = (JetStream2Probe,)
 
+  @property
+  def substory_duration(self) -> float:
+    return 2
+
   def run(self, run):
     with run.actions("Setup") as actions:
       actions.navigate_to(self._url)
@@ -142,16 +144,16 @@ class JetStream2Story(cb.stories.PressBenchmarkStory):
       actions.wait_js_condition(
           """
         return document.querySelectorAll("#results>.benchmark").length > 0;
-      """, helper.WaitRange(0.5, 10))
+      """, helper.WaitRange(1, 30 + self.duration))
     with run.actions("Start") as actions:
       actions.js("JetStream.start()")
     with run.actions("Wait Done") as actions:
-      actions.wait(2 * len(self._substories))
+      actions.wait(self.fast_duration)
       actions.wait_js_condition(
           """
         let summaryElement = document.getElementById("result-summary");
         return (summaryElement.classList.contains("done"));
-        """, helper.WaitRange(1, 60 * 20))
+        """, helper.WaitRange(self.substory_duration, self.slow_duration))
 
 
 class JetStream2Benchmark(cb.benchmarks.PressBenchmark):

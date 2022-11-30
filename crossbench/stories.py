@@ -5,7 +5,8 @@
 from __future__ import annotations
 
 from abc import ABC, ABCMeta, abstractmethod
-from typing import List, Sequence, TYPE_CHECKING, Tuple, Type, TypeVar
+import abc
+from typing import List, Optional, Sequence, TYPE_CHECKING, Tuple, Type, TypeVar
 
 import crossbench as cb
 
@@ -19,7 +20,7 @@ class Story(ABC):
 
   @classmethod
   @abstractmethod
-  def story_names(cls) -> Sequence[str]:
+  def all_story_names(cls) -> Sequence[str]:
     pass
 
   def __init__(self, name: str, duration: float = 15):
@@ -58,9 +59,15 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
   SUBSTORIES: Tuple[str, ...] = ()
 
   @classmethod
-  def story_names(cls) -> Tuple[str, ...]:
+  def all_story_names(cls) -> Tuple[str, ...]:
     assert cls.SUBSTORIES
     return cls.SUBSTORIES
+
+  @classmethod
+  def default_story_names(cls) -> Tuple[str, ...]:
+    """Override this method to use a subset of all_story_names as default
+    selection if no story names are provided."""
+    return cls.all_story_names()
 
   @classmethod
   def from_names(cls: Type[PressBenchmarkStoryT],
@@ -72,12 +79,20 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     return cls.local(substories=substories, separate=separate)
 
   @classmethod
+  def all(cls: Type[PressBenchmarkStoryT],
+          is_live: bool = True,
+          separate: bool = False):
+    if is_live:
+      return cls.live(cls.all_story_names(), separate)
+    return cls.local(cls.all_story_names(), separate)
+
+  @classmethod
   def default(cls: Type[PressBenchmarkStoryT],
               is_live: bool = True,
               separate: bool = False):
     if is_live:
-      return cls.live(cls.story_names(), separate)
-    return cls.local(cls.story_names(), separate)
+      return cls.live(cls.default_story_names(), separate)
+    return cls.local(cls.default_story_names(), separate)
 
   @classmethod
   def local(cls: Type[PressBenchmarkStoryT],
@@ -130,23 +145,18 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
                *args,
                is_live: bool = True,
                substories: Sequence[str] = (),
+               duration: Optional[float] = None,
                **kwargs):
     cls = self.__class__
     assert self.SUBSTORIES, f"{cls}.SUBSTORIES is not set."
     assert self.NAME is not None, f"{cls}.NAME is not set."
     self._verify_url(self.URL, "URL")
     self._verify_url(self.URL_LOCAL, "URL_LOCAL")
-    self._substories = substories or self.story_names()
+    assert substories, f"No substories provided for {cls}"
+    self._substories = substories
     self._verify_substories()
-    name = self.NAME
-    # Potentially inefficient intermediate set creation.
-    if len(self._substories) != len(self.story_names()) or (set(
-        self._substories) != set(self.story_names())):
-      name += "_" + ("_".join(self._substories))
-    if len(name) > 220:
-      # Crop the name and add some random hash bits
-      name = name[:220] + hex(hash(name))[2:10]
-    kwargs["name"] = name
+    kwargs["name"] = self._get_unique_name()
+    kwargs["duration"] = duration or self._get_initial_duration()
     super().__init__(*args, **kwargs)
     self.is_live = is_live
     if is_live:
@@ -154,6 +164,48 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     else:
       self._url = self.URL_LOCAL
     assert self._url is not None, f"Invalid URL for {self.NAME}"
+
+  def _get_unique_name(self) -> str:
+    substories_set = set(self._substories)
+    if substories_set == set(self.default_story_names()):
+      return self.NAME
+    if substories_set == set(self.all_story_names()):
+      name = f"{self.NAME}_all"
+    else:
+      name = f"{self.NAME}_" + ("_".join(self._substories))
+    if len(name) > 220:
+      # Crop the name and add some random hash bits
+      name = name[:220] + hex(hash(name))[2:10]
+    return name
+
+  def _get_initial_duration(self) -> float:
+    # Fixed delay for startup costs
+    startup_delay = 2
+    # Add some slack due to different story lengths
+    story_factor = 0.5 + 1.1 * len(self._substories)
+    return startup_delay + story_factor * self.substory_duration
+
+  @property
+  def fast_duration(self) -> float:
+    """Expected benchmark duration on fast machines.
+    Keep this low enough to not have to wait needlessly at the end of a
+    benchmark.
+    """
+    return self.duration / 2
+
+  @property
+  def slow_duration(self) -> float:
+    """Max duration that covers run-times on slow machines and/or
+    debug-mode browsers.
+    Making this number too large might cause needless wait times on broken
+    browsers/benchmarks.
+    """
+    return 15 + self.duration * 4
+
+  @property
+  @abc.abstractmethod
+  def substory_duration(self) -> float:
+    pass
 
   @property
   def url(self):

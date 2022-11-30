@@ -22,7 +22,7 @@ class Page(cb.stories.Story, metaclass=abc.ABCMeta):
   url: Optional[str]
 
   @classmethod
-  def story_names(cls):
+  def all_story_names(cls):
     return tuple(page.name for page in PAGE_LIST)
 
 class LivePage(Page):
@@ -69,7 +69,7 @@ class CombinedPage(Page):
     return f"CombinedPage({combined_name})"
 
 
-PAGE_LIST = [
+PAGE_LIST = (
     LivePage("amazon", "https://www.amazon.de/s?k=heizkissen", 5),
     LivePage("bing", "https://www.bing.com/images/search?q=not+a+squirrel", 5),
     LivePage("caf", "http://www.caf.fr", 6),
@@ -83,8 +83,10 @@ PAGE_LIST = [
     LivePage("sueddeutsche", "https://www.sueddeutsche.de/wirtschaft", 8),
     LivePage("timesofindia", "https://timesofindia.indiatimes.com/", 8),
     LivePage("twitter", "https://twitter.com/wernertwertzog?lang=en", 6),
-]
+)
 PAGES = {page.name: page for page in PAGE_LIST}
+PAGE_LIST_SMALL = (PAGES["facebook"], PAGES["maps"], PAGES["timesofindia"],
+                   PAGES["cnn"])
 
 
 class LoadingPageFilter(cb.benchmarks.StoryFilter):
@@ -120,9 +122,13 @@ class LoadingPageFilter(cb.benchmarks.StoryFilter):
 
   def process_all(self, patterns: Sequence[str]):
     name_or_url_list = patterns
-    if len(name_or_url_list) == 1 and name_or_url_list[0] == "all":
-      self.stories = PAGE_LIST
-      return
+    if len(name_or_url_list) == 1:
+      if name_or_url_list[0] == "all":
+        self.stories = PAGE_LIST
+        return
+      if name_or_url_list[0] == "default":
+        self.stories = PAGE_LIST_SMALL
+        return
     self._resolve_name_or_urls(name_or_url_list)
     # Check if we have unique domain names for better short names
     urls = list(urlparse(page.url) for page in self.stories)

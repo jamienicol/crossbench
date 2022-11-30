@@ -50,6 +50,15 @@ class Speedometer2BaseTestCase(
     separate: bool = False
     is_live: bool = False
 
+  def test_default_all(self):
+    default_story_names = [
+        story.name for story in self.story_cls.default(separate=True)
+    ]
+    all_story_names = [
+        story.name for story in self.story_cls.all(separate=True)
+    ]
+    self.assertListEqual(default_story_names, all_story_names)
+
   def test_iterations_kwargs(self):
     args = self.Namespace()
     self.benchmark_cls.from_cli_args(args)

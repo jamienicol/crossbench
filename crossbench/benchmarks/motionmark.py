@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import List, Optional, Tuple
+from typing import List, Sequence, Tuple, Optional
 
 import crossbench
 import crossbench.benchmarks
@@ -147,6 +147,14 @@ class MotionMark12Story(cb.stories.PressBenchmarkStory):
   }
   SUBSTORIES = tuple(itertools.chain.from_iterable(ALL_STORIES.values()))
 
+  @classmethod
+  def default_story_names(cls) -> Tuple[str, ...]:
+    return cls.ALL_STORIES["MotionMark"]
+
+  @property
+  def substory_duration(self) -> float:
+    return 35
+
   def run(self, run):
     with run.actions("Setup") as actions:
       actions.navigate_to(self._url)
@@ -176,11 +184,11 @@ class MotionMark12Story(cb.stories.PressBenchmarkStory):
       actions.wait(0.1)
     with run.actions("Run") as actions:
       actions.js("window.benchmarkController.startBenchmark()")
-      actions.wait(2 * len(self._substories))
+      actions.wait(self.fast_duration)
       actions.wait_js_condition(
           """
           return window.benchmarkRunnerClient.results._results != undefined
-          """, helper.WaitRange(5, 20 * len(self._substories)))
+          """, helper.WaitRange(self.substory_duration / 4, self.slow_duration))
 
 
 class MotionMark12Benchmark(cb.benchmarks.PressBenchmark):

@@ -114,7 +114,8 @@ class StoryFilter(Generic[StoryT], metaclass=abc.ABCMeta):
     assert issubclass(story_cls, cb.stories.Story), (
         f"Subclass of {cb.stories.Story} expected, found {story_cls}")
     # Using order-preserving dict instead of set
-    self._known_names: Dict[str, None] = dict.fromkeys(story_cls.story_names())
+    self._known_names: Dict[str, None] = dict.fromkeys(
+        story_cls.all_story_names())
     self.stories: Sequence[StoryT] = []
     self.process_all(patterns)
     self.stories = self.create_stories()
@@ -137,8 +138,10 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
     parser = super().add_cli_parser(subparsers, aliases)
     parser.add_argument(
         "--stories",
-        default="all",
-        help="Comma-separated list of story names. Use 'all' as placeholder.")
+        default="default",
+        help="Comma-separated list of story names. "
+        "Use 'all' for selecting all available stories. "
+        "Use 'default' for the standard selection of stories.")
     is_combined_group = parser.add_mutually_exclusive_group()
     is_combined_group.add_argument(
         "--combined",
@@ -157,7 +160,7 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
     desc = super().cli_description()
     desc += "\n\n"
     desc += "Stories (alternatively use 'describe' command):\n"
-    desc += ", ".join(cls.story_names())
+    desc += ", ".join(cls.all_story_names())
     desc += "\n\n"
     desc += "Filtering (for --stories): "
     assert cls.STORY_FILTER_CLS.__doc__
@@ -179,12 +182,12 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
   @classmethod
   def describe(cls) -> Dict[str, Any]:
     data = super().describe()
-    data["stories"] = cls.story_names()
+    data["stories"] = cls.all_story_names()
     return data
 
   @classmethod
-  def story_names(cls) -> Sequence[str]:
-    return sorted(cls.DEFAULT_STORY_CLS.story_names())
+  def all_story_names(cls) -> Sequence[str]:
+    return sorted(cls.DEFAULT_STORY_CLS.all_story_names())
 
 
 class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
@@ -252,6 +255,12 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
   def _pattern_to_regexp(self, pattern) -> re.Pattern:
     if pattern == "all":
       return re.compile(".*")
+    if pattern == "default":
+      default_story_names = self.story_cls.default_story_names()
+      if default_story_names == self.story_cls.all_story_names():
+        return re.compile(".*")
+      joined_names = "|".join(re.escape(name) for name in default_story_names)
+      return re.compile(f"^({joined_names})$")
     if pattern in self._known_names:
       return re.compile(re.escape(pattern))
     return re.compile(pattern)

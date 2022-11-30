@@ -96,8 +96,12 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
                is_live=True,
                substories: Sequence[str] = (),
                iterations=10):
-    super().__init__(is_live=is_live, substories=substories, duration=30)
     self.iterations = iterations or 10
+    super().__init__(is_live=is_live, substories=substories)
+
+  @property
+  def substory_duration(self) -> float:
+    return self.iterations * 0.4
 
   def run(self, run: cb.runner.Run):
     with run.actions("Setup") as actions:
@@ -136,10 +140,10 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
         """,
           arguments=[self.iterations])
     with run.actions("Wait Done") as actions:
-      actions.wait(1 * len(self._substories))
+      actions.wait(self.fast_duration)
       actions.wait_js_condition(
           "return window.testDone",
-          helper.WaitRange(1, 12 + 4 * len(self._substories) * self.iterations))
+          helper.WaitRange(self.substory_duration, self.slow_duration))
 
 
 class Speedometer20Story(Speedometer2Story):

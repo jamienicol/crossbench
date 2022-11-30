@@ -60,7 +60,7 @@ class SubStoryTestCase(BaseBenchmarkTestCase, metaclass=abc.ABCMeta):
     return [url for url in urls if not url.startswith("data:")]
 
   def test_stories_creation(self):
-    for name in self.story_cls.story_names():
+    for name in self.story_cls.all_story_names():
       stories = self.story_filter([name]).stories
       self.assertTrue(len(stories) == 1)
       story = stories[0]
@@ -69,7 +69,7 @@ class SubStoryTestCase(BaseBenchmarkTestCase, metaclass=abc.ABCMeta):
       self.assertTrue(len(str(story)) > 0)
 
   def test_instantiate_single_story(self):
-    any_story_name = self.story_cls.story_names()[0]
+    any_story_name = self.story_cls.all_story_names()[0]
     any_story = self.story_filter([any_story_name]).stories[0]
     # Instantiate with single story,
     with self.assertRaises(Exception):
@@ -81,7 +81,7 @@ class SubStoryTestCase(BaseBenchmarkTestCase, metaclass=abc.ABCMeta):
       self.benchmark_cls([[any_story]])
 
   def test_instantiate_all_stories(self):
-    stories = self.story_filter(self.story_cls.story_names()).stories
+    stories = self.story_filter(self.story_cls.all_story_names()).stories
     self.benchmark_cls(stories)
 
 
@@ -99,9 +99,7 @@ class PressBaseBenchmarkTestCase(SubStoryTestCase, metaclass=abc.ABCMeta):
       self.story_cls.from_names([""], separate=True)
 
   def test_all(self):
-    all_stories = [
-        story.name for story in self.story_cls.default(separate=True)
-    ]
+    all_stories = [story.name for story in self.story_cls.all(separate=True)]
     all_regexp = [
         story.name for story in self.story_filter([".*"], separate=True).stories
     ]
@@ -112,12 +110,20 @@ class PressBaseBenchmarkTestCase(SubStoryTestCase, metaclass=abc.ABCMeta):
     self.assertListEqual(all_stories, all_regexp)
     self.assertListEqual(all_stories, all_string)
 
-  def test_remove(self):
-    assert len(self.story_cls.story_names()) > 1
-    story_name = self.story_cls.story_names()[0]
-    all_stories = [
+  def test_default(self):
+    default_stories = [
         story.name for story in self.story_cls.default(separate=True)
     ]
+    default_string = [
+        story.name
+        for story in self.story_filter(["default"], separate=True).stories
+    ]
+    self.assertListEqual(default_stories, default_string)
+
+  def test_remove(self):
+    assert len(self.story_cls.all_story_names()) > 1
+    story_name = self.story_cls.all_story_names()[0]
+    all_stories = [story.name for story in self.story_cls.all(separate=True)]
     filtered_stories = [
         story.name for story in self.story_filter([".*", f"-{story_name}"],
                                                   separate=True).stories
@@ -127,8 +133,8 @@ class PressBaseBenchmarkTestCase(SubStoryTestCase, metaclass=abc.ABCMeta):
       self.assertIn(name, all_stories)
 
   def test_remove_invalid(self):
-    assert len(self.story_cls.story_names()) > 1
-    story_name = self.story_cls.story_names()[0]
+    assert len(self.story_cls.all_story_names()) > 1
+    story_name = self.story_cls.all_story_names()[0]
     with self.assertRaises(ValueError):
       self.story_filter(["-"])
     with self.assertRaises(ValueError):
@@ -143,23 +149,23 @@ class PressBaseBenchmarkTestCase(SubStoryTestCase, metaclass=abc.ABCMeta):
       self.story_filter([f"-{story_name}"])
 
   def test_invalid_remove_all(self):
-    assert len(self.story_cls.story_names()) > 1
-    story_name = self.story_cls.story_names()[0]
+    assert len(self.story_cls.all_story_names()) > 1
+    story_name = self.story_cls.all_story_names()[0]
     with self.assertRaises(ValueError):
       self.story_filter([story_name, f"-{story_name}"])
     with self.assertRaises(ValueError):
       self.story_filter([story_name, "-[^ ]+"])
 
   def test_invalid_add_all(self):
-    assert len(self.story_cls.story_names()) > 1
-    story_name = self.story_cls.story_names()[0]
+    assert len(self.story_cls.all_story_names()) > 1
+    story_name = self.story_cls.all_story_names()[0]
     with self.assertRaises(ValueError):
       # Add all stories again afer filtering out some
       self.story_filter([".*", f"-{story_name}", ".*|[^ ]+"])
 
   def test_remove_non_existent(self):
-    assert len(self.story_cls.story_names()) > 1
-    story_name = self.story_cls.story_names()[0]
-    other_story_name = self.story_cls.story_names()[1]
+    assert len(self.story_cls.all_story_names()) > 1
+    story_name = self.story_cls.all_story_names()[0]
+    other_story_name = self.story_cls.all_story_names()[1]
     with self.assertRaises(ValueError):
       self.story_filter([other_story_name, f"-{story_name}"])

@@ -32,11 +32,23 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
     return cast(loading.LoadingPageFilter,
                 super().story_filter(patterns, **kwargs))
 
-  def test_default_stories(self):
+  def test_all_stories(self):
     stories = self.story_filter(["all"]).stories
     self.assertGreater(len(stories), 1)
     for story in stories:
       self.assertIsInstance(story, loading.LivePage)
+    names = set(story.name for story in stories)
+    self.assertEqual(len(names), len(stories))
+    self.assertEqual(names, set(page.name for page in loading.PAGE_LIST))
+
+  def test_default_stories(self):
+    stories = self.story_filter(["default"]).stories
+    self.assertGreater(len(stories), 1)
+    for story in stories:
+      self.assertIsInstance(story, loading.LivePage)
+    names = set(story.name for story in stories)
+    self.assertEqual(len(names), len(stories))
+    self.assertEqual(names, set(page.name for page in loading.PAGE_LIST_SMALL))
 
   def test_combined_stories(self):
     stories = self.story_filter(["all"], separate=False).stories

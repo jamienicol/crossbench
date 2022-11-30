@@ -776,15 +776,18 @@ class WaitRange:
 
   def __init__(
       self,
-      min=0.1,  # pylint: disable=redefined-builtin
-      timeout=10,
-      factor=1.01,
-      max=10,  # pylint: disable=redefined-builtin
-      max_iterations=None):
+      min: float = 0.1,  # pylint: disable=redefined-builtin
+      timeout: float = 10,
+      factor: float = 1.01,
+      max: Optional[float] = None,  # pylint: disable=redefined-builtin
+      max_iterations: Optional[int] = None):
     assert 0 < min
     self.min = dt.timedelta(seconds=min)
-    assert min <= max
-    self.max = dt.timedelta(seconds=max)
+    if not max:
+      self.max = self.min * 10
+    else:
+      assert min <= max
+      self.max = dt.timedelta(seconds=max)
     assert 1.0 < factor
     self.factor = factor
     assert 0 < timeout
