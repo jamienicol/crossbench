@@ -604,12 +604,16 @@ class Run:
     assert not file.exists(), f"Probe results file exists already. file={file}"
     return file
 
-  def setup(self) -> List[cb.probes.Probe.Scope]:
+  def setup(self, is_dry_run: bool) -> List[cb.probes.Probe.Scope]:
     self._advance_state(self.STATE_INITIAL, self.STATE_PREPARE)
     logging.debug("PREPARE")
     logging.info("STORY: %s", self.story)
     logging.info("STORY DURATION: %ss", self.story.duration)
     logging.info("RUN DIR: %s", self._out_dir)
+
+    if is_dry_run:
+      logging.info("BROWSER: %s", self.browser.path)
+      return []
 
     self._run_success = None
     browser_log_file = self._out_dir / "browser.log"
@@ -648,24 +652,23 @@ class Run:
     return probe_run_scopes
 
   def run(self, is_dry_run=False):
-    if is_dry_run:
-      # TODO(cbruni): Implement better logging for dry-runs
-      return
     self._out_dir.mkdir(parents=True, exist_ok=True)
 
     with helper.ChangeCWD(self._out_dir), self.exception_info(*self.info_stack):
-      probe_scopes = self.setup()
+      probe_scopes = self.setup(is_dry_run)
       self._advance_state(self.STATE_PREPARE, self.STATE_RUN)
       self._run_success = False
       logging.debug("CWD %s", self._out_dir)
       try:
-        self._run(probe_scopes)
+        self._run(probe_scopes, is_dry_run)
       except Exception as e:
         self._exceptions.append(e)
       finally:
-        self.tear_down(probe_scopes)
+        if not is_dry_run:
+          self.tear_down(probe_scopes)
 
-  def _run(self, probe_scopes: Sequence[cb.probes.Probe.Scope]):
+  def _run(self, probe_scopes: Sequence[cb.probes.Probe.Scope],
+           is_dry_run: bool):
     probe_start_time = dt.datetime.now()
     probe_scope_manager = contextlib.ExitStack()
 
@@ -679,7 +682,8 @@ class Run:
       assert self._state == self.STATE_RUN, "Invalid state"
       try:
         with self.measure("run"):
-          self._story.run(self)
+          if not is_dry_run:
+            self._story.run(self)
         self._run_success = True
       except TimeoutError as e:
         # Handle TimeoutError earlier since they might be caused by

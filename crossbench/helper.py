@@ -540,6 +540,12 @@ class MacOSPlatform(PosixPlatform):
       logging.debug("You're fine, falconctl or %s are not installed.",
                     falconctl)
       return True
+    if not disable:
+      for process in self.processes(attrs=["exe"]):
+        exe = process["exe"]
+        if exe and exe.endswith("/com.crowdstrike.falcon.Agent"):
+          return False
+      return True
     try:
       logging.warning("Checking falcon sensor status:")
       status = self.sh_stdout("sudo", falconctl, "stats", "agent_info")
@@ -548,12 +554,10 @@ class MacOSPlatform(PosixPlatform):
     if "operational: true" not in status:
       # Early return if not running, no need to disable the sensor.
       return True
-    if disable:
-      # Try disabling the process
-      logging.warning("Disabling crowdstrike monitoring:")
-      self.sh("sudo", falconctl, "unload")
-      return True
-    return False
+    # Try disabling the process
+    logging.warning("Disabling crowdstrike monitoring:")
+    self.sh("sudo", falconctl, "unload")
+    return True
 
   def set_main_display_brightness(self, brightness_level: int):
     """Sets the main display brightness at the specified percentage by brightness_level.

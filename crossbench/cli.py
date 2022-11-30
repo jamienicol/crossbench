@@ -10,21 +10,24 @@ import json
 import logging
 import pathlib
 import sys
+import tempfile
 import textwrap
+from typing import (Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type,
+                    Union)
+
 import hjson
 from tabulate import tabulate
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import crossbench as cb
-import crossbench.flags
-import crossbench.browsers
-import crossbench.runner
-import crossbench.probes
-import crossbench.probes.all
 import crossbench.benchmarks
 import crossbench.benchmarks.all
-import crossbench.exception
+import crossbench.browsers
 import crossbench.env
+import crossbench.exception
+import crossbench.flags
+import crossbench.probes
+import crossbench.probes.all
+import crossbench.runner
 
 
 def _map_flag_group_item(flag_name: str, flag_value: Optional[str]):
@@ -684,16 +687,19 @@ class CrossBenchCLI:
     benchmark = self._get_benchmark(args)
     runner = None
     try:
-      args.browser = self._get_browsers(args)
-      probes = self._get_probes(args)
-      env_config = self._get_env_config(args)
-      env_validation_mode = self._get_env_validation_mode(args)
-      runner = self._get_runner(args, benchmark, env_config,
-                                env_validation_mode)
-      for probe in probes:
-        runner.attach_probe(probe, matching_browser_only=True)
+      with tempfile.TemporaryDirectory(prefix="crossbench") as tmpdirname:
+        if args.dry_run:
+          args.out_dir = pathlib.Path(tmpdirname) / "results"
+        args.browser = self._get_browsers(args)
+        probes = self._get_probes(args)
+        env_config = self._get_env_config(args)
+        env_validation_mode = self._get_env_validation_mode(args)
+        runner = self._get_runner(args, benchmark, env_config,
+                                  env_validation_mode)
+        for probe in probes:
+          runner.attach_probe(probe, matching_browser_only=True)
 
-      self._run_benchmark(args, runner, benchmark)
+        self._run_benchmark(args, runner, benchmark)
     except KeyboardInterrupt as e:
       exit(2)
     except Exception as e:
