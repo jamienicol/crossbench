@@ -18,12 +18,15 @@ from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.service import Service as FirefoxService
 
-import crossbench as cb
-import crossbench.flags
+import crossbench
 import crossbench.exception
+import crossbench.flags
 from crossbench import helper
 from crossbench.browsers.base import BROWSERS_CACHE, Browser
 from crossbench.browsers.webdriver import WebdriverMixin
+
+#TODO: fix imports
+cb = crossbench
 
 FlagsInitialDataType = cb.flags.Flags.InitialDataType
 
@@ -61,6 +64,7 @@ class Firefox(Browser):
                cache_dir: Optional[pathlib.Path] = None,
                platform: Optional[helper.Platform] = None):
     if cache_dir is None:
+      # pylint: disable=bad-option-value, consider-using-with
       self.cache_dir = pathlib.Path(
           tempfile.TemporaryDirectory(prefix="firefox").name)
       self.clear_cache_dir = True
@@ -119,7 +123,7 @@ class FirefoxWebDriver(WebdriverMixin, Firefox):
         executable_path=str(driver_path),
         log_path=str(self.driver_log_file),
         service_args=[])
-    service.log_file = self.stdout_log_file.open("w")
+    service.log_file = self.stdout_log_file.open("w", encoding="utf-8")
     driver = webdriver.Firefox(  # pytype: disable=wrong-keyword-args
         options=options, service=service)
     return driver
@@ -174,7 +178,7 @@ class FirefoxDriverFinder:
     if not matching_release:
       raise ValueError("No matching geckodriver version found")
     arch = self._arch_identifier()
-    version = matching_release['tag_name']
+    version = matching_release["tag_name"]
     archive_type = "tar.gz"
     if self.platform.is_win:
       archive_type = "zip"
@@ -187,7 +191,7 @@ class FirefoxDriverFinder:
     if not url:
       raise ValueError(
           f"Could not find geckodriver {version} for platform {arch}")
-    logging.info(f"GECKODRIVER downloading {version}: {url}")
+    logging.info("GECKODRIVER downloading %s: %s", version, url)
     return url, archive_type
 
   def _get_driver_version(self) -> Tuple[int, int, int]:

@@ -5,16 +5,17 @@
 from __future__ import annotations
 
 import abc
-import re
-from typing import Any, Dict, Iterable, List, Sequence, Type, cast
 import argparse
 import logging
+import re
 import urllib.request
+from typing import Any, Dict, Generic, List, Sequence, Type, TypeVar, cast
 
-import crossbench as cb
+import crossbench
 import crossbench.stories
 
-from typing import TypeVar, Generic
+# TODO fix imports
+cb = crossbench
 
 
 class Benchmark(abc.ABC):
@@ -100,26 +101,26 @@ StoryT = TypeVar("StoryT", bound=cb.stories.Story)
 class StoryFilter(Generic[StoryT], metaclass=abc.ABCMeta):
 
   @classmethod
-  def kwargs_from_cli(self, args) -> Dict[str, Any]:
-    return {"names": args.stories.split(",")}
+  def kwargs_from_cli(cls, args) -> Dict[str, Any]:
+    return {"patterns": args.stories.split(",")}
 
   @classmethod
   def from_cli_args(cls, story_cls: Type[StoryT], args):
     kwargs = cls.kwargs_from_cli(args)
     return cls(story_cls, **kwargs)
 
-  def __init__(self, story_cls: Type[StoryT], names: Sequence[str]):
+  def __init__(self, story_cls: Type[StoryT], patterns: Sequence[str]):
     self.story_cls = story_cls
     assert issubclass(story_cls, cb.stories.Story), (
         f"Subclass of {cb.stories.Story} expected, found {story_cls}")
     # Using order-preserving dict instead of set
     self._known_names: Dict[str, None] = dict.fromkeys(story_cls.story_names())
     self.stories: Sequence[StoryT] = []
-    self.process_all(names)
+    self.process_all(patterns)
     self.stories = self.create_stories()
 
   @abc.abstractmethod
-  def process_all(self, names: Sequence[str]):
+  def process_all(self, patterns: Sequence[str]):
     pass
 
   @abc.abstractmethod
@@ -202,7 +203,7 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
   """
 
   @classmethod
-  def kwargs_from_cli(self, args):
+  def kwargs_from_cli(cls, args):
     kwargs = super().kwargs_from_cli(args)
     kwargs["separate"] = args.separate
     kwargs["is_live"] = args.is_live
@@ -210,14 +211,14 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
 
   def __init__(self,
                story_cls: Type[cb.stories.PressBenchmarkStory],
-               names: Sequence[str],
+               patterns: Sequence[str],
                separate: bool = False,
                is_live: bool = False):
     self.separate = separate
     self.is_live: bool = is_live
     # Using dict instead as ordered set
-    self._selected_names: Dict[str, None] = dict()
-    super().__init__(story_cls, names)
+    self._selected_names: Dict[str, None] = {}
+    super().__init__(story_cls, patterns)
     assert issubclass(self.story_cls, cb.stories.PressBenchmarkStory)
     for name in self._known_names:
       assert name, "Invalid empty story name"
@@ -251,7 +252,7 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
   def _pattern_to_regexp(self, pattern) -> re.Pattern:
     if pattern == "all":
       return re.compile(".*")
-    elif pattern in self._known_names:
+    if pattern in self._known_names:
       return re.compile(re.escape(pattern))
     return re.compile(pattern)
 
@@ -300,6 +301,8 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
 
 class PressBenchmark(SubStoryBenchmark):
   STORY_FILTER_CLS = PressBenchmarkStoryFilter
+  DEFAULT_STORY_CLS: Type[
+      cb.stories.PressBenchmarkStory] = cb.stories.PressBenchmarkStory
 
   @classmethod
   def add_cli_parser(cls, subparsers,
@@ -345,14 +348,13 @@ class PressBenchmark(SubStoryBenchmark):
     first_story = cast(cb.stories.PressBenchmarkStory, self.stories[0])
     url = first_story.url
     try:
-      code = urllib.request.urlopen(url).getcode()
-      if code == 200:
-        return
+      with urllib.request.urlopen(url) as request:
+        if request.getcode() == 200:
+          return
     except urllib.error.URLError:
       pass
-    message = f"Could not reach benchmark URL: {url}"
     if self.is_live:
       raise Exception(f"Could not reach live benchmark URL: '{url}'. "
                       f"Please make sure you're connected to the internet.")
     raise Exception(f"Could not reach local benchmark URL: '{url}'. "
-                    f"Please make sure your local webserver is running")
+                    f"Please make sure your local web server is running")

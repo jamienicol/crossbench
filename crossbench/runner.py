@@ -13,10 +13,7 @@ import logging
 import pathlib
 from typing import TYPE_CHECKING, Iterable, List, Optional, Sequence
 
-if TYPE_CHECKING:
-  import crossbench.runner
-
-import crossbench as cb
+import crossbench
 import crossbench.benchmarks
 import crossbench.browsers
 import crossbench.env
@@ -24,8 +21,10 @@ import crossbench.flags
 import crossbench.probes
 import crossbench.probes.runner
 import crossbench.stories
-from crossbench import helper
-from crossbench import exception
+from crossbench import exception, helper
+
+# TODO: fix import
+cb = crossbench
 
 
 class RunnerException(exception.MultiException):
@@ -185,7 +184,8 @@ class Runner:
     self._platform.sleep(seconds)
 
   def collect_system_details(self):
-    with (self.out_dir / "system_details.json").open("w") as f:
+    with (self.out_dir / "system_details.json").open(
+        "w", encoding="utf-8") as f:
       details = self._platform.system_details()
       json.dump(details, f, indent=2)
 
@@ -193,7 +193,8 @@ class Runner:
     logging.info("-" * 80)
     logging.info("SETUP")
     logging.info("-" * 80)
-    assert self.repetitions > 0, f"Invalid repetitions count: {self.repetitions}"
+    assert self.repetitions > 0, (
+        f"Invalid repetitions count: {self.repetitions}")
     assert self.browsers, "No browsers provided: self.browsers is empty"
     assert self.stories, "No stories provided: self.stories is empty"
     logging.info("PREPARING %d BROWSER(S)", len(self.browsers))
@@ -281,8 +282,7 @@ class Runner:
     if not self._platform.is_thermal_throttled():
       return
     logging.info("COOLDOWN")
-    for time_spent, time_left in helper.wait_with_backoff(
-        helper.wait_range(1, 100)):
+    for _ in helper.wait_with_backoff(helper.WaitRange(1, 100)):
       if not self._platform.is_thermal_throttled():
         break
       logging.info("COOLDOWN: still hot, waiting some more")
@@ -469,6 +469,7 @@ class BrowsersRunGroup(RunGroup):
 
 
 class Run:
+  # TODO: use enum class
   STATE_INITIAL = 0
   STATE_PREPARE = 1
   STATE_RUN = 2
@@ -514,7 +515,8 @@ class Run:
   def info_stack(self) -> exception.TInfoStack:
     return (
         f"Run({self.name})",
-        f"browser={self.browser.type} label={self.browser.label} binary={self.browser.path}",
+        (f"browser={self.browser.type} label={self.browser.label} "
+         "binary={self.browser.path}"),
         f"story={self.story}",
         f"iteration={self.iteration}",
     )
@@ -661,7 +663,7 @@ class Run:
       logging.debug("CWD %s", self._out_dir)
       try:
         self._run(probe_scopes, is_dry_run)
-      except Exception as e:
+      except Exception as e:  # pylint: disable=broad-except
         self._exceptions.append(e)
       finally:
         if not is_dry_run:
@@ -702,10 +704,10 @@ class Run:
         "was not in the foreground at the end of the benchmark. "
         "Background apps and tabs can be heavily throttled.")
 
-  def _advance_state(self, expected, next):
+  def _advance_state(self, expected, next_state):
     assert self._state == expected, (
         f"Invalid state got={self._state} expected={expected}")
-    self._state = next
+    self._state = next_state
 
   def tear_down(self,
                 probe_scopes: List[cb.probes.Probe.Scope],
@@ -715,7 +717,7 @@ class Run:
       if is_shutdown:
         try:
           self._browser.quit(self._runner)  # pytype: disable=wrong-arg-types
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
           logging.warning("Error quitting browser: %s", e)
           return
       with self._exceptions.capture("Quit browser"):
@@ -783,13 +785,13 @@ class Actions(helper.TimeScope):
       js_code = js_code.format(**kwargs)
     return self._browser.js(self._runner, js_code, timeout, arguments=arguments)
 
-  def wait_js_condition(self, js_code: str, wait_range: helper.wait_range):
+  def wait_js_condition(self, js_code: str, wait_range: helper.WaitRange):
     assert "return" in js_code, (
         f"Missing return statement in js-wait code: {js_code}")
-    for time_spent, time_left in helper.wait_with_backoff(wait_range):
+    for _, time_left in helper.wait_with_backoff(wait_range):
       result = self.js(js_code, timeout=time_left)
       if result:
-        return time_spent
+        return
       assert result is False, (
           f"js_code did not return a bool, but got: {result}\n"
           f"js-code: {js_code}")

@@ -7,11 +7,15 @@ from __future__ import annotations
 import pathlib
 from typing import TYPE_CHECKING
 
-import crossbench as cb
+import crossbench
+from crossbench.probes import base
+
+#TODO: fix imports
+cb = crossbench
+
 if TYPE_CHECKING:
   import crossbench.browsers
   import crossbench.runner
-from crossbench.probes import base
 
 
 class V8BuiltinsPGOProbe(base.Probe):

@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import logging
-import textwrap
 import pathlib
 from typing import TYPE_CHECKING, Optional
 
@@ -13,11 +12,14 @@ from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.safari.options import Options as SafariOptions
 
-import crossbench as cb
+import crossbench
 import crossbench.flags
 from crossbench import helper
 from crossbench.browsers.base import Browser
 from crossbench.browsers.webdriver import WebdriverMixin
+
+#TODO: fix imports
+cb = crossbench
 
 if TYPE_CHECKING:
   import crossbench.runner
@@ -102,6 +104,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
                cache_dir: Optional[pathlib.Path] = None,
                platform: Optional[helper.MacOSPlatform] = None):
     super().__init__(label, path, flags, cache_dir, platform)
+    assert self.platform.is_macos
 
   def _find_driver(self) -> pathlib.Path:
     driver_path = self.path.parent / "safaridriver"
@@ -140,7 +143,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
     # The bundled driver is always ok
     for parent in self._driver_path.parents:
       if parent == self.path.parent:
-        return True
+        return
     version = self.platform.sh_stdout(self._driver_path, "--version")
     assert str(self.major_version) in version, (
         f"safaridriver={self._driver_path} version='{version}' "

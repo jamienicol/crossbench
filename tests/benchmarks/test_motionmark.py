@@ -55,7 +55,7 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
   }]
 
   def test_run(self):
-    stories = bm.motionmark.MotionMark12Story.from_names(['Multiply'])
+    stories = bm.motionmark.MotionMark12Story.from_names(["Multiply"])
     for browser in self.browsers:
       browser.js_side_effect = [
           True,  # Page is ready

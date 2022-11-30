@@ -5,10 +5,12 @@
 import abc
 from typing import List, Sequence, Type
 
+import crossbench
+import crossbench.benchmarks
 from tests import mockbenchmark
 
-import crossbench as cb
-import crossbench.benchmarks
+#TODO: fix imports
+cb = crossbench
 
 
 class BaseBenchmarkTestCase(
@@ -47,11 +49,11 @@ class SubStoryTestCase(BaseBenchmarkTestCase, metaclass=abc.ABCMeta):
   def story_filter_cls(self) -> Type[cb.benchmarks.base.StoryFilter]:
     return self.benchmark_cls.STORY_FILTER_CLS
 
-  def story_filter(self, names: Sequence[str],
+  def story_filter(self, patterns: Sequence[str],
                    **kwargs) -> cb.benchmarks.base.StoryFilter:
     return self.story_filter_cls(  # pytype: disable=not-instantiable
         story_cls=self.story_cls,
-        names=names,
+        patterns=patterns,
         **kwargs)
 
   def filter_data_urls(self, urls: Sequence[str]) -> List[str]:

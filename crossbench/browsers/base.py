@@ -14,11 +14,14 @@ import urllib.parse
 import urllib.request
 from typing import Any, Dict, Optional, Sequence, Set
 
-import crossbench as cb
+import crossbench
 import crossbench.flags
 import crossbench.probes.base
 import crossbench.runner
 from crossbench import helper
+
+#TODO: fix imports
+cb = crossbench
 
 # =============================================================================
 
@@ -36,13 +39,14 @@ class Browser(abc.ABC):
                    ) -> cb.flags.Flags:
     return cb.flags.Flags(initial_data)
 
-  def __init__(self,
-               label: str,
-               path: Optional[pathlib.Path],
-               flags: FlagsInitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               type: Optional[str] = None,
-               platform: Optional[helper.Platform] = None):
+  def __init__(
+      self,
+      label: str,
+      path: Optional[pathlib.Path],
+      flags: FlagsInitialDataType = None,
+      cache_dir: Optional[pathlib.Path] = None,
+      type: Optional[str] = None,  # pylint: disable=redefined-builtin
+      platform: Optional[helper.Platform] = None):
     self.platform = platform or helper.platform
     # Marked optional to make subclass constructor calls easier with pytype.
     assert type

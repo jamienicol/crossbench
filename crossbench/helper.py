@@ -16,11 +16,12 @@ import shutil
 import subprocess
 import sys
 import time
-import traceback
+import traceback as tb
 import urllib
-import urllib.request
 import urllib.error
-from typing import Any, Callable, Dict, Final, Iterable, List, Optional, Tuple, TypeVar, Sequence
+import urllib.request
+from typing import (Any, Callable, Dict, Final, Iterable, List, Optional,
+                    Sequence, Tuple, TypeVar)
 
 import psutil
 
@@ -61,9 +62,9 @@ class ColoredLogFormatter(logging.Formatter):
     return formatter.format(record)
 
 
-InputT = TypeVar('InputT')
-KeyT = TypeVar('KeyT')
-GroupT = TypeVar('GroupT')
+InputT = TypeVar("InputT")
+KeyT = TypeVar("KeyT")
+GroupT = TypeVar("GroupT")
 
 
 def group_by(collection: Iterable[InputT],
@@ -117,7 +118,8 @@ def get_file_size(file, digits=2) -> str:
 
 class Platform(abc.ABC):
 
-  @abc.abstractproperty
+  @property
+  @abc.abstractmethod
   def short_name(self) -> str:
     pass
 
@@ -170,7 +172,7 @@ class Platform(abc.ABC):
     return self.search_binary(app_path)
 
   @abc.abstractmethod
-  def search_binary(self, app_name: pathlib.Path) -> Optional[pathlib.Path]:
+  def search_binary(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
     pass
 
   @abc.abstractmethod
@@ -193,7 +195,7 @@ class Platform(abc.ABC):
     # TODO(cbruni): support remote platforms
     return shutil.which(binary)
 
-  def processes(self, attrs=[]) -> List[Dict[str, Any]]:
+  def processes(self, attrs=()) -> List[Dict[str, Any]]:
     assert not self.is_remote, "Only local platform supported"
     return [
         p.info  # pytype: disable=attribute-error
@@ -253,12 +255,13 @@ class Platform(abc.ABC):
         stdout=stdout,
         stderr=stderr,
         env=env,
-        capture_output=capture_output)
+        capture_output=capture_output,
+        check=False)
     if process.returncode != 0:
       raise SubprocessError(process)
     return process
 
-  def exec_apple_script(self, script, quite=False):
+  def exec_apple_script(self, script, quiet=False):
     raise NotImplementedError("AppleScript is only available on MacOS")
 
   def terminate(self, proc_pid):
@@ -267,7 +270,7 @@ class Platform(abc.ABC):
       proc.terminate()
     process.terminate()
 
-  def log(self, *messages, level=2, color=TTYColor.GREEN):
+  def log(self, *messages, level=2):
     messages = " ".join(map(str, messages))
     if level == 3:
       level = logging.DEBUG
@@ -282,6 +285,7 @@ class Platform(abc.ABC):
   # TODO(cbruni): split into separate list_system_monitoring and
   # disable_system_monitoring methods
   def check_system_monitoring(self, disable: bool = False) -> bool:
+    # pylint: disable=unused-argument
     return True
 
   def get_relative_cpu_speed(self) -> float:
@@ -298,14 +302,17 @@ class Platform(abc.ABC):
 
   def cpu_details(self) -> Dict[str, Any]:
     details = {
-        "physical cores": psutil.cpu_count(logical=False),
-        "logical cores": psutil.cpu_count(logical=True),
-        "usage": [  # pytype: disable=attribute-error
-            cpu_percent
-            for cpu_percent in psutil.cpu_percent(percpu=True, interval=0.1)
-        ],
-        "total usage": psutil.cpu_percent(),
-        "system load": psutil.getloadavg(),
+        "physical cores":
+            psutil.cpu_count(logical=False),
+        "logical cores":
+            psutil.cpu_count(logical=True),
+        "usage":
+            psutil.cpu_percent(  # pytype: disable=attribute-error
+                percpu=True, interval=0.1),
+        "total usage":
+            psutil.cpu_percent(),
+        "system load":
+            psutil.getloadavg(),
     }
     try:
       cpu_freq = psutil.cpu_freq()
@@ -348,10 +355,10 @@ class Platform(abc.ABC):
 
   def concat_files(self, inputs: Iterable[pathlib.Path],
                    output: pathlib.Path) -> pathlib.Path:
-    with output.open("w") as output_f:
+    with output.open("w", encoding="utf-8") as output_f:
       for input_file in inputs:
         assert input_file.is_file()
-        with input_file.open() as input_f:
+        with input_file.open(encoding="utf-8") as input_f:
           shutil.copyfileobj(input_f, output_f)
     return output
 
@@ -406,17 +413,18 @@ class WinPlatform(Platform):
         return result_path
     return None
 
-  def app_version(self, bin: pathlib.Path) -> str:
-    assert bin.exists(), f"Binary {bin} does not exist."
-    return self.sh_stdout("powershell", "-command",
-                          f"(Get-Item '{bin}').VersionInfo.ProductVersion")
+  def app_version(self, app_path: pathlib.Path) -> str:
+    assert app_path.exists(), f"Binary {app_path} does not exist."
+    return self.sh_stdout(
+        "powershell", "-command",
+        f"(Get-Item '{app_path}').VersionInfo.ProductVersion")
 
 
 class PosixPlatform(Platform, metaclass=abc.ABCMeta):
 
-  def app_version(self, bin: pathlib.Path) -> str:
-    assert bin.exists(), f"Binary {bin} does not exist."
-    return self.sh_stdout(bin, "--version")
+  def app_version(self, app_path: pathlib.Path) -> str:
+    assert app_path.exists(), f"Binary {app_path} does not exist."
+    return self.sh_stdout(app_path, "--version")
 
 
 class MacOSPlatform(PosixPlatform):
@@ -469,26 +477,26 @@ class MacOSPlatform(PosixPlatform):
     assert app_path.is_dir()
     return app_path
 
-  def app_version(self, bin_path: pathlib.Path) -> str:
-    assert bin_path.exists(), f"Binary {bin} does not exist."
+  def app_version(self, app_path: pathlib.Path) -> str:
+    assert app_path.exists(), f"Binary {bin} does not exist."
 
-    app_path = None
-    current = bin_path
-    while current != bin_path.root:
+    dot_app_path = None
+    current = app_path
+    while current != app_path.root:
       if current.suffix == ".app":
-        app_path = current
+        dot_app_path = current
         break
       current = current.parent
 
-    if not app_path:
+    if not dot_app_path:
       # Most likely just a cli tool"
-      return self.sh_stdout(bin_path, "--version")
+      return self.sh_stdout(app_path, "--version")
 
     version_string = self.sh_stdout("mdls", "-name", "kMDItemVersion",
-                                    app_path).strip()
+                                    dot_app_path).strip()
     # Filter output: 'kMDItemVersion = "14.1"' => '"14.1"'
-    prefix, version_string = version_string.split(" = ", maxsplit=1)
-    assert version_string != "(null)", f"Didn't find app at {bin_path}"
+    _, version_string = version_string.split(" = ", maxsplit=1)
+    assert version_string != "(null)", f"Didn't find app at {app_path}"
     # Strip quotes: '"14.1"' => '14.1'
     return version_string[1:-1]
 
@@ -514,8 +522,8 @@ class MacOSPlatform(PosixPlatform):
       for index, line in enumerate(lines):
         if line == "CPU_Speed_Limit":
           return int(lines[index + 2]) / 100.0
-    except Exception:
-      traceback.print_exc(file=sys.stdout)
+    except SubprocessError:
+      logging.debug("Could not get relative PCU speed: %s", tb.format_exc())
     return 1
 
   def system_details(self) -> Dict[str, Any]:
@@ -549,7 +557,7 @@ class MacOSPlatform(PosixPlatform):
     try:
       logging.warning("Checking falcon sensor status:")
       status = self.sh_stdout("sudo", falconctl, "stats", "agent_info")
-    except SubprocessError as e:
+    except SubprocessError:
       return True
     if "operational: true" not in status:
       # Early return if not running, no need to disable the sensor.
@@ -559,8 +567,24 @@ class MacOSPlatform(PosixPlatform):
     self.sh("sudo", falconctl, "unload")
     return True
 
+  def _get_display_service(self):
+    core_graphics = ctypes.CDLL(
+        "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
+    main_display = core_graphics.CGMainDisplayID()
+    display_services = ctypes.CDLL(
+        "/System/Library/PrivateFrameworks/DisplayServices.framework"
+        "/DisplayServices")
+    display_services.DisplayServicesSetBrightness.argtypes = [
+        ctypes.c_int, ctypes.c_float
+    ]
+    display_services.DisplayServicesGetBrightness.argtypes = [
+        ctypes.c_int, ctypes.POINTER(ctypes.c_float)
+    ]
+    return display_services, main_display
+
   def set_main_display_brightness(self, brightness_level: int):
-    """Sets the main display brightness at the specified percentage by brightness_level.
+    """Sets the main display brightness at the specified percentage by
+    brightness_level.
 
     This function imitates the open-source "brightness" tool at
     https://github.com/nriley/brightness.
@@ -574,17 +598,9 @@ class MacOSPlatform(PosixPlatform):
     Raises:
       AssertionError: An error occurred when we tried to set the brightness
     """
-    CoreGraphics = ctypes.CDLL(
-        "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
-    main_display = CoreGraphics.CGMainDisplayID()
-    DisplayServices = ctypes.CDLL(
-        "/System/Library/PrivateFrameworks/DisplayServices.framework"
-        "/DisplayServices")
-    DisplayServices.DisplayServicesSetBrightness.argtypes = [
-        ctypes.c_int, ctypes.c_float
-    ]
-    ret = DisplayServices.DisplayServicesSetBrightness(main_display,
-                                                       brightness_level / 100)
+    display_services, main_display = self._get_display_service()
+    ret = display_services.DisplayServicesSetBrightness(main_display,
+                                                        brightness_level / 100)
     assert ret == 0
 
   def get_main_display_brightness(self) -> int:
@@ -602,19 +618,11 @@ class MacOSPlatform(PosixPlatform):
     Raises:
       AssertionError: An error occurred when we tried to set the brightness
     """
-    CoreGraphics = ctypes.CDLL(
-        "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
-    main_display = CoreGraphics.CGMainDisplayID()
-    display_brightness = ctypes.c_float()
-    DisplayServices = ctypes.CDLL(
-        "/System/Library/PrivateFrameworks/DisplayServices.framework"
-        "/DisplayServices")
-    DisplayServices.DisplayServicesGetBrightness.argtypes = [
-        ctypes.c_int, ctypes.POINTER(ctypes.c_float)
-    ]
-    ret = DisplayServices.DisplayServicesGetBrightness(
-        main_display, ctypes.byref(display_brightness))
 
+    display_services, main_display = self._get_display_service()
+    display_brightness = ctypes.c_float()
+    ret = display_services.DisplayServicesGetBrightness(
+        main_display, ctypes.byref(display_brightness))
     assert ret == 0
     return round(display_brightness.value * 100)
 
@@ -653,10 +661,10 @@ class LinuxPlatform(PosixPlatform):
         details[info_bin] = self.sh_stdout(info_bin)
     return details
 
-  def search_binary(self, bin_path: pathlib.Path) -> Optional[pathlib.Path]:
+  def search_binary(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
     for path in self.SEARCH_PATHS:
       # Recreate Path object for easier pyfakefs testing
-      result_path = pathlib.Path(path) / bin_path
+      result_path = pathlib.Path(path) / app_path
       if result_path.exists():
         return result_path
     return None
@@ -764,14 +772,15 @@ class TimeScope:
     log(f"{self._message} duration={diff}", level=self._level)
 
 
-class wait_range:
+class WaitRange:
 
-  def __init__(self,
-               min=0.1,
-               timeout=10,
-               factor=1.01,
-               max=10,
-               max_iterations=None):
+  def __init__(
+      self,
+      min=0.1,  # pylint: disable=redefined-builtin
+      timeout=10,
+      factor=1.01,
+      max=10,  # pylint: disable=redefined-builtin
+      max_iterations=None):
     assert 0 < min
     self.min = dt.timedelta(seconds=min)
     assert min <= max
@@ -792,14 +801,14 @@ class wait_range:
       i += 1
 
 
-def wait_with_backoff(range):
-  assert isinstance(range, wait_range)
+def wait_with_backoff(wait_range):
+  assert isinstance(wait_range, WaitRange)
   start = dt.datetime.now()
-  timeout = range.timeout
+  timeout = wait_range.timeout
   duration = 0
-  for sleep_for in range:
+  for sleep_for in wait_range:
     duration = dt.datetime.now() - start
-    if duration > range.timeout:
+    if duration > wait_range.timeout:
       raise TimeoutError(f"Waited for {duration}")
     time_left = timeout - duration
     yield duration.total_seconds(), time_left.total_seconds()

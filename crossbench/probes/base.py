@@ -8,20 +8,23 @@ import abc
 import datetime as dt
 import logging
 import pathlib
-from typing import Any, Iterable, Optional, Set, Dict, Tuple, TypeVar, Generic, Union, Type, TYPE_CHECKING
+from typing import (TYPE_CHECKING, Any, Dict, Generic, Iterable, Optional, Set,
+                    Tuple, Type, TypeVar, Union)
 
-import crossbench as cb
-if TYPE_CHECKING:
-  import crossbench.probes
-  import crossbench.runner
-  import crossbench.browsers
-  import crossbench.env
-
+import crossbench
 from crossbench import helper
-
 from crossbench.config import ConfigParser
 
-ProbeT = TypeVar('ProbeT', bound="cb.probes.Probe")
+#TODO: fix imports
+cb = crossbench
+
+if TYPE_CHECKING:
+  import crossbench.browsers
+  import crossbench.env
+  import crossbench.probes
+  import crossbench.runner
+
+ProbeT = TypeVar("ProbeT", bound="cb.probes.Probe")
 
 
 class ProbeConfigParser(ConfigParser):
@@ -176,7 +179,7 @@ class Probe(abc.ABC):
   def get_scope(self: ProbeT, run) -> Probe.Scope[ProbeT]:
     assert self.is_attached, (
         f"Probe {self.name} is not properly attached to a browser")
-    return self.Scope(self, run)
+    return self.Scope(self, run)  # pylint: disable=abstract-class-instantiated
 
   class Scope(Generic[ProbeT], metaclass=abc.ABCMeta):
     """

@@ -9,12 +9,15 @@ import logging
 import pathlib
 from typing import TYPE_CHECKING
 
-import crossbench as cb
-if TYPE_CHECKING:
-  import crossbench.runner
-
+import crossbench
 from crossbench.probes import base
 from crossbench.probes.json import JsonResultProbe
+
+#TODO: fix imports
+cb = crossbench
+
+if TYPE_CHECKING:
+  import crossbench.runner
 
 
 class RunRunnerLogProbe(base.Probe):
@@ -111,7 +114,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
     for run in group.runs:
       source_file = pathlib.Path(run.results[self])
       assert source_file.is_file()
-      with source_file.open() as f:
+      with source_file.open(encoding="utf-8") as f:
         iteration_data = json.load(f)
       if browser is None:
         browser = iteration_data["browser"]
@@ -139,7 +142,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
     for story_group in group.repetitions_groups:
       source_file = pathlib.Path(story_group.results[self])
       assert source_file.is_file()
-      with source_file.open("r") as f:
+      with source_file.open(encoding="utf-8") as f:
         merged_story_data = json.load(f)
       if browser is None:
         browser = merged_story_data["browser"]

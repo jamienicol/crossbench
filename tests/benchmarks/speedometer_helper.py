@@ -4,15 +4,17 @@
 
 import abc
 from dataclasses import dataclass
-from typing import Any, Type
+from typing import Type
 from unittest import mock
 
-import crossbench as cb
-from crossbench.benchmarks import speedometer
-import crossbench.runner
+import crossbench
 import crossbench.env
-
+import crossbench.runner
+from crossbench.benchmarks import speedometer
 from tests.benchmarks import helper
+
+#TODO: fix imports
+cb = crossbench
 
 
 class Speedometer2BaseTestCase(
@@ -111,7 +113,8 @@ class Speedometer2BaseTestCase(
 
   def test_story_filtering_regexp_invalid(self):
     with self.assertRaises(ValueError):
-      self.story_filter(".*", separate=True).stories  # pytype: disable=wrong-arg-types
+      _ = self.story_filter(  # pytype: disable=wrong-arg-types
+          ".*", separate=True).stories
 
   def test_story_filtering_regexp(self):
     stories = self.story_cls.default(separate=True)
@@ -124,7 +127,7 @@ class Speedometer2BaseTestCase(
   def test_run(self):
     repetitions = 3
     iterations = 2
-    stories = self.story_cls.from_names(['VanillaJS-TodoMVC'])
+    stories = self.story_cls.from_names(["VanillaJS-TodoMVC"])
     example_story_data = {
         "tests": {
             "Adding100Items": {

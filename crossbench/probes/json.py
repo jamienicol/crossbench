@@ -5,16 +5,19 @@
 from __future__ import annotations
 
 import abc
-import json
 import csv
+import json
 import pathlib
-from typing import Dict, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, Union
 
-import crossbench as cb
+import crossbench
+from crossbench.probes import helper
+from crossbench.probes import base
+
+#TODO: fix imports
+cb = crossbench
 if TYPE_CHECKING:
   import crossbench.runner
-from crossbench.probes import base
-import crossbench.probes.helper as helper
 
 
 class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
@@ -24,7 +27,8 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
   Tje `to_json` is provided by subclasses. A typical examples includes just
   running a JS script on the page.
   Multiple JSON result files for RepetitionsRunGroups are merged with the
-  ValuesMerger. Custom merging for other RunGroups can be defined in the subclass.
+  ValuesMerger. Custom merging for other RunGroups can be defined in the
+  subclass.
   """
 
   FLATTEN = True
@@ -81,9 +85,9 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
           raw_file = raw_file.with_suffix(".raw.json")
           flattened_file = self.results_file
           flat_json_data = self.flatten_json_data(json_data)
-          with flattened_file.open("w") as f:
+          with flattened_file.open("w", encoding="utf-8") as f:
             json.dump(flat_json_data, f, indent=2)
-        with raw_file.open("w") as f:
+        with raw_file.open("w", encoding="utf-8") as f:
           json.dump(json_data, f, indent=2)
       if self.probe.FLATTEN:
         return (flattened_file, raw_file)
@@ -102,7 +106,7 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
         raise Exception(f"Probe {self.NAME} produced no data to merge.")
       source_file = self.get_mergeable_result_file(run.results[self])
       assert source_file.is_file()
-      with source_file.open("r") as f:
+      with source_file.open(encoding="utf-8") as f:
         merger.add(json.load(f))
     return self.write_group_result(group, merger)
 
@@ -117,7 +121,7 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
                          write_csv=False,
                          value_fn=None) -> base.ProbeResultType:
     merged_json_path = group.get_probe_results_file(self)
-    with merged_json_path.open("w") as f:
+    with merged_json_path.open("w", encoding="utf-8") as f:
       if isinstance(merged_data, dict):
         json.dump(merged_data, f, indent=2)
       else:
@@ -131,7 +135,7 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
                        f"but found {type(merged_data)}'.")
 
     if not value_fn:
-      value_fn = lambda value: value.geomean
+      value_fn = value_geomean
 
     return self.write_group_csv_result(merged_data, merged_json_path, value_fn)
 
@@ -139,7 +143,11 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
                              merged_json_path: pathlib.Path, value_fn):
     merged_csv_path = merged_json_path.with_suffix(".csv")
     assert not merged_csv_path.exists()
-    with merged_csv_path.open("w", newline='', encoding='utf-8') as f:
+    with merged_csv_path.open("w", newline="", encoding="utf-8") as f:
       csv.writer(f, delimiter="\t").writerows(merged_data.to_csv(value_fn))
 
     return {"json": merged_json_path, "csv": merged_csv_path}
+
+
+def value_geomean(value):
+  return value.geomean

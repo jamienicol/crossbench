@@ -18,7 +18,7 @@ from typing import (Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type,
 import hjson
 from tabulate import tabulate
 
-import crossbench as cb
+import crossbench
 import crossbench.benchmarks
 import crossbench.benchmarks.all
 import crossbench.browsers
@@ -28,6 +28,9 @@ import crossbench.flags
 import crossbench.probes
 import crossbench.probes.all
 import crossbench.runner
+
+#TODO: fix imports
+cb = crossbench
 
 
 def _map_flag_group_item(flag_name: str, flag_value: Optional[str]):
@@ -83,7 +86,7 @@ class BrowserConfig:
     browser_config = BrowserConfig()
     if args.browser_config:
       path = args.browser_config.expanduser()
-      with path.open() as f:
+      with path.open(encoding="utf-8") as f:
         browser_config.load(f)
     else:
       browser_config.load_from_args(args)
@@ -91,10 +94,10 @@ class BrowserConfig:
 
   def __init__(self,
                raw_config_data: Optional[Dict] = None,
-               browser_lookup_override: BrowserLookupTable = {}):
+               browser_lookup_override: Optional[BrowserLookupTable] = None):
     self.flag_groups: Dict[str, FlagGroupConfig] = {}
     self._variants: List[cb.browsers.Browser] = []
-    self._browser_lookup_override = browser_lookup_override
+    self._browser_lookup_override = browser_lookup_override or {}
     self._exceptions = crossbench.exception.Annotator()
     if raw_config_data:
       self.load_dict(raw_config_data)
@@ -115,15 +118,15 @@ class BrowserConfig:
   def load_dict(self, raw_config_data: Dict):
     try:
       if "flags" in raw_config_data:
-        with self._exceptions.info(f"Parsing config['flags']"):
+        with self._exceptions.info("Parsing config['flags']"):
           self._parse_flag_groups(raw_config_data["flags"])
       if "browsers" not in raw_config_data:
         raise ConfigFileError("Config does not provide a 'browsers' dict.")
       if not raw_config_data["browsers"]:
         raise ConfigFileError("Config contains empty 'browsers' dict.")
-      with self._exceptions.info(f"Parsing config['browsers']"):
+      with self._exceptions.info("Parsing config['browsers']"):
         self._parse_browsers(raw_config_data["browsers"])
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
       self._exceptions.append(e)
 
   def _parse_flag_groups(self, data: Dict[str, Any]):
@@ -295,7 +298,10 @@ class BrowserConfig:
       flags.set(*cb.flags.Flags.split(flag_str))
 
     label = cb.browsers.convert_flags_to_label(*flags.get_list())
-    browser_instance = browser_cls(label=label, path=path, flags=flags)  # pytype: disable=not-instantiable
+    browser_instance = browser_cls(  # pytype: disable=not-instantiable
+        label=label,
+        path=path,
+        flags=flags)
     logging.info("SELECTED BROWSER: name=%s path='%s' ",
                  browser_instance.short_name, path)
     self._variants.append(browser_instance)
@@ -316,29 +322,29 @@ class BrowserConfig:
     # available on all platforms
     if identifier in ("chrome", "chrome-stable", "stable"):
       return cb.browsers.Chrome.stable_path()
-    elif identifier in ("chrome-beta", "beta"):
+    if identifier in ("chrome-beta", "beta"):
       return cb.browsers.Chrome.beta_path()
-    elif identifier in ("chrome-dev", "dev"):
+    if identifier in ("chrome-dev", "dev"):
       return cb.browsers.Chrome.dev_path()
-    elif identifier in ("chrome-canary", "canary"):
+    if identifier in ("chrome-canary", "canary"):
       return cb.browsers.Chrome.canary_path()
-    elif identifier in ("edge", "edge-stable"):
+    if identifier in ("edge", "edge-stable"):
       return cb.browsers.Edge.stable_path()
-    elif identifier == "edge-beta":
+    if identifier == "edge-beta":
       return cb.browsers.Edge.beta_path()
-    elif identifier == "edge-dev":
+    if identifier == "edge-dev":
       return cb.browsers.Edge.dev_path()
-    elif identifier == "edge-canary":
+    if identifier == "edge-canary":
       return cb.browsers.Edge.canary_path()
-    elif identifier in ("safari", "sf"):
+    if identifier in ("safari", "sf"):
       return cb.browsers.Safari.default_path()
-    elif identifier in ("safari-technology-preview", "sf-tp", "tp"):
+    if identifier in ("safari-technology-preview", "sf-tp", "tp"):
       return cb.browsers.Safari.technology_preview_path()
-    elif identifier in ("firefox", "ff"):
+    if identifier in ("firefox", "ff"):
       return cb.browsers.Firefox.default_path()
-    elif identifier in ("firefox-dev", "firefox-developer-edition", "ff-dev"):
+    if identifier in ("firefox-dev", "firefox-developer-edition", "ff-dev"):
       return cb.browsers.Firefox.developer_edition_path()
-    elif identifier in ("firefox-nightly", "ff-nightly", "ff-trunk"):
+    if identifier in ("firefox-nightly", "ff-nightly", "ff-trunk"):
       return cb.browsers.Firefox.nightly_path()
     path = pathlib.Path(path_or_identifier)
     if path.exists():
@@ -361,7 +367,7 @@ class ProbeConfig:
   @classmethod
   def from_cli_args(cls, args) -> ProbeConfig:
     if args.probe_config:
-      with args.probe_config.open() as f:
+      with args.probe_config.open(encoding="utf-8") as f:
         return cls.load(f)
     return cls(args.probe)
 
@@ -408,7 +414,7 @@ class ProbeConfig:
       if "probes" not in data:
         raise ValueError(
             "Probe config file does not contain a 'probes' dict value.")
-      self.load_dict(data['probes'])
+      self.load_dict(data["probes"])
 
   def load_dict(self, data: Dict[str, Any]):
     for probe_name, config_data in data.items():
@@ -458,7 +464,7 @@ def inline_env_config(value: str) -> cb.env.HostEnvironmentConfig:
 def env_config_file(value: str) -> cb.env.HostEnvironmentConfig:
   config_path = existing_file_type(value)
   try:
-    with config_path.open() as f:
+    with config_path.open(encoding="utf-8") as f:
       data = hjson.load(f)
     if "env" not in data:
       raise argparse.ArgumentTypeError("No 'env' property found")
@@ -470,10 +476,12 @@ def env_config_file(value: str) -> cb.env.HostEnvironmentConfig:
         f"Invalid env config file: {value}{msg}") from e
 
 
+BenchmarkClsT = Type[cb.benchmarks.Benchmark]
+
+
 class CrossBenchCLI:
 
-  TBenchmarkCls = Type[cb.benchmarks.Benchmark]
-  BENCHMARKS: Tuple[Tuple[TBenchmarkCls, Tuple[str, ...]], ...] = (
+  BENCHMARKS: Tuple[Tuple[BenchmarkClsT, Tuple[str, ...]], ...] = (
       (cb.benchmarks.all.Speedometer20Benchmark, ()),
       (cb.benchmarks.all.Speedometer21Benchmark, ("speedometer",)),
       (cb.benchmarks.all.JetStream2Benchmark, ("jetstream",)),
@@ -560,9 +568,9 @@ class CrossBenchCLI:
       print(json.dumps(data, indent=2))
       return
     # Create tabular format
-    if args.category == "all" or args.category == "benchmarks":
+    if args.category in ("all", "benchmarks"):
       table = [["Benchmark", "Property", "Value"]]
-      for benchmark_name, values in data['benchmarks'].items():
+      for benchmark_name, values in data["benchmarks"].items():
         table.append([benchmark_name, ])
         for name, value in values.items():
           if isinstance(value, (tuple, list)):
@@ -573,7 +581,7 @@ class CrossBenchCLI:
       if len(table) > 1:
         print(tabulate(table, tablefmt="grid"))
 
-    if args.category == "all" or args.category == "probes":
+    if args.category in ("all", "probes"):
       table = [["Probe", "Help"]]
       for probe_name, probe_desc in data["probes"].items():
         table.append([probe_name, probe_desc])
@@ -670,14 +678,14 @@ class CrossBenchCLI:
         "after the '--' arguments separator.")
     chrome_args.add_argument("--js-flags", dest="js_flags")
 
-    DOC = "See chrome's base/feature_list.h source file for more details"
+    doc_str = "See chrome's base/feature_list.h source file for more details"
     chrome_args.add_argument(
         "--enable-features",
-        help="Comma-separated list of enabled chrome features. " + DOC,
+        help="Comma-separated list of enabled chrome features. " + doc_str,
         default="")
     chrome_args.add_argument(
         "--disable-features",
-        help="Command-separated list of disabled chrome features. " + DOC,
+        help="Command-separated list of disabled chrome features. " + doc_str,
         default="")
     subparser.set_defaults(
         subcommand=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
@@ -699,14 +707,14 @@ class CrossBenchCLI:
         for probe in probes:
           runner.attach_probe(probe, matching_browser_only=True)
 
-        self._run_benchmark(args, runner, benchmark)
+        self._run_benchmark(args, runner)
     except KeyboardInterrupt as e:
-      exit(2)
-    except Exception as e:
+      sys.exit(2)
+    except Exception as e:  # pylint: disable=broad-except
       if args.throw:
         raise
       self._log_benchmark_subcommand_failure(benchmark, runner, e)
-      exit(3)
+      sys.exit(3)
 
   def _log_benchmark_subcommand_failure(self, benchmark,
                                         runner: Optional[cb.runner.Runner],
@@ -714,11 +722,11 @@ class CrossBenchCLI:
     logging.debug(e)
     logging.error("")
     logging.error("#" * 80)
-    logging.error(f"SUBCOMMAND UNSUCCESSFUL got {e.__class__.__name__}:")
+    logging.error("SUBCOMMAND UNSUCCESSFUL got %s:", e.__class__.__name__)
     logging.error("-" * 80)
     logging.error(e)
     logging.error("-" * 80)
-    logging.error(f"Running '{benchmark.NAME}' was not successful:")
+    logging.error("Running '%s' was not successful:", benchmark.NAME)
     logging.error("- Check run results.json for detailed backtraces")
     logging.error("- Use --throw to throw on the first logged exception")
     logging.error("- Use --vv for detailed logging")
@@ -740,17 +748,16 @@ class CrossBenchCLI:
         pass
       logging.error("  - %s", log_file)
 
-  def _run_benchmark(self, args: argparse.Namespace, runner: cb.runner.Runner,
-                     benchmark: cb.benchmarks.Benchmark):
+  def _run_benchmark(self, args: argparse.Namespace, runner: cb.runner.Runner):
     try:
       runner.run(is_dry_run=args.dry_run)
       logging.info("")
       logging.info("=" * 80)
-      logging.info(f"RESULTS: {runner.out_dir}")
+      logging.info("RESULTS: %s", runner.out_dir)
       logging.info("=" * 80)
-    except:
+    except:  # pylint disable=broad-except
       logging.info("=" * 80)
-      logging.info(f"RESULTS (maybe incomplete/broken): {runner.out_dir}")
+      logging.info("RESULTS (maybe incomplete/broken): %s", runner.out_dir)
       logging.info("=" * 80)
       raise
 
@@ -779,7 +786,7 @@ class CrossBenchCLI:
   def _get_env_config(self, args) -> cb.env.HostEnvironmentConfig:
     if args.env:
       return args.env
-    elif args.env_config:
+    if args.env_config:
       return args.env_config
     return cb.env.HostEnvironmentConfig()
 

@@ -7,11 +7,14 @@ from __future__ import annotations
 import pathlib
 from typing import TYPE_CHECKING
 
-import crossbench as cb
+import crossbench
+from crossbench.probes import base
+
+#TODO: fix imports
+cb = crossbench
+
 if TYPE_CHECKING:
   import crossbench.runner
-
-from crossbench.probes import base
 
 
 class V8RCSProbe(base.Probe):
@@ -34,6 +37,7 @@ class V8RCSProbe(base.Probe):
     return f"{self.name}.txt"
 
   class Scope(base.Probe.Scope):
+    _rcs_table: str
 
     def setup(self, run):
       pass
@@ -63,10 +67,10 @@ class V8RCSProbe(base.Probe):
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup):
     merged_result_path = group.get_probe_results_file(self)
-    with merged_result_path.open("w") as merged_file:
+    with merged_result_path.open("w", encoding="utf-8") as merged_file:
       for repetition_group in group.repetitions_groups:
         merged_iterations_file = pathlib.Path(repetition_group.results[self])
         merged_file.write(f"\n== Page: {repetition_group.story.name}\n")
-        with merged_iterations_file.open() as f:
+        with merged_iterations_file.open(encoding="utf-8") as f:
           merged_file.write(f.read())
     return merged_result_path

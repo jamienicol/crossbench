@@ -7,6 +7,8 @@ import sys
 from crossbench.cli import CrossBenchCLI
 
 
-def crossbench(argv=sys.argv):
+def crossbench(argv=None):
+  if not argv:
+    argv = sys.argv
   cli = CrossBenchCLI()
   cli.run(argv[1:])

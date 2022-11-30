@@ -2,13 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import crossbench as cb
-from crossbench.benchmarks import speedometer
-
-from tests.benchmarks import speedometer_helper
-
 import sys
+
 import pytest
+
+from crossbench.benchmarks import speedometer
+from tests.benchmarks import speedometer_helper
 
 
 class Speedometer20TestCase(speedometer_helper.Speedometer2BaseTestCase):

@@ -3,13 +3,17 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-from typing import Iterable, TYPE_CHECKING
 
-import crossbench as cb
+from typing import TYPE_CHECKING, Iterable
+
+import crossbench
+from crossbench.probes import base
+
+#TODO: fix imports
+cb = crossbench
+
 if TYPE_CHECKING:
   import crossbench.browsers
-
-from crossbench.probes import base
 
 
 class TracingProbe(base.Probe):

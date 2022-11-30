@@ -8,14 +8,17 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-import crossbench as cb
+import crossbench
+from crossbench import helper
+from crossbench.probes import base
+
+#TODO: fix imports
+cb = crossbench
+
 if TYPE_CHECKING:
   import crossbench.runner
   import crossbench.browsers
   import crossbench.env
-
-from crossbench import helper
-from crossbench.probes import base
 
 
 class SystemStatsProbe(base.Probe):
@@ -52,11 +55,13 @@ class SystemStatsProbe(base.Probe):
       # TODO(cbruni): support remote platform
       data = helper.platform.sh_stdout(*cls.CMD)
       out_file = path / f"{time.time()}.txt"
-      with out_file.open("w") as f:
+      with out_file.open("w", encoding="utf-8") as f:
         f.write(data)
       time.sleep(interval)
 
   class Scope(base.Probe.Scope):
+    _event: threading.Event
+    _poller = threading.Thread
 
     def setup(self, run: cb.runner.Run):
       self.results_file.mkdir()

@@ -4,15 +4,17 @@
 
 from __future__ import annotations
 
-import pathlib
 from typing import TYPE_CHECKING
 
-import crossbench as cb
-if TYPE_CHECKING:
-  import crossbench.runner
-
+import crossbench
 from crossbench.probes import base
 from crossbench import helper
+
+#TODO: fix imports
+cb = crossbench
+
+if TYPE_CHECKING:
+  import crossbench.runner
 
 
 class V8TurbolizerProbe(base.Probe):

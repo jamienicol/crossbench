@@ -4,15 +4,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-import crossbench as cb
+import crossbench
 
 import crossbench.probes.json
 import crossbench.probes.helper
 import crossbench.stories
 from crossbench import helper
 import crossbench.benchmarks
+
+#TODO: fix imports
+cb = crossbench
 
 
 class JetStream2Probe(cb.probes.json.JsonResultProbe):
@@ -130,7 +131,7 @@ class JetStream2Story(cb.stories.PressBenchmarkStory):
       if self._substories != self.SUBSTORIES:
         actions.wait_js_condition(("return JetStream && JetStream.benchmarks "
                                    "&& JetStream.benchmarks.length > 0;"),
-                                  helper.wait_range(0.1, 10))
+                                  helper.WaitRange(0.1, 10))
         actions.js(
             """
         let benchmarks = arguments[0];
@@ -141,7 +142,7 @@ class JetStream2Story(cb.stories.PressBenchmarkStory):
       actions.wait_js_condition(
           """
         return document.querySelectorAll("#results>.benchmark").length > 0;
-      """, helper.wait_range(0.5, 10))
+      """, helper.WaitRange(0.5, 10))
     with run.actions("Start") as actions:
       actions.js("JetStream.start()")
     with run.actions("Wait Done") as actions:
@@ -150,7 +151,7 @@ class JetStream2Story(cb.stories.PressBenchmarkStory):
           """
         let summaryElement = document.getElementById("result-summary");
         return (summaryElement.classList.contains("done"));
-        """, helper.wait_range(1, 60 * 20))
+        """, helper.WaitRange(1, 60 * 20))
 
 
 class JetStream2Benchmark(cb.benchmarks.PressBenchmark):

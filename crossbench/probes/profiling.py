@@ -4,23 +4,27 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import multiprocessing
-import signal
-import time
 import pathlib
-import json
-from typing import List, Optional, TYPE_CHECKING
+import signal
+import subprocess
+import time
+from typing import TYPE_CHECKING, List, Optional
 
-import crossbench as cb
-if TYPE_CHECKING:
-  import crossbench.runner
-  import crossbench.browsers
-  import crossbench.env
-
+import crossbench
+import crossbench.probes.v8
 from crossbench import helper
 from crossbench.probes import base
-import crossbench.probes.v8
+
+#TODO: fix imports
+cb = crossbench
+
+if TYPE_CHECKING:
+  import crossbench.browsers
+  import crossbench.env
+  import crossbench.runner
 
 
 class ProfilingProbe(base.Probe):
@@ -154,6 +158,7 @@ class ProfilingProbe(base.Probe):
     raise Exception("Invalid platform")
 
   class MacOSProfilingScope(base.Probe.Scope):
+    _process: subprocess.Popen
 
     def __init__(self, *args, **kwargs):
       super().__init__(*args, **kwargs)
@@ -189,7 +194,7 @@ class ProfilingProbe(base.Probe):
       self._perf_process = None
 
     def start(self, run):
-      if not self.probe._sample_browser_process:
+      if not self.probe.sample_browser_process:
         return
       if run.browser.pid is None:
         logging.warning("Cannot sample browser process")
@@ -244,8 +249,8 @@ class ProfilingProbe(base.Probe):
         else:
           assert self.browser_platform == helper.platform
           with multiprocessing.Pool() as pool:
-            perf_jitted_files = list(pool.imap(linux_perf_probe_inject_v8_symbols,
-                                          perf_files))
+            perf_jitted_files = list(
+                pool.imap(linux_perf_probe_inject_v8_symbols, perf_files))
         return [file for file in perf_jitted_files if file is not None]
 
     def _export_to_pprof(self, run: cb.runner.Run,
@@ -271,8 +276,8 @@ class ProfilingProbe(base.Probe):
             #     "pprof", "-flame", *perf_files).strip()
             # logging.info("PPROF COMBINED %s", url)
             pass
-        except Exception:
-          pass
+        except Exception as e:  # pylint: disable=broad-except
+          logging.debug("Failed to run pprof: %s", e)
         return urls
 
     def _clean_up_temp_files(self, run: cb.runner.Run):
@@ -291,8 +296,8 @@ def linux_perf_probe_inject_v8_symbols(
     platform = platform or helper.platform
     platform.sh("perf", "inject", "--jit", f"--input={perf_data_file}",
                 f"--output={output_file}")
-  except Exception:
-    logging.warning("Failed processing: %s", perf_data_file)
+  except Exception as e:  # pylint: disable=broad-except
+    logging.warning("Failed processing: %s\n%s", perf_data_file, e)
     return None
   return output_file
 

@@ -2,20 +2,19 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import sys
 import unittest
 from unittest import mock
 
-import crossbench as cb
-import crossbench.exception
-
-import sys
 import pytest
+
+from crossbench.exception import ExceptionAnnotator
 
 
 class ExceptionHandlerTestCase(unittest.TestCase):
 
   def test_empty(self):
-    annotator = cb.exception.Annotator()
+    annotator = ExceptionAnnotator()
     self.assertTrue(annotator.is_success)
     self.assertListEqual(annotator.exceptions, [])
     self.assertListEqual(annotator.to_json(), [])
@@ -25,7 +24,7 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     logging_mock.assert_not_called()
 
   def test_handle_exception(self):
-    annotator = cb.exception.Annotator()
+    annotator = ExceptionAnnotator()
     exception = ValueError("custom message")
     try:
       raise exception
@@ -40,7 +39,7 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     logging_mock.assert_has_calls([mock.call(exception)])
 
   def test_handle_rethrow(self):
-    annotator = cb.exception.Annotator(throw=True)
+    annotator = ExceptionAnnotator(throw=True)
     exception = ValueError("custom message")
     with self.assertRaises(ValueError) as cm:
       try:
@@ -54,7 +53,7 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     self.assertEqual(serialized[0]["title"], str(exception))
 
   def test_info_stack(self):
-    annotator = cb.exception.Annotator(throw=True)
+    annotator = ExceptionAnnotator(throw=True)
     exception = ValueError("custom message")
     with self.assertRaises(ValueError) as cm, annotator.info(
         "info 1", "info 2"):
@@ -74,7 +73,7 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     self.assertEqual(serialized[0]["info_stack"], ("info 1", "info 2"))
 
   def test_info_stack_logging(self):
-    annotator = cb.exception.Annotator()
+    annotator = ExceptionAnnotator()
     try:
       with annotator.info("info 1", "info 2"):
         raise ValueError("custom message")
@@ -88,7 +87,7 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     self.assertIn("custom message", output)
 
   def test_handle_keyboard_interrupt(self):
-    annotator = cb.exception.Annotator()
+    annotator = ExceptionAnnotator()
     keyboard_interrupt = KeyboardInterrupt()
     with mock.patch("sys.exit", side_effect=ValueError) as exit_mock:
       with self.assertRaises(ValueError) as cm:
@@ -100,18 +99,18 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     exit_mock.assert_called_once_with(0)
 
   def test_extend(self):
-    annotator_1 = cb.exception.Annotator()
+    annotator_1 = ExceptionAnnotator()
     try:
       raise ValueError("error_1")
     except ValueError as e:
       annotator_1.append(e)
-    annotator_2 = cb.exception.Annotator()
+    annotator_2 = ExceptionAnnotator()
     try:
       raise ValueError("error_2")
     except ValueError as e:
       annotator_2.append(e)
-    annotator_3 = cb.exception.Annotator()
-    annotator_4 = cb.exception.Annotator()
+    annotator_3 = ExceptionAnnotator()
+    annotator_4 = ExceptionAnnotator()
     self.assertFalse(annotator_1.is_success)
     self.assertFalse(annotator_2.is_success)
     self.assertTrue(annotator_3.is_success)
@@ -134,8 +133,8 @@ class ExceptionHandlerTestCase(unittest.TestCase):
     self.assertTrue(annotator_4.is_success)
 
   def test_extend_nested(self):
-    annotator_1 = cb.exception.Annotator()
-    annotator_2 = cb.exception.Annotator()
+    annotator_1 = ExceptionAnnotator()
+    annotator_2 = ExceptionAnnotator()
     exception_1 = ValueError("error_1")
     exception_2 = ValueError("error_2")
     with annotator_1.capture("info 1", "info 2", exceptions=(ValueError,)):

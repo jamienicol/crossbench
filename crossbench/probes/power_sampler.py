@@ -8,14 +8,18 @@ import csv
 import logging
 import pathlib
 import subprocess
-from typing import Optional, TYPE_CHECKING, Sequence, Tuple
+from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 
-import crossbench as cb
+import crossbench
+from crossbench.probes import base
+
+#TODO: fix imports
+cb = crossbench
+
 if TYPE_CHECKING:
+  import crossbench.browsers
   import crossbench.env
   import crossbench.runner
-  import crossbench.browsers
-from crossbench.probes import base
 
 
 class PowerSamplerProbe(base.Probe):
@@ -52,7 +56,7 @@ class PowerSamplerProbe(base.Probe):
     self._sampling_interval = sampling_interval
     assert sampling_interval > 0, (
         f"Invalid sampling_interval={sampling_interval}")
-    assert 'battery' not in samplers
+    assert "battery" not in samplers
     self._samplers = tuple(samplers)
 
   @property

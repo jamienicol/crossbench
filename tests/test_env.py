@@ -3,17 +3,20 @@
 # found in the LICENSE file.
 
 import pathlib
-import hjson
+import sys
 import unittest
 from unittest import mock
+
+import hjson
 import pyfakefs.fake_filesystem_unittest
-
-import crossbench as cb
-import crossbench.runner
-import crossbench.env
-
-import sys
 import pytest
+
+import crossbench
+import crossbench.env
+import crossbench.runner
+
+#TODO: fix imports
+cb = crossbench
 
 
 class HostEnvironmentConfigTestCase(unittest.TestCase):
@@ -35,7 +38,7 @@ class HostEnvironmentConfigTestCase(unittest.TestCase):
     self.assertFalse(power.merge(default).power_use_battery)
 
     with self.assertRaises(ValueError):
-      combined = power.merge(battery)
+      power.merge(battery)
 
   def test_combine_min_float_value(self):
     default = cb.env.HostEnvironmentConfig()
@@ -78,9 +81,9 @@ class HostEnvironmentConfigTestCase(unittest.TestCase):
         __file__).parent.parent / "config" / "env.config.example.hjson"
     if not example_config_file.exists():
       raise unittest.SkipTest(f"Test file {example_config_file} does not exist")
-    with example_config_file.open() as f:
+    with example_config_file.open(encoding="utf-8") as f:
       data = hjson.load(f)
-    config = cb.env.HostEnvironmentConfig(**data["env"])
+    cb.env.HostEnvironmentConfig(**data["env"])
 
 
 class HostEnvironmentTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
@@ -216,7 +219,7 @@ class HostEnvironmentTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     env = cb.env.HostEnvironment(
         self.mock_runner,
         cb.env.HostEnvironmentConfig(
-            browser_is_headless=cb.env.HostEnvironmentConfig.Ignore),
+            browser_is_headless=cb.env.HostEnvironmentConfig.IGNORE),
         cb.env.ValidationMode.THROW)
     mock_browser = mock.Mock()
     self.mock_runner.browsers = [mock_browser]
@@ -298,7 +301,7 @@ class HostEnvironmentTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
 
   def test_check_installed_missing(self):
 
-    def which_none(binary):
+    def which_none(_):
       return None
 
     self.mock_platform.which = which_none

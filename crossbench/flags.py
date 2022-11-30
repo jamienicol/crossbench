@@ -5,10 +5,15 @@
 from __future__ import annotations
 
 import collections
-from typing import Dict, Iterable, Optional, Set, Tuple, Union
+from typing import Dict, Final, Iterable, Optional, Set, Tuple, Union
 
 
 class Flags(collections.UserDict):
+  """Basic implementation for command line flags (similar to Dic[str, str].
+
+  This class is mostly used to make sure command-line flags for browsers
+  don't end up having contradicting values.
+  """
 
   InitialDataType = Optional[
       Union[Dict[str, str], "Flags", Iterable[Union[Tuple[str, str], str]]]]
@@ -26,12 +31,6 @@ class Flags(collections.UserDict):
     return self.set(flag_name, flag_value)
 
   def set(self, flag_name: str, flag_value=None, override=False):
-    if not override and flag_name in self:
-      old_value = self[flag_name]
-      assert flag_value == old_value, (
-          f"Flag {flag_name}={flag_value} was already set "
-          f"with a different previous value: '{old_value}'")
-      return
     self._set(flag_name, flag_value, override)
 
   def _set(self, flag_name: str, flag_value=None, override=False):
@@ -42,9 +41,16 @@ class Flags(collections.UserDict):
     assert flag_value is None or isinstance(flag_value, str), (
         f"Expected None or string flag-value for flag '{flag_name}', "
         f"but got: {repr(flag_value)}")
+    if not override and flag_name in self:
+      old_value = self[flag_name]
+      assert flag_value == old_value, (
+          f"Flag {flag_name}={flag_value} was already set "
+          f"with a different previous value: '{old_value}'")
+      return
     self.data[flag_name] = flag_value
 
   def update(self, initial_data: Flags.InitialDataType = None, override=False):
+    # pylint: disable=arguments-differ
     if initial_data is None:
       return
     if isinstance(initial_data, (Flags, dict)):
@@ -75,6 +81,11 @@ class Flags(collections.UserDict):
 
 
 class JSFlags(Flags):
+  """Custom flags implementation for V8 flags (--js-flags in chrome)
+
+  Additionally to the base Flag implementation it asserts that bool flags
+  with the --no-.../--no... prefix are not contradicting each other.
+  """
   _NO_PREFIX = "--no"
 
   def _set(self, flag_name, flag_value=None, override=False):
@@ -120,6 +131,11 @@ class JSFlags(Flags):
 
 
 class ChromeFlags(Flags):
+  """Specialized Flags for Chrome/Chromium-based browser.
+
+  This has special treatment for --js-flags and the feature flags:
+  --enable-features/--disable-features
+  """
   _JS_FLAG = "--js-flags"
 
   def __init__(self, initial_data=None):
@@ -128,14 +144,15 @@ class ChromeFlags(Flags):
     super().__init__(initial_data)
 
   def _set(self, flag_name, flag_value, override=False):
-    if flag_name == ChromeFeatures._ENABLE_FLAG:
+    # pylint: disable=signature-differs
+    if flag_name == ChromeFeatures.ENABLE_FLAG:
       if flag_value is None:
-        raise ValueError(f"{ChromeFeatures._ENABLE_FLAG} cannot be None")
+        raise ValueError(f"{ChromeFeatures.ENABLE_FLAG} cannot be None")
       for feature in flag_value.split(","):
         self._features.enable(feature)
-    elif flag_name == ChromeFeatures._DISABLE_FLAG:
+    elif flag_name == ChromeFeatures.DISABLE_FLAG:
       if flag_value is None:
-        raise ValueError(f"{ChromeFeatures._DISABLE_FLAG} cannot be None")
+        raise ValueError(f"{ChromeFeatures.DISABLE_FLAG} cannot be None")
       for feature in flag_value.split(","):
         self._features.disable(feature)
     elif flag_name == self._JS_FLAG:
@@ -147,7 +164,7 @@ class ChromeFlags(Flags):
         new_js_flags.set(js_flag_name, js_flag_value, override=override)
       self._js_flags.update(new_js_flags)
     else:
-      return super()._set(flag_name, flag_value, override)
+      super()._set(flag_name, flag_value, override)
 
   @property
   def features(self) -> ChromeFeatures:
@@ -165,8 +182,6 @@ class ChromeFlags(Flags):
 
 
 class ChromeFeatures:
-  _ENABLE_FLAG = "--enable-features"
-  _DISABLE_FLAG = "--disable-features"
   """
   Chrome Features set, throws if features are enabled and disabled at the same
   time.
@@ -176,6 +191,9 @@ class ChromeFeatures:
     --enable-features="MyFeature1:k1/v1/k2/v2,MyFeature2"
     --enable-features="MyFeature3<Trial2:k1/v1/k2/v2"
   """
+
+  ENABLE_FLAG: Final[str] = "--enable-features"
+  DISABLE_FLAG: Final[str] = "--disable-features"
 
   def __init__(self):
     self._enabled: Dict[str, Optional[str]] = {}
@@ -231,10 +249,10 @@ class ChromeFeatures:
     if self._enabled:
       joined = ",".join(
           k if v is None else f"{k}{v}" for k, v in self._enabled.items())
-      yield (self._ENABLE_FLAG, joined)
+      yield (self.ENABLE_FLAG, joined)
     if self._disabled:
       joined = ",".join(self._disabled.keys())
-      yield (self._DISABLE_FLAG, joined)
+      yield (self.DISABLE_FLAG, joined)
 
   def get_list(self) -> Iterable[str]:
     for flag_name, features_str in self.items():

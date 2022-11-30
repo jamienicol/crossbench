@@ -5,14 +5,13 @@
 import csv
 import json
 import pathlib
+import sys
 import unittest
 
 import pyfakefs.fake_filesystem_unittest
-
-import crossbench.probes.helper as helper
-
-import sys
 import pytest
+
+from crossbench.probes import helper
 
 
 class TestMergeCSV(pyfakefs.fake_filesystem_unittest.TestCase):
@@ -21,25 +20,25 @@ class TestMergeCSV(pyfakefs.fake_filesystem_unittest.TestCase):
     self.setUpPyfakefs()
 
   def test_merge_single(self):
-    file = pathlib.Path('test.csv')
+    file = pathlib.Path("test.csv")
     data = [
         ["Metric", "Run1"],
         ["Total", "200"],
     ]
     for delimiter in ["\t", ","]:
-      with file.open("w", newline='', encoding='utf-8') as f:
+      with file.open("w", newline="", encoding="utf-8") as f:
         csv.writer(f, delimiter=delimiter).writerows(data)
       merged = helper.merge_csv([file], delimiter=delimiter)
       self.assertListEqual(merged, data)
 
   def test_merge_single_padding(self):
-    file = pathlib.Path('test.csv')
+    file = pathlib.Path("test.csv")
     data = [
         ["Metric", "Run1", "Run2"],
         ["marker"],
         ["Total", "200", "300"],
     ]
-    with file.open("w", newline='', encoding='utf-8') as f:
+    with file.open("w", newline="", encoding="utf-8") as f:
       csv.writer(f, delimiter="\t").writerows(data)
     merged = helper.merge_csv([file], headers=None)
     self.assertListEqual(merged, [
@@ -49,12 +48,12 @@ class TestMergeCSV(pyfakefs.fake_filesystem_unittest.TestCase):
     ])
 
   def test_merge_single_file_header(self):
-    file = pathlib.Path('test.csv')
+    file = pathlib.Path("test.csv")
     data = [
         ["Total", "200"],
     ]
     for delimiter in ["\t", ","]:
-      with file.open("w", newline='', encoding='utf-8') as f:
+      with file.open("w", newline="", encoding="utf-8") as f:
         csv.writer(f, delimiter=delimiter).writerows(data)
       merged = helper.merge_csv([file],
                                 delimiter=delimiter,
@@ -65,8 +64,8 @@ class TestMergeCSV(pyfakefs.fake_filesystem_unittest.TestCase):
       ])
 
   def test_merge_two_padding(self):
-    file_1 = pathlib.Path('test_1.csv')
-    file_2 = pathlib.Path('test_2.csv')
+    file_1 = pathlib.Path("test_1.csv")
+    file_2 = pathlib.Path("test_2.csv")
     data_1 = [
         ["marker"],
         ["Total", "101", "102"],
@@ -75,9 +74,9 @@ class TestMergeCSV(pyfakefs.fake_filesystem_unittest.TestCase):
         ["marker"],
         ["Total", "201"],
     ]
-    with file_1.open("w", newline='', encoding='utf-8') as f:
+    with file_1.open("w", newline="", encoding="utf-8") as f:
       csv.writer(f, delimiter="\t").writerows(data_1)
-    with file_2.open("w", newline='', encoding='utf-8') as f:
+    with file_2.open("w", newline="", encoding="utf-8") as f:
       csv.writer(f, delimiter="\t").writerows(data_2)
     merged = helper.merge_csv([file_1, file_2], headers=["col_1", "col_2"])
     self.assertListEqual(merged, [
@@ -251,9 +250,9 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     self.assertListEqual(merger.to_csv(), [])
 
   def test_add_flat(self):
-    input = {"a": 1, "b": 2}
+    input_data = {"a": 1, "b": 2}
     merger = helper.ValuesMerger()
-    merger.add(input)
+    merger.add(input_data)
     data = merger.data
     self.assertEqual(len(data), 2)
     self.assertIsInstance(data["a"], helper.Values)
@@ -261,14 +260,14 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     self.assertListEqual(data["a"].values, [1])
     self.assertListEqual(data["b"].values, [2])
 
-    merger.add(input)
+    merger.add(input_data)
     data = merger.data
     self.assertEqual(len(data), 2)
     self.assertListEqual(data["a"].values, [1, 1])
     self.assertListEqual(data["b"].values, [2, 2])
 
   def test_add_hierarchical(self):
-    input = {
+    input_data = {
         "a": {
             "a": {
                 "a": 1,
@@ -278,7 +277,7 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
         "b": 2,
     }
     merger = helper.ValuesMerger()
-    merger.add(input)
+    merger.add(input_data)
     data = merger.data
     self.assertListEqual(list(data.keys()), ["a/a/a", "a/a/b", "b"])
     self.assertIsInstance(data["a/a/a"], helper.Values)
@@ -287,7 +286,7 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
 
   def test_repeated_numeric(self):
     merger = helper.ValuesMerger()
-    input = {
+    input_data = {
         "a": {
             "aa": 1,
             "ab": 2
@@ -299,8 +298,8 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
             }
         },
     }
-    merger.add(input)
-    merger.add(input)
+    merger.add(input_data)
+    merger.add(input_data)
     data = merger.data
     self.assertEqual(len(data), 4)
     self.assertListEqual(data["a/aa"].values, [1, 1])
@@ -309,7 +308,7 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     self.assertListEqual(data["c/cc/ccc"].values, [4, 4])
 
   def test_custom_key_fn(self):
-    input = {
+    input_data = {
         "a": {
             "a": {
                 "a": 1,
@@ -318,13 +317,17 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
         },
         "b": 2,
     }
-    merger = helper.ValuesMerger(key_fn=lambda path: "_".join(path))
-    merger.add(input)
+
+    def under_join(segments):
+      return "_".join(segments)
+
+    merger = helper.ValuesMerger(key_fn=under_join)
+    merger.add(input_data)
     data = merger.data
     self.assertListEqual(list(data.keys()), ["a_a_a", "a_a_b", "b"])
 
   def test_merge_serialized_same(self):
-    input = {
+    input_data = {
         "a": {
             "a": {
                 "a": 1,
@@ -334,13 +337,13 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
         "b": 3,
     }
     merger = helper.ValuesMerger()
-    merger.add(input)
+    merger.add(input_data)
     self.assertListEqual(list(merger.data.keys()), ["a/a/a", "a/a/b", "b"])
     path_a = pathlib.Path("merged_a.json")
     path_b = pathlib.Path("merged_b.json")
-    with path_a.open("w") as f:
+    with path_a.open("w", encoding="utf-8") as f:
       json.dump(merger.to_json(), f)
-    with path_b.open("w") as f:
+    with path_b.open("w", encoding="utf-8") as f:
       json.dump(merger.to_json(), f)
 
     merger = helper.ValuesMerger.merge_json_files([path_a, path_b],
@@ -361,9 +364,9 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     merger_b = helper.ValuesMerger({"a": {"b": 2}})
     path_a = pathlib.Path("merged_a.json")
     path_b = pathlib.Path("merged_b.json")
-    with path_a.open("w") as f:
+    with path_a.open("w", encoding="utf-8") as f:
       json.dump(merger_a.to_json(), f)
-    with path_b.open("w") as f:
+    with path_b.open("w", encoding="utf-8") as f:
       json.dump(merger_b.to_json(), f)
 
     merger = helper.ValuesMerger.merge_json_files([path_a, path_b],

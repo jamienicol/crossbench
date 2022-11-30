@@ -40,15 +40,15 @@ class TestProbeConfig(unittest.TestCase):
         "empty_default_list", type=None, default=[], is_list=True)
     parser.add_argument("custom_type", type=custom_arg_type)
     parser.add_argument("custom_help", type=bool, help="custom help")
-    help = str(parser)
-    self.assertIn("Probe DOC Text", help)
-    self.assertIn("bool_default", help)
-    self.assertIn("str_empty_default", help)
-    self.assertIn("bool_list", help)
-    self.assertIn("any_list", help)
-    self.assertIn("empty_default_list", help)
-    self.assertIn("custom_type", help)
-    self.assertIn("custom_help", help)
+    help_text = str(parser)
+    self.assertIn("Probe DOC Text", help_text)
+    self.assertIn("bool_default", help_text)
+    self.assertIn("str_empty_default", help_text)
+    self.assertIn("bool_list", help_text)
+    self.assertIn("any_list", help_text)
+    self.assertIn("empty_default_list", help_text)
+    self.assertIn("custom_type", help_text)
+    self.assertIn("custom_help", help_text)
 
   def test_invalid_config_duplicate(self):
     parser = ProbeConfigParser(MockProbe)
@@ -175,7 +175,7 @@ class TestProbeConfig(unittest.TestCase):
     for data in ["", "a", {"a": 1}, set(), []]:
       config_data = {"custom": data}
       kwargs = parser.kwargs_from_config(config_data)
-      self.assertIs(kwargs['custom'], data)
+      self.assertIs(kwargs["custom"], data)
 
 
 if __name__ == "__main__":

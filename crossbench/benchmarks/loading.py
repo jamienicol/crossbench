@@ -6,12 +6,15 @@ from __future__ import annotations
 import abc
 import logging
 import re
-from typing import Iterable, Optional, Sequence, Type
+from typing import Optional, Sequence, Type
 from urllib.parse import urlparse
 
-import crossbench as cb
-import crossbench.stories
+import crossbench
 import crossbench.benchmarks
+import crossbench.stories
+
+#TODO: fix imports
+cb = crossbench
 
 
 class Page(cb.stories.Story, metaclass=abc.ABCMeta):
@@ -103,19 +106,20 @@ class LoadingPageFilter(cb.benchmarks.StoryFilter):
   stories: Sequence[Page]
 
   @classmethod
-  def kwargs_from_cli(self, args):
+  def kwargs_from_cli(cls, args):
     kwargs = super().kwargs_from_cli(args)
     kwargs["separate"] = args.separate
     return kwargs
 
   def __init__(self,
                story_cls: Type[Page],
-               names: Sequence[str],
+               patterns: Sequence[str],
                separate: bool = True):
     self.separate = separate
-    super().__init__(story_cls, names)
+    super().__init__(story_cls, patterns)
 
-  def process_all(self, name_or_url_list: Sequence[str]):
+  def process_all(self, patterns: Sequence[str]):
+    name_or_url_list = patterns
     if len(name_or_url_list) == 1 and name_or_url_list[0] == "all":
       self.stories = PAGE_LIST
       return

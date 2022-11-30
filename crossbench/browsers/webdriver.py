@@ -12,8 +12,11 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
 import selenium.common.exceptions
 from selenium import webdriver
 
-import crossbench as cb
+import crossbench
 from crossbench.browsers.base import Browser
+
+#TODO: fix imports
+cb = crossbench
 
 if TYPE_CHECKING:
   import crossbench.runner
@@ -27,8 +30,9 @@ class WebdriverMixin(Browser):
 
   @property
   def driver_log_file(self) -> pathlib.Path:
-    assert self.log_file
-    return self.log_file.with_suffix(".driver.log")  # pytype: disable=attribute-error
+    log_file = self.log_file
+    assert log_file
+    return log_file.with_suffix(".driver.log")
 
   def setup_binary(self, runner: cb.runner.Runner):
     self._driver_path = self._find_driver()
@@ -68,7 +72,7 @@ class WebdriverMixin(Browser):
     pass
 
   def details_json(self) -> Dict[str, Any]:
-    details: Dict[str, Any] = super().details_json()  # pytype: disable=attribute-error
+    details: Dict[str, Any] = super().details_json()
     details["log"]["driver"] = str(self.driver_log_file)
     return details
 
@@ -80,6 +84,7 @@ class WebdriverMixin(Browser):
       self._driver.get(url)
     except selenium.common.exceptions.WebDriverException as e:
       if e.msg and "net::ERR_CONNECTION_REFUSED" in e.msg:
+        # pylint: disable=raise-missing-from
         raise Exception(f"Browser failed to load URL={url}. "
                         "The URL is likely unreachable.")
       raise
@@ -97,6 +102,7 @@ class WebdriverMixin(Browser):
         self._driver.set_script_timeout(timeout)
       return self._driver.execute_script(script, *arguments)
     except selenium.common.exceptions.WebDriverException as e:
+      # pylint: disable=raise-missing-from
       raise Exception(f"Could not execute JS: {e.msg}")
 
   def quit(self, runner: cb.runner.Runner):
@@ -118,18 +124,20 @@ class WebdriverMixin(Browser):
       try:
         self._driver.quit()
       except selenium.common.exceptions.InvalidSessionIdException:
-        return True
+        return
       # Sometimes a second quit is needed, ignore any warnings there
       try:
         self._driver.quit()
-      except Exception:
+      except Exception as e:  # pylint: disable=broad-except
+        logging.debug("Driver raised exception on quit: %s\n%s", e,
+                      traceback.format_exc())
         pass
-      return True
-    except Exception:
-      logging.debug(traceback.format_exc())
+      return
+    except Exception as e:  # pylint: disable=broad-except
+      logging.debug("Could not quit browser: %s\n%s", e, traceback.format_exc())
     finally:
       self._is_running = False
-    return False
+    return
 
 
 class RemoteWebDriver(WebdriverMixin, Browser):

@@ -15,15 +15,19 @@ from selenium import webdriver
 from selenium.webdriver.edge.options import Options as EdgeOptions
 from selenium.webdriver.edge.service import Service as EdgeService
 
-import crossbench as cb
-import crossbench.flags
+import crossbench
 import crossbench.exception
+import crossbench.flags
 from crossbench import helper
 from crossbench.browsers.base import BROWSERS_CACHE
 from crossbench.browsers.chromium import Chromium, ChromiumWebDriver
 
+#TODO: fix imports
+cb = crossbench
+
 if TYPE_CHECKING:
   from selenium.webdriver.chromium.webdriver import ChromiumDriver
+
   import crossbench.runner
 
 FlagsInitialDataType = cb.flags.Flags.InitialDataType
@@ -85,8 +89,8 @@ class Edge(Chromium):
 
 class EdgeWebDriver(ChromiumWebDriver):
 
-  WebDriverOptions = EdgeOptions
-  WebDriverService = EdgeService
+  WEB_DRIVER_OPTIONS = EdgeOptions
+  WEB_DRIVER_SERVICE = EdgeService
 
   def __init__(self,
                label: str,
@@ -111,7 +115,8 @@ class EdgeWebDriver(ChromiumWebDriver):
     return finder.download()
 
   def _create_driver(self, options, service) -> ChromiumDriver:
-    return webdriver.Edge(options=options, service=service)
+    return webdriver.Edge(  # pytype: disable=wrong-keyword-args
+        options=options, service=service)
 
 
 class EdgeWebDriverDownloader:
@@ -140,7 +145,7 @@ class EdgeWebDriverDownloader:
     arch = self._arch_identifier()
     archive_name = f"edgedriver_{arch}.zip"
     url = self.BASE_URL + f"/{self.browser.version}/{archive_name}"
-    logging.info(f"EDGEDRIVER downloading {self.browser.version}: {url}")
+    logging.info("EDGEDRIVER downloading %s: %s", self.browser.version, url)
     with tempfile.TemporaryDirectory() as tmp_dir:
       archive_file = pathlib.Path(tmp_dir) / archive_name
       self.platform.download_to(url, archive_file)
@@ -156,7 +161,7 @@ class EdgeWebDriverDownloader:
     if self.platform.is_linux:
       assert self.platform.is_x64, "edgedriver is only available on linux x64"
       return "linux64"
-    elif self.platform.is_macos:
+    if self.platform.is_macos:
       if self.platform.is_arm64:
         return "mac64_m1"
       if self.platform.is_x64:

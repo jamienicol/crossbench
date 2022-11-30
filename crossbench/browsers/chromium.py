@@ -18,13 +18,16 @@ from selenium.webdriver.chromium.options import ChromiumOptions
 from selenium.webdriver.chromium.service import ChromiumService
 from selenium.webdriver.chromium.webdriver import ChromiumDriver
 
-import crossbench as cb
-import crossbench.flags
+import crossbench
 import crossbench.exception
+import crossbench.flags
 from crossbench import helper
 from crossbench.browsers.base import (BROWSERS_CACHE, Browser,
                                       convert_flags_to_label)
 from crossbench.browsers.webdriver import WebdriverMixin
+
+#TODO: fix imports
+cb = crossbench
 
 if TYPE_CHECKING:
   import crossbench.runner
@@ -54,15 +57,17 @@ class Chromium(Browser):
   def default_flags(cls, initial_data: FlagsInitialDataType = None):
     return cb.flags.ChromeFlags(initial_data)
 
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               js_flags: FlagsInitialDataType = None,
-               flags: FlagsInitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               type : str = "chromium",
-               platform: Optional[helper.Platform] = None):
+  def __init__(
+      self,
+      label: str,
+      path: pathlib.Path,
+      js_flags: FlagsInitialDataType = None,
+      flags: FlagsInitialDataType = None,
+      cache_dir: Optional[pathlib.Path] = None,
+      type: str = "chromium",  # pylint: disable=redefined-builtin
+      platform: Optional[helper.Platform] = None):
     if cache_dir is None:
+      # pylint: disable=bad-option-value, consider-using-with
       self.cache_dir = pathlib.Path(
           tempfile.TemporaryDirectory(prefix=type).name)
       self.clear_cache_dir = True
@@ -142,7 +147,7 @@ class Chromium(Browser):
     assert not self._is_running
     assert self._stdout_log_file is None
     if self.log_file:
-      self._stdout_log_file = self.stdout_log_file.open("w")
+      self._stdout_log_file = self.stdout_log_file.open("w", encoding="utf-8")
     self._pid = runner.popen(
         self.path, *self._get_browser_flags(run), stdout=self._stdout_log_file)
     runner.wait(0.5)
@@ -172,18 +177,19 @@ end tell
 
 class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
 
-  WebDriverOptions: Type[ChromiumOptions] = ChromiumOptions
-  WebDriverService: Type[ChromiumService] = ChromiumService
+  WEB_DRIVER_OPTIONS: Type[ChromiumOptions] = ChromiumOptions
+  WEB_DRIVER_SERVICE: Type[ChromiumService] = ChromiumService
 
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               js_flags: FlagsInitialDataType = None,
-               flags: FlagsInitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               type : str = "chromium",
-               driver_path: Optional[pathlib.Path] = None,
-               platform: Optional[helper.Platform] = None):
+  def __init__(
+      self,
+      label: str,
+      path: pathlib.Path,
+      js_flags: FlagsInitialDataType = None,
+      flags: FlagsInitialDataType = None,
+      cache_dir: Optional[pathlib.Path] = None,
+      type: str = "chromium",  # pylint: disable=redefined-builtin
+      driver_path: Optional[pathlib.Path] = None,
+      platform: Optional[helper.Platform] = None):
     super().__init__(label, path, js_flags, flags, cache_dir, type, platform)
     self._driver_path = driver_path
 
@@ -197,7 +203,7 @@ class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
                     driver_path: pathlib.Path) -> ChromiumDriver:
     assert not self._is_running
     assert self.log_file
-    options = self.WebDriverOptions()
+    options = self.WEB_DRIVER_OPTIONS()
     options.set_capability("browserVersion", str(self.major_version))
     # Don't wait for document-ready.
     options.set_capability("pageLoadStrategy", "eager")
@@ -209,11 +215,11 @@ class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
     logging.info("STARTING BROWSER: driver: %s", driver_path)
     logging.info("STARTING BROWSER: args: %s", shlex.join(args))
     # pytype: disable=wrong-keyword-args
-    service = self.WebDriverService(
+    service = self.WEB_DRIVER_SERVICE(
         executable_path=str(driver_path),
         log_path=str(self.driver_log_file),
         service_args=[])
-    service.log_file = self.stdout_log_file.open("w")
+    service.log_file = self.stdout_log_file.open("w", encoding="utf-8")
     driver = self._create_driver(options, service)
     # pytype: enable=wrong-keyword-args
     # Prevent debugging overhead.
@@ -278,8 +284,9 @@ class ChromeDriverFinder:
         for i, line in enumerate(lines):
           if not line.startswith("---"):
             continue
-          [min, max] = map(int, re.findall(r"\d+", lines[i + 1]))
-          if min <= major_version and major_version <= max:
+          [min_version, max_version] = map(int,
+                                           re.findall(r"\d+", lines[i + 1]))
+          if min_version <= major_version <= max_version:
             match = re.search(r"\d\.\d+", line)
             assert match, "Could not parse version number"
             driver_version = match.group(0)
@@ -303,9 +310,9 @@ class ChromeDriverFinder:
           # chrome version 106.0.5249.21 for Arm64 (previously m1):
           #   before: chromedriver_mac64_m1.zip
           #   after:  chromedriver_mac_arm64.zip
-          LAST_OLD_NAMING_VERSION = (106, 0, 5249, 21)
+          last_old_naming_version = (106, 0, 5249, 21)
           version_tuple = tuple(map(int, driver_version.split(".")))
-          if version_tuple <= LAST_OLD_NAMING_VERSION:
+          if version_tuple <= last_old_naming_version:
             arch_suffix = "mac64_m1"
           else:
             arch_suffix = "mac_arm64"
@@ -350,7 +357,7 @@ class ChromeDriverFinder:
         parts = name.split("/")
         if len(parts) != 3:
           continue
-        arch, base, file = parts
+        _, base, _ = parts
         versions.append((int(base), version["mediaLink"]))
       versions.sort()
 
@@ -365,8 +372,8 @@ class ChromeDriverFinder:
           "Please manually compile/download chromedriver for "
           f"{self.browser.type} {self.browser.version}")
 
-    logging.info("CHROMEDRIVER Downloading for version "
-                 f"{major_version}: {listing_url or url}")
+    logging.info("CHROMEDRIVER Downloading for version %s: %s", major_version,
+                 listing_url or url)
     with tempfile.TemporaryDirectory() as tmp_dir:
       zip_file = pathlib.Path(tmp_dir) / "download.zip"
       self.platform.download_to(url, zip_file)

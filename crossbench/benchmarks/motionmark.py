@@ -5,15 +5,17 @@
 from __future__ import annotations
 
 import itertools
-from typing import TYPE_CHECKING, List, Tuple, Optional
+from typing import List, Optional, Tuple
 
-import crossbench as cb
-
-import crossbench.probes.json
+import crossbench
+import crossbench.benchmarks
 import crossbench.probes.helper
+import crossbench.probes.json
 import crossbench.stories
 from crossbench import helper
-import crossbench.benchmarks
+
+#TODO: fix imports
+cb = crossbench
 
 
 def _probe_skip_data_segments(path: Tuple[str, ...]) -> Optional[str]:
@@ -150,7 +152,7 @@ class MotionMark12Story(cb.stories.PressBenchmarkStory):
       actions.navigate_to(self._url)
       actions.wait_js_condition(
           """return document.querySelector("tree > li") !== undefined""",
-          helper.wait_range(0.1, 10))
+          helper.WaitRange(0.1, 10))
       num_enabled = actions.js(
           """
         let benchmarks = arguments[0];
@@ -178,7 +180,7 @@ class MotionMark12Story(cb.stories.PressBenchmarkStory):
       actions.wait_js_condition(
           """
           return window.benchmarkRunnerClient.results._results != undefined
-          """, helper.wait_range(5, 20 * len(self._substories)))
+          """, helper.WaitRange(5, 20 * len(self._substories)))
 
 
 class MotionMark12Benchmark(cb.benchmarks.PressBenchmark):

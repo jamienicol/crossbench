@@ -3,13 +3,14 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+
 import csv
 import json
-
 import logging
 import math
 import pathlib
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
+from typing import (Any, Callable, Dict, Iterable, List, Optional, Sequence,
+                    Set, Tuple, Union)
 
 _KeyFnType = Callable[[Tuple[str, ...]], Optional[str]]
 
@@ -131,10 +132,8 @@ class Values:
   @property
   def stddev(self) -> float:
     assert self._is_numeric
-    """
-    We're ignoring here any actual distribution of the data and use this as a
-    rough estimate of the quality of the data
-    """
+    # We're ignoring here any actual distribution of the data and use this as a
+    # rough estimate of the quality of the data
     average = self.average
     variance = 0.0
     for value in self.values:
@@ -204,7 +203,7 @@ class ValuesMerger:
                        merge_duplicate_paths: bool = False):
     merger = cls(key_fn=key_fn)
     for file in files:
-      with file.open() as f:
+      with file.open(encoding="utf-8") as f:
         merger.merge_values(
             json.load(f), merge_duplicate_paths=merge_duplicate_paths)
     return merger
@@ -234,7 +233,7 @@ class ValuesMerger:
                    prefix_path: Tuple[str, ...] = (),
                    merge_duplicate_paths=False):
     """Merge a previously json-serialized ValuesMerger object"""
-    for property_name, data in data.items():
+    for property_name, item in data.items():
       path = prefix_path + (property_name,)
       key = self._key_fn(path)
       if key is None or key in self._ignored_keys:
@@ -242,7 +241,7 @@ class ValuesMerger:
       if key in self._data:
         if merge_duplicate_paths:
           values = self._data[key]
-          for value in data["values"]:
+          for value in item["values"]:
             values.append(value)
         else:
           logging.debug(
@@ -251,7 +250,7 @@ class ValuesMerger:
           del self._data[key]
           self._ignored_keys.add(key)
       else:
-        self._data[key] = Values.from_json(data)
+        self._data[key] = Values.from_json(item)
 
   def add(self, data: Union[Dict, List[Dict]]):
     """ Merge "arbitrary" hierarchical data that ends up having primitive leafs.
@@ -330,20 +329,20 @@ class ValuesMerger:
       if len(segments) == 1:
         toplevel.append(key)
       lookup[key] = value
-    csv = []
+    csv_data = []
     for path, value in lookup.items():
       if path in toplevel:
         continue
       name = path.split("/")[-1]
       if value is None:
-        csv.append([name])
+        csv_data.append([name])
       else:
-        csv.append([name, value])
+        csv_data.append([name, value])
     # Write toplevel entries last
     for key in toplevel:
-      csv.append([key, lookup[key]])
+      csv_data.append([key, lookup[key]])
 
-    return csv
+    return csv_data
 
 
 def _ljust(sequence, n, fillvalue=""):
@@ -381,16 +380,16 @@ def merge_csv(csv_files: Sequence[pathlib.Path],
     table_headers = [""]
   else:
     table_headers = []
-  with csv_files[0].open() as first_file:
+  with csv_files[0].open(encoding="utf-8") as first_file:
     for row in csv.reader(first_file, delimiter=delimiter):
       metric_name = row[0]
       table.append([metric_name])
 
   for csv_file in csv_files:
-    with csv_file.open() as f:
+    with csv_file.open(encoding="utf-8") as f:
       csv_data = list(csv.reader(f, delimiter=delimiter))
       # Find the max width
-      max_rows_with_row_header = max([len(row) for row in csv_data])
+      max_rows_with_row_header = max(len(row) for row in csv_data)
       max_rows = max_rows_with_row_header - 1
       if headers:
         col_header = [headers.pop(0)]

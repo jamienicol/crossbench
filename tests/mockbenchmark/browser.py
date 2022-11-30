@@ -3,15 +3,17 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-import abc
 
+import abc
 import pathlib
 from typing import List, Optional, Tuple, Type
 
-import crossbench as cb
-from crossbench import cli
-from crossbench import flags
+import crossbench
+import crossbench.browsers
 from crossbench import helper
+
+#TODO: fix imports
+cb = crossbench
 
 
 class MockBrowser(cb.browsers.Browser, metaclass=abc.ABCMeta):
@@ -41,9 +43,9 @@ class MockBrowser(cb.browsers.Browser, metaclass=abc.ABCMeta):
 
   def __init__(self,
                label: str,
-               path: Optional[pathlib.Path] = None,
-               browser_name: str = "",
+               path: Optional[pathlib.Path],
                *args,
+               browser_name: str = "",
                **kwargs):
     assert browser_name, "Mock browser needs a name / type"
     assert self.APP_PATH
@@ -57,7 +59,9 @@ class MockBrowser(cb.browsers.Browser, metaclass=abc.ABCMeta):
     self.run_js_side_effect: List[str] = []
     self.did_run: bool = False
     self.clear_cache_dir: bool = False
-    self.js_flags = self.flags.js_flags
+    chrome_flags = self.flags
+    assert isinstance(chrome_flags, cb.flags.ChromeFlags)
+    self.js_flags = chrome_flags.js_flags  # pylint: disable=no-member
 
   def clear_cache(self, runner: cb.runner.Runner):
     pass
@@ -103,8 +107,8 @@ class MockChromeBrowser(MockBrowser, metaclass=abc.ABCMeta):
 
   def __init__(self,
                label: str,
-               path: Optional[pathlib.Path] = None,
                *args,
+               path: Optional[pathlib.Path] = None,
                **kwargs):
     super().__init__(label, path, browser_name="chrome", *args, **kwargs)
 
@@ -152,8 +156,8 @@ class MockEdgeBrowser(MockBrowser, metaclass=abc.ABCMeta):
 
   def __init__(self,
                label: str,
-               path: Optional[pathlib.Path] = None,
                *args,
+               path: Optional[pathlib.Path] = None,
                **kwargs):
     super().__init__(label, path, browser_name="edge", *args, **kwargs)
 
@@ -201,8 +205,8 @@ class MockSafariBrowser(MockBrowser, metaclass=abc.ABCMeta):
 
   def __init__(self,
                label: str,
-               path: Optional[pathlib.Path] = None,
                *args,
+               path: Optional[pathlib.Path] = None,
                **kwargs):
     super().__init__(label, path, browser_name="safari", *args, **kwargs)
 
@@ -213,7 +217,7 @@ class MockSafari(MockSafariBrowser):
   elif helper.platform.is_win:
     APP_PATH = APP_ROOT / "Unsupported/Safari.exe"
   else:
-    APP_PATH = pathlib.Path('/unsupported-platform/Safari')
+    APP_PATH = pathlib.Path("/unsupported-platform/Safari")
 
 
 class MockSafariTechnologyPreview(MockSafariBrowser):
@@ -222,15 +226,15 @@ class MockSafariTechnologyPreview(MockSafariBrowser):
   elif helper.platform.is_win:
     APP_PATH = APP_ROOT / "Unsupported/Safari Technology Preview.exe"
   else:
-    APP_PATH = pathlib.Path('/unsupported-platform/Safari Technology Preview')
+    APP_PATH = pathlib.Path("/unsupported-platform/Safari Technology Preview")
 
 
 class MockFirefoxBrowser(MockBrowser, metaclass=abc.ABCMeta):
 
   def __init__(self,
                label: str,
-               path: Optional[pathlib.Path] = None,
                *args,
+               path: Optional[pathlib.Path] = None,
                **kwargs):
     super().__init__(label, path, browser_name="firefox", *args, **kwargs)
 

@@ -6,17 +6,19 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Sequence, cast
 
-import crossbench as cb
-import crossbench.runner
-import crossbench.env
-from crossbench.benchmarks import loading
+import pytest
 
+import crossbench
+import crossbench.env
+import crossbench.runner
+from crossbench.benchmarks import loading
 from tests.benchmarks import helper
 
-import sys
-import pytest
+#TODO: fix imports
+cb = crossbench
 
 
 class TestPageLoadBenchmark(helper.SubStoryTestCase):
@@ -25,10 +27,10 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
   def benchmark_cls(self):
     return loading.PageLoadBenchmark
 
-  def story_filter(self, names: Sequence[str],
+  def story_filter(self, patterns: Sequence[str],
                    **kwargs) -> loading.LoadingPageFilter:
     return cast(loading.LoadingPageFilter,
-                super().story_filter(names, **kwargs))
+                super().story_filter(patterns, **kwargs))
 
   def test_default_stories(self):
     stories = self.story_filter(["all"]).stories
@@ -51,7 +53,7 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
   def test_filter_by_name_with_duration(self):
     pages = loading.PAGE_LIST
     filtered_pages = self.story_filter([pages[0].name, pages[1].name,
-                                        '1001']).stories
+                                        "1001"]).stories
     self.assertListEqual(filtered_pages, [pages[0], pages[1]])
     self.assertEqual(filtered_pages[0].duration, pages[0].duration)
     self.assertEqual(filtered_pages[1].duration, 1001)

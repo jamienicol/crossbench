@@ -19,8 +19,8 @@ class JetStream2Test(helper.PressBaseBenchmarkTestCase):
     return bm.jetstream.JetStream2Benchmark
 
   def test_run(self):
-    stories = bm.jetstream.JetStream2Story.from_names(['WSL'])
-    example_story_data = {'firstIteration': 1, 'average': 0.1, 'worst4': 1.1}
+    stories = bm.jetstream.JetStream2Story.from_names(["WSL"])
+    example_story_data = {"firstIteration": 1, "average": 0.1, "worst4": 1.1}
     jetstream_probe_results = {
         story.name: example_story_data for story in stories
     }

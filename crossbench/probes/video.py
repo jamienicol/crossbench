@@ -6,20 +6,23 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import shutil
 import subprocess
 import tempfile
-import pathlib
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
-import crossbench as cb
-if TYPE_CHECKING:
-  import crossbench.runner
-  import crossbench.env
-
-from crossbench.probes import base
-from crossbench import helper
+import crossbench
 import crossbench.stories
+from crossbench import helper
+from crossbench.probes import base
+
+#TODO: fix imports
+cb = crossbench
+
+if TYPE_CHECKING:
+  import crossbench.env
+  import crossbench.runner
 
 
 class VideoProbe(base.Probe):
@@ -78,7 +81,8 @@ class VideoProbe(base.Probe):
       cmd = self._record_cmd(browser.x, browser.y, browser.width,
                              browser.height)
       self._recorder_log_file = self.results_file.with_suffix(
-          ".recorder.log").open("w")
+          ".recorder.log").open(
+              "w", encoding="utf-8")
       self._record_process = self.browser_platform.popen(
           *cmd,
           stdin=subprocess.PIPE,
@@ -90,7 +94,7 @@ class VideoProbe(base.Probe):
 
     def _record_cmd(self, x, y, width, height):
       if self.browser_platform.is_linux:
-        env_display = os.environ.get('DISPLAY', ":0.0")
+        env_display = os.environ.get("DISPLAY", ":0.0")
         return ("ffmpeg", "-hide_banner", "-video_size", f"{width}x{height}",
                 "-f", "x11grab", "-framerate", "60", "-i",
                 f"{env_display}+{x},{y}", self.results_file)

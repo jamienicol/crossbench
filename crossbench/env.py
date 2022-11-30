@@ -7,17 +7,19 @@ from __future__ import annotations
 import datetime as dt
 import enum
 import logging
-import shutil
 from typing import TYPE_CHECKING, Iterable, List, Optional, Union
 
 import dataclasses
 
-import crossbench as cb
+import crossbench
+from crossbench import helper
+
+#TODO: fix imports
+cb = crossbench
+
 if TYPE_CHECKING:
   from crossbench import runner
   from crossbench import probes
-
-from crossbench import helper
 
 
 def merge_bool(name: str, left: Optional[bool],
@@ -55,17 +57,17 @@ def merge_number_min(name: str, left: Optional[NumberT],
 
 @dataclasses.dataclass(frozen=True)
 class HostEnvironmentConfig:
-  Ignore = None
+  IGNORE = None
 
-  disk_min_free_space_gib: Optional[float] = Ignore
-  power_use_battery: Optional[bool] = Ignore
-  screen_brightness_percent: Optional[int] = Ignore
-  cpu_max_usage_percent: Optional[float] = Ignore
-  cpu_min_relative_speed: Optional[float] = Ignore
-  system_allow_monitoring: Optional[bool] = Ignore
-  browser_allow_existing_process: Optional[bool] = Ignore
-  browser_is_headless: Optional[bool] = Ignore
-  require_probes: Optional[bool] = Ignore
+  disk_min_free_space_gib: Optional[float] = IGNORE
+  power_use_battery: Optional[bool] = IGNORE
+  screen_brightness_percent: Optional[int] = IGNORE
+  cpu_max_usage_percent: Optional[float] = IGNORE
+  cpu_min_relative_speed: Optional[float] = IGNORE
+  system_allow_monitoring: Optional[bool] = IGNORE
+  browser_allow_existing_process: Optional[bool] = IGNORE
+  browser_is_headless: Optional[bool] = IGNORE
+  require_probes: Optional[bool] = IGNORE
 
   def merge(self, other: HostEnvironmentConfig) -> HostEnvironmentConfig:
     mergers = {
@@ -171,10 +173,10 @@ class HostEnvironment:
     if self._validation_mode == ValidationMode.SKIP:
       logging.debug("Skipped Runner/Host environment warning: %s", message)
       return
-    elif self._validation_mode == ValidationMode.WARN:
+    if self._validation_mode == ValidationMode.WARN:
       logging.warning(message)
       return
-    elif self._validation_mode == ValidationMode.THROW:
+    if self._validation_mode == ValidationMode.THROW:
       pass
     elif self._validation_mode == ValidationMode.PROMPT:
       result = input(f"{helper.TTYColor.RED}{message} Continue?"
@@ -208,7 +210,7 @@ class HostEnvironment:
     except helper.SubprocessError as e:
       self.handle_warning(
           "Could not disable go/crowdstrike-falcon monitor which can cause"
-          " high background CPU usage.")
+          f" high background CPU usage: {e}")
       return
     if not is_disabled:
       self.handle_warning(
@@ -219,7 +221,7 @@ class HostEnvironment:
 
   def _check_disk_space(self):
     limit = self._config.disk_min_free_space_gib
-    if limit is HostEnvironmentConfig.Ignore:
+    if limit is HostEnvironmentConfig.IGNORE:
       return
     # Check the remaining disk space on the FS where we write the results.
     usage = self._platform.disk_usage(self._runner.out_dir)
@@ -230,7 +232,7 @@ class HostEnvironment:
 
   def _check_power(self):
     use_battery = self._config.power_use_battery
-    if use_battery is HostEnvironmentConfig.Ignore:
+    if use_battery is HostEnvironmentConfig.IGNORE:
       return
     battery_probes: List[probes.Probe] = []
     # Certain probes may require battery power:
@@ -238,7 +240,7 @@ class HostEnvironment:
       if probe.BATTERY_ONLY:
         battery_probes.append(probe)
     if not use_battery and battery_probes:
-      probes_str = ','.join(probe.name for probe in battery_probes)
+      probes_str = ",".join(probe.name for probe in battery_probes)
       self.handle_warning("Requested battery_power=False, "
                           f"but probes={probes_str} require battery power.")
     sys_use_battery = self._platform.is_battery_powered
@@ -249,7 +251,7 @@ class HostEnvironment:
 
   def _check_cpu_usage(self):
     max_cpu_usage = self._config.cpu_max_usage_percent
-    if max_cpu_usage is HostEnvironmentConfig.Ignore:
+    if max_cpu_usage is HostEnvironmentConfig.IGNORE:
       return
     cpu_usage_percent = round(100 * self._platform.cpu_usage(), 1)
     if cpu_usage_percent > max_cpu_usage:
@@ -258,7 +260,7 @@ class HostEnvironment:
 
   def _check_cpu_temperature(self):
     min_relative_speed = self._config.cpu_min_relative_speed
-    if min_relative_speed is HostEnvironmentConfig.Ignore:
+    if min_relative_speed is HostEnvironmentConfig.IGNORE:
       return
     cpu_speed = self._platform.get_relative_cpu_speed()
     if cpu_speed < min_relative_speed:
@@ -295,7 +297,7 @@ class HostEnvironment:
 
   def _check_screen_brightness(self):
     brightness = self._config.screen_brightness_percent
-    if brightness is HostEnvironmentConfig.Ignore:
+    if brightness is HostEnvironmentConfig.IGNORE:
       return
     assert 0 <= brightness <= 100, f"Invalid brightness={brightness}"
     self._platform.set_main_display_brightness(brightness)
@@ -306,7 +308,7 @@ class HostEnvironment:
 
   def _check_headless(self):
     requested_headless = self._config.browser_is_headless
-    if requested_headless is HostEnvironmentConfig.Ignore:
+    if requested_headless is HostEnvironmentConfig.IGNORE:
       return
     if self._platform.is_linux and not requested_headless:
       # Check that the system can run browsers with a UI.
@@ -329,7 +331,7 @@ class HostEnvironment:
         raise ValidationError(
             f"Probe='{probe.NAME}' validation failed: {e}") from e
     require_probes = self._config.require_probes
-    if require_probes is HostEnvironmentConfig.Ignore:
+    if require_probes is HostEnvironmentConfig.IGNORE:
       return
     if self._config.require_probes and not self._runner.probes:
       self.handle_warning("No probes specified.")
@@ -341,8 +343,9 @@ class HostEnvironment:
     results = [path for path in results_dir.iterdir() if path.is_dir()]
     num_results = len(results)
     if num_results > 20:
-      logging.warning(f"Found {num_results} existing crossbench results. "
-                      f"Consider cleaning stale results in '{results_dir}'")
+      logging.warning(
+          "Found %d existing crossbench results. "
+          "Consider cleaning stale results in '%s'", num_results, results_dir)
 
   def setup(self):
     self.validate()

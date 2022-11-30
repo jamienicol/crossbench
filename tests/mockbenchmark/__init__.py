@@ -18,7 +18,7 @@ from . import browser
 
 FlagsInitialDataType = cb.flags.Flags.InitialDataType
 
-GiB = 1014**3
+GIB = 1014**3
 
 ActivePlatformClass: Type[cb.helper.Platform] = type(cb.helper.platform)
 
@@ -33,8 +33,9 @@ class MockPlatform(ActivePlatformClass):
     return self._is_battery_powered
 
   def disk_usage(self, path: pathlib.Path):
+    # pylint: disable=protected-access
     return psutil._common.sdiskusage(
-        total=GiB * 100, used=20 * GiB, free=80 * GiB, percent=20)
+        total=GIB * 100, used=20 * GIB, free=80 * GIB, percent=20)
 
   def cpu_usage(self):
     return 0.1
@@ -45,7 +46,7 @@ class MockPlatform(ActivePlatformClass):
   def sleep(self, duration):
     pass
 
-  def processes(self, attrs=[]):
+  def processes(self, attrs=()):
     return []
 
   def process_children(self, parent_pid: int, recursive=False):
@@ -67,6 +68,7 @@ class MockBenchmark(cb.benchmarks.base.SubStoryBenchmark):
 
 
 class MockCLI(cli.CrossBenchCLI):
+  runner: cb.runner.Runner
 
   def _get_runner(self, args, benchmark, env_config, env_validation_mode):
     if not args.out_dir:

@@ -17,15 +17,15 @@ class WaitTestCase(unittest.TestCase):
 
   def test_invalid_wait_ranges(self):
     with self.assertRaises(AssertionError):
-      helper.wait_range(min=-1)
+      helper.WaitRange(min=-1)
     with self.assertRaises(AssertionError):
-      helper.wait_range(timeout=0)
+      helper.WaitRange(timeout=0)
     with self.assertRaises(AssertionError):
-      helper.wait_range(factor=0.2)
+      helper.WaitRange(factor=0.2)
 
   def test_range(self):
     durations = list(
-        helper.wait_range(min=1, max=16, factor=2, max_iterations=5))
+        helper.WaitRange(min=1, max=16, factor=2, max_iterations=5))
     self.assertListEqual(durations, [
         dt.timedelta(seconds=1),
         dt.timedelta(seconds=2),
@@ -36,7 +36,7 @@ class WaitTestCase(unittest.TestCase):
 
   def test_range_extended(self):
     durations = list(
-        helper.wait_range(min=1, max=16, factor=2, max_iterations=5 + 4))
+        helper.WaitRange(min=1, max=16, factor=2, max_iterations=5 + 4))
     self.assertListEqual(
         durations,
         [
@@ -56,7 +56,7 @@ class WaitTestCase(unittest.TestCase):
     data = []
     delta = 0.0005
     for time_spent, time_left in helper.wait_with_backoff(
-        helper.wait_range(min=0.01, max=0.05)):
+        helper.WaitRange(min=0.01, max=0.05)):
       data.append((time_spent, time_left))
       if len(data) == 2:
         break
@@ -120,19 +120,19 @@ class FileSizeTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     self.setUpPyfakefs()
 
   def test_empty(self):
-    test_file = pathlib.Path('test.txt')
+    test_file = pathlib.Path("test.txt")
     test_file.touch()
     size = helper.get_file_size(test_file)
     self.assertEqual(size, "0.00 B")
 
   def test_bytes(self):
-    test_file = pathlib.Path('test.txt')
+    test_file = pathlib.Path("test.txt")
     self.fs.create_file(test_file, st_size=501)
     size = helper.get_file_size(test_file)
     self.assertEqual(size, "501.00 B")
 
   def test_kib(self):
-    test_file = pathlib.Path('test.txt')
+    test_file = pathlib.Path("test.txt")
     self.fs.create_file(test_file, st_size=1024 * 2)
     size = helper.get_file_size(test_file)
     self.assertEqual(size, "2.00 KiB")
@@ -149,8 +149,7 @@ class GroupByTestCase(unittest.TestCase):
     self.assertDictEqual({"1": [1, 1, 1], "2": [2, 2], "3": [3]}, grouped)
 
   def test_custom_key(self):
-    grouped = helper.group_by([1.1, 1.2, 1.3, 2.1, 2.2, 3.1],
-                              key=lambda f: int(f))
+    grouped = helper.group_by([1.1, 1.2, 1.3, 2.1, 2.2, 3.1], key=int)
     self.assertDictEqual({1: [1.1, 1.2, 1.3], 2: [2.1, 2.2], 3: [3.1]}, grouped)
 
   def test_custom_value(self):
@@ -182,20 +181,20 @@ class ConcatFilesTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     self.platform = helper.platform
 
   def test_single(self):
-    input = pathlib.Path('input')
-    self.fs.create_file(input, contents="input content")
-    output = pathlib.Path('ouput')
-    self.platform.concat_files([input], output)
-    self.assertEqual(output.read_text(), "input content")
+    input_file = pathlib.Path("input")
+    self.fs.create_file(input_file, contents="input content")
+    output = pathlib.Path("ouput")
+    self.platform.concat_files([input_file], output)
+    self.assertEqual(output.read_text(encoding="utf-8"), "input content")
 
   def test_multiple(self):
-    input_a = pathlib.Path('input_1')
+    input_a = pathlib.Path("input_1")
     self.fs.create_file(input_a, contents="AAA")
-    input_b = pathlib.Path('input_2')
+    input_b = pathlib.Path("input_2")
     self.fs.create_file(input_b, contents="BBB")
-    output = pathlib.Path('ouput')
+    output = pathlib.Path("ouput")
     self.platform.concat_files([input_a, input_b], output)
-    self.assertEqual(output.read_text(), "AAABBB")
+    self.assertEqual(output.read_text(encoding="utf-8"), "AAABBB")
 
 
 class PlatformTestCase(unittest.TestCase):
@@ -298,17 +297,17 @@ class MacOSPlatformHelperTestCase(unittest.TestCase):
   def test_search_binary_not_found(self):
     with self.assertRaises(ValueError):
       self.platform.search_binary(pathlib.Path("Invalid App Name"))
-    bin = self.platform.search_binary(pathlib.Path("Non Existant App.app"))
-    self.assertIsNone(bin)
+    binary = self.platform.search_binary(pathlib.Path("Non-existent App.app"))
+    self.assertIsNone(binary)
 
   def test_search_binary(self):
-    bin = self.platform.search_binary(pathlib.Path("Safari.app"))
-    self.assertTrue(bin and bin.is_file())
+    binary = self.platform.search_binary(pathlib.Path("Safari.app"))
+    self.assertTrue(binary and binary.is_file())
 
   def test_search_app(self):
-    bin = self.platform.search_app(pathlib.Path("Safari.app"))
-    self.assertTrue(bin and bin.exists())
-    self.assertTrue(bin and bin.is_dir())
+    binary = self.platform.search_app(pathlib.Path("Safari.app"))
+    self.assertTrue(binary and binary.exists())
+    self.assertTrue(binary and binary.is_dir())
 
   def test_short_name(self):
     self.assertEqual(self.platform.short_name, "macos")

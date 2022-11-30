@@ -8,6 +8,8 @@ from abc import ABC, ABCMeta, abstractmethod
 from typing import List, Sequence, TYPE_CHECKING, Tuple, Type, TypeVar
 
 import crossbench as cb
+
+
 if TYPE_CHECKING:
   import crossbench.probes
 
@@ -45,8 +47,8 @@ class Story(ABC):
     return f"Story(name={self.name})"
 
 
-TPressBenchmarkStory = TypeVar(
-    "TPressBenchmarkStory", bound="PressBenchmarkStory")
+PressBenchmarkStoryT = TypeVar(
+    "PressBenchmarkStoryT", bound="PressBenchmarkStory")
 
 
 class PressBenchmarkStory(Story, metaclass=ABCMeta):
@@ -61,16 +63,16 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     return cls.SUBSTORIES
 
   @classmethod
-  def from_names(cls: Type[TPressBenchmarkStory],
+  def from_names(cls: Type[PressBenchmarkStoryT],
                  substories: Sequence[str],
                  separate: bool = False,
-                 is_live: bool = False) -> List[TPressBenchmarkStory]:
+                 is_live: bool = False) -> List[PressBenchmarkStoryT]:
     if is_live:
       return cls.live(substories=substories, separate=separate)
     return cls.local(substories=substories, separate=separate)
 
   @classmethod
-  def default(cls: Type[TPressBenchmarkStory],
+  def default(cls: Type[PressBenchmarkStoryT],
               is_live: bool = True,
               separate: bool = False):
     if is_live:
@@ -78,35 +80,47 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     return cls.local(cls.story_names(), separate)
 
   @classmethod
-  def local(cls: Type[TPressBenchmarkStory],
+  def local(cls: Type[PressBenchmarkStoryT],
             substories: Sequence[str],
             separate: bool = False,
-            **kwargs) -> List[TPressBenchmarkStory]:
+            **kwargs) -> List[PressBenchmarkStoryT]:
     if not substories:
       raise ValueError("No substories provided")
     if separate:
       return [
-          cls(is_live=False, substories=[substory], **kwargs)  # pytype: disable=not-instantiable
-          for substory in substories
+          cls(  # pytype: disable=not-instantiable
+              is_live=False,
+              substories=[substory],
+              **kwargs) for substory in substories
       ]
-    else:
-      return [cls(is_live=False, substories=substories, **kwargs)]  # pytype: disable=not-instantiable
+    return [
+        cls(  # pytype: disable=not-instantiable
+            is_live=False,
+            substories=substories,
+            **kwargs)
+    ]
 
 
   @classmethod
-  def live(cls: Type[TPressBenchmarkStory],
+  def live(cls: Type[PressBenchmarkStoryT],
            substories: Sequence[str],
            separate: bool = False,
-           **kwargs) -> List[TPressBenchmarkStory]:
+           **kwargs) -> List[PressBenchmarkStoryT]:
     if not substories:
       raise ValueError("No substories provided")
     if separate:
       return [
-          cls(is_live=True, substories=[substory], **kwargs)  # pytype: disable=not-instantiable
-          for substory in substories
+          cls(  # pytype: disable=not-instantiable
+              is_live=True,
+              substories=[substory],
+              **kwargs) for substory in substories
       ]
-    else:
-      return [cls(is_live=True, substories=substories, **kwargs)]  # pytype: disable=not-instantiable
+    return [
+        cls(  # pytype: disable=not-instantiable
+            is_live=True,
+            substories=substories,
+            **kwargs)
+    ]
 
   _substories: Sequence[str]
   is_live : bool

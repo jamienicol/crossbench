@@ -3,16 +3,19 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+
 import collections
 import inspect
 import pathlib
 import textwrap
-import tabulate
+from typing import (TYPE_CHECKING, Any, Callable, Dict, List, Optional,
+                    Sequence, Type, Union)
 
-from typing import Any, Callable, Dict, List, Optional, Sequence, Type, TYPE_CHECKING, Union
-
-import crossbench as cb
+import crossbench
 import crossbench.exception
+
+# TODO: clean up imports
+cb = crossbench
 
 if TYPE_CHECKING:
   import crossbench.probes
@@ -23,15 +26,16 @@ ArgParserType = Union[Callable[[Any], Any], Type]
 
 class _ConfigArg:
 
-  def __init__(self,
-               parser: ConfigParser,
-               name: str,
-               type: Optional[ArgParserType],
-               default: Any = None,
-               choices: Optional[Sequence[Any]] = None,
-               help: Optional[str] = None,
-               is_list: bool = False,
-               required: bool = False):
+  def __init__(
+      self,
+      parser: ConfigParser,
+      name: str,
+      type: Optional[ArgParserType],  # pylint: disable=redefined-builtin
+      default: Any = None,
+      choices: Optional[Sequence[Any]] = None,
+      help: Optional[str] = None,  # pylint: disable=redefined-builtin
+      is_list: bool = False,
+      required: bool = False):
     self.parser = parser
     self.name = name
     self.type = type
@@ -77,7 +81,7 @@ class _ConfigArg:
       items.append(self.help)
     if self.type is None:
       if self.is_list:
-        items.append(f"type    = list")
+        items.append("type    = list")
     else:
       if self.is_list:
         items.append(f"type    = List[{self.type}]")
@@ -89,7 +93,7 @@ class _ConfigArg:
     else:
       if self.is_list:
         if not self.default:
-          items.append(f"default = []")
+          items.append("default = []")
         else:
           items.append(f"default = {','.join(map(str, self.default))}")
       else:
@@ -122,7 +126,7 @@ class _ConfigArg:
   def parse_data(self, data: Any) -> Any:
     if self.type is None:
       return data
-    elif self.type is bool:
+    if self.type is bool:
       if not isinstance(data, bool):
         raise ValueError(f"Expected bool, but got {data}")
     elif self.type in (float, int):
@@ -149,16 +153,17 @@ class ConfigParser:
     self.title = title
     assert title, "No title provided"
     self._cls = cls
-    self._args: Dict[str, _ConfigArg] = dict()
+    self._args: Dict[str, _ConfigArg] = {}
 
-  def add_argument(self,
-                   name: str,
-                   type: Optional[ArgParserType],
-                   default: Any = None,
-                   choices: Optional[Sequence[Any]] = None,
-                   help: Optional[str] = None,
-                   is_list: bool = False,
-                   required: bool = False):
+  def add_argument(  # pylint: disable=redefined-builtin
+      self,
+      name: str,
+      type: Optional[ArgParserType],
+      default: Any = None,
+      choices: Optional[Sequence[Any]] = None,
+      help: Optional[str] = None,
+      is_list: bool = False,
+      required: bool = False):
     assert name not in self._args, f"Duplicate argument: {name}"
     self._args[name] = _ConfigArg(self, name, type, default, choices, help,
                                   is_list, required)

@@ -3,24 +3,27 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+
 import logging
 import multiprocessing
 import os
 import pathlib
-
 import re
 import subprocess
 from typing import TYPE_CHECKING, Iterable, List, Optional
 
-import crossbench as cb
-if TYPE_CHECKING:
-  import crossbench.env
-
-import crossbench.flags
+import crossbench
+import crossbench.config
 import crossbench.exception
+import crossbench.flags
 from crossbench import helper
 from crossbench.probes import base
-import crossbench.config
+
+#TODO: fix imports
+cb = crossbench
+
+if TYPE_CHECKING:
+  import crossbench.env
 
 
 class V8LogProbe(base.Probe):
@@ -122,8 +125,9 @@ class V8LogProbe(base.Probe):
     finder = V8ToolsFinder(self)
     if not finder.d8_binary or not finder.tick_processor or not log_files:
       return []
-    logging.info("PROBE v8.log: generating profview json data "
-                 f"for {len(log_files)} v8.log files.")
+    logging.info(
+        "PROBE v8.log: generating profview json data "
+        "for %d v8.log files.", len(log_files))
     if self.browser_platform.is_remote:
       # Use loop, as we cannot easily serialize the remote platform.
       return [
@@ -171,7 +175,7 @@ def _process_profview_json(d8_binary: pathlib.Path,
   # The tick-processor scripts expect D8_PATH to point to the parent dir.
   env["D8_PATH"] = str(d8_binary.parent.resolve())
   result_json = log_file.with_suffix(".profview.json")
-  with result_json.open("w") as f:
+  with result_json.open("w", encoding="utf-8") as f:
     helper.platform.sh(
         tick_processor,
         "--preprocess",

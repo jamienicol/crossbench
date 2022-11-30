@@ -10,15 +10,19 @@ import csv
 import pathlib
 from typing import TYPE_CHECKING, Optional, Sequence, Tuple, List
 
-import crossbench as cb
-if TYPE_CHECKING:
-  import crossbench.runner
+import crossbench
 
 import crossbench.probes.json as probes_json
 import crossbench.probes.helper as probes_helper
 import crossbench.stories
 from crossbench import helper
 import crossbench.benchmarks
+
+#TODO: fix imports
+cb = crossbench
+
+if TYPE_CHECKING:
+  import crossbench.runner
 
 
 def _probe_remove_tests_segments(path: Tuple[str, ...]):
@@ -63,7 +67,7 @@ class Speedometer2Probe(probes_json.JsonResultProbe):
     merged_json_path = group.get_probe_results_file(self)
     merged_csv_path = merged_json_path.with_suffix(".csv")
     assert not merged_csv_path.exists()
-    with merged_csv_path.open("w", newline='', encoding='utf-8') as f:
+    with merged_csv_path.open("w", newline="", encoding="utf-8") as f:
       csv.writer(f, delimiter="\t").writerows(merged_table)
 
 
@@ -101,7 +105,7 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
       actions.wait_js_condition(
           """
         return window.Suites !== undefined;
-      """, helper.wait_range(0.5, 10))
+      """, helper.WaitRange(0.5, 10))
       if self._substories != self.SUBSTORIES:
         actions.js(
             """
@@ -135,8 +139,7 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
       actions.wait(1 * len(self._substories))
       actions.wait_js_condition(
           "return window.testDone",
-          helper.wait_range(1,
-                            12 + 4 * len(self._substories) * self.iterations))
+          helper.WaitRange(1, 12 + 4 * len(self._substories) * self.iterations))
 
 
 class Speedometer20Story(Speedometer2Story):

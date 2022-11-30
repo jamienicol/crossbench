@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import sys
-import traceback
+import traceback as tb
 from types import TracebackType
 from typing import Dict, List, Optional, Tuple, Type
 
@@ -37,6 +37,11 @@ class MultiException(ValueError):
 
 
 class ExceptionAnnotationScope:
+  """Used in a with-scope to annotate exceptions with a TInfoStack.
+
+  Used via the capture/annotate/info helper methods on
+  ExceptionAnnotator.
+  """
 
   def __init__(self,
                annotator: ExceptionAnnotator,
@@ -150,7 +155,7 @@ class ExceptionAnnotator:
       self._exceptions.append(merged_entry)
 
   def append(self, exception: BaseException):
-    tb: str = traceback.format_exc()
+    traceback: str = tb.format_exc()
     logging.debug("Intermediate Exception: %s", exception)
     logging.debug(tb)
     if isinstance(exception, KeyboardInterrupt):
@@ -163,9 +168,9 @@ class ExceptionAnnotator:
       stack = self.info_stack
       if exception in self._pending_exceptions:
         stack = self._pending_exceptions[exception]
-      self._exceptions.append(Entry(tb, exception, stack))
+      self._exceptions.append(Entry(traceback, exception, stack))
     if self.throw:
-      raise
+      raise  # pylint: disable=misplaced-bare-raise
 
   def log(self):
     if self.is_success:
@@ -182,11 +187,12 @@ class ExceptionAnnotator:
       if info_stack:
         info = "Info: "
         joiner = "\n" + (" " * (len(info) - 2)) + "> "
-        logging.error(f"{info}{joiner.join(info_stack)}")
+        message = f"{info}{joiner.join(info_stack)}"
+        logging.error(message)
       for entry in entries:
         logging.error("- " * 40)
-        logging.error(f"Type: {entry.exception.__class__.__name__}:")
-        logging.error(f"      {entry.exception}")
+        logging.error("Type: %s:", entry.exception.__class__.__name__)
+        logging.error("      %s", entry.exception)
       logging.error("-" * 80)
 
   def to_json(self) -> list:
