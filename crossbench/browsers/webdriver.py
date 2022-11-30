@@ -148,6 +148,8 @@ class RemoteWebDriver(WebdriverMixin, Browser):
   def __init__(self, label: str, driver: webdriver.Remote):
     super().__init__(label=label, path=None, type="remote")
     self._driver = driver
+    self.version : str = driver.capabilities['browserVersion']
+    self.major_version: int = int(self.version.split(".")[0])
 
   def _check_driver_version(self):
     raise NotImplementedError()
