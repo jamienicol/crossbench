@@ -93,7 +93,7 @@ class ProfilingProbe(base.Probe):
 
   def is_compatible(self, browser):
     if browser.platform.is_linux:
-      return browser.type == "chrome"
+      return isinstance(browser, cb.browsers.Chromium)
     if browser.platform.is_macos:
       return True
     return False
@@ -113,8 +113,8 @@ class ProfilingProbe(base.Probe):
   def attach(self, browser: cb.browsers.Browser):
     super().attach(browser)
     if self.browser_platform.is_linux:
-      assert isinstance(browser, cb.browsers.Chrome), (
-          f"Expected Chrome, found {type(browser)}.")
+      assert isinstance(browser, cb.browsers.Chromium), (
+          f"Expected Chromium-based browser, found {type(browser)}.")
       self._attach_linux(browser)
 
   def pre_check(self, env: cb.env.HostEnvironment):
@@ -136,7 +136,7 @@ class ProfilingProbe(base.Probe):
       env.handle_warning(f"Probe={self.NAME} cannot merge data over multiple "
                          f"repetitions={env.runner.repetitions}.")
 
-  def _attach_linux(self, browser: cb.browsers.Chrome):
+  def _attach_linux(self, browser: cb.browsers.Chromium):
     if self._sample_js:
       browser.js_flags.update(self.JS_FLAGS_PERF)
       if self._expose_v8_interpreted_frames:

@@ -41,7 +41,7 @@ class TracingProbe(base.Probe):
         f"Invalid trace output output_format={self._format}")
 
   def is_compatible(self, browser: cb.browsers.Browser):
-    return browser.type == "chrome"
+    return isinstance(browser, cb.browsers.Chromium)
 
   def attach(self, browser: cb.browsers.Browser):
     super().attach(browser)

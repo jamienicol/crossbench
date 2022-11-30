@@ -271,8 +271,8 @@ class BrowserConfig:
       if not value:
         continue
       for browser in self._variants:
-        if not isinstance(browser, cb.browsers.Chrome):
-          raise ValueError(f"Used chrome-specific flags {flag_name} "
+        if not isinstance(browser, cb.browsers.Chromium):
+          raise ValueError(f"Used chrome/chromium-specific flags {flag_name} "
                            f"for non-chrome {browser.short_name}.\n"
                            "Use --browser-config for complex variants.")
     if not args.other_browser_args:
@@ -290,7 +290,7 @@ class BrowserConfig:
     browser_cls = self._get_browser_cls_from_path(path)
     flags = browser_cls.default_flags()
 
-    if issubclass(browser_cls, cb.browsers.Chrome):
+    if issubclass(browser_cls, cb.browsers.Chromium):
       assert isinstance(flags, cb.flags.ChromeFlags)
       self._init_chrome_flags(args, flags)
 

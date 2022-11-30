@@ -26,7 +26,7 @@ class V8RCSProbe(base.Probe):
   NAME = "v8.rcs"
 
   def is_compatible(self, browser):
-    return browser.type == "chrome"
+    return isinstance(browser, cb.browsers.Chromium)
 
   def attach(self, browser):
     super().attach(browser)

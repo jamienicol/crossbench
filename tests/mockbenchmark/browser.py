@@ -103,7 +103,15 @@ else:
   APP_ROOT = pathlib.Path("/usr/bin")
 
 
-class MockChromeBrowser(MockBrowser, metaclass=abc.ABCMeta):
+class MockChromiumBrowser(MockBrowser, metaclass=abc.ABCMeta):
+  pass
+
+
+# Inject MockBrowser into the browser hierarchy for easier testing.
+cb.browsers.Chromium.register(MockChromiumBrowser)
+
+
+class MockChromeBrowser(MockChromiumBrowser, metaclass=abc.ABCMeta):
 
   def __init__(self,
                label: str,
@@ -113,6 +121,10 @@ class MockChromeBrowser(MockBrowser, metaclass=abc.ABCMeta):
     super().__init__(label, path, browser_name="chrome", *args, **kwargs)
 
 
+cb.browsers.Chrome.register(MockChromeBrowser)
+assert (issubclass(MockChromeBrowser, cb.browsers.Chrome))
+
+
 class MockChromeStable(MockChromeBrowser):
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Google Chrome.app"
@@ -120,6 +132,10 @@ class MockChromeStable(MockChromeBrowser):
     APP_PATH = APP_ROOT / "Google/Chrome/Application/chrome.exe"
   else:
     APP_PATH = APP_ROOT / "google-chrome"
+
+
+assert (issubclass(MockChromeStable, cb.browsers.Chromium))
+assert (issubclass(MockChromeStable, cb.browsers.Chrome))
 
 
 class MockChromeBeta(MockChromeBrowser):
@@ -152,7 +168,7 @@ class MockChromeCanary(MockChromeBrowser):
     APP_PATH = APP_ROOT / "google-chrome-canary"
 
 
-class MockEdgeBrowser(MockBrowser, metaclass=abc.ABCMeta):
+class MockEdgeBrowser(MockChromiumBrowser, metaclass=abc.ABCMeta):
 
   def __init__(self,
                label: str,
@@ -160,6 +176,11 @@ class MockEdgeBrowser(MockBrowser, metaclass=abc.ABCMeta):
                path: Optional[pathlib.Path] = None,
                **kwargs):
     super().__init__(label, path, browser_name="edge", *args, **kwargs)
+
+
+cb.browsers.Edge.register(MockEdgeBrowser)
+assert (issubclass(MockEdgeBrowser, cb.browsers.Chromium))
+assert (issubclass(MockEdgeBrowser, cb.browsers.Edge))
 
 
 class MockEdgeStable(MockEdgeBrowser):
@@ -211,6 +232,10 @@ class MockSafariBrowser(MockBrowser, metaclass=abc.ABCMeta):
     super().__init__(label, path, browser_name="safari", *args, **kwargs)
 
 
+cb.browsers.Safari.register(MockSafariBrowser)
+assert (issubclass(MockSafariBrowser, cb.browsers.Safari))
+
+
 class MockSafari(MockSafariBrowser):
   if helper.platform.is_macos:
     APP_PATH = APP_ROOT / "Safari.app"
@@ -237,6 +262,10 @@ class MockFirefoxBrowser(MockBrowser, metaclass=abc.ABCMeta):
                path: Optional[pathlib.Path] = None,
                **kwargs):
     super().__init__(label, path, browser_name="firefox", *args, **kwargs)
+
+
+cb.browsers.Firefox.register(MockFirefoxBrowser)
+assert (issubclass(MockFirefoxBrowser, cb.browsers.Firefox))
 
 
 class MockFirefox(MockFirefoxBrowser):

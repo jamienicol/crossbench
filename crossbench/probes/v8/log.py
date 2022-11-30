@@ -107,7 +107,7 @@ class V8LogProbe(base.Probe):
     return self._d8_binary
 
   def is_compatible(self, browser) -> bool:
-    return browser.type == "chrome"
+    return isinstance(browser, cb.browsers.Chromium)
 
   def attach(self, browser):
     super().attach(browser)

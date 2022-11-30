@@ -26,8 +26,7 @@ class V8TurbolizerProbe(base.Probe):
   NAME = "v8.turbolizer"
 
   def is_compatible(self, browser):
-    # TODO: Add is_chromium_based helper
-    return browser.type == "chrome"
+    return isinstance(browser, cb.browsers.Chromium)
 
   def attach(self, browser):
     super().attach(browser)
