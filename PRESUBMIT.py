@@ -9,7 +9,7 @@ import platform
 USE_PYTHON3 = True
 
 
-def CheckChangeOnUpload(input_api, output_api):
+def CheckChange(input_api, output_api, on_commit):
   results = []
   # Validate the vpython spec
   results += input_api.RunTests(
@@ -21,9 +21,6 @@ def CheckChangeOnUpload(input_api, output_api):
   disabled_warnings = [
       "missing-module-docstring",
       "missing-class-docstring",
-      "unused-argument",  # TODO: enable again
-      "unnecessary-pass",  # TODO: enable again
-      "assignment-from-none",
       "useless-super-delegation",
       "line-too-long",  # Annoying false-positives on URLs
       "cyclic-import",  # TODO: This is not working as expected yet
@@ -42,16 +39,25 @@ def CheckChangeOnUpload(input_api, output_api):
     env["PYTHONPATH"] = env.get("PYTHONPATH", "") + ";tests"
   else:
     env["PYTHONPATH"] = env.get("PYTHONPATH", "") + ":tests"
+  if on_commit:
+    files_to_check = [r'.*test_.*\.py$']
+  else:
+    # Only check a small subset on upload
+    files_to_check = [r'.*test_cli\.py$']
   results += input_api.canned_checks.RunUnitTestsInDirectory(
       input_api,
       output_api,
       directory='tests',
       env=env,
-      files_to_check=[r'.*test_cli\.py$'],
+      files_to_check=files_to_check,
       skip_shebang_check=True,
       run_on_python2=False)
   return results
 
 
+def CheckChangeOnUpload(input_api, output_api):
+  return CheckChange(input_api, output_api, on_commit=False)
+
+
 def CheckChangeOnCommit(input_api, output_api):
-  return CheckChangeOnUpload(input_api, output_api)
+  return CheckChange(input_api, output_api, on_commit=True)

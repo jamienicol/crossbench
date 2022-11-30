@@ -33,6 +33,7 @@ class MockPlatform(ActivePlatformClass):
     return self._is_battery_powered
 
   def disk_usage(self, path: pathlib.Path):
+    del path
     # pylint: disable=protected-access
     return psutil._common.sdiskusage(
         total=GIB * 100, used=20 * GIB, free=80 * GIB, percent=20)
@@ -44,12 +45,14 @@ class MockPlatform(ActivePlatformClass):
     return {"CPU": "20-core 3.1 GHz"}
 
   def sleep(self, duration):
-    pass
+    del duration
 
   def processes(self, attrs=()):
+    del attrs
     return []
 
   def process_children(self, parent_pid: int, recursive=False):
+    del parent_pid, recursive
     return []
 
   def foreground_process(self):

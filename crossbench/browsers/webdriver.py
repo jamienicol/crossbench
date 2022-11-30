@@ -133,7 +133,6 @@ class WebdriverMixin(Browser):
       except Exception as e:  # pylint: disable=broad-except
         logging.debug("Driver raised exception on quit: %s\n%s", e,
                       traceback.format_exc())
-        pass
       return
     except Exception as e:  # pylint: disable=broad-except
       logging.debug("Could not quit browser: %s\n%s", e, traceback.format_exc())

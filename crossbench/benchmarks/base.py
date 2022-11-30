@@ -64,6 +64,7 @@ class Benchmark(abc.ABC):
 
   @classmethod
   def kwargs_from_cli(cls, args) -> dict:
+    del args
     return {}
 
   @classmethod

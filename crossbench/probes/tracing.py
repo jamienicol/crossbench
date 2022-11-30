@@ -44,9 +44,8 @@ class TracingProbe(base.Probe):
     return isinstance(browser, cb.browsers.Chromium)
 
   def attach(self, browser: cb.browsers.Browser):
-    super().attach(browser)
     # "--trace-startup-format"
     # --trace-startup-duration=
     # --trace-startup=categories
     # v--trace-startup-file=" + file_name
-    pass
+    super().attach(browser)

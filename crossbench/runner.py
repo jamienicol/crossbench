@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+import abc
 
 import argparse
 import contextlib
@@ -289,7 +290,7 @@ class Runner:
 
 
 
-class RunGroup:
+class RunGroup(abc.ABC):
 
   def __init__(self, throw=False):
     self._exceptions = exception.Annotator(throw)
@@ -332,8 +333,9 @@ class RunGroup:
             continue
           self._merged_probe_results[probe] = results
 
+  @abc.abstractmethod
   def _merge_probe_results(self, probe: cb.probes.Probe):
-    return None
+    pass
 
 
 class RepetitionsRunGroup(RunGroup):

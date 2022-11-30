@@ -121,6 +121,7 @@ class Probe(abc.ABC):
     Returns a boolean to indicate whether this Probe can be used with the given
     Browser. Override to make browser-specific Probes.
     """
+    del browser
     return True
 
   @property
@@ -145,6 +146,7 @@ class Probe(abc.ABC):
     Part of the Checklist, make sure everything is set up correctly for a probe
     to run.
     """
+    del env
     # Ensure that the proper super methods for setting up a probe were
     # called.
     assert self.is_attached, (
@@ -158,7 +160,7 @@ class Probe(abc.ABC):
     Can be used to merge probe data from multiple repetitions of the same story.
     Return None, a result file Path (or a list of Paths)
     """
-    return None
+    del group
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup
                    ) -> Optional[ProbeResultType]:
@@ -166,7 +168,7 @@ class Probe(abc.ABC):
     Can be used to merge probe data from multiple stories for the same browser.
     Return None, a result file Path (or a list of Paths)
     """
-    return None
+    del group
 
   def merge_browsers(self, group: cb.runner.BrowsersRunGroup
                     ) -> Optional[ProbeResultType]:
@@ -174,7 +176,7 @@ class Probe(abc.ABC):
     Can be used to merge all probe data (from multiple stories and browsers.)
     Return None, a result file Path (or a list of Paths)
     """
-    return None
+    del group
 
   def get_scope(self: ProbeT, run) -> Probe.Scope[ProbeT]:
     assert self.is_attached, (
@@ -276,7 +278,7 @@ class Probe(abc.ABC):
       Called before starting the browser, typically used to set run-specific
       browser flags.
       """
-      pass
+      del run
 
     @abc.abstractmethod
     def start(self, run: cb.runner.Run):
@@ -285,7 +287,6 @@ class Probe(abc.ABC):
       This method should have as little overhead as possible. If possible,
       delegate heavy computation to the "SetUp" method.
       """
-      pass
 
     @abc.abstractmethod
     def stop(self, run: cb.runner.Run):

@@ -151,6 +151,7 @@ class Browser(abc.ABC):
     pass
 
   def clear_cache(self, runner: cb.runner.Runner):
+    del runner
     if self.clear_cache_dir and self.cache_dir and self.cache_dir.exists():
       shutil.rmtree(self.cache_dir)
 
@@ -169,7 +170,8 @@ class Browser(abc.ABC):
         self.show_url(runner, "about:blank")
         runner.wait(runner.default_wait)
 
-  def info_data_url(self, run):
+  def info_data_url(self, run: cb.runner.Run):
+    del run
     page = ("<html><head>"
             "<title>Browser Details</title>"
             "<style>"
@@ -194,6 +196,7 @@ class Browser(abc.ABC):
     return data_url
 
   def quit(self, runner: cb.runner.Runner):
+    del runner
     assert self._is_running
     try:
       self.force_quit()

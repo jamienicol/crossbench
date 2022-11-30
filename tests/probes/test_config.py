@@ -14,7 +14,6 @@ class MockProbe(Probe):
   """
   Probe DOC Text
   """
-  pass
 
 
 class CustomArgType:

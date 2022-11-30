@@ -147,7 +147,7 @@ class PowerSamplerProbe(base.Probe):
       consumption estimates from battery level are meaningful, wait until the
       battery is no longer reporting being fully charged before crossbench.
       """
-
+      del run
       logging.info("POWER SAMPLER: Waiting for non-100% battery or "
                    "initial sample to synchronize")
       while True:

@@ -39,6 +39,7 @@ NumberT = Union[float, int]
 
 def merge_number_max(name: str, left: Optional[NumberT],
                      right: Optional[NumberT]) -> Optional[NumberT]:
+  del name
   if left is None:
     return right
   if right is None:
@@ -48,6 +49,7 @@ def merge_number_max(name: str, left: Optional[NumberT],
 
 def merge_number_min(name: str, left: Optional[NumberT],
                      right: Optional[NumberT]) -> Optional[NumberT]:
+  del name
   if left is None:
     return right
   if right is None:
