@@ -487,18 +487,27 @@ class MacOSPlatform(PosixPlatform):
         dot_app_path = current
         break
       current = current.parent
-
     if not dot_app_path:
       # Most likely just a cli tool"
-      return self.sh_stdout(app_path, "--version")
+      return self.sh_stdout(app_path, "--version").strip()
 
     version_string = self.sh_stdout("mdls", "-name", "kMDItemVersion",
                                     dot_app_path).strip()
     # Filter output: 'kMDItemVersion = "14.1"' => '"14.1"'
     _, version_string = version_string.split(" = ", maxsplit=1)
-    assert version_string != "(null)", f"Didn't find app at {app_path}"
-    # Strip quotes: '"14.1"' => '14.1'
-    return version_string[1:-1]
+    if version_string != "(null)":
+      # Strip quotes: '"14.1"' => '14.1'
+      return version_string[1:-1]
+    # Backup solution with --version
+    maybe_bin_path = app_path
+    if app_path.suffix == ".app":
+      maybe_bin_path = self.search_binary(maybe_bin_path)
+    if maybe_bin_path:
+      try:
+        return self.sh_stdout(maybe_bin_path, "--version").strip()
+      except SubprocessError as e:
+        logging.debug("Could not use --version: %s", e)
+    raise ValueError(f"Could not extract app version: {app_path}")
 
   def exec_apple_script(self, script: str, quiet=False):
     if not quiet:

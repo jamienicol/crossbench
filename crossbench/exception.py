@@ -68,6 +68,7 @@ class ExceptionAnnotationScope:
       self._annotator._info_stack = self._previous_info_stack
       # False => exception not handled
       return False
+    logging.debug("Intermediate Exception: %s", traceback)
     if self._exception_types and exception_type and (
         issubclass(exception_type, MultiException) or
         issubclass(exception_type, self._exception_types)):

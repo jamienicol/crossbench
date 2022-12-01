@@ -9,6 +9,9 @@ import itertools
 import json
 import logging
 import pathlib
+import plistlib
+import re
+import shutil
 import sys
 import tempfile
 import textwrap
@@ -22,6 +25,7 @@ import crossbench
 import crossbench.benchmarks
 import crossbench.benchmarks.all
 import crossbench.browsers
+from crossbench.browsers.chrome import ChromeDownloader
 import crossbench.env
 import crossbench.exception
 import crossbench.flags
@@ -316,6 +320,7 @@ class BrowserConfig:
     if args.js_flags:
       flags.js_flags.update(args.js_flags.split(","))
 
+
   def _get_browser_path(self, path_or_identifier: str) -> pathlib.Path:
     identifier = path_or_identifier.lower()
     # We're not using a dict-based lookup here, since not all browsers are
@@ -346,6 +351,8 @@ class BrowserConfig:
       return cb.browsers.Firefox.developer_edition_path()
     if identifier in ("firefox-nightly", "ff-nightly", "ff-trunk"):
       return cb.browsers.Firefox.nightly_path()
+    if ChromeDownloader.VERSION_RE.match(identifier):
+      return ChromeDownloader.load(identifier)
     path = pathlib.Path(path_or_identifier)
     if path.exists():
       return path
@@ -642,6 +649,9 @@ class CrossBenchCLI:
         "for system default browsers or a full path. "
         "Repeat for adding multiple browsers. "
         "Defaults to 'chrome-stable'. "
+        "Use --browser=chrome-M107 to download the latest milestone, "
+        "--browser=chrome-100.0.4896.168 to download a specific version "
+        "(macos and googlers only)."
         "Cannot be used with --browser-config")
     browser_group.add_argument(
         "--browser-config",

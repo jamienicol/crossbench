@@ -40,6 +40,7 @@ FlagsInitialDataType = cb.flags.Flags.InitialDataType
 class Chromium(Browser):
   DEFAULT_FLAGS = [
       "--no-default-browser-check",
+      "--disable-component-update",
       "--disable-sync",
       "--no-experiments",
       "--enable-benchmarking",
