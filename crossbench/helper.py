@@ -202,6 +202,15 @@ class Platform(abc.ABC):
         for p in psutil.process_iter(attrs=attrs)
     ]
 
+  def process_running(self, process_name_list: List[str]) -> Optional[str]:
+    for proc in psutil.process_iter():
+      try:
+        if proc.name().lower() in process_name_list:
+          return proc.name()
+      except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        pass
+    return None
+
   def process_children(self, parent_pid: int,
                        recursive=False) -> List[Dict[str, Any]]:
     return [

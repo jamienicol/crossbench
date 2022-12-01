@@ -57,6 +57,16 @@ def merge_number_min(name: str, left: Optional[NumberT],
   return min(left, right)
 
 
+def merge_str_list(name: str, left: Optional[List[str]],
+                   right: Optional[List[str]]) -> Optional[List[str]]:
+  del name
+  if left is None:
+    return right
+  if right is None:
+    return left
+  return left.extend(right)
+
+
 @dataclasses.dataclass(frozen=True)
 class HostEnvironmentConfig:
   IGNORE = None
@@ -70,6 +80,8 @@ class HostEnvironmentConfig:
   browser_allow_existing_process: Optional[bool] = IGNORE
   browser_is_headless: Optional[bool] = IGNORE
   require_probes: Optional[bool] = IGNORE
+  system_forbidden_process_names: Optional[List[str]] = IGNORE
+  screen_allow_autobrightness: Optional[bool] = IGNORE
 
   def merge(self, other: HostEnvironmentConfig) -> HostEnvironmentConfig:
     mergers = {
@@ -81,7 +93,9 @@ class HostEnvironmentConfig:
         "system_allow_monitoring": merge_bool,
         "browser_allow_existing_process": merge_bool,
         "browser_is_headless": merge_bool,
-        "require_probes": merge_bool
+        "require_probes": merge_bool,
+        "system_forbidden_process_names": merge_str_list,
+        "screen_allow_autobrightness": merge_bool,
     }
     kwargs = {}
     for name, merger in mergers.items():
@@ -114,6 +128,11 @@ _config_battery = _config_strict.merge(
     HostEnvironmentConfig(power_use_battery=True))
 _config_power = _config_strict.merge(
     HostEnvironmentConfig(power_use_battery=False))
+_config_catan = _config_strict.merge(
+    HostEnvironmentConfig(
+        screen_brightness_percent=65,
+        system_forbidden_process_names=["terminal", "iterm2"],
+        screen_allow_autobrightness=False))
 
 
 class HostEnvironment:
@@ -134,6 +153,7 @@ class HostEnvironment:
       "strict": _config_strict,
       "battery": _config_battery,
       "power": _config_power,
+      "catan": _config_catan,
   }
 
   def __init__(self,
@@ -270,6 +290,16 @@ class HostEnvironment:
                           f"Relative speed is {cpu_speed}, "
                           f"but expected at least {min_relative_speed}.")
 
+  def _check_forbidden_system_process(self) -> bool:
+    # Verify that no terminals are running.
+    # They introduce too much overhead. (As measured with powermetrics)
+    system_forbidden_process_names = self._config.system_forbidden_process_names
+    if system_forbidden_process_names is HostEnvironmentConfig.IGNORE:
+      return
+    if process_found := self._platform.process_running(system_forbidden_process_names):
+      raise Exception(f"Process:{process_found} found."
+                      "Make sure not to have a terminal opened. Use SSH.")
+
   def _check_cpu_power_mode(self) -> bool:
     # TODO Implement checks for performance mode
     return True
@@ -374,6 +404,7 @@ class HostEnvironment:
     self._check_results_dir()
     self._check_probes()
     self._wait_min_time()
+    self._check_forbidden_system_process()
 
   def check_installed(self,
                       binaries: Iterable[str],
