@@ -46,7 +46,8 @@ class JetStream2Probe(cb.probes.json.JsonResultProbe):
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup):
     merged = cb.probes.helper.ValuesMerger.merge_json_files(
-        story_group.results[self] for story_group in group.repetitions_groups)
+        story_group.results[self]["json"]
+        for story_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 
 

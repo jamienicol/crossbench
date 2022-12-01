@@ -8,7 +8,7 @@ import abc
 import csv
 import json
 import pathlib
-from typing import TYPE_CHECKING, Dict, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence, Union
 
 import crossbench
 from crossbench.probes import helper
@@ -108,7 +108,7 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
       assert source_file.is_file()
       with source_file.open(encoding="utf-8") as f:
         merger.add(json.load(f))
-    return self.write_group_result(group, merger)
+    return self.write_group_result(group, merger, write_csv=True)
 
   def get_mergeable_result_file(self, results):
     if isinstance(results, tuple):
@@ -116,36 +116,37 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
     return pathlib.Path(results)
 
   def write_group_result(self,
-                         group,
+                         group: cb.runner.RunGroup,
                          merged_data: Union[Dict, helper.ValuesMerger],
-                         write_csv=False,
-                         value_fn=None) -> base.ProbeResultType:
+                         write_csv: bool = False,
+                         value_fn: Optional[Callable[[Any], Any]] = None
+                        ) -> base.ProbeResultType:
     merged_json_path = group.get_probe_results_file(self)
     with merged_json_path.open("w", encoding="utf-8") as f:
       if isinstance(merged_data, dict):
         json.dump(merged_data, f, indent=2)
       else:
         json.dump(merged_data.to_json(), f, indent=2)
-
     if not write_csv:
       return merged_json_path
-
     if not isinstance(merged_data, helper.ValuesMerger):
       raise ValueError("write_csv is only supported for ValuesMerger, "
                        f"but found {type(merged_data)}'.")
-
     if not value_fn:
       value_fn = value_geomean
+    return self.write_group_csv_result(group, merged_data, merged_json_path,
+                                       value_fn)
 
-    return self.write_group_csv_result(merged_data, merged_json_path, value_fn)
-
-  def write_group_csv_result(self, merged_data: helper.ValuesMerger,
-                             merged_json_path: pathlib.Path, value_fn):
+  def write_group_csv_result(self, group: cb.runner.RunGroup,
+                             merged_data: helper.ValuesMerger,
+                             merged_json_path: pathlib.Path,
+                             value_fn: Callable[[Any], Any]):
     merged_csv_path = merged_json_path.with_suffix(".csv")
     assert not merged_csv_path.exists()
     with merged_csv_path.open("w", newline="", encoding="utf-8") as f:
-      csv.writer(f, delimiter="\t").writerows(merged_data.to_csv(value_fn))
-
+      writer = csv.writer(f, delimiter="\t")
+      csv_data = merged_data.to_csv(value_fn, group.csv_header)
+      writer.writerows(csv_data)
     return {"json": merged_json_path, "csv": merged_csv_path}
 
 

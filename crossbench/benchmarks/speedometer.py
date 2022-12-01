@@ -51,7 +51,7 @@ class Speedometer2Probe(probes_json.JsonResultProbe):
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup):
     merged = probes_helper.ValuesMerger.merge_json_files(
-        repetitions_group.results[self]
+        repetitions_group.results[self]["json"]
         for repetitions_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 

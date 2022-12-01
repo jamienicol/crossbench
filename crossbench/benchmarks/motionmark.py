@@ -39,7 +39,6 @@ class MotionMark12Probe(cb.probes.json.JsonResultProbe):
   def to_json(self, actions):
     return actions.js(self.JS)
 
-
   def flatten_json_data(self, json_data: List):
     assert isinstance(json_data, list) and len(json_data) == 1, (
       "Motion12MarkProbe requires a results list.")

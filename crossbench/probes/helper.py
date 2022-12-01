@@ -283,7 +283,7 @@ class ValuesMerger:
         else:
           values.append(value)
 
-  def to_json(self, value_fn=None):
+  def to_json(self, value_fn: Optional[Callable[[Any], Any]] = None):
     items = []
     for key, value in self._data.items():
       assert isinstance(value, Values)
@@ -297,7 +297,9 @@ class ValuesMerger:
     items.sort()
     return dict(items)
 
-  def to_csv(self, value_fn=None):
+  def to_csv(self,
+             value_fn: Optional[Callable[[Any], Any]] = None,
+             headers: Sequence[Sequence[Any]] = ()):
     """
     Input: {
         "VanillaJS-TodoMVC/Adding100Items/Async": 1
@@ -329,7 +331,12 @@ class ValuesMerger:
       if len(segments) == 1:
         toplevel.append(key)
       lookup[key] = value
-    csv_data = []
+    csv_data: List[Sequence[Any]] = []
+    for header in headers:
+      assert isinstance(header, Sequence), (
+          f"Additional CSV headers must be Sequences, got {type(header)}: "
+          f"{header}")
+      csv_data.append(header)
     for path, value in lookup.items():
       if path in toplevel:
         continue
@@ -351,7 +358,7 @@ def _ljust(sequence, n, fillvalue=""):
 
 def merge_csv(csv_files: Sequence[pathlib.Path],
               headers: Optional[List[str]] = None,
-              delimiter: str = "\t"):
+              delimiter: str = "\t") -> List[List[Any]]:
   """
   Merge multiple CSV files.
   File 1:
@@ -375,13 +382,14 @@ def merge_csv(csv_files: Sequence[pathlib.Path],
   Row Header, Data 1.1, Data 1.2, Data 2.1, Data 2.2
   """
   # Fill in the header column taken from the first file
-  table = []
+  table: List[List[Any]] = []
   if headers:
     table_headers = [""]
   else:
     table_headers = []
   with csv_files[0].open(encoding="utf-8") as first_file:
     for row in csv.reader(first_file, delimiter=delimiter):
+      assert row, "Mergeable CSV files musth have row names."
       metric_name = row[0]
       table.append([metric_name])
 

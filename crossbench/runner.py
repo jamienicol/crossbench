@@ -12,7 +12,7 @@ import inspect
 import json
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Iterable, List, Optional, Sequence
+from typing import TYPE_CHECKING, Iterable, List, Optional, Sequence, Tuple
 
 import crossbench
 import crossbench.benchmarks
@@ -315,8 +315,14 @@ class RunGroup(abc.ABC):
     return self._exceptions
 
   @property
+  @abc.abstractmethod
   def info_stack(self) -> exception.TInfoStack:
-    return ()
+    pass
+
+  @property
+  @abc.abstractmethod
+  def csv_header(self) -> Tuple[Tuple[str, ...], ...]:
+    pass
 
   def get_probe_results_file(self, probe: cb.probes.Probe) -> pathlib.Path:
     new_file = self.path / probe.results_file_name
@@ -385,6 +391,13 @@ class RepetitionsRunGroup(RunGroup):
   def info_stack(self) -> exception.TInfoStack:
     return (f"browser={self.browser.short_name}", f"story={self.story}")
 
+  @property
+  def csv_header(self) -> Tuple[Tuple[str, ...], ...]:
+    return ((
+        "Story",
+        str(self.story),
+    ),)
+
   def _merge_probe_results(self, probe: cb.probes.Probe
                           ) -> Optional[cb.probes.ProbeResultType]:
     return probe.merge_repetitions(self)
@@ -435,6 +448,24 @@ class StoriesRunGroup(RunGroup):
     return (f"browser={self.browser.short_name}",)
 
   @property
+  def csv_header(self) -> Tuple[Tuple[str, ...], ...]:
+    return (
+        (
+            "Label",
+            self.browser.label,
+        ),
+        ("Browser", self.browser.type.capitalize()),
+        (
+            "Version",
+            self.browser.version,
+        ),
+        (
+            "Flags",
+            str(self.browser.flags),
+        ),
+    )
+
+  @property
   def stories(self) -> Iterable[cb.stories.Story]:
     return (group.story for group in self._repetitions_groups)
 
@@ -464,6 +495,14 @@ class BrowsersRunGroup(RunGroup):
   def runs(self) -> Iterable[Run]:
     for group in self._story_groups:
       yield from group.runs
+
+  @property
+  def info_stack(self) -> exception.TInfoStack:
+    return ()
+
+  @property
+  def csv_header(self) -> Tuple[Tuple[str, ...], ...]:
+    return ()
 
   def _merge_probe_results(self, probe: cb.probes.Probe
                           ) -> Optional[cb.probes.ProbeResultType]:
