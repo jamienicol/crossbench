@@ -59,6 +59,7 @@ class Browser(abc.ABC):
       self.major_version: int = int(self.version.split(".")[0])
       short_name = f"{self.type}_v{self.major_version}_{self.label}".lower()
     else:
+      self.app_name: str = 'none'
       short_name = f"{self.type}_{self.label}".lower()
     self.short_name: str = short_name.replace(" ", "_")
     self.width: int = 1500
