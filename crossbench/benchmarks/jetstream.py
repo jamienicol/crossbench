@@ -3,9 +3,12 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+from collections import defaultdict
+from typing import Any, Dict
 
 import crossbench.probes.json
 import crossbench.probes.helper
+from crossbench.probes import helper as probes_helper
 import crossbench.stories
 from crossbench import helper
 import crossbench.benchmarks
@@ -43,6 +46,23 @@ class JetStream2Probe(cb.probes.json.JsonResultProbe):
     data = actions.js(self.JS)
     assert len(data) > 0, "No benchmark data generated"
     return data
+
+  def process_json_data(self, json_data):
+    assert "Total" not in json_data
+    json_data["Total"] = self._compute_total_metrics(json_data)
+    return json_data
+
+  def _compute_total_metrics(self,
+                             json_data: Dict[str, Any]) -> Dict[str, float]:
+    # Manually add all total scores
+    accumulated_metrics = defaultdict(list)
+    for _, metrics in json_data.items():
+      for metric, value in metrics.items():
+        accumulated_metrics[metric].append(value)
+    total: Dict[str, float] = {}
+    for metric, values in accumulated_metrics.items():
+      total[metric] = probes_helper.geomean(values)
+    return total
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup):
     merged = cb.probes.helper.ValuesMerger.merge_json_files(

@@ -48,6 +48,9 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
   def flatten_json_data(self, json_data):
     return helper.Flatten(json_data).data
 
+  def process_json_data(self, json_data):
+    return json_data
+
   class Scope(base.Probe.Scope):
 
     def __init__(self, probe: JsonResultProbe, run: cb.runner.Run):
@@ -68,6 +71,7 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
       self._json_data = self.extract_json(run)
 
     def tear_down(self, run):
+      self._json_data = self.process_json_data(self._json_data)
       return self.write_json(run, self._json_data)
 
     def extract_json(self, run: cb.runner.Run):
@@ -92,6 +96,9 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
       if self.probe.FLATTEN:
         return (flattened_file, raw_file)
       return raw_file
+
+    def process_json_data(self, json_data):
+      return self.probe.process_json_data(json_data)
 
     def flatten_json_data(self, json_data):
       return self.probe.flatten_json_data(json_data)

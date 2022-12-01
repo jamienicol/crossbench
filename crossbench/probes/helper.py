@@ -124,10 +124,7 @@ class Values:
   @property
   def geomean(self) -> float:
     assert self._is_numeric
-    product = 1
-    for value in self.values:
-      product *= value
-    return product**(1 / len(self.values))
+    return geomean(self.values)
 
   @property
   def stddev(self) -> float:
@@ -164,6 +161,13 @@ class Values:
     if len(set(self.values)) == 1:
       return self.values[0]
     return json_data
+
+
+def geomean(values: Sequence) -> float:
+  product = 1
+  for value in values:
+    product *= value
+  return product**(1 / len(values))
 
 
 class ValuesMerger:
