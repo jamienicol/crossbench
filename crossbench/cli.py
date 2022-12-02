@@ -1,4 +1,4 @@
-# Copyright 2022 The Chromium Authors. All rights reserved.
+# Copyright 2022 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -576,7 +576,7 @@ class CrossBenchCLI:
       return
     # Create tabular format
     if args.category in ("all", "benchmarks"):
-      table = [["Benchmark", "Property", "Value"]]
+      table: List[List[Optional[str]]] = [["Benchmark", "Property", "Value"]]
       for benchmark_name, values in data["benchmarks"].items():
         table.append([benchmark_name, ])
         for name, value in values.items():

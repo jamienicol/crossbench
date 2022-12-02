@@ -1,4 +1,4 @@
-# Copyright 2022 The Chromium Authors. All rights reserved.
+# Copyright 2022 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -18,8 +18,9 @@ import crossbench
 import crossbench.cli
 import crossbench.probes.all
 from crossbench import helper
-from tests import mockbenchmark
-from tests.mockbenchmark import browser as mock_browser
+
+from tests.mock_helper import BaseCrossbenchTestCase, MockCLI
+from tests import mock_browser
 
 #TODO: fix imports
 cb = crossbench
@@ -31,11 +32,11 @@ class SysExitException(Exception):
     super().__init__("sys.exit")
 
 
-class TestCLI(mockbenchmark.BaseCrossbenchTestCase):
+class TestCLI(BaseCrossbenchTestCase):
 
   def run_cli(self, *args, raises=None):
     with mock.patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
-      cli = mockbenchmark.MockCLI()
+      cli = MockCLI()
       if raises:
         with self.assertRaises(raises):
           cli.run(args)
@@ -469,7 +470,7 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
 
   def setUp(self):
     # TODO: Move to separate common helper class
-    self.setUpPyfakefs(modules_to_reload=[cb, mockbenchmark])
+    self.setUpPyfakefs(modules_to_reload=[cb, mock_browser])
 
   def parse_config(self, config_data) -> cb.cli.ProbeConfig:
     probe_config_file = pathlib.Path("/probe.config.hjson")
@@ -529,7 +530,7 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
     self.assertEqual(powersampler_probe.bin_path, powersampler_bin)
 
 
-class TestBrowserConfig(mockbenchmark.BaseCrossbenchTestCase):
+class TestBrowserConfig(BaseCrossbenchTestCase):
   # pylint: disable=expression-not-assigned
 
   EXAMPLE_CONFIG_PATH = pathlib.Path(

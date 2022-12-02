@@ -1,4 +1,4 @@
-# Copyright 2022 The Chromium Authors. All rights reserved.
+# Copyright 2022 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -45,6 +45,7 @@ class Safari(Browser):
                platform: Optional[helper.MacOSPlatform] = None):
     super().__init__(label, path, flags, type="safari", platform=platform)
     assert self.platform.is_macos, "Safari only works on MacOS"
+    assert self.path
     self.bundle_name = self.path.stem.replace(" ", "")
     assert cache_dir is None, "Cannot set custom cache dir for Safari"
     self.cache_dir = pathlib.Path(
@@ -52,6 +53,7 @@ class Safari(Browser):
     ).expanduser()
 
   def _extract_version(self) -> str:
+    assert self.path
     app_path = self.path.parents[2]
     return self.platform.app_version(app_path)
 
@@ -107,6 +109,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
     assert self.platform.is_macos
 
   def _find_driver(self) -> pathlib.Path:
+    assert self.path
     driver_path = self.path.parent / "safaridriver"
     if not driver_path.exists():
       # The system-default Safari version doesn't come with the driver

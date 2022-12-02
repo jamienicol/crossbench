@@ -1,4 +1,4 @@
-# Copyright 2022 The Chromium Authors. All rights reserved.
+# Copyright 2022 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -198,6 +198,7 @@ class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
 
   def _find_driver(self) -> pathlib.Path:
     finder = ChromeDriverFinder(self)
+    assert self.path
     if self.major_version == 0 or (self.path.parent / "args.gn").exists():
       return finder.find_local_build()
     return finder.download()
@@ -260,6 +261,7 @@ class ChromeDriverFinder:
         f"chromedriver-{self.browser.major_version}{extension}")
 
   def find_local_build(self) -> pathlib.Path:
+    assert self.browser.path
     # assume it's a local build
     self.driver_path = self.browser.path.parent / "chromedriver"
     if not self.driver_path.exists():

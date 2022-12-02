@@ -1,4 +1,4 @@
-# Copyright 2022 The Chromium Authors. All rights reserved.
+# Copyright 2022 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -161,6 +161,7 @@ class Probe(abc.ABC):
     Return None, a result file Path (or a list of Paths)
     """
     del group
+    return None
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup
                    ) -> Optional[ProbeResultType]:
@@ -169,6 +170,7 @@ class Probe(abc.ABC):
     Return None, a result file Path (or a list of Paths)
     """
     del group
+    return None
 
   def merge_browsers(self, group: cb.runner.BrowsersRunGroup
                     ) -> Optional[ProbeResultType]:
@@ -177,6 +179,7 @@ class Probe(abc.ABC):
     Return None, a result file Path (or a list of Paths)
     """
     del group
+    return None
 
   def get_scope(self: ProbeT, run) -> Probe.Scope[ProbeT]:
     assert self.is_attached, (

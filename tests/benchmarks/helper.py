@@ -1,4 +1,4 @@
-# Copyright 2022 The Chromium Authors. All rights reserved.
+# Copyright 2022 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -7,14 +7,13 @@ from typing import List, Sequence, Type
 
 import crossbench
 import crossbench.benchmarks
-from tests import mockbenchmark
+from tests.mock_helper import BaseCrossbenchTestCase
 
 #TODO: fix imports
 cb = crossbench
 
 
-class BaseBenchmarkTestCase(
-    mockbenchmark.BaseCrossbenchTestCase, metaclass=abc.ABCMeta):
+class BaseBenchmarkTestCase(BaseCrossbenchTestCase, metaclass=abc.ABCMeta):
 
   @property
   @abc.abstractmethod

@@ -1,4 +1,4 @@
-# Copyright 2022 The Chromium Authors. All rights reserved.
+# Copyright 2022 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -6,21 +6,28 @@ from __future__ import annotations
 
 import abc
 import pathlib
+from typing import TYPE_CHECKING, Type
+
 import psutil
-from typing import List, Optional, Tuple, Type
 from pyfakefs import fake_filesystem_unittest
 
-import crossbench as cb
-from crossbench import cli
 from crossbench import helper
+import crossbench
+from crossbench.benchmarks.base import SubStoryBenchmark
+from crossbench.cli import CrossBenchCLI
+from crossbench.flags import Flags
+from crossbench.stories import Story
 
-from . import browser
+if TYPE_CHECKING:
+  from crossbench.runner import Runner
 
-FlagsInitialDataType = cb.flags.Flags.InitialDataType
+from . import mock_browser
+
+FlagsInitialDataType = Flags.InitialDataType
 
 GIB = 1014**3
 
-ActivePlatformClass: Type[cb.helper.Platform] = type(cb.helper.platform)
+ActivePlatformClass: Type[helper.Platform] = type(helper.platform)
 
 
 class MockPlatform(ActivePlatformClass):
@@ -62,16 +69,16 @@ class MockPlatform(ActivePlatformClass):
 mock_platform = MockPlatform()  # pytype: disable=not-instantiable
 
 
-class MockStory(cb.stories.Story):
+class MockStory(Story):
   pass
 
 
-class MockBenchmark(cb.benchmarks.base.SubStoryBenchmark):
+class MockBenchmark(SubStoryBenchmark):
   DEFAULT_STORY_CLS = MockStory
 
 
-class MockCLI(cli.CrossBenchCLI):
-  runner: cb.runner.Runner
+class MockCLI(CrossBenchCLI):
+  runner: Runner
 
   def _get_runner(self, args, benchmark, env_config, env_validation_mode):
     if not args.out_dir:
@@ -93,14 +100,14 @@ class BaseCrossbenchTestCase(
     fake_filesystem_unittest.TestCase, metaclass=abc.ABCMeta):
 
   def setUp(self):
-    self.setUpPyfakefs(modules_to_reload=[cb, browser])
-    for mock_browser_cls in browser.ALL:
+    self.setUpPyfakefs(modules_to_reload=[crossbench, mock_browser])
+    for mock_browser_cls in mock_browser.ALL:
       mock_browser_cls.setup_fs(self.fs)
       self.assertTrue(mock_browser_cls.APP_PATH.exists())
     self.platform = mock_platform
     self.out_dir = pathlib.Path("/tmp/results/test")
     self.out_dir.parent.mkdir(parents=True)
     self.browsers = [
-        browser.MockChromeDev("dev", platform=self.platform),
-        browser.MockChromeStable("stable", platform=self.platform)
+        mock_browser.MockChromeDev("dev", platform=self.platform),
+        mock_browser.MockChromeStable("stable", platform=self.platform)
     ]

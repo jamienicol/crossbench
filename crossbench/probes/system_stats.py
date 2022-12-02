@@ -1,4 +1,4 @@
-# Copyright 2022 The Chromium Authors. All rights reserved.
+# Copyright 2022 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -61,7 +61,7 @@ class SystemStatsProbe(base.Probe):
 
   class Scope(base.Probe.Scope):
     _event: threading.Event
-    _poller = threading.Thread
+    _poller: threading.Thread
 
     def setup(self, run: cb.runner.Run):
       self.results_file.mkdir()

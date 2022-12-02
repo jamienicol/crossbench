@@ -1,21 +1,18 @@
-# Copyright 2022 The Chromium Authors. All rights reserved.
+# Copyright 2022 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 from __future__ import annotations
-
 import collections
 import inspect
 import pathlib
 import textwrap
-from typing import (TYPE_CHECKING, Any, Callable, Dict, List, Optional,
-                    Sequence, Type, Union)
+import tabulate
 
-import crossbench
+from typing import Any, Callable, Dict, List, Optional, Sequence, Type, TYPE_CHECKING, Union
+
+import crossbench as cb
 import crossbench.exception
-
-# TODO: clean up imports
-cb = crossbench
 
 if TYPE_CHECKING:
   import crossbench.probes
@@ -26,14 +23,14 @@ ArgParserType = Union[Callable[[Any], Any], Type]
 
 class _ConfigArg:
 
-  def __init__(
+  def __init__(  # pylint: disable=redefined-builtin
       self,
       parser: ConfigParser,
       name: str,
-      type: Optional[ArgParserType],  # pylint: disable=redefined-builtin
+      type: Optional[ArgParserType],
       default: Any = None,
       choices: Optional[Sequence[Any]] = None,
-      help: Optional[str] = None,  # pylint: disable=redefined-builtin
+      help: Optional[str] = None,
       is_list: bool = False,
       required: bool = False):
     self.parser = parser
@@ -153,7 +150,7 @@ class ConfigParser:
     self.title = title
     assert title, "No title provided"
     self._cls = cls
-    self._args: Dict[str, _ConfigArg] = {}
+    self._args: Dict[str, _ConfigArg] = dict()
 
   def add_argument(  # pylint: disable=redefined-builtin
       self,

@@ -91,6 +91,8 @@ disable=abstract-method,
         misplaced-comparison-constant,
         missing-function-docstring,
         metaclass-assignment,
+        missing-class-docstring, # added
+        missing-module-docstring, # added
         next-method-called,
         next-method-defined,
         no-absolute-import,

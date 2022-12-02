@@ -1,4 +1,4 @@
-# Copyright 2022 The Chromium Authors. All rights reserved.
+# Copyright 2022 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -6,17 +6,18 @@ from __future__ import annotations
 
 import abc
 import pathlib
-from typing import List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, List, Optional, Tuple, Type
 
-import crossbench
-import crossbench.browsers
 from crossbench import helper
+from crossbench.browsers import (Browser, Chrome, Chromium, Edge, Firefox,
+                                 Safari)
+from crossbench.flags import ChromeFlags, Flags
 
-#TODO: fix imports
-cb = crossbench
+if TYPE_CHECKING:
+  from crossbench.runner import Run, Runner
 
 
-class MockBrowser(cb.browsers.Browser, metaclass=abc.ABCMeta):
+class MockBrowser(Browser, metaclass=abc.ABCMeta):
   APP_PATH: pathlib.Path = pathlib.Path("/")
   MACOS_BIN_NAME: str = ""
   VERSION = "100.22.33.44"
@@ -38,8 +39,8 @@ class MockBrowser(cb.browsers.Browser, metaclass=abc.ABCMeta):
     fs.create_file(bin_path)
 
   @classmethod
-  def default_flags(cls, initial_data: cb.flags.Flags.InitialDataType = None):
-    return cb.flags.ChromeFlags(initial_data)
+  def default_flags(cls, initial_data: Flags.InitialDataType = None):
+    return ChromeFlags(initial_data)
 
   def __init__(self,
                label: str,
@@ -60,13 +61,13 @@ class MockBrowser(cb.browsers.Browser, metaclass=abc.ABCMeta):
     self.did_run: bool = False
     self.clear_cache_dir: bool = False
     chrome_flags = self.flags
-    assert isinstance(chrome_flags, cb.flags.ChromeFlags)
+    assert isinstance(chrome_flags, ChromeFlags)
     self.js_flags = chrome_flags.js_flags  # pylint: disable=no-member
 
-  def clear_cache(self, runner: cb.runner.Runner):
+  def clear_cache(self, runner: Runner):
     pass
 
-  def start(self, run: cb.runner.Run):
+  def start(self, run: Run):
     assert not self._is_running
     self._is_running = True
     self.did_run = True
@@ -80,10 +81,10 @@ class MockBrowser(cb.browsers.Browser, metaclass=abc.ABCMeta):
   def _extract_version(self):
     return self.VERSION
 
-  def show_url(self, runner, url):
+  def show_url(self, runner: Runner, url):
     self.url_list.append(url)
 
-  def js(self, runner, script, timeout=None, arguments=()):
+  def js(self, runner: Runner, script, timeout=None, arguments=()):
     self.js_list.append(script)
     if self.js_side_effect is None:
       return None
@@ -108,7 +109,7 @@ class MockChromiumBrowser(MockBrowser, metaclass=abc.ABCMeta):
 
 
 # Inject MockBrowser into the browser hierarchy for easier testing.
-cb.browsers.Chromium.register(MockChromiumBrowser)
+Chromium.register(MockChromiumBrowser)
 
 
 class MockChromeBrowser(MockChromiumBrowser, metaclass=abc.ABCMeta):
@@ -121,8 +122,8 @@ class MockChromeBrowser(MockChromiumBrowser, metaclass=abc.ABCMeta):
     super().__init__(label, path, browser_name="chrome", *args, **kwargs)
 
 
-cb.browsers.Chrome.register(MockChromeBrowser)
-assert (issubclass(MockChromeBrowser, cb.browsers.Chrome))
+Chrome.register(MockChromeBrowser)
+assert issubclass(MockChromeBrowser, Chrome)
 
 
 class MockChromeStable(MockChromeBrowser):
@@ -134,8 +135,8 @@ class MockChromeStable(MockChromeBrowser):
     APP_PATH = APP_ROOT / "google-chrome"
 
 
-assert (issubclass(MockChromeStable, cb.browsers.Chromium))
-assert (issubclass(MockChromeStable, cb.browsers.Chrome))
+assert issubclass(MockChromeStable, Chromium)
+assert issubclass(MockChromeStable, Chrome)
 
 
 class MockChromeBeta(MockChromeBrowser):
@@ -178,9 +179,9 @@ class MockEdgeBrowser(MockChromiumBrowser, metaclass=abc.ABCMeta):
     super().__init__(label, path, browser_name="edge", *args, **kwargs)
 
 
-cb.browsers.Edge.register(MockEdgeBrowser)
-assert (issubclass(MockEdgeBrowser, cb.browsers.Chromium))
-assert (issubclass(MockEdgeBrowser, cb.browsers.Edge))
+Edge.register(MockEdgeBrowser)
+assert issubclass(MockEdgeBrowser, Chromium)
+assert issubclass(MockEdgeBrowser, Edge)
 
 
 class MockEdgeStable(MockEdgeBrowser):
@@ -232,8 +233,8 @@ class MockSafariBrowser(MockBrowser, metaclass=abc.ABCMeta):
     super().__init__(label, path, browser_name="safari", *args, **kwargs)
 
 
-cb.browsers.Safari.register(MockSafariBrowser)
-assert (issubclass(MockSafariBrowser, cb.browsers.Safari))
+Safari.register(MockSafariBrowser)
+assert issubclass(MockSafariBrowser, Safari)
 
 
 class MockSafari(MockSafariBrowser):
@@ -264,8 +265,8 @@ class MockFirefoxBrowser(MockBrowser, metaclass=abc.ABCMeta):
     super().__init__(label, path, browser_name="firefox", *args, **kwargs)
 
 
-cb.browsers.Firefox.register(MockFirefoxBrowser)
-assert (issubclass(MockFirefoxBrowser, cb.browsers.Firefox))
+Firefox.register(MockFirefoxBrowser)
+assert issubclass(MockFirefoxBrowser, Firefox)
 
 
 class MockFirefox(MockFirefoxBrowser):
