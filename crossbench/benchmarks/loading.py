@@ -194,6 +194,7 @@ class PageLoadBenchmark(cb.benchmarks.SubStoryBenchmark):
     parser = super().add_cli_parser(subparsers, aliases)
     parser.add_argument(
         "--urls",
+        "--url",
         dest="stories",
         help="List of urls and durations to load: url,seconds,...")
     return parser

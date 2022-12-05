@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import itertools
 import json
 import logging
@@ -499,6 +500,7 @@ class CrossBenchCLI:
   RUNNER_CLS: Type[cb.runner.Runner] = cb.runner.Runner
 
   def __init__(self):
+    self._subparsers: Dict[BenchmarkClsT, argparse.ArgumentParser] = {}
     self.parser = argparse.ArgumentParser()
     self._setup_parser()
     self._setup_subparser()
@@ -536,7 +538,7 @@ class CrossBenchCLI:
     describe_parser.add_argument(
         "category",
         nargs="?",
-        choices=["all", "benchmarks", "probes"],
+        choices=["all", "benchmark", "benchmarks", "probe", "probes"],
         default="all",
         help="Limit output to the given category, defaults to 'all'")
     describe_parser.add_argument(
@@ -553,12 +555,16 @@ class CrossBenchCLI:
     self._add_verbosity_argument(describe_parser)
 
   def describe_subcommand(self, args: argparse.Namespace):
+    benchmarks_data: Dict[str, Any] = {}
+    for benchmark_cls, aliases in self.BENCHMARKS:
+      if args.filter and benchmark_cls.NAME != args.filter:
+        continue
+      benchmark_info = benchmark_cls.describe()
+      benchmark_info["aliases"] = aliases or "None"
+      benchmark_info["help"] = f"See `{benchmark_cls.NAME} --help`"
+      benchmarks_data[benchmark_cls.NAME] = benchmark_info
     data = {
-        "benchmarks": {
-            benchmark_cls.NAME: benchmark_cls.describe()
-            for benchmark_cls, _ in self.BENCHMARKS
-            if not args.filter or benchmark_cls.NAME == args.filter
-        },
+        "benchmarks": benchmarks_data,
         "probes": {
             probe_cls.NAME: probe_cls.help_text()
             for probe_cls in cb.probes.all.GENERAL_PURPOSE_PROBES
@@ -566,9 +572,9 @@ class CrossBenchCLI:
         }
     }
     if args.json:
-      if args.category == "probes":
+      if args.category in ("probe", "probes"):
         data = data["probes"]
-      elif args.category == "benchmarks":
+      elif args.category in ("benchmark", "benchmarks"):
         data = data["benchmarks"]
       else:
         assert args.category == "all"
@@ -603,6 +609,7 @@ class CrossBenchCLI:
     assert isinstance(subparser, argparse.ArgumentParser), (
         f"Benchmark class {benchmark_cls}.add_cli_parser did not return "
         f"an ArgumentParser: {subparser}")
+    self._subparsers[benchmark_cls] = subparser
 
     env_group = subparser.add_argument_group("Runner Environment Settings", "")
     env_settings_group = env_group.add_mutually_exclusive_group()
@@ -680,7 +687,6 @@ class CrossBenchCLI:
         "configuration file. "
         "Cannot be used together with --probe.")
 
-    subparser.add_argument("other_browser_args", nargs="*")
     chrome_args = subparser.add_argument_group(
         "Chrome-forwarded Options",
         "For convenience these arguments are directly are forwarded "
@@ -700,14 +706,16 @@ class CrossBenchCLI:
     subparser.set_defaults(
         subcommand=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
     self._add_verbosity_argument(subparser)
+    subparser.add_argument("other_browser_args", nargs="*")
 
   def benchmark_subcommand(self, args: argparse.Namespace):
+    self._benchmark_subcommand_helper(args)
     benchmark = self._get_benchmark(args)
     runner = None
     try:
-      with tempfile.TemporaryDirectory(prefix="crossbench") as tmpdirname:
+      with tempfile.TemporaryDirectory(prefix="crossbench") as tmp_dirname:
         if args.dry_run:
-          args.out_dir = pathlib.Path(tmpdirname) / "results"
+          args.out_dir = pathlib.Path(tmp_dirname) / "results"
         args.browser = self._get_browsers(args)
         probes = self._get_probes(args)
         env_config = self._get_env_config(args)
@@ -718,13 +726,40 @@ class CrossBenchCLI:
           runner.attach_probe(probe, matching_browser_only=True)
 
         self._run_benchmark(args, runner)
-    except KeyboardInterrupt as e:
+    except KeyboardInterrupt:
       sys.exit(2)
     except Exception as e:  # pylint: disable=broad-except
       if args.throw:
         raise
       self._log_benchmark_subcommand_failure(benchmark, runner, e)
       sys.exit(3)
+
+  def _benchmark_subcommand_helper(self, args):
+    """Handle common subcommand mistakes that are not easily implementable
+    with argparse.
+    run: => just run the benchmark
+    help => use --help
+    describe => use describe benchmark NAME
+    """
+    if not args.other_browser_args:
+      return
+    maybe_command = args.other_browser_args[0]
+    if maybe_command == "run":
+      args.other_browser_args.pop()
+      return
+    if maybe_command == "help":
+      logging.error("Please use --help")
+      self._subparsers[args.benchmark_cls].print_help()
+      sys.exit(0)
+    if maybe_command == "describe":
+      logging.warning("Please use `describe benchmark %s`",
+                      args.benchmark_cls.NAME)
+      # Patch args to simulate: describe benchmark BENCHMARK_NAME
+      args.category = "benchmarks"
+      args.filter = args.benchmark_cls.NAME
+      args.json = False
+      self.describe_subcommand(args)
+      sys.exit(0)
 
   def _log_benchmark_subcommand_failure(self, benchmark,
                                         runner: Optional[cb.runner.Runner],
@@ -739,7 +774,7 @@ class CrossBenchCLI:
     logging.error("Running '%s' was not successful:", benchmark.NAME)
     logging.error("- Check run results.json for detailed backtraces")
     logging.error("- Use --throw to throw on the first logged exception")
-    logging.error("- Use --vv for detailed logging")
+    logging.error("- Use -vv for detailed logging")
     if runner and runner.runs:
       self._log_runner_debug_hints(runner)
     logging.error("#" * 80)

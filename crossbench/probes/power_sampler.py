@@ -26,6 +26,8 @@ class PowerSamplerProbe(base.Probe):
   """
   Probe for chrome's power_sampler helper binary to collect MacOS specific
   battery and system usage metrics.
+  Note that the battery monitor only gets a value infrequently (> 30s), thus
+  this probe mostly makes sense for long-running benchmarks.
   """
 
   NAME = "powersampler"

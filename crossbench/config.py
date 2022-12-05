@@ -3,16 +3,18 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+
 import collections
 import inspect
 import pathlib
 import textwrap
-import tabulate
+from typing import (TYPE_CHECKING, Any, Callable, Dict, List, Optional,
+                    Sequence, Type, Union)
 
-from typing import Any, Callable, Dict, List, Optional, Sequence, Type, TYPE_CHECKING, Union
 
 import crossbench as cb
 import crossbench.exception
+from crossbench import helper
 
 if TYPE_CHECKING:
   import crossbench.probes
@@ -198,12 +200,6 @@ class ConfigParser:
     parts.append("")
     for arg in self._args.values():
       parts.append(f"{arg.name}:")
-      parts.extend(wrap_lines(arg.help_text, width=58, indent="  "))
+      parts.extend(helper.wrap_lines(arg.help_text, width=58, indent="  "))
       parts.append("")
     return "\n".join(parts)
-
-
-def wrap_lines(body, width, indent):
-  for line in body.splitlines():
-    for split in textwrap.wrap(line, width):
-      yield f"{indent}{split}"

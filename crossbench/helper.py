@@ -15,6 +15,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import textwrap
 import time
 import traceback as tb
 import urllib
@@ -878,3 +879,9 @@ class Durations:
         name: self._durations[name].total_seconds()
         for name in sorted(self._durations.keys())
     }
+
+
+def wrap_lines(body, width: int = 80, indent: str = ""):
+  for line in body.splitlines():
+    for split in textwrap.wrap(line, width):
+      yield f"{indent}{split}"

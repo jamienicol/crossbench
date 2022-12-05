@@ -31,6 +31,9 @@ class V8LogProbe(base.Probe):
   Chromium-only probe that produces a v8.log file with detailed internal V8
   performance and logging information.
   This file can be used by tools hosted on <http://v8.dev/tools>.
+  If prof == true, this probe will try to generate profview.json files for
+  <http://v8.dev/tools/head/profview>. See de d8_binary and v8_checkout
+  config-properties for more details.
   """
   NAME = "v8.log"
 
@@ -124,6 +127,7 @@ class V8LogProbe(base.Probe):
                         log_files: List[pathlib.Path]) -> List[pathlib.Path]:
     finder = V8ToolsFinder(self)
     if not finder.d8_binary or not finder.tick_processor or not log_files:
+      logging.info("Did not find $D8_PATH for profview processing.")
       return []
     logging.info(
         "PROBE v8.log: generating profview json data "

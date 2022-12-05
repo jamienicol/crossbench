@@ -61,7 +61,7 @@ class RunDurationsProbe(JsonResultProbe):
   Runner-internal meta-probe: Collects timing information for various components
   of the runner (and the times spent in individual stories as well).
   """
-  NAME = "durations"
+  NAME = "cb.runner.durations"
   IS_GENERAL_PURPOSE = False
   FLATTEN = False
 

@@ -139,6 +139,8 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
     parser = super().add_cli_parser(subparsers, aliases)
     parser.add_argument(
         "--stories",
+        "--story",
+        dest="stories",
         default="default",
         help="Comma-separated list of story names. "
         "Use 'all' for selecting all available stories. "
@@ -160,7 +162,8 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
   def cli_description(cls) -> str:
     desc = super().cli_description()
     desc += "\n\n"
-    desc += "Stories (alternatively use 'describe' command):\n"
+    desc += ("Stories (alternatively use 'the describe benchmark "
+             f"{cls.NAME}' command):\n")
     desc += ", ".join(cls.all_story_names())
     desc += "\n\n"
     desc += "Filtering (for --stories): "
