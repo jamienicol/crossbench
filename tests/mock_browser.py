@@ -7,7 +7,7 @@ from __future__ import annotations
 import abc
 import copy
 import pathlib
-from typing import TYPE_CHECKING, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type
 
 from crossbench import helper
 from crossbench.browsers import (Browser, Chrome, Chromium, Edge, Firefox,
@@ -57,8 +57,8 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
     super().__init__(label, path, *args, **kwargs)
     self.url_list: List[str] = []
     self.js_list: List[str] = []
-    self.js_side_effect: List[str] = []
-    self.run_js_side_effect: List[str] = []
+    self.js_side_effect: List[Any] = []
+    self.run_js_side_effect: List[Any] = []
     self.did_run: bool = False
     self.clear_cache_dir: bool = False
     chrome_flags = self.flags
@@ -72,7 +72,7 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
     assert not self._is_running
     self._is_running = True
     self.did_run = True
-    self.run_js_side_effect = list(self.js_side_effect)
+    self.run_js_side_effect = copy.deepcopy(self.js_side_effect)
 
   def force_quit(self):
     # Assert that start() was called before force_quit()
