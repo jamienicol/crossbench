@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+import abc
 
 import logging
 import pathlib
@@ -109,12 +110,11 @@ class ChromeWebDriver(ChromiumWebDriver):
         platform=platform)
 
   def _create_driver(self, options, service) -> ChromiumDriver:
-    return webdriver.Chrome(  # pytype: disable=wrong-keyword-args 
-        options=options,
-        service=service)
+    return webdriver.Chrome(  # pytype: disable=wrong-keyword-args
+        options=options, service=service)
 
 
-class ChromeDownloader:
+class ChromeDownloader(abc.ABC):
 
   VERSION_RE: Final = re.compile(r"^chrome-((m[0-9]+)|([0-9]+(\.[0-9]+){3}))$",
                                  re.I)
@@ -123,11 +123,14 @@ class ChromeDownloader:
 
   @classmethod
   def load(cls, version_identifier: str) -> pathlib.Path:
-    loader = cls(version_identifier)
+    assert helper.platform.is_macos
+    loader = ChromeDownloaderMacOS(version_identifier)
     assert loader.path.exists(), "Could not download browser"
     return loader.path
 
-  def __init__(self, version_identifier):
+  def __init__(self, version_identifier, platform_name: str):
+    assert platform_name
+    self.platform_name = platform_name
     self.version_identifier = ""
     self.platform = helper.platform
     self._pre_check()
@@ -154,7 +157,8 @@ class ChromeDownloader:
       raise ValueError(
           f"Cannot download chrome version {self.version_identifier}: "
           "please install gsutil.\n"
-          "See https://cloud.google.com/storage/docs/gsutil_install")
+          "- https://cloud.google.com/storage/docs/gsutil_instal.\n"
+          "- Run 'gclient auth login' to get access to the archives")
 
   def _parse_version(self, version_identifier: str):
     match = self.VERSION_RE.match(version_identifier)
@@ -179,7 +183,11 @@ class ChromeDownloader:
 
   def _validate_cached(self) -> str:
     # "Google Chrome 107.0.5304.121" => "107.0.5304.121"
-    cached_version_str = self.platform.app_version(self.path).split(" ")[-1]
+    app_version = self.platform.app_version(self.path)
+    version_match = re.search(r"[\d\.]+", app_version)
+    assert version_match, (
+        f"Got invalid version string from chrome binary: {app_version}")
+    cached_version_str = version_match.group(0)
     cached_version = tuple(map(int, cached_version_str.split(".")))
     if not self._version_matches(cached_version):
       raise ValueError(
@@ -189,11 +197,6 @@ class ChromeDownloader:
     return cached_version_str
 
   def _download(self):
-    if self.platform.is_macos and self.platform.is_arm64 and self.requested_version < (
-        87, 0, 0, 0):
-      raise ValueError(
-          "Chrome Arm64 Apple Silicon is only available starting with M87, "
-          f"but requested {self.requested_version_str}")
     archive_url = self._find_archive_url()
     if not archive_url:
       raise ValueError(
@@ -201,16 +204,15 @@ class ChromeDownloader:
     self._download_and_extract(archive_url)
 
   def _find_archive_url(self) -> Optional[str]:
-    platform = "mac-universal"
     milestone: int = self.requested_version[0]
     # Quick probe for complete versions
     if self.requested_exact_version:
-      test_url = f"{self.URL}{self.version_identifier}/{platform}/"
+      test_url = f"{self.URL}{self.version_identifier}/{self.platform_name}/"
       logging.info("LIST VERSION for M%s (fast): %s", milestone, test_url)
       maybe_archive_url = self._filter_candidates([test_url])
       if maybe_archive_url:
         return maybe_archive_url
-    list_url = f"{self.URL}{milestone}.*/{platform}/"
+    list_url = f"{self.URL}{milestone}.*/{self.platform_name}/"
     logging.info("LIST ALL VERSIONS for M%s (slow): %s", milestone, list_url)
     try:
       listing: List[str] = self.platform.sh_stdout(
@@ -238,7 +240,7 @@ class ChromeDownloader:
         logging.debug("Skipping download candidate: %s %s", version, url)
         continue
       version_str = ".".join(map(str, version))
-      archive_url = f"{url}GoogleChrome-{version_str}.dmg"
+      archive_url = self._archive_url(url, version_str)
       try:
         result = self.platform.sh_stdout("gsutil", "ls", archive_url)
       except helper.SubprocessError:
@@ -246,6 +248,10 @@ class ChromeDownloader:
       if result:
         return archive_url
     return None
+
+  @abc.abstractmethod
+  def _archive_url(self, folder_url: str, version_str: str) -> str:
+    pass
 
   def _version_matches(self, version: Tuple[int, int, int, int]) -> bool:
     # Iterate over the version parts. Use 9999 as placeholder to accept
@@ -281,8 +287,52 @@ class ChromeDownloader:
   ) -> pathlib.Path:
     logging.info("DOWNLOADING %s", archive_url)
     self.platform.sh("gsutil", "cp", archive_url, tmp_dir)
-    archive_path = list(tmp_dir.glob("*.dmg"))[0]
+    archive_candidates = list(tmp_dir.glob("*"))
+    assert len(archive_candidates) == 1, (
+        f"Download tmp dir contains more than one file: {tmp_dir}")
+    archive_path = archive_candidates[0]
     return archive_path
+
+  @abc.abstractmethod
+  def _extract_archive(self, archive_path: pathlib.Path):
+    pass
+
+
+class ChromeDownloaderLinux(ChromeDownloader):
+
+  def __init__(self, version_identifier: str):
+    assert helper.platform.is_linux
+    if helper.platform.is_x64:
+      platform_name = "linux_64"
+    else:
+      raise ValueError("Unsupported linux architecture for downloading chrome: "
+                       f"got={helper.platform.machine} supported=x64")
+    super().__init__(version_identifier, platform_name)
+
+  def _archive_url(self, folder_url, version_str):
+    return f"{folder_url}google-chrome-unstable-{version_str}.x86_64.rpm"
+
+  def _extract_archive(self, archive_path: pathlib.Path):
+    # TODO
+    raise NotImplementedError()
+
+
+class ChromeDownloaderMacOS(ChromeDownloader):
+
+  def __init__(self, version_identifier: str):
+    assert helper.platform.is_macos
+    super().__init__(version_identifier, platform_name="mac-universal")
+
+  def _download(self):
+    if self.platform.is_arm64 and self.requested_version < (87, 0, 0, 0):
+      raise ValueError(
+          "Chrome Arm64 Apple Silicon is only available starting with M87, "
+          f"but requested {self.requested_version_str}")
+    return super()._download()
+
+  def _archive_url(self, folder_url, version_str):
+    # Use ChromeCanary since it's built for all version (unlike stable/beta).
+    return f"{folder_url}GoogleChromeCanary-{version_str}.dmg"
 
   def _extract_archive(self, archive_path: pathlib.Path):
     result = self.platform.sh_stdout("hdiutil", "attach", "-plist",
@@ -305,4 +355,4 @@ class ChromeDownloader:
       shutil.copytree(app, self.path, dirs_exist_ok=False)
     finally:
       self.platform.sh("hdiutil", "detach", dmg_path)
-      dmg_path.unlink()
+      archive_path.unlink()
