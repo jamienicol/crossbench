@@ -66,7 +66,6 @@ class WebdriverMixin(Browser):
     self._driver.set_window_position(self.x, self.y)
     self._driver.set_window_size(self.width, self.height)
     self._check_driver_version()
-    self.show_url(run.runner, self.info_data_url(run))
 
   @abc.abstractmethod
   def _start_driver(self, run: cb.runner.Run,

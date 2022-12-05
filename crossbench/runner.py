@@ -12,7 +12,7 @@ import inspect
 import json
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Iterable, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import crossbench
 import crossbench.benchmarks
@@ -561,6 +561,17 @@ class Run:
         f"story={self.story}",
         f"iteration={self.iteration}",
     )
+
+  def details_json(self) -> Dict[str, Any]:
+    details = {
+        "name": self.name,
+        "iteration": self.iteration,
+        "temperature": self.temperature,
+        "story": str(self.story),
+        "duration": dt.timedelta(seconds=self.story.duration),
+        "probes": [probe.name for probe in self.probes]
+    }
+    return details
 
   @property
   def temperature(self):

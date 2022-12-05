@@ -83,6 +83,9 @@ class Browser(abc.ABC):
   def flags(self) -> cb.flags.Flags:
     return self._flags
 
+  def user_agent(self, runner: cb.runner.Runner) -> str:
+    return self.js(runner, "return window.navigator.userAgent")
+
   @property
   def pid(self):
     return self._pid
@@ -172,11 +175,11 @@ class Browser(abc.ABC):
         runner.wait(runner.default_wait)
 
   def info_data_url(self, run: cb.runner.Run):
-    del run
-    page = ("<html><head>"
-            "<title>Browser Details</title>"
-            "<style>"
-            """
+    page = (
+        "<html><head>"
+        "<title>Browser Details</title>"
+        "<style>"
+        """
             html { font-family: sans-serif; }
             dl {
               display: grid;
@@ -185,14 +188,25 @@ class Browser(abc.ABC):
             dt { grid-column-start: 1; }
             dd { grid-column-start: 2;  font-family: monospace; }
             """
-            "</style>"
-            "<head><body>"
-            f"<h1>{html.escape(self.type)} {html.escape(self.version)}</h2>"
-            "<dl>")
+        "</style>"
+        "<head><body>"
+        f"<h1>{html.escape(self.type).capitalize()} {html.escape(self.version)}</h1>"
+    )
+    page += (
+        "<h2>Browser Details</h2>"
+        "<dl>"
+        f"<dt>UserAgent</dt><dd>{html.escape(self.user_agent(run.runner))}</dd>"
+    )
     for property_name, value in self.details_json().items():
       page += f"<dt>{html.escape(property_name)}</dt>"
       page += f"<dd>{html.escape(str(value))}</dd>"
-    page += "</dl></body></html>"
+    page += "</dl>"
+    page += "<h2>Run Details</h2><dl>"
+    for property_name, value in run.details_json().items():
+      page += f"<dt>{html.escape(property_name)}</dt>"
+      page += f"<dd>{html.escape(str(value))}</dd>"
+    page += "</dl>"
+    page += "</body></html>"
     data_url = f"data:text/html;charset=utf-8,{urllib.parse.quote(page)}"
     return data_url
 

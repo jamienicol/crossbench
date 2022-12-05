@@ -82,6 +82,9 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
   def _extract_version(self):
     return self.VERSION
 
+  def user_agent(self, runner: cb.runner.Runner) -> str:
+    return f"Mock Browser {self.type}, {self.VERSION}"
+
   def show_url(self, runner: Runner, url):
     self.url_list.append(url)
 
