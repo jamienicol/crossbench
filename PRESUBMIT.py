@@ -40,11 +40,7 @@ def CheckChange(input_api, output_api, on_commit):
   else:
     env["PYTHONPATH"] = env.get("PYTHONPATH", "") + ":tests"
   if on_commit:
-    # TODO: enable once tests are fixed with vpython
-    # dirs_to_check = pathlib.Path("tests").glob("**")
-    dirs_to_check = [
-        "tests",
-    ]
+    dirs_to_check = pathlib.Path("tests").glob("**")
     files_to_check = [r'.*test_.*\.py$']
   else:
     # Only check a small subset on upload

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import abc
+import copy
 import pathlib
 from typing import TYPE_CHECKING, List, Optional, Tuple, Type
 
@@ -93,7 +94,9 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
         "Please add another js_side_effect entry for "
         f"arguments={arguments} \n"
         f"Script: {script}")
-    return self.run_js_side_effect.pop(0)
+    result = self.run_js_side_effect.pop(0)
+    # Return copies to avoid leaking data between repetitions.
+    return copy.deepcopy(result)
 
 
 if helper.platform.is_macos:
