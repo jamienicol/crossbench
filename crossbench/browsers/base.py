@@ -52,16 +52,18 @@ class Browser(abc.ABC):
     assert type
     self.type: str = type
     self.label: str = label
+    self._unique_name: str = ""
     self.path: Optional[pathlib.Path] = path
+    self.version: str = "custom"
+    self.major_version: int = 0
     if path:
       self.path = self._resolve_binary(path)
       self.version: str = self._extract_version()
       self.major_version: int = int(self.version.split(".")[0])
-      short_name = f"{self.type}_v{self.major_version}_{self.label}".lower()
+      self.unique_name = f"{self.type}_v{self.major_version}_{self.label}"
     else:
       self.app_name: str = 'none'
-      short_name = f"{self.type}_{self.label}".lower()
-    self.short_name: str = short_name.replace(" ", "_")
+      self.unique_name = f"{self.type}_{self.label}".lower()
     self.width: int = 1500
     self.height: int = 1000
     self.x: int = 10
@@ -74,6 +76,16 @@ class Browser(abc.ABC):
     self._probes: Set[cb.probes.Probe] = set()
     self._flags: cb.flags.Flags = self.default_flags(flags)
     self.log_file: Optional[pathlib.Path] = None
+
+  @property
+  def unique_name(self) -> str:
+    return self._unique_name
+
+  @unique_name.setter
+  def unique_name(self, name: str):
+    assert name
+    # Replace any potentially unsafe chars in the name
+    self._unique_name = re.sub(r"[^\w\d\-\.]", "_", name).lower()
 
   @property
   def is_headless(self) -> bool:
@@ -126,7 +138,7 @@ class Browser(abc.ABC):
     return {
         "label": self.label,
         "browser": self.type,
-        "short_name": self.short_name,
+        "unique_name": self.unique_name,
         "app_name": self.app_name,
         "version": self.version,
         "flags": tuple(self.flags.get_list()),

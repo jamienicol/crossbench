@@ -122,9 +122,9 @@ class Runner:
 
   def _validate_browsers(self):
     assert self.browsers, "No browsers provided"
-    browser_short_names = [browser.short_name for browser in self.browsers]
-    assert len(browser_short_names) == len(set(browser_short_names)), (
-        f"Duplicated browser names in {browser_short_names}")
+    browser_unique_names = [browser.unique_name for browser in self.browsers]
+    assert len(browser_unique_names) == len(set(browser_unique_names)), (
+        f"Duplicated browser names in {browser_unique_names}")
     browser_platforms = set(browser.platform for browser in self.browsers)
     assert len(browser_platforms) == 1, (
         "Browsers running on multiple platforms are not supported: "
@@ -147,7 +147,7 @@ class Runner:
       if not probe.is_compatible(browser):
         if matching_browser_only:
           logging.warning("Skipping incompatible probe=%s for browser=%s",
-                          probe.name, browser.short_name)
+                          probe.name, browser.unique_name)
           continue
         raise Exception(f"Probe '{probe.name}' is not compatible with browser "
                         f"{browser.type}")
@@ -201,7 +201,7 @@ class Runner:
     logging.info("PREPARING %d BROWSER(S)", len(self.browsers))
     for browser in self.browsers:
       with self._exceptions.capture(f"Preparing browser type={browser.type} "
-                                    f"short_name={browser.short_name}"):
+                                    f"unique_name={browser.unique_name}"):
         browser.setup_binary(self)  # pytype: disable=wrong-arg-types
     self._exceptions.assert_success()
     with self._exceptions.capture("Preparing Runs"):
@@ -389,7 +389,7 @@ class RepetitionsRunGroup(RunGroup):
 
   @property
   def info_stack(self) -> exception.TInfoStack:
-    return (f"browser={self.browser.short_name}", f"story={self.story}")
+    return (f"browser={self.browser.unique_name}", f"story={self.story}")
 
   @property
   def csv_header(self) -> Tuple[Tuple[str, ...], ...]:
@@ -445,7 +445,7 @@ class StoriesRunGroup(RunGroup):
 
   @property
   def info_stack(self) -> exception.TInfoStack:
-    return (f"browser={self.browser.short_name}",)
+    return (f"browser={self.browser.unique_name}",)
 
   @property
   def csv_header(self) -> Tuple[Tuple[str, ...], ...]:
@@ -542,7 +542,7 @@ class Run:
     self._exceptions = exception.Annotator(throw)
 
   def get_out_dir(self, root_dir) -> pathlib.Path:
-    return root_dir / self.browser.short_name / self.story.name / str(
+    return root_dir / self.browser.unique_name / self.story.name / str(
         self._iteration)
 
   @property
@@ -752,7 +752,7 @@ class Run:
     if not info:
       return
     assert info["pid"] == self.browser.pid, (
-        f"Browser(name={self.browser.short_name} pid={self.browser.pid})) "
+        f"Browser(name={self.browser.unique_name} pid={self.browser.pid})) "
         "was not in the foreground at the end of the benchmark. "
         "Background apps and tabs can be heavily throttled.")
 

@@ -221,7 +221,7 @@ class ChromeDownloader(abc.ABC):
       if "One or more URLs matched no objects" in str(e):
         raise ValueError(
             f"Could not find version {self.requested_version_str} "
-            f"for {self.platform.short_name} {self.platform.machine} ") from e
+            f"for {self.platform.name} {self.platform.machine} ") from e
       raise
     logging.info("FILTERING %d CANDIDATES", len(listing))
     return self._filter_candidates(listing)

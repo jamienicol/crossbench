@@ -169,6 +169,7 @@ class BrowserConfig:
     for name, browser_config in data.items():
       with self._exceptions.info(f"Parsing browsers['{name}']"):
         self._parse_browser(name, browser_config)
+    self._ensure_unique_browser_names()
 
   def _parse_browser(self, name, raw_browser_data):
     path_or_identifier = raw_browser_data["path"]
@@ -255,6 +256,26 @@ class BrowserConfig:
       return cb.browsers.EdgeWebDriver
     raise ValueError(f"Unsupported browser='{path}'")
 
+  def _ensure_unique_browser_names(self):
+    if self._has_unique_variant_names():
+      return
+    # Expand to full version names
+    for browser in self._variants:
+      browser.unique_name = f"{browser.type}_{browser.version}_{browser.label}"
+    if self._has_unique_variant_names():
+      return
+    logging.info("Got unique browser names and versions, "
+                 "please use --browser-config for more meaningful names")
+    # Last resort, add index
+    for index, browser in enumerate(self._variants):
+      browser.unique_name += f"_{index}"
+    assert self._has_unique_variant_names()
+
+  def _has_unique_variant_names(self):
+    names = [browser.unique_name for browser in self._variants]
+    unique_names = set(names)
+    return len(unique_names) == len(names)
+
   def load_from_args(self, args):
     browsers = args.browser or ["chrome-stable"]
     assert isinstance(browsers, list)
@@ -263,6 +284,7 @@ class BrowserConfig:
     for browser in browsers:
       self._append_browser(args, browser)
     self._verify_browser_flags(args)
+    self._ensure_unique_browser_names()
 
   def _verify_browser_flags(self, args):
     if len(self._variants) == 1:
@@ -278,7 +300,7 @@ class BrowserConfig:
       for browser in self._variants:
         if not isinstance(browser, cb.browsers.Chromium):
           raise ValueError(f"Used chrome/chromium-specific flags {flag_name} "
-                           f"for non-chrome {browser.short_name}.\n"
+                           f"for non-chrome {browser.unique_name}.\n"
                            "Use --browser-config for complex variants.")
     if not args.other_browser_args:
       return
@@ -308,7 +330,7 @@ class BrowserConfig:
         path=path,
         flags=flags)
     logging.info("SELECTED BROWSER: name=%s path='%s' ",
-                 browser_instance.short_name, path)
+                 browser_instance.unique_name, path)
     self._variants.append(browser_instance)
 
   def _init_chrome_flags(self, args, flags: cb.flags.ChromeFlags):
@@ -320,7 +342,6 @@ class BrowserConfig:
         flags.features.disable(feature)
     if args.js_flags:
       flags.js_flags.update(args.js_flags.split(","))
-
 
   def _get_browser_path(self, path_or_identifier: str) -> pathlib.Path:
     identifier = path_or_identifier.lower()

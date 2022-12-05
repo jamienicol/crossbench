@@ -121,7 +121,7 @@ class Platform(abc.ABC):
 
   @property
   @abc.abstractmethod
-  def short_name(self) -> str:
+  def name(self) -> str:
     pass
 
   @property
@@ -409,7 +409,7 @@ class WinPlatform(Platform):
     return True
 
   @property
-  def short_name(self):
+  def name(self):
     return "win"
 
   def search_binary(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
@@ -449,7 +449,7 @@ class MacOSPlatform(PosixPlatform):
     return True
 
   @property
-  def short_name(self):
+  def name(self):
     return "macos"
 
   def _find_app_binary_path(self, app_path: pathlib.Path) -> pathlib.Path:
@@ -663,7 +663,7 @@ class LinuxPlatform(PosixPlatform):
     return True
 
   @property
-  def short_name(self):
+  def name(self):
     return "linux"
 
   def check_system_monitoring(self, disable: bool = False) -> bool:
@@ -715,12 +715,12 @@ def search_app_or_executable(name: str,
 
   if not executables:
     raise ValueError(
-        f"Executable {name} not supported on platform {platform.short_name}")
+        f"Executable {name} not supported on platform {platform.name}")
   for name_or_path in executables:
     binary = platform.search_app(pathlib.Path(name_or_path))
     if binary and binary.exists():
       return binary
-  raise Exception(f"Executable {name} not found on {platform.short_name}")
+  raise Exception(f"Executable {name} not found on {platform.name}")
 
 # =============================================================================
 

@@ -352,7 +352,7 @@ class HostEnvironment:
       if browser.is_headless != requested_headless:
         self.handle_warning(
             f"Requested browser_is_headless={requested_headless},"
-            f"but browser {browser.short_name} has conflicting "
+            f"but browser {browser.unique_name} has conflicting "
             f"headless={browser.is_headless}.")
 
   def _check_probes(self):

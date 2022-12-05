@@ -309,8 +309,8 @@ class MacOSPlatformHelperTestCase(unittest.TestCase):
     self.assertTrue(binary and binary.exists())
     self.assertTrue(binary and binary.is_dir())
 
-  def test_short_name(self):
-    self.assertEqual(self.platform.short_name, "macos")
+  def test_name(self):
+    self.assertEqual(self.platform.name, "macos")
 
   def test_is_macos(self):
     self.assertTrue(self.platform.is_macos)

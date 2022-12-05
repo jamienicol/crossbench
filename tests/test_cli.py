@@ -341,6 +341,89 @@ class TestCLI(BaseCrossbenchTestCase):
           results = json.load(f)
         versions.append(results["browser"]["version"])
         self.assertIn("test.com", results["stories"])
+      self.assertTrue(len(set(versions)), 3)
+      for mock_browser_cls in mock_browsers:
+        self.assertIn(mock_browser_cls.VERSION, versions)
+
+  def test_browser_identifiers_multiple_same_major_version(self):
+
+    class MockChromeBeta2(mock_browser.MockChromeBeta):
+      VERSION = "100.22.33.100"
+
+    class MockChromeDev2(mock_browser.MockChromeDev):
+      VERSION = "100.22.33.200"
+
+    mock_browsers: List[Type[mock_browser.MockBrowser]] = [
+        MockChromeBeta2,
+        MockChromeDev2,
+    ]
+
+    def mock_get_browser_cls_from_path(path):
+      for mock_browser_cls in mock_browsers:
+        if mock_browser_cls.APP_PATH == path:
+          return mock_browser_cls
+      raise ValueError("Unknown browser path")
+
+    with mock.patch.object(
+        cb.cli.BrowserConfig,
+        "_get_browser_cls_from_path",
+        side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
+      url = "http://test.com"
+      self.run_cli("loading", "--browser=dev", "--browser=beta",
+                   f"--urls={url}", "--env-validation=skip",
+                   f"--out-dir={self.out_dir}")
+      self.assertTrue(self.out_dir.exists())
+      get_browser_cls.assert_called()
+      result_files = list(self.out_dir.glob("*/results.json"))
+      self.assertEqual(len(result_files), 2)
+      versions = []
+      for result_file in result_files:
+        with result_file.open(encoding="utf-8") as f:
+          results = json.load(f)
+        versions.append(results["browser"]["version"])
+        self.assertIn("test.com", results["stories"])
+      self.assertTrue(len(set(versions)), 2)
+      for mock_browser_cls in mock_browsers:
+        self.assertIn(mock_browser_cls.VERSION, versions)
+
+  def test_browser_identifiers_multiple_same_version(self):
+
+    class MockChromeBeta2(mock_browser.MockChromeBeta):
+      VERSION = "100.22.33.999"
+
+    class MockChromeDev2(mock_browser.MockChromeDev):
+      VERSION = "100.22.33.999"
+
+    mock_browsers: List[Type[mock_browser.MockBrowser]] = [
+        MockChromeBeta2,
+        MockChromeDev2,
+    ]
+
+    def mock_get_browser_cls_from_path(path):
+      for mock_browser_cls in mock_browsers:
+        if mock_browser_cls.APP_PATH == path:
+          return mock_browser_cls
+      raise ValueError("Unknown browser path")
+
+    with mock.patch.object(
+        cb.cli.BrowserConfig,
+        "_get_browser_cls_from_path",
+        side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
+      url = "http://test.com"
+      self.run_cli("loading", "--browser=dev", "--browser=beta",
+                   f"--urls={url}", "--env-validation=skip",
+                   f"--out-dir={self.out_dir}")
+      self.assertTrue(self.out_dir.exists())
+      get_browser_cls.assert_called()
+      result_files = list(self.out_dir.glob("*/results.json"))
+      self.assertEqual(len(result_files), 2)
+      versions = []
+      for result_file in result_files:
+        with result_file.open(encoding="utf-8") as f:
+          results = json.load(f)
+        versions.append(results["browser"]["version"])
+        self.assertIn("test.com", results["stories"])
+      self.assertTrue(len(set(versions)), 1)
       for mock_browser_cls in mock_browsers:
         self.assertIn(mock_browser_cls.VERSION, versions)
 
