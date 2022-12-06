@@ -2,21 +2,25 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from unittest import mock
-import crossbench as cb
-
-from crossbench.benchmarks import motionmark
-from tests.benchmarks import helper
-
+import csv
 import sys
+from unittest import mock
+
 import pytest
+
+from crossbench.benchmarks.motionmark import (MotionMark12Benchmark,
+                                              MotionMark12Probe,
+                                              MotionMark12Story)
+from crossbench.env import HostEnvironmentConfig, ValidationMode
+from crossbench.runner import Runner
+from tests.benchmarks import helper
 
 
 class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
 
   @property
   def benchmark_cls(self):
-    return motionmark.MotionMark12Benchmark
+    return MotionMark12Benchmark
 
   EXAMPLE_PROBE_DATA = [{
       "testsResults": {
@@ -58,23 +62,23 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
     stories = self.story_filter(["all"], separate=True).stories
     self.assertGreater(len(stories), 1)
     for story in stories:
-      self.assertIsInstance(story, motionmark.MotionMark12Story)
+      self.assertIsInstance(story, MotionMark12Story)
     names = set(story.name for story in stories)
     self.assertEqual(len(names), len(stories))
-    self.assertEqual(len(names), len(motionmark.MotionMark12Story.SUBSTORIES))
+    self.assertEqual(len(names), len(MotionMark12Story.SUBSTORIES))
 
   def test_default_stories(self):
     stories = self.story_filter(["default"], separate=True).stories
     self.assertGreater(len(stories), 1)
     for story in stories:
-      self.assertIsInstance(story, motionmark.MotionMark12Story)
+      self.assertIsInstance(story, MotionMark12Story)
     names = set(story.name for story in stories)
     self.assertEqual(len(names), len(stories))
     self.assertEqual(
-        len(names), len(motionmark.MotionMark12Story.ALL_STORIES["MotionMark"]))
+        len(names), len(MotionMark12Story.ALL_STORIES["MotionMark"]))
 
   def test_run(self):
-    stories = motionmark.MotionMark12Story.from_names(['Multiply'])
+    stories = MotionMark12Story.from_names(['Multiply'])
     for browser in self.browsers:
       browser.js_side_effect = [
           True,  # Page is ready
@@ -86,12 +90,12 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
     repetitions = 3
     benchmark = self.benchmark_cls(stories)
     self.assertTrue(len(benchmark.describe()) > 0)
-    runner = cb.runner.Runner(
+    runner = Runner(
         self.out_dir,
         self.browsers,
         benchmark,
-        env_config=cb.env.HostEnvironmentConfig(),
-        env_validation_mode=cb.env.ValidationMode.SKIP,
+        env_config=HostEnvironmentConfig(),
+        env_validation_mode=ValidationMode.SKIP,
         platform=self.platform,
         repetitions=repetitions)
     with mock.patch.object(self.benchmark_cls, "validate_url") as cm:
@@ -100,7 +104,20 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
     for browser in self.browsers:
       urls = self.filter_data_urls(browser.url_list)
       self.assertEqual(len(urls), repetitions)
-      self.assertIn(motionmark.MotionMark12Probe.JS, browser.js_list)
+      self.assertIn(MotionMark12Probe.JS, browser.js_list)
+    with (self.out_dir /
+          f"{MotionMark12Probe.NAME}.csv").open(encoding="utf-8") as f:
+      csv_data = list(csv.DictReader(f, delimiter="\t"))
+    self.assertDictEqual(csv_data[0], {
+        'Label': 'Browser',
+        'dev': 'Chrome',
+        'stable': 'Chrome'
+    })
+    self.assertDictEqual(csv_data[1], {
+        'Label': 'Version',
+        'dev': '102.22.33.44',
+        'stable': '100.22.33.44'
+    })
 
 
 if __name__ == "__main__":

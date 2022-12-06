@@ -8,7 +8,7 @@ import abc
 import csv
 import json
 import pathlib
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Union
 
 import crossbench
 from crossbench.probes import helper
@@ -116,6 +116,21 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
       with source_file.open(encoding="utf-8") as f:
         merger.add(json.load(f))
     return self.write_group_result(group, merger, write_csv=True)
+
+  def merge_browsers_csv_files(self, group: cb.runner.BrowsersRunGroup
+                              ) -> pathlib.Path:
+    csv_files: List[pathlib.Path] = []
+    headers: List[str] = []
+    for story_group in group.story_groups:
+      csv_files.append(story_group.results[self]["csv"])
+      headers.append(story_group.browser.unique_name)
+    merged_table = helper.merge_csv(csv_files)
+    merged_json_path = group.get_probe_results_file(self)
+    merged_csv_path = merged_json_path.with_suffix(".csv")
+    assert not merged_csv_path.exists()
+    with merged_csv_path.open("w", newline="", encoding="utf-8") as f:
+      csv.writer(f, delimiter="\t").writerows(merged_table)
+    return merged_csv_path
 
   def get_mergeable_result_file(self, results):
     if isinstance(results, tuple):

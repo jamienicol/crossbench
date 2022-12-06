@@ -2,24 +2,27 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from unittest import mock
-import crossbench as cb
-import crossbench.benchmarks as bm
-
-from tests.benchmarks import helper
-
+import csv
 import sys
+from unittest import mock
+
 import pytest
+
+from crossbench.benchmarks.jetstream import (JetStream2Benchmark,
+                                             JetStream2Probe, JetStream2Story)
+from crossbench.env import HostEnvironmentConfig, ValidationMode
+from crossbench.runner import Runner
+from tests.benchmarks import helper
 
 
 class JetStream2Test(helper.PressBaseBenchmarkTestCase):
 
   @property
   def benchmark_cls(self):
-    return bm.jetstream.JetStream2Benchmark
+    return JetStream2Benchmark
 
   def test_run(self):
-    stories = bm.jetstream.JetStream2Story.from_names(["WSL"])
+    stories = JetStream2Story.from_names(["WSL"])
     example_story_data = {"firstIteration": 1, "average": 0.1, "worst4": 1.1}
     jetstream_probe_results = {
         story.name: example_story_data for story in stories
@@ -36,12 +39,12 @@ class JetStream2Test(helper.PressBaseBenchmarkTestCase):
     repetitions = 3
     benchmark = self.benchmark_cls(stories)
     self.assertTrue(len(benchmark.describe()) > 0)
-    runner = cb.runner.Runner(
+    runner = Runner(
         self.out_dir,
         self.browsers,
         benchmark,
-        env_config=cb.env.HostEnvironmentConfig(),
-        env_validation_mode=cb.env.ValidationMode.SKIP,
+        env_config=HostEnvironmentConfig(),
+        env_validation_mode=ValidationMode.SKIP,
         platform=self.platform,
         repetitions=repetitions)
     with mock.patch.object(self.benchmark_cls, "validate_url") as cm:
@@ -50,7 +53,21 @@ class JetStream2Test(helper.PressBaseBenchmarkTestCase):
     for browser in self.browsers:
       urls = self.filter_data_urls(browser.url_list)
       self.assertEqual(len(urls), repetitions)
-      self.assertIn(bm.jetstream.JetStream2Probe.JS, browser.js_list)
+      self.assertIn(JetStream2Probe.JS, browser.js_list)
+
+    with (self.out_dir /
+          f"{JetStream2Probe.NAME}.csv").open(encoding="utf-8") as f:
+      csv_data = list(csv.DictReader(f, delimiter="\t"))
+    self.assertDictEqual(csv_data[0], {
+        'Label': 'Browser',
+        'dev': 'Chrome',
+        'stable': 'Chrome'
+    })
+    self.assertDictEqual(csv_data[1], {
+        'Label': 'Version',
+        'dev': '102.22.33.44',
+        'stable': '100.22.33.44'
+    })
 
 
 if __name__ == "__main__":

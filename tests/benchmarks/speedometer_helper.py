@@ -3,18 +3,17 @@
 # found in the LICENSE file.
 
 import abc
+import csv
 from dataclasses import dataclass
 from typing import Type
 from unittest import mock
 
-import crossbench
-import crossbench.env
-import crossbench.runner
-from crossbench.benchmarks import speedometer
+from crossbench.benchmarks.speedometer import (Speedometer2Benchmark,
+                                               Speedometer2Probe,
+                                               Speedometer2Story)
+from crossbench.env import HostEnvironmentConfig, ValidationMode
+from crossbench.runner import Runner
 from tests.benchmarks import helper
-
-#TODO: fix imports
-cb = crossbench
 
 
 class Speedometer2BaseTestCase(
@@ -22,12 +21,12 @@ class Speedometer2BaseTestCase(
 
   @property
   @abc.abstractmethod
-  def benchmark_cls(self) -> Type[speedometer.Speedometer2Benchmark]:
+  def benchmark_cls(self) -> Type[Speedometer2Benchmark]:
     pass
 
   @property
   @abc.abstractmethod
-  def story_cls(self) -> Type[speedometer.Speedometer2Story]:
+  def story_cls(self) -> Type[Speedometer2Story]:
     pass
 
   @property
@@ -181,12 +180,12 @@ class Speedometer2BaseTestCase(
       ]
     benchmark = self.benchmark_cls(stories)
     self.assertTrue(len(benchmark.describe()) > 0)
-    runner = cb.runner.Runner(
+    runner = Runner(
         self.out_dir,
         self.browsers,
         benchmark,
-        env_config=cb.env.HostEnvironmentConfig(),
-        env_validation_mode=cb.env.ValidationMode.SKIP,
+        env_config=HostEnvironmentConfig(),
+        env_validation_mode=ValidationMode.SKIP,
         platform=self.platform,
         repetitions=repetitions)
     with mock.patch.object(self.benchmark_cls, "validate_url") as cm:
@@ -195,4 +194,18 @@ class Speedometer2BaseTestCase(
     for browser in self.browsers:
       urls = self.filter_data_urls(browser.url_list)
       self.assertEqual(len(urls), repetitions)
-      self.assertIn(speedometer.Speedometer2Probe.JS, browser.js_list)
+      self.assertIn(Speedometer2Probe.JS, browser.js_list)
+
+    with (self.out_dir /
+          f"{Speedometer2Probe.NAME}.csv").open(encoding="utf-8") as f:
+      csv_data = list(csv.DictReader(f, delimiter="\t"))
+    self.assertDictEqual(csv_data[0], {
+        'Label': 'Browser',
+        'dev': 'Chrome',
+        'stable': 'Chrome'
+    })
+    self.assertDictEqual(csv_data[1], {
+        'Label': 'Version',
+        'dev': '102.22.33.44',
+        'stable': '100.22.33.44'
+    })

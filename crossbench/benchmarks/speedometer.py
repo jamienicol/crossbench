@@ -6,9 +6,7 @@ from __future__ import annotations
 import abc
 
 import argparse
-import csv
-import pathlib
-from typing import TYPE_CHECKING, Optional, Sequence, Tuple, List
+from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 
 import crossbench
 
@@ -56,19 +54,7 @@ class Speedometer2Probe(probes_json.JsonResultProbe):
     return self.write_group_result(group, merged, write_csv=True)
 
   def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
-    csv_files: List[pathlib.Path] = []
-    headers: List[str] = []
-    for story_group in group.story_groups:
-      csv_files.append(story_group.results[self]["csv"])
-      headers.append(story_group.browser.unique_name)
-
-    merged_table = probes_helper.merge_csv(csv_files)
-
-    merged_json_path = group.get_probe_results_file(self)
-    merged_csv_path = merged_json_path.with_suffix(".csv")
-    assert not merged_csv_path.exists()
-    with merged_csv_path.open("w", newline="", encoding="utf-8") as f:
-      csv.writer(f, delimiter="\t").writerows(merged_table)
+    return self.merge_browsers_csv_files(group)
 
 
 class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):

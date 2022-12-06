@@ -45,6 +45,15 @@ class MotionMark12Probe(cb.probes.json.JsonResultProbe):
     return cb.probes.helper.Flatten(
         json_data[0], key_fn=_probe_skip_data_segments).data
 
+  def merge_stories(self, group: cb.runner.StoriesRunGroup):
+    merged = cb.probes.helper.ValuesMerger.merge_json_files(
+        story_group.results[self]["json"]
+        for story_group in group.repetitions_groups)
+    return self.write_group_result(group, merged, write_csv=True)
+
+  def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
+    return self.merge_browsers_csv_files(group)
+
 
 class MotionMark12Story(cb.stories.PressBenchmarkStory):
   NAME = "motionmark_1.2"

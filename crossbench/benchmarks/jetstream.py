@@ -70,6 +70,9 @@ class JetStream2Probe(cb.probes.json.JsonResultProbe):
         for story_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 
+  def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
+    return self.merge_browsers_csv_files(group)
+
 
 class JetStream2Story(cb.stories.PressBenchmarkStory):
   NAME = "jetstream_2"
