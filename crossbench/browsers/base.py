@@ -54,6 +54,7 @@ class Browser(abc.ABC):
     self.label: str = label
     self._unique_name: str = ""
     self.path: Optional[pathlib.Path] = path
+    self.app_name: str = 'none'
     self.version: str = "custom"
     self.major_version: int = 0
     if path:
@@ -62,7 +63,6 @@ class Browser(abc.ABC):
       self.major_version: int = int(self.version.split(".")[0])
       self.unique_name = f"{self.type}_v{self.major_version}_{self.label}"
     else:
-      self.app_name: str = 'none'
       self.unique_name = f"{self.type}_{self.label}".lower()
     self.width: int = 1500
     self.height: int = 1000
@@ -117,7 +117,7 @@ class Browser(abc.ABC):
   def _resolve_binary(self, path: pathlib.Path) -> pathlib.Path:
     assert path.exists(), f"Binary at path={path} does not exist."
     self.app_path = path
-    self.app_name: str = self.app_path.stem
+    self.app_name = self.app_path.stem
     if self.platform.is_macos:
       path = self._resolve_macos_binary(path)
     assert path.is_file(), (f"Binary at path={path} is not a file.")

@@ -165,7 +165,8 @@ class ChromeDownloader(abc.ABC):
     assert match, (f"Invalid chrome version identifier: {version_identifier}")
     self.version_identifier = version_identifier = match[1]
     if version_identifier[0] == "m":
-      self.requested_version = (int(version_identifier[1:]),)
+      self.requested_version = (int(version_identifier[1:]), self.ANY_MARKER,
+                                self.ANY_MARKER, self.ANY_MARKER)
       self.requested_version_str = f"M{self.requested_version[0]}"
       path = BROWSERS_CACHE / f"Chrome {self.requested_version_str}.app"
     else:
@@ -173,11 +174,6 @@ class ChromeDownloader(abc.ABC):
                                          version_identifier.split(".")))[:4]
       self.requested_version_str = ".".join(map(str, self.requested_version))
       path = BROWSERS_CACHE / f"Chrome {self.requested_version_str}.app"
-    # Normalize version numbers, use ANY_MARKER as "don't-care" value to find
-    # the newest version
-    while len(self.requested_version) < 4:
-      self.requested_version += (self.ANY_MARKER,)
-      self.requested_exact_version = False
     assert len(self.requested_version) == 4
     return path
 
@@ -189,6 +185,7 @@ class ChromeDownloader(abc.ABC):
         f"Got invalid version string from chrome binary: {app_version}")
     cached_version_str = version_match.group(0)
     cached_version = tuple(map(int, cached_version_str.split(".")))
+    assert len(cached_version) == 4, f"Got invalid version: {app_version}"
     if not self._version_matches(cached_version):
       raise ValueError(
           f"Previously downloaded browser at {self.path} might have been auto-updated.\n"

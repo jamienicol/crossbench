@@ -287,7 +287,8 @@ class ValuesMerger:
         else:
           values.append(value)
 
-  def to_json(self, value_fn: Optional[Callable[[Any], Any]] = None):
+  def to_json(self, value_fn: Optional[Callable[[Any], Any]] = None
+             ) -> Dict[str, Any]:
     items = []
     for key, value in self._data.items():
       assert isinstance(value, Values)
@@ -320,8 +321,9 @@ class ValuesMerger:
     ]
     """
     converted = self.to_json(value_fn)
-    lookup = {}
-    toplevel = []
+    lookup: Dict[str, Any] = {}
+    # Use Dict as ordered-set
+    toplevel: Dict[str, None] = {}
     for key, value in converted.items():
       path = None
       segments = key.split("/")
@@ -333,7 +335,7 @@ class ValuesMerger:
         if path not in lookup:
           lookup[path] = None
       if len(segments) == 1:
-        toplevel.append(key)
+        toplevel[key] = None
       lookup[key] = value
     csv_data: List[Sequence[Any]] = []
     for header in headers:

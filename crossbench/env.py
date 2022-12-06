@@ -7,7 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import enum
 import logging
-from typing import TYPE_CHECKING, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Union
 
 import dataclasses
 
@@ -64,7 +64,7 @@ def merge_str_list(name: str, left: Optional[List[str]],
     return right
   if right is None:
     return left
-  return left.extend(right)
+  return left + right
 
 
 @dataclasses.dataclass(frozen=True)
@@ -84,7 +84,7 @@ class HostEnvironmentConfig:
   screen_allow_autobrightness: Optional[bool] = IGNORE
 
   def merge(self, other: HostEnvironmentConfig) -> HostEnvironmentConfig:
-    mergers = {
+    mergers: Dict[str, Callable[[str, Any, Any], Any]] = {
         "disk_min_free_space_gib": merge_number_max,
         "power_use_battery": merge_bool,
         "screen_brightness_percent": merge_number_max,
@@ -290,7 +290,7 @@ class HostEnvironment:
                           f"Relative speed is {cpu_speed}, "
                           f"but expected at least {min_relative_speed}.")
 
-  def _check_forbidden_system_process(self) -> bool:
+  def _check_forbidden_system_process(self):
     # Verify that no terminals are running.
     # They introduce too much overhead. (As measured with powermetrics)
     system_forbidden_process_names = self._config.system_forbidden_process_names
