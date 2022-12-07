@@ -322,7 +322,8 @@ class BrowserConfig:
       self._init_chrome_flags(args, flags)
 
     for flag_str in args.other_browser_args:
-      flags.set(*cb.flags.Flags.split(flag_str))
+      flag_name, flag_value = cb.flags.Flags.split(flag_str)
+      flags.set(flag_name, flag_value)
 
     label = cb.browsers.convert_flags_to_label(*flags.get_list())
     browser_instance = browser_cls(  # pytype: disable=not-instantiable
@@ -591,7 +592,7 @@ class CrossBenchCLI:
       benchmark_info["aliases"] = aliases or "None"
       benchmark_info["help"] = f"See `{benchmark_cls.NAME} --help`"
       benchmarks_data[benchmark_cls.NAME] = benchmark_info
-    data = {
+    data: Dict[str, Dict[str, Any]] = {
         "benchmarks": benchmarks_data,
         "probes": {
             probe_cls.NAME: probe_cls.help_text()

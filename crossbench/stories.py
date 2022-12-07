@@ -8,15 +8,12 @@ from abc import ABC, ABCMeta, abstractmethod
 import abc
 from typing import List, Optional, Sequence, TYPE_CHECKING, Tuple, Type, TypeVar
 
-import crossbench as cb
-
-
 if TYPE_CHECKING:
-  import crossbench.probes
+  from crossbench.probes import Probe
 
 
 class Story(ABC):
-  PROBES: Tuple[Type[cb.probes.Probe], ...] = ()
+  PROBES: Tuple[Type[Probe], ...] = ()
 
   @classmethod
   @abstractmethod

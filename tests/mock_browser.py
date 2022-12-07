@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class MockBrowser(Browser, metaclass=abc.ABCMeta):
   APP_PATH: pathlib.Path = pathlib.Path("/")
   MACOS_BIN_NAME: str = ""
-  VERSION = "100.22.33.44"
+  VERSION: str = "100.22.33.44"
 
   @classmethod
   def setup_fs(cls, fs):
@@ -82,7 +82,7 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
   def _extract_version(self):
     return self.VERSION
 
-  def user_agent(self, runner: cb.runner.Runner) -> str:
+  def user_agent(self, runner: Runner) -> str:
     return f"Mock Browser {self.type}, {self.VERSION}"
 
   def show_url(self, runner: Runner, url):
@@ -129,7 +129,8 @@ class MockChromeBrowser(MockChromiumBrowser, metaclass=abc.ABCMeta):
 
 
 Chrome.register(MockChromeBrowser)
-assert issubclass(MockChromeBrowser, Chrome)
+if not TYPE_CHECKING:
+  assert issubclass(MockChromeBrowser, Chrome)
 
 
 class MockChromeStable(MockChromeBrowser):
@@ -141,8 +142,9 @@ class MockChromeStable(MockChromeBrowser):
     APP_PATH = APP_ROOT / "google-chrome"
 
 
-assert issubclass(MockChromeStable, Chromium)
-assert issubclass(MockChromeStable, Chrome)
+if not TYPE_CHECKING:
+  assert issubclass(MockChromeStable, Chromium)
+  assert issubclass(MockChromeStable, Chrome)
 
 
 class MockChromeBeta(MockChromeBrowser):
@@ -186,8 +188,9 @@ class MockEdgeBrowser(MockChromiumBrowser, metaclass=abc.ABCMeta):
 
 
 Edge.register(MockEdgeBrowser)
-assert issubclass(MockEdgeBrowser, Chromium)
-assert issubclass(MockEdgeBrowser, Edge)
+if not TYPE_CHECKING:
+  assert issubclass(MockEdgeBrowser, Chromium)
+  assert issubclass(MockEdgeBrowser, Edge)
 
 
 class MockEdgeStable(MockEdgeBrowser):
@@ -226,7 +229,7 @@ class MockEdgeCanary(MockEdgeBrowser):
   elif helper.platform.is_win:
     APP_PATH = APP_ROOT / "Microsoft/Edge SxS/Application/msedge.exe"
   else:
-    APP_PATH = APP_ROOT / "unssuported/msedge-canary"
+    APP_PATH = APP_ROOT / "unsupported/msedge-canary"
 
 
 class MockSafariBrowser(MockBrowser, metaclass=abc.ABCMeta):
@@ -240,7 +243,8 @@ class MockSafariBrowser(MockBrowser, metaclass=abc.ABCMeta):
 
 
 Safari.register(MockSafariBrowser)
-assert issubclass(MockSafariBrowser, Safari)
+if not TYPE_CHECKING:
+  assert issubclass(MockSafariBrowser, Safari)
 
 
 class MockSafari(MockSafariBrowser):
@@ -272,7 +276,8 @@ class MockFirefoxBrowser(MockBrowser, metaclass=abc.ABCMeta):
 
 
 Firefox.register(MockFirefoxBrowser)
-assert issubclass(MockFirefoxBrowser, Firefox)
+if not TYPE_CHECKING:
+  assert issubclass(MockFirefoxBrowser, Firefox)
 
 
 class MockFirefox(MockFirefoxBrowser):

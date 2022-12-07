@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import collections
-from typing import Dict, Final, Iterable, Optional, Set, Tuple, Union
+from typing import Dict, Final, Generator, Iterable, Optional, Sequence, Set, Tuple, Union
 
 
 class Flags(collections.UserDict):
@@ -19,21 +19,28 @@ class Flags(collections.UserDict):
       Union[Dict[str, str], "Flags", Iterable[Union[Tuple[str, str], str]]]]
 
   @classmethod
-  def split(cls, flag_str: str):
+  def split(cls, flag_str: str) -> Tuple[str, Optional[str]]:
     if "=" in flag_str:
-      return flag_str.split("=", maxsplit=1)
+      flag_name, flag_value = flag_str.split("=", maxsplit=1)
+      return (flag_name, flag_value)
     return (flag_str, None)
 
   def __init__(self, initial_data: Flags.InitialDataType = None):
     super().__init__(initial_data)
 
-  def __setitem__(self, flag_name, flag_value):
+  def __setitem__(self, flag_name: str, flag_value: str):
     return self.set(flag_name, flag_value)
 
-  def set(self, flag_name: str, flag_value=None, override=False):
+  def set(self,
+          flag_name: str,
+          flag_value: Optional[str] = None,
+          override: bool = False):
     self._set(flag_name, flag_value, override)
 
-  def _set(self, flag_name: str, flag_value=None, override=False):
+  def _set(self,
+           flag_name: str,
+           flag_value: Optional[str] = None,
+           override: bool = False):
     assert flag_name, "Cannot set empty flag"
     assert "=" not in flag_name, (
         f"Flag name contains '=': {flag_name}, please split")
@@ -49,7 +56,9 @@ class Flags(collections.UserDict):
       return
     self.data[flag_name] = flag_value
 
-  def update(self, initial_data: Flags.InitialDataType = None, override=False):
+  def update(self,
+             initial_data: Flags.InitialDataType = None,
+             override: bool = False):
     # pylint: disable=arguments-differ
     if initial_data is None:
       return
@@ -67,16 +76,16 @@ class Flags(collections.UserDict):
   def copy(self):
     return self.__class__(self)
 
-  def _describe(self, flag_name):
+  def _describe(self, flag_name: str) -> str:
     value = self.get(flag_name)
     if value is None:
       return flag_name
     return f"{flag_name}={value}"
 
-  def get_list(self):
+  def get_list(self) -> Generator[str]:
     return (k if v is None else f"{k}={v}" for k, v in self.items())
 
-  def __str__(self):
+  def __str__(self) -> str:
     return " ".join(self.get_list())
 
 
