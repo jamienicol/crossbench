@@ -2,7 +2,7 @@
   probes: {
     // An example config for the v8.log probe:
     "v8.log": {
-      prof: True,
+      prof: true, // bool values are JS not Python!
       js_flags: ["--log-maps", "--log-function-events"],
     }
   }

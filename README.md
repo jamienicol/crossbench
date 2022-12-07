@@ -11,40 +11,27 @@ Supported OS: macOS, linux and windows.
 This project uses [poetry](https://python-poetry.org/) deps and package scripts
 to setup the correct environment for testing and debugging.
 
-```
+```bash
 pip3 install poetry
 ```
 
 Install the necessary dependencies from lock file via poetry
 
-```
+```bash
 poetry install
 ```
 
 
 ## Basic usage:
-
-```
-poetry run cb speedometer \
-    --browser=/path/to/chromium \
-    --stories=VanillaJS.* \
-    --probe=profiling \
-    --probe=v8.log
+Run the latest speedometer with the system default browser and get pprof 
+profiles on individual line items.
+```bash
+poetry run cb speedometer --probe=profiling --separate
 ```
 
-## Run Unit tests
-```
-poetry run pytest
-```
-
-Run detailed test coverage:
-```
-poetry run pytest --cov=crossbench --cov-report=html
-```
-
-Run [pytype](https://github.com/google/pytype) type checker:
-```
-poetry run pytype -j auto crossbench
+Use a custom chrome build and only run a subset of the stories:
+```bash
+poetry run cb speedometer --browser=$PATH --probe=profiling --story='Ember.*'
 ```
 
 
@@ -58,12 +45,8 @@ You can specify a browser with `--browser=<name>`. You can repeat the
 `--browser` argument to run multiple browser. If you need custom flags for
 multiple browsers use `--browser-config`.
 
-```
-poetry run cb speedometer \
-    --browser=/path/to/chromium  \
-    -- -- \
-        --browser-flag-foo \
-        --browser-flag-bar
+```bash
+poetry run cb speedometer --browser=$BROWSER -- -- --enable-field-trial-config 
 ```
 
 #### Browser Config File
@@ -72,7 +55,7 @@ For more complex scenarios you can use a
 It allows you to specify multiple browser and multiple flag configurations in
 a single file and produce performance numbers with a single invocation.
 
-```
+```bash
 poetry run cb speedometer --browser-config=config.hjson
 ```
 
@@ -85,10 +68,14 @@ host or running browser. This can reach from running simple JS-snippets to
 extract page-specific numbers to system-wide profiling.
 
 Multiple probes can be added with repeated `--probe=XXX` options.
-You can use the `describe` subcommand to list all probes:
+You can use the `describe probes` subcommand to list all probes:
 
-```
+```bash
+# List all probes:
 poetry run cb describe probes
+
+# List help for an individual probe:
+poetry run cb describe probe v8.log
 ```
 
 #### Inline Probe Config
@@ -96,8 +83,11 @@ Some probes can be configured, either with inline json when using `--probe` or
 in a separate `--probe-config` hjson file. Use the `describe` command to list
 all options.
 
-```
-poetry run cb describe probes v8.log
+```bash
+# Get probe config details:
+poetry run cb describe probe v8.log
+
+# Use inline hjson to configure a probe:
 poetry run cb speedometer --probe='v8.log{prof:true}'
 ```
 
@@ -110,8 +100,15 @@ the `describe` command.
 ### Benchmarks
 Use the `describe` command to list all benchmark details:
 
-```
+```bash
+# List all benchmark info:
 poetry run cb describe benchmarks
+
+# List an individual benchmark info:
+poetry run cb describe benchmark speedometer_2.1
+
+# List a benchmark's command line options:
+poetry run cb speedometer_2.1 --help
 ```
 
 ### Stories
@@ -121,15 +118,30 @@ scenarios, actively interact with a page and navigate multiple times.
 
 Use `--help` or describe to list all stories for a benchmark:
 
-```
+```bash
 poetry run cb speedometer --help
 ```
 
 Use `--stories` to list individual comma-separated story names, or use a
 regular expression as filter.
 
+```bash
+poetry run cb speedometer --browser=$BROWSER --stories='VanillaJS.*'
 ```
-poetry run cb speedometer \
-    --browser=/path/to/chromium \
-    --stories=VanillaJS.*
+
+
+
+## Run Unit tests
+```
+poetry run pytest
+```
+
+Run detailed test coverage:
+```bash
+poetry run pytest --cov=crossbench --cov-report=html
+```
+
+Run [pytype](https://github.com/google/pytype) type checker:
+```bash
+poetry run pytype -j auto crossbench
 ```

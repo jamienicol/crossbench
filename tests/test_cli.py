@@ -644,7 +644,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     with self.EXAMPLE_CONFIG_PATH.open(encoding="utf-8") as f:
       config = cb.cli.BrowserConfig(browser_lookup_override=self.browser_lookup)
       config.load(f)
-    self.assertIn("default", config.flag_groups)
+    self.assertIn("flag-group-1", config.flag_groups)
     self.assertGreaterEqual(len(config.flag_groups), 1)
     self.assertGreaterEqual(len(config.variants), 1)
 

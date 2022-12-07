@@ -206,7 +206,7 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
     "-foo.*"  Exclude stories whose name matches the regexp.
 
   These patterns can be combined:
-    [".*", "-foo", "-bar"] Includes allx except the "foo" and "bar" story
+    [".*", "-foo", "-bar"] Includes all except the "foo" and "bar" story
   """
 
   @classmethod
