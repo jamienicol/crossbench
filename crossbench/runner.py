@@ -450,19 +450,11 @@ class StoriesRunGroup(RunGroup):
   @property
   def csv_header(self) -> Tuple[Tuple[str, ...], ...]:
     return (
-        (
-            "Label",
-            self.browser.label,
-        ),
+        ("Label", self.browser.label),
         ("Browser", self.browser.type.capitalize()),
-        (
-            "Version",
-            self.browser.version,
-        ),
-        (
-            "Flags",
-            str(self.browser.flags),
-        ),
+        ("Version", self.browser.version),
+        ("Binary", str(self.path)),
+        ("Flags", str(self.browser.flags)),
     )
 
   @property
