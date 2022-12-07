@@ -123,8 +123,14 @@ class ChromeDownloader(abc.ABC):
 
   @classmethod
   def load(cls, version_identifier: str) -> pathlib.Path:
-    assert helper.platform.is_macos
-    loader = ChromeDownloaderMacOS(version_identifier)
+    loader: ChromeDownloader
+    if helper.platform.is_macos:
+      loader = ChromeDownloaderMacOS(version_identifier)
+    elif helper.platform.is_linux:
+      loader = ChromeDownloaderLinux(version_identifier)
+    else:
+      raise ValueError(
+          f"Unsupported platform to download chrome: {helper.platform.machine}")
     assert loader.path.exists(), "Could not download browser"
     return loader.path
 
@@ -138,7 +144,8 @@ class ChromeDownloader(abc.ABC):
     self.requested_version_str = "0.0.0.0"
     self.requested_exact_version = True
     version_identifier = version_identifier.lower()
-    self.path = self._parse_version(version_identifier)
+    self._parse_version(version_identifier)
+    self.path = self._get_path()
     logging.info("-" * 80)
     if self.path.exists():
       cached_version = self._validate_cached()
@@ -148,9 +155,6 @@ class ChromeDownloader(abc.ABC):
       self._download()
 
   def _pre_check(self):
-    # TODO: Add support for win/linux as well
-    assert self.platform.is_macos, (
-        "Downloading chrome versions is only supported on mac")
     assert not self.platform.is_remote, (
         "Browser download only supported on local machines")
     if not self.platform.which("gsutil"):
@@ -168,14 +172,15 @@ class ChromeDownloader(abc.ABC):
       self.requested_version = (int(version_identifier[1:]), self.ANY_MARKER,
                                 self.ANY_MARKER, self.ANY_MARKER)
       self.requested_version_str = f"M{self.requested_version[0]}"
-      path = BROWSERS_CACHE / f"Chrome {self.requested_version_str}.app"
     else:
       self.requested_version = tuple(map(int,
                                          version_identifier.split(".")))[:4]
       self.requested_version_str = ".".join(map(str, self.requested_version))
-      path = BROWSERS_CACHE / f"Chrome {self.requested_version_str}.app"
     assert len(self.requested_version) == 4
-    return path
+
+  @abc.abstractmethod
+  def _get_path(self) -> pathlib.Path:
+    pass
 
   def _validate_cached(self) -> str:
     # "Google Chrome 107.0.5304.121" => "107.0.5304.121"
@@ -300,18 +305,42 @@ class ChromeDownloaderLinux(ChromeDownloader):
   def __init__(self, version_identifier: str):
     assert helper.platform.is_linux
     if helper.platform.is_x64:
-      platform_name = "linux_64"
+      platform_name = "linux64"
     else:
       raise ValueError("Unsupported linux architecture for downloading chrome: "
                        f"got={helper.platform.machine} supported=x64")
     super().__init__(version_identifier, platform_name)
 
+  def _get_path(self) -> pathlib.Path:
+    return (BROWSERS_CACHE / self.requested_version_str /
+            "opt/google/chrome-unstable/chrome")
+
   def _archive_url(self, folder_url, version_str):
-    return f"{folder_url}google-chrome-unstable-{version_str}.x86_64.rpm"
+    return f"{folder_url}google-chrome-unstable-{version_str}-1.x86_64.rpm"
 
   def _extract_archive(self, archive_path: pathlib.Path):
-    # TODO
-    raise NotImplementedError()
+    assert helper.platform.which("rpm2cpio"), (
+        "Need rpm2cpio to extract downloaded .rpm chrome archive")
+    assert helper.platform.which("cpio"), (
+        "Need cpio to extract downloaded .rpm chrome archive")
+    cpio_file = archive_path.with_suffix(".cpio")
+    assert not cpio_file.exists()
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    with cpio_file.open("w") as f:
+      self.platform.sh("rpm2cpio", archive_path, stdout=f)
+    assert cpio_file.is_file(), f"Could not extract archive: {archive_path}"
+    out_dir = BROWSERS_CACHE / self.requested_version_str
+    assert not out_dir.exists()
+    with cpio_file.open() as f:
+      self.platform.sh(
+          "cpio",
+          "--extract",
+          f"--directory={out_dir}",
+          "--make-directories",
+          stdin=f)
+    assert self.path.is_file(), f"Could not extract chrome binary: {self.path}"
+    cpio_file.unlink()
+    archive_path.unlink()
 
 
 class ChromeDownloaderMacOS(ChromeDownloader):
@@ -330,6 +359,9 @@ class ChromeDownloaderMacOS(ChromeDownloader):
   def _archive_url(self, folder_url, version_str):
     # Use ChromeCanary since it's built for all version (unlike stable/beta).
     return f"{folder_url}GoogleChromeCanary-{version_str}.dmg"
+
+  def _get_path(self) -> pathlib.Path:
+    return BROWSERS_CACHE / f"Google Chrome {self.requested_version_str}.app"
 
   def _extract_archive(self, archive_path: pathlib.Path):
     result = self.platform.sh_stdout("hdiutil", "attach", "-plist",
