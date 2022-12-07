@@ -397,17 +397,19 @@ class ProbeConfig:
   def from_cli_args(cls, args) -> ProbeConfig:
     if args.probe_config:
       with args.probe_config.open(encoding="utf-8") as f:
-        return cls.load(f)
-    return cls(args.probe)
+        return cls.load(f, throw=args.throw)
+    return cls(args.probe, throw=args.throw)
 
   @classmethod
-  def load(cls, file) -> ProbeConfig:
-    probe_config = cls()
+  def load(cls, file, throw: bool = False) -> ProbeConfig:
+    probe_config = cls(throw=throw)
     probe_config.load_config_file(file)
     return probe_config
 
-  def __init__(self, probe_names_with_args: Optional[Iterable[str]] = None):
-    self._exceptions = cb.exception.Annotator(throw=True)
+  def __init__(self,
+               probe_names_with_args: Optional[Iterable[str]] = None,
+               throw: bool = False):
+    self._exceptions = cb.exception.Annotator(throw=throw)
     self._probes: List[cb.probes.Probe] = []
     if not probe_names_with_args:
       return
@@ -417,8 +419,8 @@ class ProbeConfig:
 
   @property
   def probes(self) -> List[cb.probes.Probe]:
-    self._exceptions.assert_success(
-        "Could not load probe config from files: {}", ConfigFileError)
+    self._exceptions.assert_success("Could not load probes: {}",
+                                    ConfigFileError)
     return self._probes
 
   def add_probe(self, probe_name_with_args: str):
@@ -433,14 +435,19 @@ class ProbeConfig:
       probe_name = probe_name_with_args
     if probe_name not in self.LOOKUP:
       self.raise_unknown_probe(probe_name)
-    probe_cls: Type[cb.probes.Probe] = self.LOOKUP[probe_name]
-    self._probes.append(probe_cls.from_config(inline_config))
+    with self._exceptions.info(
+        f"Parsing inline probe config: {probe_name}",
+        f"  Use 'describe probe {probe_name}' for more details"):
+      probe_cls: Type[cb.probes.Probe] = self.LOOKUP[probe_name]
+      probe: cb.probes.Probe = probe_cls.from_config(
+          inline_config, throw=self._exceptions.throw)
+      self._probes.append(probe)
 
   def load_config_file(self, file):
     with self._exceptions.capture(f"Loading probe config file: {file.name}"):
       with self._exceptions.info(f"Parsing {hjson.__name__}"):
         data = hjson.load(file)
-      if "probes" not in data:
+      if not isinstance(data, dict) or "probes" not in data:
         raise ValueError(
             "Probe config file does not contain a 'probes' dict value.")
       self.load_dict(data["probes"])
@@ -602,7 +609,7 @@ class CrossBenchCLI:
       print(json.dumps(data, indent=2))
       return
     # Create tabular format
-    if args.category in ("all", "benchmarks"):
+    if args.category in ("all", "benchmark", "benchmarks"):
       table: List[List[Optional[str]]] = [["Benchmark", "Property", "Value"]]
       for benchmark_name, values in data["benchmarks"].items():
         table.append([benchmark_name, ])
@@ -615,7 +622,7 @@ class CrossBenchCLI:
       if len(table) > 1:
         print(tabulate(table, tablefmt="grid"))
 
-    if args.category in ("all", "probes"):
+    if args.category in ("all", "probe", "probes"):
       table = [["Probe", "Help"]]
       for probe_name, probe_desc in data["probes"].items():
         table.append([probe_name, probe_desc])
@@ -697,6 +704,9 @@ class CrossBenchCLI:
         default=[],
         help="Enable general purpose probes to measure data on all cb.stories. "
         "This argument can be specified multiple times to add more probes. "
+        "Use inline hjson (e.g. '--probe=$NAME{$CONFIG}') to configure probes. "
+        "Use 'describe probes' or 'describe probe $NAME' for probe "
+        "configuration details."
         "Cannot be used together with --probe-config."
         f"\n\nChoices: {', '.join(ProbeConfig.LOOKUP.keys())}")
     probe_group.add_argument(

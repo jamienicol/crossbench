@@ -167,13 +167,14 @@ class ConfigParser:
     self._args[name] = _ConfigArg(self, name, type, default, choices, help,
                                   is_list, required)
 
-  def kwargs_from_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+  def kwargs_from_config(self, config_data: Dict[str, Any],
+                         throw: bool = False) -> Dict[str, Any]:
     kwargs: Dict[str, Any] = {}
-    exceptions = cb.exception.Annotator(throw=True)
+    exceptions = cb.exception.Annotator(throw=throw)
     for arg in self._args.values():
       with exceptions.capture(f"Parsing ...['{arg.name}']:"):
         kwargs[arg.name] = arg.parse(config_data)
-    exceptions.assert_success("Failed to parse config: {}")
+    exceptions.assert_success("Failed to parse config: {}", log=False)
     return kwargs
 
   @property

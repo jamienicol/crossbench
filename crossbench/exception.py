@@ -68,7 +68,8 @@ class ExceptionAnnotationScope:
       self._annotator._info_stack = self._previous_info_stack
       # False => exception not handled
       return False
-    logging.debug("Intermediate Exception: %s", traceback)
+    logging.debug("Intermediate Exception: %s:%s", exception_type,
+                  exception_value)
     if self._exception_types and exception_type and (
         issubclass(exception_type, MultiException) or
         issubclass(exception_type, self._exception_types)):
@@ -157,8 +158,8 @@ class ExceptionAnnotator:
 
   def append(self, exception: BaseException):
     traceback: str = tb.format_exc()
-    logging.debug("Intermediate Exception: %s", exception)
-    logging.debug(tb)
+    logging.debug("Intermediate Exception %s:%s", type(exception), exception)
+    logging.debug(traceback)
     if isinstance(exception, KeyboardInterrupt):
       # Fast exit on KeyboardInterrupts for a better user experience.
       sys.exit(0)
@@ -210,6 +211,8 @@ class ExceptionAnnotator:
 Annotator = ExceptionAnnotator
 
 
-def annotate(*stack_entries: str, exceptions: TExceptionTypes = (Exception,)):
-  return ExceptionAnnotator().capture(
+def annotate(*stack_entries: str,
+             exceptions: TExceptionTypes = (Exception,),
+             throw: bool = False):
+  return ExceptionAnnotator(throw=throw).capture(
       *stack_entries, exceptions=exceptions, rethrow=True)
