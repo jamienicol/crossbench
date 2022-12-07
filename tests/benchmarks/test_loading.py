@@ -71,16 +71,24 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
     self.assertEqual(filtered_pages[1].duration, 1001)
 
   def test_page_by_url(self):
-    url1 = "http:://example.com/test1"
-    url2 = "http:://example.com/test2"
+    url1 = "http://example.com/test1"
+    url2 = "http://example.com/test2"
     stories = self.story_filter([url1, url2]).stories
     self.assertEqual(len(stories), 2)
     self.assertEqual(stories[0].url, url1)
     self.assertEqual(stories[1].url, url2)
 
+  def test_page_by_url_www(self):
+    url1 = "www.example.com/test1"
+    url2 = "www.example.com/test2"
+    stories = self.story_filter([url1, url2]).stories
+    self.assertEqual(len(stories), 2)
+    self.assertEqual(stories[0].url, f"https://{url1}")
+    self.assertEqual(stories[1].url, f"https://{url2}")
+
   def test_page_by_url_combined(self):
-    url1 = "http:://example.com/test1"
-    url2 = "http:://example.com/test2"
+    url1 = "http://example.com/test1"
+    url2 = "http://example.com/test2"
     stories = self.story_filter([url1, url2], separate=False).stories
     self.assertEqual(len(stories), 1)
     combined = stories[0]

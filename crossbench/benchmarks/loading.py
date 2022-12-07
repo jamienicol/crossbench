@@ -143,9 +143,12 @@ class LoadingPageFilter(cb.benchmarks.StoryFilter):
     for value in name_or_url_list:
       if value in PAGES:
         page = PAGES[value]
-      elif "://" in value:
+      elif "://" in value or value.startswith("www."):
         name = value
-        url = value
+        if value.startswith("www."):
+          url = f"https://{value}"
+        else:
+          url = value
         if use_hostname:
           name = urlparse(url).hostname
         page = LivePage(name, url)
