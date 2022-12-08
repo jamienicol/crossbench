@@ -569,8 +569,8 @@ class Run:
   def group_dir(self) -> pathlib.Path:
     return self.out_dir.parent
 
-  def actions(self, name) -> Actions:
-    return Actions(name, self)
+  def actions(self, name: str, verbose: bool = False) -> Actions:
+    return Actions(name, self, verbose=verbose)
 
   @property
   def info_stack(self) -> exception.TInfoStack:
@@ -821,7 +821,8 @@ class Actions(helper.TimeScope):
                message: str,
                run: Run,
                runner: Optional[cb.runner.Runner] = None,
-               browser: Optional[cb.browsers.Browser] = None):
+               browser: Optional[cb.browsers.Browser] = None,
+               verbose: bool = False):
     assert message, "Actions need a name"
     super().__init__(message)
     self._exception_annotation = run.exceptions.info(f"Action: {message}")
@@ -829,6 +830,7 @@ class Actions(helper.TimeScope):
     self._browser: cb.browsers.Browser = browser or run.browser
     self._runner: cb.runner.Runner = runner or run.runner
     self._is_active: bool = False
+    self._verbose = verbose
 
   @property
   def timing(self) -> cb.runner.Timing:
@@ -847,6 +849,8 @@ class Actions(helper.TimeScope):
     super().__enter__()
     self._is_active = True
     logging.debug("ACTION START %s", self._message)
+    if self._verbose:
+      logging.info(self._message)
     return self
 
   def __exit__(self, exc_type, exc_value, exc_traceback):

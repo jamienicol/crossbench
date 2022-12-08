@@ -123,8 +123,8 @@ class ProfilingProbe(base.Probe):
       env.check_installed(binaries=["pprof"])
       assert self.browser_platform.which("perf"), "Please install linux-perf"
     elif self.browser_platform.is_macos:
-      assert self.browser_platform.which(
-          "xctrace"), "Please install Xcode to use xctrace"
+      assert self.browser_platform.which("xctrace"), (
+          "Please install Xcode to use xctrace")
     if self._run_pprof:
       try:
         self.browser_platform.sh(self.browser_platform.which("gcertstatus"))
@@ -237,7 +237,10 @@ class ProfilingProbe(base.Probe):
 
     def _inject_v8_symbols(self, run: cb.runner.Run,
                            perf_files: List[pathlib.Path]):
-      with run.actions(f"Probe {self.probe.name}: Injecting V8 Symbols"):
+      with run.actions(
+          f"Probe {self.probe.name}: "
+          f"Injecting V8 symbols into {len(perf_files)} profiles",
+          verbose=True):
         # Filter out empty files
         perf_files = [file for file in perf_files if file.stat().st_size > 0]
         if self.browser_platform.is_remote:
@@ -256,8 +259,14 @@ class ProfilingProbe(base.Probe):
     def _export_to_pprof(self, run: cb.runner.Run,
                          perf_files: List[pathlib.Path]):
       run_details_json = json.dumps(run.get_browser_details_json())
-      with run.actions(f"Probe {self.probe.name}: exporting to pprof"):
-        self.browser_platform.sh("gcertstatus >&/dev/null || gcert", shell=True)
+      with run.actions(
+          f"Probe {self.probe.name}: "
+          f"exporting {len(perf_files)} profiles to pprof (slow)",
+          verbose=True):
+        self.browser_platform.sh(
+            "gcertstatus >&/dev/null || "
+            "(echo 'Authenticating with gcert:'; gcert)",
+            shell=True)
         items = zip(perf_files, [run_details_json] * len(perf_files))
         if self.browser_platform.is_remote:
           # Use loop, as we cannot easily serialize the remote platform.
