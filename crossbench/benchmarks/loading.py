@@ -6,8 +6,12 @@ from __future__ import annotations
 import abc
 import logging
 import re
-from typing import Optional, Sequence, Type
+import time
+import pathlib
+import hjson
+from typing import Optional, Sequence, Type, List, Dict, Any
 from urllib.parse import urlparse
+from enum import Enum
 
 import crossbench
 import crossbench.benchmarks
@@ -15,6 +19,24 @@ import crossbench.stories
 
 #TODO: fix imports
 cb = crossbench
+
+
+class Scroll(str, Enum):
+  UP = "up"
+  DOWN = "down"
+
+
+class ButtonClick(str, Enum):
+  LEFT = "left"
+  RIGHT = "right"
+  MIDDLE = "middle"
+
+
+class ActionType(str, Enum):
+  # CLICK = 'click'
+  GET = "get"
+  WAIT = "wait"
+  SCROLL = "scroll"
 
 
 class Page(cb.stories.Story, metaclass=abc.ABCMeta):
@@ -67,6 +89,33 @@ class CombinedPage(Page):
   def __str__(self):
     combined_name = ",".join(page.name for page in self._pages)
     return f"CombinedPage({combined_name})"
+
+
+class InteractivePage(Page):
+
+  def __init__(self, actions: List[Action], name: str):
+    self._name = name
+    assert isinstance(actions, list)
+    self._actions = actions
+    assert self._actions, "Must have at least 1 valid action"
+    duration = self._get_duration()
+    super().__init__(name, duration)
+
+  def run(self, run):
+    for action in self._actions:
+      action.run(run, self)
+
+  def details_json(self):
+    result = super().details_json()
+    result["actions"] = list(action.details_json() for action in self._actions)
+    return result
+
+  def _get_duration(self) -> int:
+    duration: int = 0
+    for action in self._actions:
+      if action.duration is not None:
+        duration += action.duration
+    return duration
 
 
 PAGE_LIST = (
@@ -193,13 +242,30 @@ class PageLoadBenchmark(cb.benchmarks.SubStoryBenchmark):
   STORY_FILTER_CLS = LoadingPageFilter
 
   @classmethod
+  def stories_from_cli_args(cls, args) -> Optional[Sequence[cb.stories.Story]]:
+    if args.page_config:
+      args.page_config = PageConfig.from_cli_args(args)
+      if args.separate:
+        return (InteractivePage(args.page_config.stories,
+                                "Page Scenarios - Seperate"),)
+      return (CombinedPage(args.page_config.stories,
+                           "Page Scenarios - Combined"),)
+    return super().stories_from_cli_args(args)
+
+  @classmethod
   def add_cli_parser(cls, subparsers, aliases: Sequence[str] = ()):
     parser = super().add_cli_parser(subparsers, aliases)
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         "--urls",
         "--url",
         dest="stories",
         help="List of urls and durations to load: url,seconds,...")
+    group.add_argument(
+        "--page-config",
+        help="Stories we want to perform in the benchmark run following a"
+        "specified scenario. For a reference on how to build scenarios and"
+        "possible actions check  pages.config.example.hjson")
     return parser
 
   def __init__(self, stories: Sequence[Page], duration: Optional[float] = None):
@@ -209,3 +275,249 @@ class PageLoadBenchmark(cb.benchmarks.SubStoryBenchmark):
         assert duration > 0, f"Invalid page duration={duration}s"
         story.duration = duration
     super().__init__(stories)
+
+
+class PageConfig:
+  _DURATION_RE = re.compile(r"((?P<value>(\d*[.]?\d+))(?P<unit>[^0-9]+))")
+
+  @classmethod
+  def from_cli_args(cls, args) -> PageConfig:
+    page_config = PageConfig()
+    if args.page_config:
+      initial_path = pathlib.Path(args.page_config)
+      path = initial_path.expanduser()
+      with path.open() as f:
+        page_config.load(f)
+    return page_config
+
+  def __init__(self, raw_config_data: Optional[Dict] = None):
+    self._exceptions = cb.exception.Annotator(throw=True)
+    self.stories: List[cb.stories.Story] = []
+    if raw_config_data:
+      self.load_dict(raw_config_data)
+
+  def load(self, f):
+    with self._exceptions.capture(f"Loading Pages config file: {f.name}"):
+      with self._exceptions.info(f"Parsing {hjson.__name__}"):
+        config = hjson.load(f)
+      with self._exceptions.info(f"Parsing config file: {f.name}"):
+        self.load_dict(config)
+
+  def load_dict(self, raw_config_data: Dict):
+    try:
+      if "pages" not in raw_config_data:
+        raise ValueError("Config does not provide a 'pages' dict.")
+      if not raw_config_data["pages"]:
+        raise ValueError("Config contains empty 'pages' dict.")
+      with self._exceptions.info("Parsing config 'pages'"):
+        self._parse_pages(raw_config_data["pages"])
+    except Exception as e:
+      self._exceptions.append(e)
+
+  def _parse_pages(self, pages: Dict[str, Any]):
+    """
+    Behaviour to be aware
+
+    There's no default Actions. In other words, if there's no Actions
+    for a scenario this specific scenario will be ignored since there's
+    nothing to do.
+
+    If one would want to simply navigate to a site it is important to at
+    least include: {action: "GET", value/url: google.com} in the specific
+    scenario.
+    
+    As an example look at: page.config.example.hjson
+    """
+    for scenario_name, actions in pages.items():
+      with self._exceptions.info(f"Parsing scenario ...['{scenario_name}']"):
+        actions = self._parse_actions(actions, scenario_name)
+        self.stories.append(InteractivePage(actions, scenario_name))
+
+  def _parse_actions(self, actions: List[Dict[str, Any]],
+                     scenario_name: str) -> List[Action]:
+    actions_list: List[Action] = []
+    get_action_found = False
+    for i, step in enumerate(actions):
+      with self._exceptions.info(f"Parsing action ...['{scenario_name}'][{i}]"):
+        if step.get("action") == ActionType.GET:
+          get_action_found = True
+        if action_type := step.get("action"):
+          if action_duration := step.get("duration"):
+            action_duration = self._parse_duration(action_duration)
+          value = step.get("url") or step.get("value")
+          actions_list.append(
+              self._create_action(action_type, value, action_duration))
+    assert get_action_found, (
+        f"Not a valid entry for scenario: {scenario_name}. No 'get' action found."
+    )
+    assert actions_list, (
+        f"Not valid entry for scenario {scenario_name} does not contain any valid actions"
+    )
+    return actions_list
+
+  def _parse_duration(self, time_str: Optional[str]) -> Optional[float]:
+    """
+    This function will parse the measurment and the value from string value.
+    Keep in mind the return is in seconds.
+
+    For example:
+    5s => 5
+    5m => 300
+
+    """
+    if not time_str:
+      return None
+
+    value_unit = self._DURATION_RE.search(time_str)
+    if value_unit is None:
+      return None
+
+    value = value_unit.group('value')
+    time_unit = value_unit.group('unit')
+
+    if not value:
+      raise Exception("Error: Duration value not found."
+                      "Make sure to include a valid duration value")
+    if not time_unit:
+      # If no time unit provided we assume it is in seconds.
+      return float(value)
+    return float(value) * _TimeSuffix.get_multiplier(time_unit)
+
+  def _create_action(self, action_type, value, duration) -> Action:
+    return _ACTION_FACTORY[action_type](action_type, value, duration)
+
+
+class _TimeSuffix:
+  _MILLISECONDS_MULTIPLIER = 0.001
+  _SECONDS_MULTIPLIER = 1
+  _MINUTES_MULTIPLIER = 60
+  _HOURS_MULTIPLIER = 360
+
+  @classmethod
+  def get_multiplier(cls, suffix: str) -> float:
+    if suffix in {'ms', 'milli', 'milliseconds'}:
+      return _TimeSuffix._MILLISECONDS_MULTIPLIER
+    if suffix in {'m', 'min', 'minute', 'minutes'}:
+      return _TimeSuffix._MINUTES_MULTIPLIER
+    if suffix in {'h', 'hrs', 'hour', 'hours'}:
+      return _TimeSuffix._HOURS_MULTIPLIER
+    if suffix in {'s', 'sec', 'second', 'seconds'}:
+      return _TimeSuffix._SECONDS_MULTIPLIER
+    raise ValueError(f"Error: {suffix} is not support for duration. "
+                     "Make sure to use a supported time unit/suffix")
+
+
+class Action(abc.ABC):
+  timeout: float
+  _story: cb.stories.Story
+
+  _EXCEPTION_BASE_STR = "Not valid action for scenario: "
+
+  def __init__(self,
+               action_type: ActionType,
+               value: Optional[str] = None,
+               duration: Optional[float] = None):
+    self.action_type = action_type
+    self.value = value
+    self.duration = duration
+
+  @abc.abstractmethod
+  def run(
+      self,
+      run,
+      story: cb.stories.Story,
+  ):
+    pass
+
+  @abc.abstractmethod
+  def _validate_action(self):
+    pass
+
+  def details_json(self):
+    pass
+
+
+class GetAction(Action):
+
+  def run(self, run, story: cb.stories.Story):
+    self._story = story
+    self._validate_action()
+    run.browser.show_url(run.runner, self.value)
+
+  def _validate_action(self):
+    if not self.value:
+      raise Exception(self._EXCEPTION_BASE_STR +
+                      f"{self._story._name}. Argument 'value' is not provided")
+
+  def details_json(self):
+    return {"action": self.action_type, "value": self.value}
+
+
+class WaitAction(Action):
+
+  def run(self, run, story: cb.stories.Story):
+    self._story = story
+    self._validate_action()
+    run.runner.wait(self.duration)
+
+  def _validate_action(self):
+    if not self.duration:
+      raise Exception(
+          self._EXCEPTION_BASE_STR +
+          f"{self._story._name}. Argument 'duration' is not provided")
+
+  def details_json(self):
+    return {"action": self.action_type, "duration": self.duration}
+
+
+class ScrollAction(Action):
+
+  def run(self, run, story: cb.stories.Story):
+    self._story = story
+    self._validate_action()
+    time_end = self.duration + time.time()
+    direction = 1 if self.value == Scroll.UP else -1
+
+    start = 0
+    end = direction
+
+    while time.time() < time_end:
+      # TODO: REMOVE COMMENT CODE ONCE pyautogui ALLOWED ON GOOGLE3
+      # if events_source == 'js'
+      run.browser.js(run.runner, f"window.scrollTo({start}, {end});")
+      start = end
+      end += 100
+      # else :
+      #   pyautogui.scroll(direction)
+
+  def _validate_action(self):
+    if not self.duration or not self.value:
+      raise Exception(
+          self._EXCEPTION_BASE_STR +
+          f"{self._story._name}. Argument 'duration' is not provided")
+
+  def details_json(self):
+    return {
+        "action": self.action_type,
+        "value": self.value,
+        "duration": self.duration
+    }
+
+
+# class ClickAction(Action):
+# TODO: implement click even coming form the OS here
+#   # # method to click at coordinates x,y on the screen.
+#  Important this uses the screen size and not the browser window.
+#   # def _click(x_coordinate: int,
+#   #           y_coordinate: int,
+#   #           button: ButtonClick = ButtonClick.LEFT,
+#   #           clicks: int = 1,
+#   #           interval: float=0):
+#   #   # TODO:Implement the click action
+#   #   return
+
+_ACTION_FACTORY = {
+    ActionType.GET: GetAction,
+    ActionType.WAIT: WaitAction,
+    ActionType.SCROLL: ScrollAction,
+}

@@ -7,6 +7,9 @@
 from __future__ import annotations
 
 import sys
+import unittest
+import pathlib
+import os
 from typing import Sequence, cast
 
 import pytest
@@ -19,7 +22,6 @@ from tests.benchmarks import helper
 
 #TODO: fix imports
 cb = crossbench
-
 
 class TestPageLoadBenchmark(helper.SubStoryTestCase):
 
@@ -112,6 +114,57 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
     self.assertEqual(urls, [story.url for story in stories])
     self.assertTrue(self.browsers[0].did_run)
     self.assertTrue(self.browsers[1].did_run)
+
+
+class TestPageConfig(unittest.TestCase):
+
+  def test_parse_example_page_config_file(self):
+    example_config_file = pathlib.Path(
+        __file__).parent.parent / "config" / "page.config.example.hjson"
+    if not example_config_file.exists():
+      raise unittest.SkipTest(f"Test file {example_config_file} does not exist")
+    with example_config_file.open(encoding="utf-8") as f:
+      data = hjson.load(f)
+    loading.PageConfig(**data["pages"])
+
+  def test_no_scenarios(self):
+    page_config = loading.PageConfig()
+    with self.assertRaises(ValueError):
+      page_config.load_dict({"pages": {}})
+
+  def test_get_action_scenario(self):
+    page_config = loading.PageConfig()
+    with self.assertRaises(TypeError):
+      page_config.load_dict({
+          "pages": {
+              "TEST": [{
+                  "action": "wait",
+                  "duration": 5.0
+              }, {
+                  "action": "scroll",
+                  "value": "down",
+                  "duration": 10.0
+              }]
+          }
+      })
+
+  def test_action_invalid_duration_suffix(self):
+    page_config = loading.PageConfig()
+    with self.assertRaises(ValueError):
+      page_config.load_dict({
+          "pages": {
+              "TEST": [
+                  {
+                      "action": "get",
+                      "duration": 'google.com'
+                  },
+                  {
+                      "action": "wait",
+                      "duration": '5.0pppppppppasdasd'
+                  },
+              ]
+          }
+      })
 
 
 if __name__ == "__main__":
