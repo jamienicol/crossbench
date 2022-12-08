@@ -300,6 +300,14 @@ class HostEnvironment:
       raise Exception(f"Process:{process_found} found."
                       "Make sure not to have a terminal opened. Use SSH.")
 
+  def _check_screen_autobrightness(self):
+    auto_brightness = self._config.screen_allow_autobrightness
+    if auto_brightness is HostEnvironmentConfig.IGNORE:
+      return
+    if self._platform.check_autobrightness():
+      raise Exception("Auto-brightness was found to be ON. "
+                      "Desactivate it in 'System Preferences/Displays'")
+
   def _check_cpu_power_mode(self) -> bool:
     # TODO Implement checks for performance mode
     return True
@@ -405,6 +413,7 @@ class HostEnvironment:
     self._check_probes()
     self._wait_min_time()
     self._check_forbidden_system_process()
+    self._check_screen_autobrightness()
 
   def check_installed(self,
                       binaries: Iterable[str],

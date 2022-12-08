@@ -21,6 +21,7 @@ import traceback as tb
 import urllib
 import urllib.error
 import urllib.request
+import json
 from typing import (Any, Callable, Dict, Final, Iterable, List, Optional,
                     Sequence, Tuple, TypeVar, Union)
 
@@ -380,6 +381,10 @@ class Platform(abc.ABC):
     raise NotImplementedError(
         "Implementation is only available on MacOS for now")
 
+  def check_autobrightness(self) -> bool:
+    raise NotImplementedError(
+        "Implementation is only available on MacOS for now")
+
 
 class SubprocessError(subprocess.CalledProcessError):
   """ Custom version that also prints stderr for debugging"""
@@ -559,6 +564,18 @@ class MacOSPlatform(PosixPlatform):
 
   def check_system_monitoring(self, disable: bool = False) -> bool:
     return self.check_crowdstrike(disable)
+
+  def check_autobrightness(self) -> bool:
+    output = self.sh_stdout("system_profiler", "SPDisplaysDataType", "-json").strip()
+    data = json.loads(output)
+    if spdisplays_data := data.get("SPDisplaysDataType"):
+      for data in spdisplays_data:
+        if spdisplays_ndrvs := data.get("spdisplays_ndrvs"):
+          for display in spdisplays_ndrvs:
+            if auto_brightness := display.get("spdisplays_ambient_brightness"):
+              return  auto_brightness == "spdisplays_yes"
+        raise Exception("Could not find 'spdisplays_ndrvs' from SPDisplaysDataType")
+    raise Exception("Could not get 'SPDisplaysDataType' form system profiler")
 
   def check_crowdstrike(self, disable: bool = False) -> bool:
     falconctl = pathlib.Path(
