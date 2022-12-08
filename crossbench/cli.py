@@ -16,6 +16,7 @@ import shutil
 import sys
 import tempfile
 import textwrap
+import traceback
 from typing import (Any, Dict, Iterable, List, Optional, Sequence, Tuple, Type,
                     Union)
 
@@ -741,10 +742,11 @@ class CrossBenchCLI:
     subparser.add_argument("other_browser_args", nargs="*")
 
   def benchmark_subcommand(self, args: argparse.Namespace):
-    self._benchmark_subcommand_helper(args)
-    benchmark = self._get_benchmark(args)
+    benchmark = None
     runner = None
     try:
+      self._benchmark_subcommand_helper(args)
+      benchmark = self._get_benchmark(args)
       with tempfile.TemporaryDirectory(prefix="crossbench") as tmp_dirname:
         if args.dry_run:
           args.out_dir = pathlib.Path(tmp_dirname) / "results"
@@ -791,7 +793,6 @@ class CrossBenchCLI:
       args.filter = args.benchmark_cls.NAME
       args.json = False
       self.describe_subcommand(args)
-      sys.exit(0)
 
   def _log_benchmark_subcommand_failure(self, benchmark,
                                         runner: Optional[cb.runner.Runner],
@@ -801,15 +802,33 @@ class CrossBenchCLI:
     logging.error("#" * 80)
     logging.error("SUBCOMMAND UNSUCCESSFUL got %s:", e.__class__.__name__)
     logging.error("-" * 80)
-    logging.error(e)
+    self._log_benchmark_subcommand_exception(e)
     logging.error("-" * 80)
-    logging.error("Running '%s' was not successful:", benchmark.NAME)
+    if benchmark:
+      logging.error("Running '%s' was not successful:", benchmark.NAME)
     logging.error("- Check run results.json for detailed backtraces")
     logging.error("- Use --throw to throw on the first logged exception")
     logging.error("- Use -vv for detailed logging")
     if runner and runner.runs:
       self._log_runner_debug_hints(runner)
     logging.error("#" * 80)
+    sys.exit(3)
+
+  def _log_benchmark_subcommand_exception(self, e: Exception):
+    message = str(e)
+    if message:
+      logging.error(message)
+      return
+    if isinstance(e, AssertionError):
+      self._log_assertion_error_statement(e)
+
+  def _log_assertion_error_statement(self, e: AssertionError):
+    _, exception, tb = sys.exc_info()
+    if exception is not e:
+      return
+    tb_info = traceback.extract_tb(tb)
+    filename, line, _, text = tb_info[-1]
+    logging.info('%s:%s: %s', filename, line, text)
 
   def _log_runner_debug_hints(self, runner: cb.runner.Runner):
     failed_runs = [run for run in runner.runs if not run.is_success]
