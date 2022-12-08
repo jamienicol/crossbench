@@ -197,7 +197,7 @@ class Speedometer2BaseTestCase(
       self.assertIn(Speedometer2Probe.JS, browser.js_list)
 
     with (self.out_dir /
-          f"{Speedometer2Probe.NAME}.csv").open(encoding="utf-8") as f:
+          f"{self.probe_cls.NAME}.csv").open(encoding="utf-8") as f:
       csv_data = list(csv.DictReader(f, delimiter="\t"))
     self.assertDictEqual(csv_data[0], {
         'Label': 'Browser',

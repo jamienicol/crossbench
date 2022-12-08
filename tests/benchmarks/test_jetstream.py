@@ -2,72 +2,50 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import csv
 import sys
-from unittest import mock
 
 import pytest
 
-from crossbench.benchmarks.jetstream import (JetStream2Benchmark,
-                                             JetStream2Probe, JetStream2Story)
-from crossbench.env import HostEnvironmentConfig, ValidationMode
-from crossbench.runner import Runner
-from tests.benchmarks import helper
+from crossbench.benchmarks import jetstream
+from tests.benchmarks import jetstream_helper
 
 
-class JetStream2Test(helper.PressBaseBenchmarkTestCase):
+class JetStream20TestCase(jetstream_helper.JetStream2BaseTestCase):
 
   @property
   def benchmark_cls(self):
-    return JetStream2Benchmark
+    return jetstream.JetStream20Benchmark
 
-  def test_run(self):
-    stories = JetStream2Story.from_names(["WSL"])
-    example_story_data = {"firstIteration": 1, "average": 0.1, "worst4": 1.1}
-    jetstream_probe_results = {
-        story.name: example_story_data for story in stories
-    }
-    for browser in self.browsers:
-      browser.js_side_effect = [
-          True,  # Page is ready
-          None,  # filter benchmarks
-          True,  # UI is updated and ready,
-          None,  # Start running benchmark
-          True,  # Wait until done
-          jetstream_probe_results,
-      ]
-    repetitions = 3
-    benchmark = self.benchmark_cls(stories)
-    self.assertTrue(len(benchmark.describe()) > 0)
-    runner = Runner(
-        self.out_dir,
-        self.browsers,
-        benchmark,
-        env_config=HostEnvironmentConfig(),
-        env_validation_mode=ValidationMode.SKIP,
-        platform=self.platform,
-        repetitions=repetitions)
-    with mock.patch.object(self.benchmark_cls, "validate_url") as cm:
-      runner.run()
-    cm.assert_called_once()
-    for browser in self.browsers:
-      urls = self.filter_data_urls(browser.url_list)
-      self.assertEqual(len(urls), repetitions)
-      self.assertIn(JetStream2Probe.JS, browser.js_list)
+  @property
+  def story_cls(self):
+    return jetstream.JetStream20Story
 
-    with (self.out_dir /
-          f"{JetStream2Probe.NAME}.csv").open(encoding="utf-8") as f:
-      csv_data = list(csv.DictReader(f, delimiter="\t"))
-    self.assertDictEqual(csv_data[0], {
-        'Label': 'Browser',
-        'dev': 'Chrome',
-        'stable': 'Chrome'
-    })
-    self.assertDictEqual(csv_data[1], {
-        'Label': 'Version',
-        'dev': '102.22.33.44',
-        'stable': '100.22.33.44'
-    })
+  @property
+  def probe_cls(self):
+    return jetstream.JetStream20Probe
+
+  @property
+  def name(self):
+    return "jetstream_2.0"
+
+
+class JetStream21TestCase(jetstream_helper.JetStream2BaseTestCase):
+
+  @property
+  def benchmark_cls(self):
+    return jetstream.JetStream21Benchmark
+
+  @property
+  def story_cls(self):
+    return jetstream.JetStream21Story
+
+  @property
+  def probe_cls(self):
+    return jetstream.JetStream21Probe
+
+  @property
+  def name(self):
+    return "jetstream_2.1"
 
 
 if __name__ == "__main__":

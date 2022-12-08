@@ -54,7 +54,7 @@ class Benchmark(abc.ABC):
     assert cls.__doc__
     return {
         "name": cls.NAME,
-        "description": cls.__doc__.strip(),
+        "description": cls.cli_description(),
         "stories": [],
         "probes-default": {
             probe_cls.NAME: probe_cls.__doc__.strip()

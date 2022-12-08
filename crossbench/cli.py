@@ -522,7 +522,8 @@ class CrossBenchCLI:
   BENCHMARKS: Tuple[Tuple[BenchmarkClsT, Tuple[str, ...]], ...] = (
       (cb.benchmarks.all.Speedometer20Benchmark, ()),
       (cb.benchmarks.all.Speedometer21Benchmark, ("speedometer",)),
-      (cb.benchmarks.all.JetStream2Benchmark, ("jetstream",)),
+      (cb.benchmarks.all.JetStream20Benchmark, ()),
+      (cb.benchmarks.all.JetStream21Benchmark, ("jetstream",)),
       (cb.benchmarks.all.MotionMark12Benchmark, ("motionmark",)),
       (cb.benchmarks.all.PageLoadBenchmark, ()),
   )

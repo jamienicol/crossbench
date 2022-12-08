@@ -4,7 +4,8 @@
 
 # pylint: disable=unused-import
 
-from crossbench.benchmarks.jetstream import JetStream2Benchmark
+from crossbench.benchmarks.jetstream import (JetStream20Benchmark,
+                                             JetStream21Benchmark)
 from crossbench.benchmarks.loading import PageLoadBenchmark
 from crossbench.benchmarks.motionmark import MotionMark12Benchmark
 from crossbench.benchmarks.speedometer import (Speedometer20Benchmark,

@@ -3,8 +3,9 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+import abc
 from collections import defaultdict
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, Final, Tuple, Type
 
 import crossbench.probes.json
 import crossbench.probes.helper
@@ -13,19 +14,21 @@ import crossbench.stories
 from crossbench import helper
 import crossbench.benchmarks
 
+if TYPE_CHECKING:
+  from crossbench.probes.base import Probe
+
 #TODO: fix imports
 cb = crossbench
 
 
-class JetStream2Probe(cb.probes.json.JsonResultProbe):
+class JetStream2Probe(cb.probes.json.JsonResultProbe, metaclass=abc.ABCMeta):
   """
   JetStream2-specific Probe.
   Extracts all JetStream2 times and scores.
   """
-  NAME = "jetstream_2"
-  IS_GENERAL_PURPOSE = False
-  FLATTEN = False
-  JS = """
+  IS_GENERAL_PURPOSE: Final[bool] = False
+  FLATTEN: Final[bool] = False
+  JS: Final[str] = """
   let results = Object.create(null);
   for (let benchmark of JetStream.benchmarks) {
     const data = { score: benchmark.score };
@@ -74,12 +77,19 @@ class JetStream2Probe(cb.probes.json.JsonResultProbe):
     return self.merge_browsers_csv_files(group)
 
 
-class JetStream2Story(cb.stories.PressBenchmarkStory):
-  NAME = "jetstream_2"
-  PROBES = (JetStream2Probe,)
-  URL = "https://browserbench.org/JetStream/"
-  URL_LOCAL = "http://localhost:8000/"
-  SUBSTORIES = (
+class JetStream20Probe(JetStream2Probe):
+  __doc__ = JetStream2Probe.__doc__
+  NAME: str = "jetstream_2.0"
+
+
+class JetStream21Probe(JetStream2Probe):
+  __doc__ = JetStream2Probe.__doc__
+  NAME: str = "jetstream_2.1"
+
+
+class JetStream2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
+  URL_LOCAL: Final[str] = "http://localhost:8000/"
+  SUBSTORIES: Final[Tuple[str, ...]] = (
       "WSL",
       "UniPoker",
       "uglify-js-wtb",
@@ -145,7 +155,6 @@ class JetStream2Story(cb.stories.PressBenchmarkStory):
       "3d-raytrace-SP",
       "3d-cube-SP",
   )
-  DEFAULT_PROBES = (JetStream2Probe,)
 
   @property
   def substory_duration(self) -> float:
@@ -180,12 +189,40 @@ class JetStream2Story(cb.stories.PressBenchmarkStory):
         """, helper.WaitRange(self.substory_duration, self.slow_duration))
 
 
-class JetStream2Benchmark(cb.benchmarks.PressBenchmark):
-  """
-  Benchmark runner for JetStream 2.
+ProbeClsTupleT = Tuple[Type[JetStream2Probe], ...]
 
-  See https://browserbench.org/JetStream/ for more details.
+
+class JetStream20Story(JetStream2Story):
+  __doc__ = JetStream2Story.__doc__
+  NAME: Final[str] = "jetstream_2.0"
+  URL: Final[str] = "https://browserbench.org/JetStream2.0/"
+  PROBES: Final[ProbeClsTupleT] = (JetStream20Probe,)
+
+
+class JetStream21Story(JetStream2Story):
+  __doc__ = JetStream2Story.__doc__
+  NAME: Final[str] = "jetstream_2.1"
+  URL: Final[str] = "https://browserbench.org/JetStream2.1/"
+  PROBES: Final[ProbeClsTupleT] = (JetStream21Probe,)
+
+
+class JetStream2Benchmark(cb.benchmarks.PressBenchmark, metaclass=abc.ABCMeta):
+  pass
+
+
+class JetStream20Benchmark(JetStream2Benchmark):
+  """
+  Benchmark runner for JetStream 2.0.
   """
 
-  NAME = "jetstream_2"
+  NAME: Final[str] = "jetstream_2.0"
+  DEFAULT_STORY_CLS = JetStream2Story
+
+
+class JetStream21Benchmark(JetStream2Benchmark):
+  """
+  Benchmark runner for JetStream 2.1.
+  """
+
+  NAME: Final[str] = "jetstream_2.1"
   DEFAULT_STORY_CLS = JetStream2Story

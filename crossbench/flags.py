@@ -28,7 +28,7 @@ class Flags(collections.UserDict):
   def __init__(self, initial_data: Flags.InitialDataType = None):
     super().__init__(initial_data)
 
-  def __setitem__(self, flag_name: str, flag_value: str):
+  def __setitem__(self, flag_name: str, flag_value: Optional[str]):
     return self.set(flag_name, flag_value)
 
   def set(self,
@@ -82,7 +82,7 @@ class Flags(collections.UserDict):
       return flag_name
     return f"{flag_name}={value}"
 
-  def get_list(self) -> Generator[str]:
+  def get_list(self) -> Generator[str, None, None]:
     return (k if v is None else f"{k}={v}" for k, v in self.items())
 
   def __str__(self) -> str:
@@ -97,7 +97,10 @@ class JSFlags(Flags):
   """
   _NO_PREFIX = "--no"
 
-  def _set(self, flag_name, flag_value=None, override=False):
+  def _set(self,
+           flag_name: str,
+           flag_value: Optional[str] = None,
+           override: bool = False):
     if flag_value is not None:
       assert "," not in flag_value, (
           "Comma in flag value, flag escaping for chrome's "
@@ -152,7 +155,10 @@ class ChromeFlags(Flags):
     self._js_flags = JSFlags()
     super().__init__(initial_data)
 
-  def _set(self, flag_name, flag_value, override=False):
+  def _set(self,
+           flag_name: str,
+           flag_value: Optional[str],
+           override: bool = False):
     # pylint: disable=signature-differs
     if flag_name == ChromeFeatures.ENABLE_FLAG:
       if flag_value is None:

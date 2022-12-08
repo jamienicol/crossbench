@@ -21,6 +21,10 @@ class Speedometer20TestCase(speedometer_helper.Speedometer2BaseTestCase):
     return speedometer.Speedometer20Story
 
   @property
+  def probe_cls(self):
+    return speedometer.Speedometer20Probe
+
+  @property
   def name(self):
     return "speedometer_2.0"
 
@@ -34,6 +38,10 @@ class Speedometer21TestCase(speedometer_helper.Speedometer2BaseTestCase):
   @property
   def story_cls(self):
     return speedometer.Speedometer21Story
+
+  @property
+  def probe_cls(self):
+    return speedometer.Speedometer21Probe
 
   @property
   def name(self):

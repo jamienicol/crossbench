@@ -6,7 +6,7 @@ from __future__ import annotations
 import abc
 
 import argparse
-from typing import TYPE_CHECKING, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Final, Optional, Sequence, Tuple, Type
 
 import crossbench
 
@@ -27,14 +27,13 @@ def _probe_remove_tests_segments(path: Tuple[str, ...]):
   return "/".join(segment for segment in path if segment != "tests")
 
 
-class Speedometer2Probe(probes_json.JsonResultProbe):
+class Speedometer2Probe(probes_json.JsonResultProbe, metaclass=abc.ABCMeta):
   """
   Speedometer2-specific probe (compatible with v2.0 and v2.1).
   Extracts all speedometer times and scores.
   """
-  NAME = "speedometer_2"
-  IS_GENERAL_PURPOSE = False
-  JS = "return window.suiteValues;"
+  IS_GENERAL_PURPOSE: Final[bool] = False
+  JS: Final[str] = "return window.suiteValues;"
 
   def to_json(self, actions):
     return actions.js(self.JS)
@@ -57,8 +56,18 @@ class Speedometer2Probe(probes_json.JsonResultProbe):
     return self.merge_browsers_csv_files(group)
 
 
+class Speedometer20Probe(Speedometer2Probe):
+  __doc__ = Speedometer2Probe.__doc__
+  NAME: Final[str] = "speedometer_2.0"
+
+
+class Speedometer21Probe(Speedometer2Probe):
+  __doc__ = Speedometer2Probe.__doc__
+  NAME: Final[str] = "speedometer_2.1"
+
+
 class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
-  URL_LOCAL = "http://localhost:8000/InteractiveRunner.html"
+  URL_LOCAL: Final[str] = "http://localhost:8000/InteractiveRunner.html"
   SUBSTORIES = (
       "VanillaJS-TodoMVC",
       "Vanilla-ES2015-TodoMVC",
@@ -132,16 +141,23 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
           helper.WaitRange(self.substory_duration, self.slow_duration))
 
 
+ProbeClsTupleT = Tuple[Type[Speedometer2Probe], ...]
+
+
 class Speedometer20Story(Speedometer2Story):
-  NAME = "speedometer_2.0"
-  PROBES = (Speedometer2Probe,)
-  URL = "https://browserbench.org/Speedometer2.0/InteractiveRunner.html"
+  __doc__ = Speedometer2Story.__doc__
+  NAME: Final[str] = "speedometer_2.0"
+  PROBES: Final[ProbeClsTupleT] = (Speedometer20Probe,)
+  URL: Final[str] = ("https://browserbench.org/Speedometer2.0"
+                     "/InteractiveRunner.html")
 
 
 class Speedometer21Story(Speedometer2Story):
-  NAME = "speedometer_2.1"
-  PROBES = (Speedometer2Probe,)
-  URL = "https://browserbench.org/Speedometer2.1/InteractiveRunner.html"
+  __doc__ = Speedometer2Story.__doc__
+  NAME: Final[str] = "speedometer_2.1"
+  PROBES: Final[ProbeClsTupleT] = (Speedometer21Probe,)
+  URL: Final[str] = ("https://browserbench.org/Speedometer2.1/"
+                     "InteractiveRunner.html")
 
 
 class Speedometer2Benchmark(
@@ -188,7 +204,7 @@ class Speedometer20Benchmark(Speedometer2Benchmark):
   """
   Benchmark runner for Speedometer 2.0
   """
-  NAME = "speedometer_2.0"
+  NAME: Final[str] = "speedometer_2.0"
   DEFAULT_STORY_CLS = Speedometer20Story
 
 
@@ -196,5 +212,5 @@ class Speedometer21Benchmark(Speedometer2Benchmark):
   """
   Benchmark runner for Speedometer 2.1
   """
-  NAME = "speedometer_2.1"
+  NAME: Final[str] = "speedometer_2.1"
   DEFAULT_STORY_CLS = Speedometer21Story
