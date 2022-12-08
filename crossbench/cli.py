@@ -5,14 +5,11 @@
 from __future__ import annotations
 
 import argparse
-import io
+import datetime as dt
 import itertools
 import json
 import logging
 import pathlib
-import plistlib
-import re
-import shutil
 import sys
 import tempfile
 import textwrap
@@ -27,13 +24,13 @@ import crossbench
 import crossbench.benchmarks
 import crossbench.benchmarks.all
 import crossbench.browsers
-from crossbench.browsers.chrome import ChromeDownloader
 import crossbench.env
 import crossbench.exception
 import crossbench.flags
 import crossbench.probes
 import crossbench.probes.all
 import crossbench.runner
+from crossbench.browsers.chrome import ChromeDownloader
 
 #TODO: fix imports
 cb = crossbench
@@ -480,6 +477,14 @@ def existing_file_type(str_value):
   return path
 
 
+def positive_float_type(value):
+  value = float(value)
+  if value < 0:
+    raise argparse.ArgumentTypeError(
+        f"Expected positive value but got: {value}")
+  return value
+
+
 def inline_env_config(value: str) -> cb.env.HostEnvironmentConfig:
   if value in cb.env.HostEnvironment.CONFIGS:
     return cb.env.HostEnvironment.CONFIGS[value]
@@ -642,6 +647,21 @@ class CrossBenchCLI:
         f"an ArgumentParser: {subparser}")
     self._subparsers[benchmark_cls] = subparser
 
+    runner_group = subparser.add_argument_group("Runner Settings", "")
+    runner_group.add_argument(
+        "--cool-down-time",
+        type=positive_float_type,
+        default=2,
+        help="Time the runner waits between different runs or repetitions. "
+        "Increase this to let the CPU cool down between runs.")
+    runner_group.add_argument(
+        "--time-unit",
+        type=positive_float_type,
+        default=1,
+        help="Absolute duration of 1 time unit in the runner. "
+        "Increase this for slow builds or machines. "
+        "Default 1 time unit == 1 second.")
+
     env_group = subparser.add_argument_group("Runner Environment Settings", "")
     env_settings_group = env_group.add_mutually_exclusive_group()
     env_settings_group.add_argument(
@@ -658,9 +678,7 @@ class CrossBenchCLI:
         "runner environment settings and requirements. "
         "See config/env.config.hjson for more details."
         "Mutually exclusive with --env")
-
-    env_check_mode_group = env_group.add_mutually_exclusive_group()
-    env_check_mode_group.add_argument(
+    env_group.add_argument(
         "--env-validation",
         default="prompt",
         choices=[mode.value for mode in cb.env.ValidationMode],
@@ -755,8 +773,9 @@ class CrossBenchCLI:
         probes = self._get_probes(args)
         env_config = self._get_env_config(args)
         env_validation_mode = self._get_env_validation_mode(args)
+        timing = self._get_timing(args)
         runner = self._get_runner(args, benchmark, env_config,
-                                  env_validation_mode)
+                                  env_validation_mode, timing)
         for probe in probes:
           runner.attach_probe(probe, matching_browser_only=True)
 
@@ -887,15 +906,23 @@ class CrossBenchCLI:
       return args.env_config
     return cb.env.HostEnvironmentConfig()
 
+  def _get_timing(self, args) -> cb.runner.Timing:
+    assert args.cool_down_time >= 0
+    cool_down_time = dt.timedelta(seconds=args.cool_down_time)
+    assert args.time_unit > 0, "--time-unit must be > 0"
+    unit = dt.timedelta(seconds=args.time_unit)
+    return cb.runner.Timing(cool_down_time, unit)
+
   def _get_runner(self, args: argparse.Namespace, benchmark,
                   env_config: cb.env.HostEnvironmentConfig,
-                  env_validation_mode: cb.env.ValidationMode
-                 ) -> cb.runner.Runner:
+                  env_validation_mode: cb.env.ValidationMode,
+                  timing: cb.runner.Timing) -> cb.runner.Runner:
     runner_kwargs = self.RUNNER_CLS.kwargs_from_cli(args)
     return self.RUNNER_CLS(
         benchmark=benchmark,
         env_config=env_config,
         env_validation_mode=env_validation_mode,
+        timing=timing,
         **runner_kwargs)
 
   def run(self, argv):

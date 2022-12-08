@@ -167,8 +167,8 @@ class MotionMark12Story(cb.stories.PressBenchmarkStory):
     with run.actions("Setup") as actions:
       actions.navigate_to(self._url)
       actions.wait_js_condition(
-          """return document.querySelector("tree > li") !== undefined""",
-          helper.WaitRange(0.1, 10))
+          """return document.querySelector("tree > li") !== undefined""", 0.1,
+          10)
       num_enabled = actions.js(
           """
         let benchmarks = arguments[0];
@@ -196,7 +196,7 @@ class MotionMark12Story(cb.stories.PressBenchmarkStory):
       actions.wait_js_condition(
           """
           return window.benchmarkRunnerClient.results._results != undefined
-          """, helper.WaitRange(self.substory_duration / 4, self.slow_duration))
+          """, self.substory_duration / 4, self.slow_duration)
 
 
 class MotionMark12Benchmark(cb.benchmarks.PressBenchmark):

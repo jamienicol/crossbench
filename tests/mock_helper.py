@@ -39,6 +39,9 @@ class MockPlatform(ActivePlatformClass):
   def is_battery_powered(self):
     return self._is_battery_powered
 
+  def is_thermal_throttled(self) -> bool:
+    return False
+
   def disk_usage(self, path: pathlib.Path):
     del path
     # pylint: disable=protected-access
@@ -80,7 +83,8 @@ class MockBenchmark(SubStoryBenchmark):
 class MockCLI(CrossBenchCLI):
   runner: Runner
 
-  def _get_runner(self, args, benchmark, env_config, env_validation_mode):
+  def _get_runner(self, args, benchmark, env_config, env_validation_mode,
+                  timing):
     if not args.out_dir:
       # Use stable mock out dir
       args.out_dir = pathlib.Path("/results")
@@ -90,6 +94,7 @@ class MockCLI(CrossBenchCLI):
         benchmark=benchmark,
         env_config=env_config,
         env_validation_mode=env_validation_mode,
+        timing=timing,
         **runner_kwargs,
         # Use custom platform
         platform=mock_platform)

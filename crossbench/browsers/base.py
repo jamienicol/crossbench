@@ -12,7 +12,10 @@ import re
 import shutil
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Optional, Sequence, Set
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set
+
+if TYPE_CHECKING:
+  import datetime as dt
 
 import crossbench
 import crossbench.flags
@@ -160,7 +163,7 @@ class Browser(abc.ABC):
     assert self._is_running
     self._prepare_temperature(run)
     self.show_url(runner, self.info_data_url(run))
-    runner.wait(runner.default_wait)
+    runner.wait(2)
 
   @abc.abstractmethod
   def _extract_version(self) -> str:
@@ -184,7 +187,7 @@ class Browser(abc.ABC):
         run.story.run(run)
         runner.wait(run.story.duration / 2)
         self.show_url(runner, "about:blank")
-        runner.wait(runner.default_wait)
+        runner.wait(1)
 
   def info_data_url(self, run: cb.runner.Run):
     page = (
@@ -246,7 +249,7 @@ class Browser(abc.ABC):
   def js(self,
          runner: cb.runner.Runner,
          script: str,
-         timeout: Optional[float] = None,
+         timeout: Optional[dt.timedelta] = None,
          arguments: Sequence[object] = ()):
     pass
 

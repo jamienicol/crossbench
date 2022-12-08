@@ -22,7 +22,7 @@ import urllib
 import urllib.error
 import urllib.request
 from typing import (Any, Callable, Dict, Final, Iterable, List, Optional,
-                    Sequence, Tuple, TypeVar)
+                    Sequence, Tuple, TypeVar, Union)
 
 import psutil
 
@@ -795,22 +795,30 @@ class WaitRange:
 
   def __init__(
       self,
-      min: float = 0.1,  # pylint: disable=redefined-builtin
-      timeout: float = 10,
+      min: Union[float, dt.timedelta] = 0.1,  # pylint: disable=redefined-builtin
+      timeout: Union[float, dt.timedelta] = 10,
       factor: float = 1.01,
-      max: Optional[float] = None,  # pylint: disable=redefined-builtin
+      max: Optional[Union[float, dt.timedelta]] = None,  # pylint: disable=redefined-builtin
       max_iterations: Optional[int] = None):
-    assert 0 < min
-    self.min = dt.timedelta(seconds=min)
+    if isinstance(min, dt.timedelta):
+      self.min = min
+    else:
+      self.min = dt.timedelta(seconds=min)
+    assert self.min.total_seconds() > 0
     if not max:
       self.max = self.min * 10
+    elif isinstance(max, dt.timedelta):
+      self.max = max
     else:
-      assert min <= max
       self.max = dt.timedelta(seconds=max)
+    assert self.min <= self.max
     assert 1.0 < factor
     self.factor = factor
-    assert 0 < timeout
-    self.timeout = dt.timedelta(seconds=timeout)
+    if isinstance(timeout, dt.timedelta):
+      self.timeout = timeout
+    else:
+      self.timeout = dt.timedelta(seconds=timeout)
+    assert 0 < self.timeout.total_seconds()
     self.current = self.min
     assert max_iterations is None or max_iterations > 0
     self.max_iterations = max_iterations

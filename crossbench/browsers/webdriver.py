@@ -21,6 +21,7 @@ from crossbench.browsers.base import Browser
 cb = crossbench
 
 if TYPE_CHECKING:
+  import datetime as dt
   import crossbench.runner
 
 
@@ -93,14 +94,15 @@ class WebdriverMixin(Browser):
   def js(self,
          runner: cb.runner.Runner,
          script: str,
-         timeout: Optional[float] = None,
+         timeout: Optional[dt.timedelta] = None,
          arguments: Sequence[object] = ()):
     logging.debug("RUN SCRIPT timeout=%s, script: %s", timeout, script[:100])
     assert self._is_running
     try:
       if timeout is not None:
-        assert timeout > 0, f"timeout must be a positive number, got: {timeout}"
-        self._driver.set_script_timeout(timeout)
+        assert timeout.total_seconds() > 0, (
+            f"timeout must be a positive number, got: {timeout}")
+        self._driver.set_script_timeout(timeout.total_seconds())
       return self._driver.execute_script(script, *arguments)
     except selenium.common.exceptions.WebDriverException as e:
       # pylint: disable=raise-missing-from

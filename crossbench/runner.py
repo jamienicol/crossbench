@@ -7,12 +7,13 @@ import abc
 
 import argparse
 import contextlib
+import dataclasses
 import datetime as dt
 import inspect
 import json
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import crossbench
 import crossbench.benchmarks
@@ -30,6 +31,31 @@ cb = crossbench
 
 class RunnerException(exception.MultiException):
   pass
+
+
+@dataclasses.dataclass(frozen=True)
+class Timing:
+  cool_down_time: dt.timedelta = dt.timedelta(seconds=1)
+  unit: dt.timedelta = dt.timedelta(seconds=1)
+
+  def units(self, time: Union[float, int, dt.timedelta]) -> float:
+    if isinstance(time, dt.timedelta):
+      seconds = time.total_seconds()
+    else:
+      seconds = time
+    assert seconds > 0, f"Unexpected negative time: {seconds}s"
+    return seconds / self.unit.total_seconds()
+
+  def timedelta(self,
+                time_unit: Union[float, int, dt.timedelta],
+                absolute: bool = False) -> dt.timedelta:
+    if absolute:
+      if isinstance(time_unit, dt.timedelta):
+        return time_unit
+      return dt.timedelta(seconds=time_unit)
+    assert isinstance(time_unit, (float, int))
+    assert time_unit >= 0
+    return time_unit * self.unit
 
 
 class Runner:
@@ -88,13 +114,13 @@ class Runner:
       platform: helper.Platform = helper.platform,
       env_config: Optional[cb.env.HostEnvironmentConfig] = None,
       env_validation_mode: cb.env.ValidationMode = cb.env.ValidationMode.THROW,
-      throttle: bool = True,
       repetitions: int = 1,
+      timing: Timing = Timing(),
       throw: bool = False):
     self.out_dir = out_dir
     assert not self.out_dir.exists(), f"out_dir={self.out_dir} exists already"
     self.out_dir.mkdir(parents=True)
-    self.default_wait: float = 2 if throttle else 0.1
+    self._timing = timing
     self.browsers = browsers
     self._validate_browsers()
     self._browser_platform = browsers[0].platform
@@ -102,7 +128,6 @@ class Runner:
     self.stories = benchmark.stories
     self.repetitions = repetitions
     assert self.repetitions > 0, f"Invalid repetitions={self.repetitions}"
-    self.throttle = throttle
     self._probes: List[cb.probes.Probe] = []
     self._runs: List[Run] = []
     self._exceptions = exception.Annotator(throw)
@@ -155,6 +180,10 @@ class Runner:
     return probe
 
   @property
+  def timing(self) -> Timing:
+    return self._timing
+
+  @property
   def probes(self) -> List[cb.probes.Probe]:
     return list(self._probes)
 
@@ -181,8 +210,9 @@ class Runner:
   def sh(self, *args, shell=False, stdout=None):
     return self._platform.sh(*args, shell=shell, stdout=stdout)
 
-  def wait(self, seconds):
-    self._platform.sleep(seconds)
+  def wait(self, time: Union[float, dt.timedelta], absolute_time: bool = False):
+    delta = self.timing.timedelta(time, absolute_time)
+    self._platform.sleep(delta)
 
   def collect_system_details(self):
     with (self.out_dir / "system_details.json").open(
@@ -276,10 +306,8 @@ class Runner:
       browser_group.merge(self)
       self._exceptions.extend(browser_group.exceptions, is_nested=True)
 
-  def cool_down(self, default_wait=None):
+  def cool_down(self):
     # Cool down between runs
-    default_wait = default_wait or self.default_wait
-    self.wait(default_wait)
     if not self._platform.is_thermal_throttled():
       return
     logging.info("COOLDOWN")
@@ -582,6 +610,10 @@ class Run:
     return self._runner
 
   @property
+  def timing(self) -> Timing:
+    return self.runner.timing
+
+  @property
   def browser(self) -> cb.browsers.Browser:
     return self._browser
 
@@ -654,7 +686,8 @@ class Run:
     self._advance_state(self.STATE_INITIAL, self.STATE_PREPARE)
     logging.debug("PREPARE")
     logging.info("STORY: %s", self.story)
-    logging.info("STORY DURATION: %ss", self.story.duration)
+    logging.info("STORY DURATION: %ss",
+                 self.timing.timedelta(self.story.duration))
     logging.info("RUN DIR: %s", self._out_dir)
 
     if is_dry_run:
@@ -668,8 +701,8 @@ class Run:
     self._browser.set_log_file(browser_log_file)
 
     with self.measure("runner-cooldown"):
-      # self._runner.cool_down()
-      self._runner.wait(self._runner.default_wait)
+      self._runner.wait(self._runner.timing.cool_down_time, absolute_time=True)
+      self._runner.cool_down()
 
     probe_run_scopes: List[cb.probes.Probe.Scope] = []
     with self.measure("probes-creation"):
@@ -699,7 +732,6 @@ class Run:
 
   def run(self, is_dry_run=False):
     self._out_dir.mkdir(parents=True, exist_ok=True)
-
     with helper.ChangeCWD(self._out_dir), self.exception_info(*self.info_stack):
       probe_scopes = self.setup(is_dry_run)
       self._advance_state(self.STATE_PREPARE, self.STATE_RUN)
@@ -792,11 +824,15 @@ class Actions(helper.TimeScope):
                browser: Optional[cb.browsers.Browser] = None):
     assert message, "Actions need a name"
     super().__init__(message)
-    self._stack = run.exceptions.info(f"Action: {message}")
+    self._exception_annotation = run.exceptions.info(f"Action: {message}")
     self._run = run
-    self._browser = browser or run.browser
-    self._runner = runner or run.runner
+    self._browser: cb.browsers.Browser = browser or run.browser
+    self._runner: cb.runner.Runner = runner or run.runner
     self._is_active: bool = False
+
+  @property
+  def timing(self) -> cb.runner.Timing:
+    return self._runner.timing
 
   @property
   def run(self) -> Run:
@@ -807,7 +843,7 @@ class Actions(helper.TimeScope):
     return self._run.platform
 
   def __enter__(self):
-    self._stack.__enter__()
+    self._exception_annotation.__enter__()
     super().__enter__()
     self._is_active = True
     logging.debug("ACTION START %s", self._message)
@@ -815,25 +851,33 @@ class Actions(helper.TimeScope):
 
   def __exit__(self, exc_type, exc_value, exc_traceback):
     self._is_active = False
-    self._stack.__exit__(exc_type, exc_value, exc_traceback)
+    self._exception_annotation.__exit__(exc_type, exc_value, exc_traceback)
     logging.debug("ACTION END %s", self._message)
     super().__exit__(exc_type, exc_value, exc_traceback)
 
   def _assert_is_active(self):
     assert self._is_active, "Actions have to be used in a with scope"
 
-  def js(self, js_code: str, timeout=10, arguments=(), **kwargs):
+  def js(self,
+         js_code: str,
+         timeout: Union[float, int] = 10,
+         arguments=(),
+         **kwargs):
     self._assert_is_active()
     assert js_code, "js_code must be a valid JS script"
     if kwargs:
       js_code = js_code.format(**kwargs)
-    return self._browser.js(self._runner, js_code, timeout, arguments=arguments)
+    delta = self.timing.timedelta(timeout)
+    return self._browser.js(self._runner, js_code, delta, arguments=arguments)
 
-  def wait_js_condition(self, js_code: str, wait_range: helper.WaitRange):
+  def wait_js_condition(self, js_code: str, min_wait: float, timeout: float):
+    wait_range = helper.WaitRange(
+        self.timing.timedelta(min_wait), self.timing.timedelta(timeout))
     assert "return" in js_code, (
         f"Missing return statement in js-wait code: {js_code}")
     for _, time_left in helper.wait_with_backoff(wait_range):
-      result = self.js(js_code, timeout=time_left)
+      time_units = self.timing.units(time_left)
+      result = self.js(js_code, timeout=time_units, absolute_time=True)
       if result:
         return
       assert result is False, (

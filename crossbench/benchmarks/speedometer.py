@@ -104,7 +104,7 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
       actions.wait_js_condition(
           """
         return window.Suites !== undefined;
-      """, helper.WaitRange(0.5, 10))
+      """, 0.5, 10)
       if self._substories != self.SUBSTORIES:
         actions.js(
             """
@@ -136,9 +136,11 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
           arguments=[self.iterations])
     with run.actions("Wait Done") as actions:
       actions.wait(self.fast_duration)
-      actions.wait_js_condition(
-          "return window.testDone",
-          helper.WaitRange(self.substory_duration, self.slow_duration))
+      actions.wait_js_condition("return window.testDone",
+                                self.substory_duration, self.slow_duration)
+
+
+ProbeClsTupleT = Tuple[Type[Speedometer2Probe], ...]
 
 
 ProbeClsTupleT = Tuple[Type[Speedometer2Probe], ...]

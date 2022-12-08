@@ -15,6 +15,7 @@ from crossbench.browsers import (Browser, Chrome, Chromium, Edge, Firefox,
 from crossbench.flags import ChromeFlags, Flags
 
 if TYPE_CHECKING:
+  import datetime as dt
   from crossbench.runner import Run, Runner
 
 
@@ -88,8 +89,14 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
   def show_url(self, runner: Runner, url):
     self.url_list.append(url)
 
-  def js(self, runner: Runner, script, timeout=None, arguments=()):
+  def js(self,
+         runner: Runner,
+         script,
+         timeout: Optional[dt.timedelta] = None,
+         arguments=()):
     self.js_list.append(script)
+    if timeout:
+      assert timeout.total_seconds() > 0
     if self.js_side_effect is None:
       return None
     assert self.run_js_side_effect, (

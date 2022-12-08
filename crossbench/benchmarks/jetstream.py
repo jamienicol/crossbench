@@ -165,8 +165,8 @@ class JetStream2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
       actions.navigate_to(self._url)
       if self._substories != self.SUBSTORIES:
         actions.wait_js_condition(("return JetStream && JetStream.benchmarks "
-                                   "&& JetStream.benchmarks.length > 0;"),
-                                  helper.WaitRange(0.1, 10))
+                                   "&& JetStream.benchmarks.length > 0;"), 0.1,
+                                  10)
         actions.js(
             """
         let benchmarks = arguments[0];
@@ -177,7 +177,7 @@ class JetStream2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
       actions.wait_js_condition(
           """
         return document.querySelectorAll("#results>.benchmark").length > 0;
-      """, helper.WaitRange(1, 30 + self.duration))
+      """, 1, 30 + self.duration)
     with run.actions("Start") as actions:
       actions.js("JetStream.start()")
     with run.actions("Wait Done") as actions:
@@ -186,7 +186,7 @@ class JetStream2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
           """
         let summaryElement = document.getElementById("result-summary");
         return (summaryElement.classList.contains("done"));
-        """, helper.WaitRange(self.substory_duration, self.slow_duration))
+        """, self.substory_duration, self.slow_duration)
 
 
 ProbeClsTupleT = Tuple[Type[JetStream2Probe], ...]
