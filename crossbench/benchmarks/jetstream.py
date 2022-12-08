@@ -3,25 +3,28 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+
 import abc
+import csv
+import logging
 from collections import defaultdict
+import pathlib
 from typing import TYPE_CHECKING, Any, Dict, Final, Tuple, Type
 
-import crossbench.probes.json
-import crossbench.probes.helper
-from crossbench.probes import helper as probes_helper
-import crossbench.stories
+from tabulate import tabulate
+
 from crossbench import helper
-import crossbench.benchmarks
+from crossbench.benchmarks.base import PressBenchmark
+from crossbench.probes import helper as probes_helper
+from crossbench.probes.json import JsonResultProbe
+from crossbench.stories import PressBenchmarkStory
 
 if TYPE_CHECKING:
   from crossbench.probes.base import Probe
-
-#TODO: fix imports
-cb = crossbench
+  from crossbench.runner import BrowsersRunGroup, Runner, StoriesRunGroup
 
 
-class JetStream2Probe(cb.probes.json.JsonResultProbe, metaclass=abc.ABCMeta):
+class JetStream2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
   """
   JetStream2-specific Probe.
   Extracts all JetStream2 times and scores.
@@ -67,14 +70,29 @@ class JetStream2Probe(cb.probes.json.JsonResultProbe, metaclass=abc.ABCMeta):
       total[metric] = probes_helper.geomean(values)
     return total
 
-  def merge_stories(self, group: cb.runner.StoriesRunGroup):
-    merged = cb.probes.helper.ValuesMerger.merge_json_files(
+  def merge_stories(self, group: StoriesRunGroup):
+    merged = probes_helper.ValuesMerger.merge_json_files(
         story_group.results[self]["json"]
         for story_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 
-  def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
+  def merge_browsers(self, group: BrowsersRunGroup):
     return self.merge_browsers_csv_files(group)
+
+  def log_result_summary(self, runner: Runner):
+    if self not in runner.browser_group.results:
+      return
+    results_csv: pathlib.Path = runner.browser_group.results[self]
+    assert results_csv.is_file()
+    with results_csv.open(encoding="utf-8") as f:
+      # TODO: add merged JSON to read data in a more structured way
+      data = list(csv.reader(f, delimiter="\t"))
+      table = data[:3] + data[5:10]
+      logging.info("-" * 80)
+      logging.info("JetStream results:")
+      logging.info("  %s", results_csv.relative_to(pathlib.Path.cwd()))
+      logging.info("-" * 80)
+      logging.info(tabulate(table, tablefmt="plain"))
 
 
 class JetStream20Probe(JetStream2Probe):
@@ -87,7 +105,7 @@ class JetStream21Probe(JetStream2Probe):
   NAME: str = "jetstream_2.1"
 
 
-class JetStream2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
+class JetStream2Story(PressBenchmarkStory, metaclass=abc.ABCMeta):
   URL_LOCAL: Final[str] = "http://localhost:8000/"
   SUBSTORIES: Final[Tuple[str, ...]] = (
       "WSL",
@@ -206,7 +224,7 @@ class JetStream21Story(JetStream2Story):
   PROBES: Final[ProbeClsTupleT] = (JetStream21Probe,)
 
 
-class JetStream2Benchmark(cb.benchmarks.PressBenchmark, metaclass=abc.ABCMeta):
+class JetStream2Benchmark(PressBenchmark, metaclass=abc.ABCMeta):
   pass
 
 
@@ -216,7 +234,7 @@ class JetStream20Benchmark(JetStream2Benchmark):
   """
 
   NAME: Final[str] = "jetstream_2.0"
-  DEFAULT_STORY_CLS = JetStream2Story
+  DEFAULT_STORY_CLS = JetStream20Story
 
 
 class JetStream21Benchmark(JetStream2Benchmark):
@@ -225,4 +243,4 @@ class JetStream21Benchmark(JetStream2Benchmark):
   """
 
   NAME: Final[str] = "jetstream_2.1"
-  DEFAULT_STORY_CLS = JetStream2Story
+  DEFAULT_STORY_CLS = JetStream21Story

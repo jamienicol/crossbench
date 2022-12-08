@@ -138,6 +138,9 @@ class Runner:
         env_validation_mode)
     self._attach_default_probes(additional_probes)
     self._validate_stories()
+    self._repetitions_groups: List[RepetitionsRunGroup] = []
+    self._story_groups: List[StoriesRunGroup] = []
+    self._browser_group: Optional[BrowsersRunGroup] = None
 
   def _validate_stories(self):
     for probe_cls in self.stories[0].PROBES:
@@ -204,8 +207,25 @@ class Runner:
     return self._browser_platform
 
   @property
+  def env(self) -> cb.env.HostEnvironment:
+    return self._env
+
+  @property
   def runs(self) -> List[Run]:
     return self._runs
+
+  @property
+  def repetitions_groups(self) -> List[RepetitionsRunGroup]:
+    return self._repetitions_groups
+
+  @property
+  def story_groups(self) -> List[StoriesRunGroup]:
+    return self._story_groups
+
+  @property
+  def browser_group(self) -> BrowsersRunGroup:
+    assert self._browser_group
+    return self._browser_group
 
   def sh(self, *args, shell=False, stdout=None):
     return self._platform.sh(*args, shell=shell, stdout=stdout)
@@ -241,8 +261,9 @@ class Runner:
     self._exceptions.assert_success()
     with self._exceptions.capture("Preparing Environment"):
       self._env.setup()
-    with self._exceptions.capture(f"Preparing Benchmark: {self._benchmark}"):
-      self._benchmark.setup()
+    with self._exceptions.capture(
+        f"Preparing Benchmark: {self._benchmark.NAME}"):
+      self._benchmark.setup(self)
     self.collect_system_details()
     self._exceptions.assert_success()
 
@@ -269,7 +290,7 @@ class Runner:
     run_count = len(self._runs)
     for i, run in enumerate(self._runs):
       logging.info("-" * 80)
-      logging.info("RUN %s/%s", i, run_count)
+      logging.info("RUN %s/%s", i + 1, run_count)
       logging.info("-" * 80)
       run.run(is_dry_run)
       if not run.exceptions.is_success:
@@ -287,24 +308,24 @@ class Runner:
     logging.info("MERGING PROBE DATA")
     logging.debug("MERGING PROBE DATA: iterations")
     throw = self._exceptions.throw
-    repetitions_groups = RepetitionsRunGroup.groups(self._runs, throw)
+    self._repetitions_groups = RepetitionsRunGroup.groups(self._runs, throw)
     with self._exceptions.info("Merging results from multiple repetitions"):
-      for repetitions_group in repetitions_groups:
+      for repetitions_group in self._repetitions_groups:
         repetitions_group.merge(self)
         self._exceptions.extend(repetitions_group.exceptions, is_nested=True)
 
     logging.debug("MERGING PROBE DATA: stories")
-    story_groups = StoriesRunGroup.groups(repetitions_groups, throw)
+    self._story_groups = StoriesRunGroup.groups(self._repetitions_groups, throw)
     with self._exceptions.info("Merging results from multiple stories"):
-      for story_group in story_groups:
+      for story_group in self._story_groups:
         story_group.merge(self)
         self._exceptions.extend(story_group.exceptions, is_nested=True)
 
     logging.debug("MERGING PROBE DATA: browsers")
-    browser_group = BrowsersRunGroup(story_groups, throw)
+    self._browser_group = BrowsersRunGroup(self._story_groups, throw)
     with self._exceptions.info("Merging results from multiple browsers"):
-      browser_group.merge(self)
-      self._exceptions.extend(browser_group.exceptions, is_nested=True)
+      self._browser_group.merge(self)
+      self._exceptions.extend(self._browser_group.exceptions, is_nested=True)
 
   def cool_down(self):
     # Cool down between runs

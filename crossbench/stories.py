@@ -160,7 +160,7 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
       self._url = self.URL
     else:
       self._url = self.URL_LOCAL
-    assert self._url is not None, f"Invalid URL for {self.NAME}"
+    assert self._url, f"Invalid URL for '{self.NAME}' in {type(self)}"
 
   def _get_unique_name(self) -> str:
     substories_set = set(self._substories)

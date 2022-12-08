@@ -7,6 +7,8 @@ from __future__ import annotations
 import datetime as dt
 import enum
 import logging
+import urllib.request
+from urllib.parse import urlparse
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Union
 
 import dataclasses
@@ -211,6 +213,22 @@ class HostEnvironment:
           f"Invalid environment validation mode={self._validation_mode}")
     raise ValidationError(
         f"Runner/Host environment requests cannot be fulfilled: {message}")
+
+  def validate_url(self, url: str):
+    try:
+      result = urlparse(url)
+      if not all([
+          result.scheme in ["file", "http", "https"], result.netloc, result.path
+      ]):
+        return False
+      if self._validation_mode != ValidationMode.PROMPT:
+        return True
+      with urllib.request.urlopen(url) as request:
+        if request.getcode() == 200:
+          return True
+    except urllib.error.URLError:
+      pass
+    return False
 
   def _check_system_monitoring(self):
     # TODO(cbruni): refactor to use list_... and disable_system_monitoring api

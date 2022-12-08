@@ -8,7 +8,6 @@ import abc
 import argparse
 import logging
 import re
-import urllib.request
 from typing import Any, Dict, Generic, List, Sequence, Type, TypeVar, cast
 
 import crossbench
@@ -92,8 +91,8 @@ class Benchmark(abc.ABC):
           f"story={story} has different PROBES than {first_story}")
     return list(stories)
 
-  def setup(self):
-    pass
+  def setup(self, runner: cb.runner.Runner):
+    del runner
 
 
 StoryT = TypeVar("StoryT", bound=cb.stories.Story)
@@ -353,19 +352,17 @@ class PressBenchmark(SubStoryBenchmark):
     super().__init__(stories)
     self.is_live: bool = is_live
 
-  def setup(self):
-    super().setup()
-    self.validate_url()
+  def setup(self, runner: cb.runner.Runner):
+    super().setup(runner)
+    self.validate_url(runner)
 
-  def validate_url(self):
+  def validate_url(self, runner: cb.runner.Runner):
     first_story = cast(cb.stories.PressBenchmarkStory, self.stories[0])
     url = first_story.url
-    try:
-      with urllib.request.urlopen(url) as request:
-        if request.getcode() == 200:
-          return
-    except urllib.error.URLError:
-      pass
+    if not url:
+      raise ValueError("Invalid empty url")
+    if runner.env.validate_url(url):
+      return
     if self.is_live:
       raise Exception(f"Could not reach live benchmark URL: '{url}'. "
                       f"Please make sure you're connected to the internet.")

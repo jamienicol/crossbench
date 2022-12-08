@@ -187,6 +187,12 @@ class Probe(abc.ABC):
         f"Probe {self.name} is not properly attached to a browser")
     return self.Scope(self, run)  # pylint: disable=abstract-class-instantiated
 
+  def log_result_summary(self, runner: cb.runner.Runner):
+    """
+    Override to print a short summary of the collected results.
+    """
+    del runner
+
   class Scope(Generic[ProbeT], metaclass=abc.ABCMeta):
     """
     A scope during which a probe is actively collecting data.

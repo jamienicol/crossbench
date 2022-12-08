@@ -3,18 +3,22 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-import abc
 
+import abc
 import argparse
+import csv
+import logging
+import pathlib
 from typing import TYPE_CHECKING, Final, Optional, Sequence, Tuple, Type
 
-import crossbench
+from tabulate import tabulate
 
-import crossbench.probes.json as probes_json
+import crossbench
+import crossbench.benchmarks
 import crossbench.probes.helper as probes_helper
+import crossbench.probes.json as probes_json
 import crossbench.stories
 from crossbench import helper
-import crossbench.benchmarks
 
 #TODO: fix imports
 cb = crossbench
@@ -54,6 +58,21 @@ class Speedometer2Probe(probes_json.JsonResultProbe, metaclass=abc.ABCMeta):
 
   def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
     return self.merge_browsers_csv_files(group)
+
+  def log_result_summary(self, runner: cb.runner.Runner):
+    if self not in runner.browser_group.results:
+      return
+    results_csv: pathlib.Path = runner.browser_group.results[self]
+    assert results_csv.is_file()
+    with results_csv.open(encoding="utf-8") as f:
+      data = list(csv.reader(f, delimiter="\t"))
+      # TODO: add merged JSON to read data in a more structured way
+      table = data[:3] + data[-2:-1]
+      logging.info("-" * 80)
+      logging.info("Speedometer results:")
+      logging.info("  %s", results_csv.relative_to(pathlib.Path.cwd()))
+      logging.info("-" * 80)
+      logging.info(tabulate(table, tablefmt="plain"))
 
 
 class Speedometer20Probe(Speedometer2Probe):

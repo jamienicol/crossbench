@@ -868,14 +868,26 @@ class CrossBenchCLI:
     try:
       runner.run(is_dry_run=args.dry_run)
       logging.info("")
-      logging.info("=" * 80)
-      logging.info("RESULTS: %s", runner.out_dir)
-      logging.info("=" * 80)
+      self._log_results(args, runner, is_success=runner.is_success)
     except:  # pylint disable=broad-except
-      logging.info("=" * 80)
-      logging.info("RESULTS (maybe incomplete/broken): %s", runner.out_dir)
-      logging.info("=" * 80)
+      self._log_results(args, runner, is_success=False)
       raise
+
+  def _log_results(self, args: argparse.Namespace, runner: cb.runner.Runner,
+                   is_success: bool):
+    logging.info("=" * 80)
+    if is_success:
+      logging.info("RESULTS: %s", runner.out_dir)
+    else:
+      logging.info("RESULTS (maybe incomplete/broken): %s", runner.out_dir)
+    logging.info("=" * 80)
+    for probe in runner.probes:
+      try:
+        probe.log_result_summary(runner)
+      except Exception as e:  # pylint disable=broad-except
+        if args.throw:
+          raise
+        logging.debug("log_result_summary failed: %s", e)
 
   def _get_browsers(self,
                     args: argparse.Namespace) -> Sequence[cb.browsers.Browser]:

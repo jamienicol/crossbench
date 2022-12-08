@@ -209,3 +209,10 @@ class Speedometer2BaseTestCase(
         'dev': '102.22.33.44',
         'stable': '100.22.33.44'
     })
+    with self.assertLogs(level='INFO') as cm:
+      for probe in runner.probes:
+        probe.log_result_summary(runner)
+    output = "\n".join(cm.output)
+    self.assertIn("Speedometer results", output)
+    self.assertIn("102.22.33.44", output)
+    self.assertIn("100.22.33.44", output)
