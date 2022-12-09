@@ -110,8 +110,8 @@ class InteractivePage(Page):
     result["actions"] = list(action.details_json() for action in self._actions)
     return result
 
-  def _get_duration(self) -> int:
-    duration: int = 0
+  def _get_duration(self) -> float:
+    duration: float = 0
     for action in self._actions:
       if action.duration is not None:
         duration += action.duration

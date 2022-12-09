@@ -13,7 +13,7 @@ import inspect
 import json
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import crossbench
 import crossbench.benchmarks
@@ -24,6 +24,9 @@ import crossbench.probes
 import crossbench.probes.runner
 import crossbench.stories
 from crossbench import exception, helper
+
+if TYPE_CHECKING:
+  from crossbench.browsers.base import Browser
 
 # TODO: fix import
 cb = crossbench
@@ -263,7 +266,8 @@ class Runner:
       self._env.setup()
     with self._exceptions.capture(
         f"Preparing Benchmark: {self._benchmark.NAME}"):
-      self._benchmark.setup(self)
+      # TODO: rewrite all imports and hopefully fix this
+      self._benchmark.setup(self)  # pytype:  disable=wrong-arg-types
     self.collect_system_details()
     self._exceptions.assert_success()
 
@@ -370,13 +374,16 @@ class RunGroup(abc.ABC):
 
   @property
   @abc.abstractmethod
-  def csv_header(self) -> Tuple[Tuple[str, ...], ...]:
+  def info(self) -> Dict[str, str]:
     pass
 
-  def get_probe_results_file(self, probe: cb.probes.Probe) -> pathlib.Path:
+  def get_probe_results_file(self,
+                             probe: cb.probes.Probe,
+                             exists_ok: bool = False) -> pathlib.Path:
     new_file = self.path / probe.results_file_name
-    assert not new_file.exists(), (
-        f"Merged file {new_file} for {self.__class__} exists already.")
+    if not exists_ok:
+      assert not new_file.exists(), (
+          f"Merged file {new_file} for {self.__class__} exists already.")
     return new_file
 
   def merge(self, runner: Runner):
@@ -441,11 +448,8 @@ class RepetitionsRunGroup(RunGroup):
     return (f"browser={self.browser.unique_name}", f"story={self.story}")
 
   @property
-  def csv_header(self) -> Tuple[Tuple[str, ...], ...]:
-    return ((
-        "Story",
-        str(self.story),
-    ),)
+  def info(self) -> Dict[str, str]:
+    return {"story": str(self.story)}
 
   def _merge_probe_results(self, probe: cb.probes.Probe
                           ) -> Optional[cb.probes.ProbeResultType]:
@@ -497,14 +501,14 @@ class StoriesRunGroup(RunGroup):
     return (f"browser={self.browser.unique_name}",)
 
   @property
-  def csv_header(self) -> Tuple[Tuple[str, ...], ...]:
-    return (
-        ("Label", self.browser.label),
-        ("Browser", self.browser.type.capitalize()),
-        ("Version", self.browser.version),
-        ("Binary", str(self.path)),
-        ("Flags", str(self.browser.flags)),
-    )
+  def info(self) -> Dict[str, str]:
+    return {
+        "label": self.browser.label,
+        "browser": self.browser.type.capitalize(),
+        "version": self.browser.version,
+        "binary": str(self.browser.path),
+        "flags": str(self.browser.flags)
+    }
 
   @property
   def stories(self) -> Iterable[cb.stories.Story]:
@@ -528,6 +532,11 @@ class BrowsersRunGroup(RunGroup):
     return self._story_groups
 
   @property
+  def browsers(self) -> Iterable[Browser]:
+    for story_group in self._story_groups:
+      yield story_group.browser
+
+  @property
   def repetitions_groups(self) -> Iterable[RepetitionsRunGroup]:
     for story_group in self._story_groups:
       yield from story_group.repetitions_groups
@@ -542,8 +551,8 @@ class BrowsersRunGroup(RunGroup):
     return ()
 
   @property
-  def csv_header(self) -> Tuple[Tuple[str, ...], ...]:
-    return ()
+  def info(self) -> Dict[str, str]:
+    return {}
 
   def _merge_probe_results(self, probe: cb.probes.Probe
                           ) -> Optional[cb.probes.ProbeResultType]:

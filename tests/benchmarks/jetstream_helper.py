@@ -70,12 +70,12 @@ class JetStream2BaseTestCase(
           f"{self.probe_cls.NAME}.csv").open(encoding="utf-8") as f:
       csv_data = list(csv.DictReader(f, delimiter="\t"))
     self.assertDictEqual(csv_data[0], {
-        'Label': 'Browser',
+        'label': 'browser',
         'dev': 'Chrome',
         'stable': 'Chrome'
     })
     self.assertDictEqual(csv_data[1], {
-        'Label': 'Version',
+        'label': 'version',
         'dev': '102.22.33.44',
         'stable': '100.22.33.44'
     })

@@ -8,10 +8,12 @@ import abc
 import argparse
 import logging
 import re
-from typing import Any, Dict, Generic, List, Sequence, Type, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Dict, Generic, List, Sequence, Type, TypeVar, cast
 
 import crossbench
 import crossbench.stories
+if TYPE_CHECKING:
+  from crossbench.runner import Runner
 
 # TODO fix imports
 cb = crossbench
@@ -91,7 +93,7 @@ class Benchmark(abc.ABC):
           f"story={story} has different PROBES than {first_story}")
     return list(stories)
 
-  def setup(self, runner: cb.runner.Runner):
+  def setup(self, runner: Runner):
     del runner
 
 
@@ -352,11 +354,11 @@ class PressBenchmark(SubStoryBenchmark):
     super().__init__(stories)
     self.is_live: bool = is_live
 
-  def setup(self, runner: cb.runner.Runner):
+  def setup(self, runner: Runner):
     super().setup(runner)
     self.validate_url(runner)
 
-  def validate_url(self, runner: cb.runner.Runner):
+  def validate_url(self, runner: Runner):
     first_story = cast(cb.stories.PressBenchmarkStory, self.stories[0])
     url = first_story.url
     if not url:

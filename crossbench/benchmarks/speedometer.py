@@ -57,12 +57,15 @@ class Speedometer2Probe(probes_json.JsonResultProbe, metaclass=abc.ABCMeta):
     return self.write_group_result(group, merged, write_csv=True)
 
   def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
-    return self.merge_browsers_csv_files(group)
+    return {
+        "json": self.merge_browsers_json_files(group),
+        "csv": self.merge_browsers_csv_files(group)
+    }
 
   def log_result_summary(self, runner: cb.runner.Runner):
     if self not in runner.browser_group.results:
       return
-    results_csv: pathlib.Path = runner.browser_group.results[self]
+    results_csv: pathlib.Path = runner.browser_group.results[self]["csv"]
     assert results_csv.is_file()
     with results_csv.open(encoding="utf-8") as f:
       data = list(csv.reader(f, delimiter="\t"))

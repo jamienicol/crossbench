@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 import unittest
 import pathlib
-import os
+import hjson
 from typing import Sequence, cast
 
 import pytest
@@ -118,6 +118,7 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
 
 class TestPageConfig(unittest.TestCase):
 
+  @unittest.skipIf(hjson.__name__ != "hjson", "hjson not available")
   def test_parse_example_page_config_file(self):
     example_config_file = pathlib.Path(
         __file__).parent.parent / "config" / "page.config.example.hjson"
