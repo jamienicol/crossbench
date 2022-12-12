@@ -121,51 +121,145 @@ class TestPageConfig(unittest.TestCase):
   @unittest.skipIf(hjson.__name__ != "hjson", "hjson not available")
   def test_parse_example_page_config_file(self):
     example_config_file = pathlib.Path(
-        __file__).parent.parent / "config" / "page.config.example.hjson"
+        __file__).parents[2] / "config" / "page.config.example.hjson"
     if not example_config_file.exists():
       raise unittest.SkipTest(f"Test file {example_config_file} does not exist")
     with example_config_file.open(encoding="utf-8") as f:
+      file_config = loading.PageConfig()
+      file_config.load(f)
+    with example_config_file.open(encoding="utf-8") as f:
       data = hjson.load(f)
-    loading.PageConfig(**data["pages"])
+    dict_config = loading.PageConfig()
+    dict_config.load_dict(data)
+    self.assertTrue(dict_config.stories)
+    self.assertTrue(file_config.stories)
 
   def test_no_scenarios(self):
-    page_config = loading.PageConfig()
     with self.assertRaises(ValueError):
-      page_config.load_dict({"pages": {}})
+      loading.PageConfig().load_dict({}, throw=True)
+    with self.assertRaises(ValueError):
+      loading.PageConfig().load_dict({"pages": {}}, throw=True)
 
-  def test_get_action_scenario(self):
-    page_config = loading.PageConfig()
-    with self.assertRaises(TypeError):
-      page_config.load_dict({
+  def test_scenario_invalid_actions(self):
+    invalid_actions = [None, "", [], {}, "invalid string", 12]
+    for invalid_action in invalid_actions:
+      config_dict = {"pages": {"name": invalid_action}}
+      with self.subTest(invalid_action=invalid_action):
+        with self.assertRaises(ValueError):
+          loading.PageConfig().load_dict(config_dict, throw=True)
+
+  def test_missing_action(self):
+    with self.assertRaises(ValueError):
+      loading.PageConfig().load_dict(
+          {"pages": {
+              "TEST": [{
+                  "action___": "wait",
+                  "duration": 5.0
+              }]
+          }},
+          throw=True)
+
+  def test_invalid_action(self):
+    invalid_actions = [None, "", [], {}, "unknown action name", 12]
+    for invalid_action in invalid_actions:
+      config_dict = {
           "pages": {
+              "TEST": [{
+                  "action": invalid_action,
+                  "duration": 5.0
+              }]
+          }
+      }
+      with self.subTest(invalid_action=invalid_action):
+        with self.assertRaises(ValueError):
+          loading.PageConfig().load_dict(config_dict, throw=True)
+
+  def test_missing_get_action_scenario(self):
+    with self.assertRaises(AssertionError):
+      loading.PageConfig().load_dict(
+          {"pages": {
               "TEST": [{
                   "action": "wait",
                   "duration": 5.0
-              }, {
-                  "action": "scroll",
-                  "value": "down",
-                  "duration": 10.0
               }]
-          }
-      })
+          }},
+          throw=True)
 
-  def test_action_invalid_duration_suffix(self):
-    page_config = loading.PageConfig()
-    with self.assertRaises(ValueError):
-      page_config.load_dict({
-          "pages": {
-              "TEST": [
-                  {
-                      "action": "get",
-                      "duration": 'google.com'
-                  },
-                  {
-                      "action": "wait",
-                      "duration": '5.0pppppppppasdasd'
-                  },
-              ]
-          }
-      })
+  def test_get_action_durations(self):
+    durations = [
+        ("5", 5),
+        ("5.5", 5.5),
+        (6, 6),
+        (6.1, 6.1),
+        ("5.5", 5.5),
+        ("170ms", 0.17),
+        ("170milliseconds", 0.17),
+        ("170.4ms", 0.1704),
+        ("170.4 millis", 0.1704),
+        ("8s", 8),
+        ("8.1s", 8.1),
+        ("8.1seconds", 8.1),
+        ("1 second", 1),
+        ("1.1 seconds", 1.1),
+        ("9m", 9 * 60),
+        ("9.5m", 9.5 * 60),
+        ("9.5 minutes", 9.5 * 60),
+        ("9.5 mins", 9.5 * 60),
+        ("1 minute", 60),
+        ("1 min", 60),
+        ("1h", 3600),
+        ("1 h", 3600),
+        ("1 hour", 3600),
+        ("0.5h", 1800),
+        ("0.5 hours", 1800),
+    ]
+    for input_value, duration in durations:
+      with self.subTest(duration=duration):
+        page_config = loading.PageConfig()
+        page_config.load_dict({
+            "pages": {
+                "TEST": [
+                    {
+                        "action": "get",
+                        "url": 'google.com'
+                    },
+                    {
+                        "action": "wait",
+                        "duration": input_value
+                    },
+                ]
+            }
+        })
+        self.assertEqual(len(page_config.stories), 1)
+        story = page_config.stories[0]
+        assert isinstance(story, loading.InteractivePage)
+        self.assertEqual(len(story.actions), 2)
+        self.assertEqual(story.actions[1].duration, duration)
+
+  def test_action_invalid_duration(self):
+    invalid_durations = [
+        "1.1.1", None, "", -1, "-1", "-1ms", "1msss", "1ss", "2hh", "asdfasd",
+        "---", "1.1.1", "1_123ms", "1'200h", (), [], {}
+    ]
+    for invalid_duration in invalid_durations:
+      with self.subTest(duration=invalid_duration), self.assertRaises(
+          (AssertionError, ValueError)):
+        loading.PageConfig().load_dict(
+            {
+                "pages": {
+                    "TEST": [
+                        {
+                            "action": "get",
+                            "url": 'google.com'
+                        },
+                        {
+                            "action": "wait",
+                            "duration": invalid_duration
+                        },
+                    ]
+                }
+            },
+            throw=True)
 
 
 if __name__ == "__main__":

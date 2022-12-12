@@ -9,12 +9,13 @@ import re
 import time
 import pathlib
 import hjson
-from typing import Optional, Sequence, Type, List, Dict, Any
+from typing import Optional, Sequence, Type, List, Dict, Any, Union
 from urllib.parse import urlparse
 from enum import Enum
 
 import crossbench
 import crossbench.benchmarks
+from crossbench.exception import ExceptionAnnotator
 import crossbench.stories
 
 #TODO: fix imports
@@ -100,6 +101,10 @@ class InteractivePage(Page):
     assert self._actions, "Must have at least 1 valid action"
     duration = self._get_duration()
     super().__init__(name, duration)
+
+  @property
+  def actions(self) -> List[Action]:
+    return self._actions
 
   def run(self, run):
     for action in self._actions:
@@ -278,7 +283,7 @@ class PageLoadBenchmark(cb.benchmarks.SubStoryBenchmark):
 
 
 class PageConfig:
-  _DURATION_RE = re.compile(r"((?P<value>(\d*[.]?\d+))(?P<unit>[^0-9]+))")
+  _DURATION_RE = re.compile(r"(?P<value>(\d+(\.\d+)?)) ?(?P<unit>[^0-9\.]+)?")
 
   @classmethod
   def from_cli_args(cls, args) -> PageConfig:
@@ -291,28 +296,31 @@ class PageConfig:
     return page_config
 
   def __init__(self, raw_config_data: Optional[Dict] = None):
-    self._exceptions = cb.exception.Annotator(throw=True)
+    self._exceptions = ExceptionAnnotator(throw=True)
     self.stories: List[cb.stories.Story] = []
     if raw_config_data:
       self.load_dict(raw_config_data)
 
-  def load(self, f):
+  def load(self, f, throw: bool = False):
+    assert not self.stories
+    self._exceptions.throw = throw
     with self._exceptions.capture(f"Loading Pages config file: {f.name}"):
       with self._exceptions.info(f"Parsing {hjson.__name__}"):
         config = hjson.load(f)
-      with self._exceptions.info(f"Parsing config file: {f.name}"):
-        self.load_dict(config)
+        self.load_dict(config, throw=throw)
+    self._exceptions.assert_success()
 
-  def load_dict(self, raw_config_data: Dict):
-    try:
+  def load_dict(self, raw_config_data: Dict, throw: bool = False):
+    assert not self.stories
+    self._exceptions.throw = throw
+    with self._exceptions.capture("Parsing scenarios / pages"):
       if "pages" not in raw_config_data:
         raise ValueError("Config does not provide a 'pages' dict.")
       if not raw_config_data["pages"]:
         raise ValueError("Config contains empty 'pages' dict.")
       with self._exceptions.info("Parsing config 'pages'"):
         self._parse_pages(raw_config_data["pages"])
-    except Exception as e:
-      self._exceptions.append(e)
+    self._exceptions.assert_success()
 
   def _parse_pages(self, pages: Dict[str, Any]):
     """
@@ -325,7 +333,7 @@ class PageConfig:
     If one would want to simply navigate to a site it is important to at
     least include: {action: "GET", value/url: google.com} in the specific
     scenario.
-    
+
     As an example look at: page.config.example.hjson
     """
     for scenario_name, actions in pages.items():
@@ -335,55 +343,66 @@ class PageConfig:
 
   def _parse_actions(self, actions: List[Dict[str, Any]],
                      scenario_name: str) -> List[Action]:
+    if not actions:
+      raise ValueError(f"Scenario '{scenario_name}' has no action")
+    if not isinstance(actions, list):
+      raise ValueError(f"Expected list, got={type(actions)}, '{actions}'")
     actions_list: List[Action] = []
     get_action_found = False
     for i, step in enumerate(actions):
       with self._exceptions.info(f"Parsing action ...['{scenario_name}'][{i}]"):
         if step.get("action") == ActionType.GET:
           get_action_found = True
-        if action_type := step.get("action"):
-          if action_duration := step.get("duration"):
-            action_duration = self._parse_duration(action_duration)
-          value = step.get("url") or step.get("value")
-          actions_list.append(
-              self._create_action(action_type, value, action_duration))
-    assert get_action_found, (
-        f"Not a valid entry for scenario: {scenario_name}. No 'get' action found."
-    )
-    assert actions_list, (
-        f"Not valid entry for scenario {scenario_name} does not contain any valid actions"
-    )
+        if "action" not in step:
+          raise ValueError("No 'action' property found.")
+        action_type = step["action"]
+        if not action_type:
+          raise ValueError("Empty 'action' property")
+        if action_duration := step.get("duration", 0.0):
+          action_duration = self._parse_duration(action_duration)
+        value = step.get("url") or step.get("value")
+        actions_list.append(
+            self._create_action(action_type, value, action_duration))
+    assert get_action_found, ("Not a valid entry for scenario: "
+                              f"{scenario_name}. No 'get' action found.")
+    assert actions_list, (f"Not valid entry for scenario {scenario_name} "
+                          "does not contain any valid actions")
     return actions_list
 
-  def _parse_duration(self, time_str: Optional[str]) -> Optional[float]:
+  def _parse_duration(self,
+                      time_str: Union[float, int, str]) -> Optional[float]:
     """
-    This function will parse the measurment and the value from string value.
+    This function will parse the measurement and the value from string value.
     Keep in mind the return is in seconds.
 
     For example:
     5s => 5
-    5m => 300
+    5m => 5*60 = 300
 
     """
+    if isinstance(time_str, (int, float)):
+      return float(time_str)
+
     if not time_str:
       return None
 
-    value_unit = self._DURATION_RE.search(time_str)
-    if value_unit is None:
+    match = self._DURATION_RE.fullmatch(time_str)
+    if match is None:
       return None
 
-    value = value_unit.group('value')
-    time_unit = value_unit.group('unit')
-
+    value = match.group('value')
     if not value:
       raise Exception("Error: Duration value not found."
                       "Make sure to include a valid duration value")
+    time_unit = match.group('unit')
     if not time_unit:
       # If no time unit provided we assume it is in seconds.
       return float(value)
     return float(value) * _TimeSuffix.get_multiplier(time_unit)
 
   def _create_action(self, action_type, value, duration) -> Action:
+    if action_type not in _ACTION_FACTORY:
+      raise ValueError(f"Unknown action name: '{action_type}'")
     return _ACTION_FACTORY[action_type](action_type, value, duration)
 
 
@@ -391,18 +410,18 @@ class _TimeSuffix:
   _MILLISECONDS_MULTIPLIER = 0.001
   _SECONDS_MULTIPLIER = 1
   _MINUTES_MULTIPLIER = 60
-  _HOURS_MULTIPLIER = 360
+  _HOURS_MULTIPLIER = 3600
 
   @classmethod
   def get_multiplier(cls, suffix: str) -> float:
-    if suffix in {'ms', 'milli', 'milliseconds'}:
-      return _TimeSuffix._MILLISECONDS_MULTIPLIER
-    if suffix in {'m', 'min', 'minute', 'minutes'}:
-      return _TimeSuffix._MINUTES_MULTIPLIER
-    if suffix in {'h', 'hrs', 'hour', 'hours'}:
-      return _TimeSuffix._HOURS_MULTIPLIER
-    if suffix in {'s', 'sec', 'second', 'seconds'}:
-      return _TimeSuffix._SECONDS_MULTIPLIER
+    if suffix in {"ms", "millis", "milliseconds"}:
+      return cls._MILLISECONDS_MULTIPLIER
+    if suffix in {"s", "sec", "secs", "second", "seconds"}:
+      return cls._SECONDS_MULTIPLIER
+    if suffix in {"m", "min", "mins", "minute", "minutes"}:
+      return cls._MINUTES_MULTIPLIER
+    if suffix in {"h", "hrs", "hour", "hours"}:
+      return cls._HOURS_MULTIPLIER
     raise ValueError(f"Error: {suffix} is not support for duration. "
                      "Make sure to use a supported time unit/suffix")
 
@@ -416,9 +435,10 @@ class Action(abc.ABC):
   def __init__(self,
                action_type: ActionType,
                value: Optional[str] = None,
-               duration: Optional[float] = None):
+               duration: float = 0.0):
     self.action_type = action_type
     self.value = value
+    assert isinstance(duration, float)
     self.duration = duration
 
   @abc.abstractmethod
