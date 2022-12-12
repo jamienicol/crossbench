@@ -11,6 +11,7 @@ import logging
 import os
 import pathlib
 import platform as py_platform
+import plistlib
 import shlex
 import shutil
 import subprocess
@@ -458,14 +459,25 @@ class MacOSPlatform(PosixPlatform):
     return "macos"
 
   def _find_app_binary_path(self, app_path: pathlib.Path) -> pathlib.Path:
+    assert app_path.suffix == ".app"
     bin_path = app_path / "Contents" / "MacOS" / app_path.stem
     if bin_path.exists():
       return bin_path
     binaries = [path for path in bin_path.parent.iterdir() if path.is_file()]
-    if len(binaries) != 1:
-      raise Exception(
-          f"Invalid number of binaries candidates found: {binaries}")
-    return binaries[0]
+    if len(binaries) == 1:
+      return binaries[0]
+    # Fallback to read plist
+    plist_path = app_path / "Contents" / "Info.plist"
+    assert plist_path.is_file, (
+        f"Could not find Info.plist in app bundle: {app_path}")
+    with plist_path.open("rb") as f:
+      plist = plistlib.load(f)
+    bin_path = (
+        app_path / "Contents" / "MacOS" /
+        plist.get("CFBundleExecutable", app_path.stem))
+    if bin_path.is_file():
+      return bin_path
+    raise Exception(f"Invalid number of binaries candidates found: {binaries}")
 
   def search_binary(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
     if app_path.suffix != ".app":
