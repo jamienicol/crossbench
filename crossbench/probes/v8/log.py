@@ -174,6 +174,40 @@ class V8LogProbe(base.Probe):
         json_list = self.probe.process_log_files(log_files)
       return ProbeResult(file=tuple(log_files), json=json_list)
 
+  def log_result_summary(self, runner: Runner):
+    runs: List[Run] = list(run for run in runner.runs if self in run.results)
+    if not runs:
+      return
+    logging.info("-" * 80)
+    logging.info("v8.log files:")
+    logging.info("  *.v8.log:        https://v8.dev/tools/head/system-analyzer")
+    logging.info("  *.profview.json: https://v8.dev/tools/head/profview")
+    logging.info("-" * 80)
+    cwd = pathlib.Path.cwd()
+    for i, run in enumerate(runner.runs):
+      if self not in run.results:
+        continue
+      log_files = run.results[self].files
+      if not log_files:
+        continue
+      largest_log_file = log_files[0]
+      logging.info("Run %d: %s", i + 1, run.name)
+      logging.info("    %s : %s", largest_log_file.relative_to(cwd),
+                   helper.get_file_size(largest_log_file))
+      if len(log_files) > 1:
+        logging.info("    %s/.*v8.log: %d files",
+                     largest_log_file.parent.relative_to(cwd), len(log_files))
+      profview_files = run.results[self].json_files
+      if not profview_files:
+        continue
+      largest_profview_file = profview_files[0]
+      logging.info("    %s : %s", largest_profview_file.relative_to(cwd),
+                   helper.get_file_size(largest_profview_file))
+      if len(profview_files) > 1:
+        logging.info("    %s/.*.profview.json: %d files",
+                     largest_profview_file.parent.relative_to(cwd),
+                     len(profview_files))
+
 
 def _process_profview_json(d8_binary: pathlib.Path,
                            tick_processor: pathlib.Path,
