@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 
 import crossbench
 from crossbench.probes import base
+from crossbench.probes.results import ProbeResult
 
 #TODO: fix imports
 cb = crossbench
@@ -129,17 +130,14 @@ class PowerSamplerProbe(base.Probe):
       if self._battery_process:
         self._battery_process.terminate()
 
-    def tear_down(self, run: cb.runner.Run):
+    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
       if self._power_process:
         self._power_process.kill()
       if self._battery_process:
         self._battery_process.kill()
       if self._active_user_process:
         self._active_user_process.terminate()
-      return tuple({
-          "power": self._power_output,
-          "battery": self._battery_output
-      }.values())
+      return ProbeResult(file=(self._power_output, self._battery_output))
 
     def _wait_for_battery_not_full(self, run: cb.runner.Run):
       """

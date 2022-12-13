@@ -51,22 +51,19 @@ class Speedometer2Probe(probes_json.JsonResultProbe, metaclass=abc.ABCMeta):
     return probes_helper.Flatten(merged).data
 
   def merge_stories(self, group: cb.runner.StoriesRunGroup):
-    merged = probes_helper.ValuesMerger.merge_json_files(
-        repetitions_group.results[self]["json"]
+    merged = probes_helper.ValuesMerger.merge_json_list(
+        repetitions_group.results[self].json
         for repetitions_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 
   def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
-    return {
-        "json": self.merge_browsers_json_files(group),
-        "csv": self.merge_browsers_csv_files(group)
-    }
+    return self.merge_browsers_json_list(group).merge(
+        self.merge_browsers_csv_list(group))
 
   def log_result_summary(self, runner: cb.runner.Runner):
     if self not in runner.browser_group.results:
       return
-    results_csv: pathlib.Path = runner.browser_group.results[self]["csv"]
-    assert results_csv.is_file()
+    results_csv: pathlib.Path = runner.browser_group.results[self].csv
     with results_csv.open(encoding="utf-8") as f:
       data = list(csv.reader(f, delimiter="\t"))
       # TODO: add merged JSON to read data in a more structured way
@@ -160,9 +157,6 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
       actions.wait(self.fast_duration)
       actions.wait_js_condition("return window.testDone",
                                 self.substory_duration, self.slow_duration)
-
-
-ProbeClsTupleT = Tuple[Type[Speedometer2Probe], ...]
 
 
 ProbeClsTupleT = Tuple[Type[Speedometer2Probe], ...]

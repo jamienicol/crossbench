@@ -526,9 +526,9 @@ class MacOSPlatform(PosixPlatform):
       # Strip quotes: '"14.1"' => '14.1'
       return version_string[1:-1]
     # Backup solution with --version
-    maybe_bin_path = app_path
+    maybe_bin_path: Optional[pathlib.Path] = app_path
     if app_path.suffix == ".app":
-      maybe_bin_path = self.search_binary(maybe_bin_path)
+      maybe_bin_path = self.search_binary(app_path)
     if maybe_bin_path:
       try:
         return self.sh_stdout(maybe_bin_path, "--version").strip()

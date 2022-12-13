@@ -8,12 +8,13 @@ import abc
 import datetime as dt
 import logging
 import pathlib
-from typing import (TYPE_CHECKING, Any, Dict, Generic, Iterable, Optional, Set,
-                    Tuple, Type, TypeVar, Union)
+from typing import (TYPE_CHECKING, Any, Dict, Generic, Iterable, Optional,
+                    Sequence, Set, Tuple, Type, TypeVar, Union)
 
 import crossbench
 from crossbench import helper
 from crossbench.config import ConfigParser
+from crossbench.probes.results import ProbeResult
 
 #TODO: fix imports
 cb = crossbench
@@ -155,32 +156,30 @@ class Probe(abc.ABC):
     for browser in self._browsers:
       assert self.is_compatible(browser)
 
-  def merge_repetitions(self, group: cb.runner.RepetitionsRunGroup
-                       ) -> Optional[ProbeResultType]:
+  def merge_repetitions(self,
+                        group: cb.runner.RepetitionsRunGroup) -> ProbeResult:
     """
     Can be used to merge probe data from multiple repetitions of the same story.
     Return None, a result file Path (or a list of Paths)
     """
     del group
-    return None
+    return ProbeResult()
 
-  def merge_stories(self, group: cb.runner.StoriesRunGroup
-                   ) -> Optional[ProbeResultType]:
+  def merge_stories(self, group: cb.runner.StoriesRunGroup) -> ProbeResult:
     """
     Can be used to merge probe data from multiple stories for the same browser.
     Return None, a result file Path (or a list of Paths)
     """
     del group
-    return None
+    return ProbeResult()
 
-  def merge_browsers(self, group: cb.runner.BrowsersRunGroup
-                    ) -> Optional[ProbeResultType]:
+  def merge_browsers(self, group: cb.runner.BrowsersRunGroup) -> ProbeResult:
     """
     Can be used to merge all probe data (from multiple stories and browsers.)
     Return None, a result file Path (or a list of Paths)
     """
     del group
-    return None
+    return ProbeResult()
 
   def get_scope(self: ProbeT, run) -> Probe.Scope[ProbeT]:
     assert self.is_attached, (
@@ -308,7 +307,7 @@ class Probe(abc.ABC):
       return None
 
     @abc.abstractmethod
-    def tear_down(self, run: cb.runner.Run) -> Optional[ProbeResultType]:
+    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
       """
       Called after stopping all probes and shutting down the browser.
       Returns
@@ -317,71 +316,4 @@ class Probe(abc.ABC):
         - Either a path (or list of paths) to results file
         - Directly a primitive json-serializable object containing the data
       """
-      return None
-
-
-# ------------------------------------------------------------------------------
-
-BasicProbeResultType = Union[pathlib.Path, str]
-ProbeResultType = Union[None, BasicProbeResultType, Tuple[BasicProbeResultType],
-                        Dict[str, BasicProbeResultType]]
-
-
-class ProbeResultDict:
-  """
-  Maps Probes to their result files Paths.
-  """
-
-  def __init__(self, path: pathlib.Path):
-    self._path = path
-    self._dict: Dict[str, ProbeResultType] = {}
-
-  def __setitem__(self, probe: Probe, results: ProbeResultType):
-    if results is None:
-      self._dict[probe.name] = None
-      return
-    self._check_result_type(probe, results)
-    self._dict[probe.name] = results
-
-  def _check_result_type(self, probe: Probe, results: ProbeResultType):
-    assert isinstance(results, (pathlib.Path, str, tuple, dict)), (
-        f"Probe name={probe.name} should produce Path, URL or tuples/dicts "
-        f"thereof, but got: {results}")
-    check_items: Iterable[Union[pathlib.Path, str]] = ()
-    if isinstance(results, tuple):
-      check_items = results
-    elif isinstance(results, dict):
-      check_items = results.values()
-    else:
-      return
-    for result in check_items:
-      assert isinstance(result, (pathlib.Path, str)), (
-          f"Expected probe={probe.name} tuple results to contain Paths or "
-          f"strings, but got: {result}")
-
-  def __getitem__(self, probe: Probe) -> ProbeResultType:
-    name = probe.name
-    if name not in self._dict:
-      raise KeyError(f"No results for probe='{name}'")
-    return self._dict[name]
-
-  def __contains__(self, probe: Probe) -> bool:
-    return probe.name in self._dict
-
-  def get(self, probe: Probe, default=None):
-    return self._dict.get(probe.name, default)
-
-  def to_json(self):
-    data: Dict[str, Any] = {}
-    for probe_name, results in self._dict.items():
-      if isinstance(results, (pathlib.Path, str)):
-        data[probe_name] = str(results)
-      else:
-        if results is None:
-          logging.debug("probe=%s did not produce any data.", probe_name)
-          data[probe_name] = None
-        elif isinstance(results, dict):
-          data[probe_name] = {key: str(value) for key, value in results.items()}
-        elif isinstance(results, tuple):
-          data[probe_name] = tuple(str(path) for path in results)
-    return data
+      return ProbeResult()

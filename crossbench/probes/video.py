@@ -10,10 +10,10 @@ import pathlib
 import shutil
 import subprocess
 import tempfile
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Dict, List
 
 import crossbench
-import crossbench.stories
+from crossbench.probes.results import ProbeResult
 from crossbench import helper
 from crossbench.probes import base
 
@@ -23,6 +23,8 @@ cb = crossbench
 if TYPE_CHECKING:
   import crossbench.env
   import crossbench.runner
+  from crossbench.stories import Story
+  from crossbench.runner import RepetitionsRunGroup
 
 
 class VideoProbe(base.Probe):
@@ -114,7 +116,7 @@ class VideoProbe(base.Probe):
       else:
         self._record_process.terminate()
 
-    def tear_down(self, run: cb.runner.Run):
+    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
       self._recorder_log_file.close()
       if self._record_process.poll() is not None:
         self._record_process.wait(timeout=5)
@@ -122,7 +124,7 @@ class VideoProbe(base.Probe):
           f"No screen recording video found at: {self.results_file}")
       with tempfile.TemporaryDirectory() as tmp_dir:
         timestrip_file = self._create_time_strip(pathlib.Path(tmp_dir))
-      return (self.results_file, timestrip_file)
+      return ProbeResult(file=(self.results_file, timestrip_file))
 
     def _create_time_strip(self, tmpdir: pathlib.Path):
       logging.info("TIMESTRIP")
@@ -158,19 +160,19 @@ class VideoProbe(base.Probe):
                               "x100", timeline_strip_file)
       return timeline_strip_file
 
-  def merge_repetitions(self, group: cb.runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: RepetitionsRunGroup):
     result_file = group.get_probe_results_file(self)
     timeline_strip_file = result_file.with_suffix(self.TIMESTRIP_FILE_SUFFIX)
     runs = tuple(group.runs)
     if len(runs) == 1:
       # In the simple case just copy the files
-      run_result_file, run_timeline_strip_file = runs[0].results[self]
+      run_result_file, run_timeline_strip_file = runs[0].results[self].file_list
       # TODO migrate to platform
       shutil.copy(run_result_file, result_file)
       shutil.copy(run_timeline_strip_file, timeline_strip_file)
       return (result_file, timeline_strip_file)
     logging.info("TIMESTRIP merge page iterations")
-    timeline_strips = (run.results[self][1] for run in runs)
+    timeline_strips = (run.results[self].file_list[1] for run in runs)
     self.runner_platform.sh("montage", *timeline_strips, "-tile", "1x",
                             "-gravity", "NorthWest", "-geometry", "x100",
                             timeline_strip_file)
@@ -179,7 +181,7 @@ class VideoProbe(base.Probe):
     browser = group.browser
     video_file_inputs = []
     for run in runs:
-      video_file_inputs += ["-i", run.results[self][0]]
+      video_file_inputs += ["-i", run.results[self].file_list[0]]
     draw_text = ("fontfile='/Library/Fonts/Arial.ttf':"
                  f"text='{browser.app_name} {browser.label}':"
                  "fontsize=h/15:"
@@ -197,7 +199,7 @@ class VideoProbe(base.Probe):
     groups = list(group.repetitions_groups)
     if len(groups) <= 1:
       return None
-    grouped = helper.group_by(
+    grouped: Dict[Story, List[RepetitionsRunGroup]] = helper.group_by(
         groups, key=lambda repetitions_group: repetitions_group.story)
 
     result_dir = group.get_probe_results_file(self)
@@ -207,23 +209,23 @@ class VideoProbe(base.Probe):
         self._merge_stories_for_browser(result_dir, story, repetitions_groups)
         for story, repetitions_groups in grouped.items())
 
-  def _merge_stories_for_browser(
-      self, result_dir: pathlib.Path, story: cb.stories.Story,
-      repetitions_groups: List[cb.runner.RepetitionsRunGroup]):
+  def _merge_stories_for_browser(self, result_dir: pathlib.Path, story: Story,
+                                 repetitions_groups: List[RepetitionsRunGroup]):
 
     story = repetitions_groups[0].story
     result_file = result_dir / f"{story.name}_combined.mp4"
 
     if len(repetitions_groups) == 1:
       # In the simple case just copy files
-      input_file: str = repetitions_groups[0].results[self][0]
+      input_file = repetitions_groups[0].results[self].file_list[0]
       # TODO migrate to platform
       shutil.copy(input_file, result_file)
       return result_file
 
     input_files: List[str] = []
     for repetitions_group in repetitions_groups:
-      input_files += ["-i", repetitions_group.results[self][0]]
+      result_files = repetitions_group.results[self].file_list
+      input_files += ["-i", str(result_files[0])]
     self.runner_platform.sh("ffmpeg", "-hide_banner", *input_files,
                             "-filter_complex",
                             f"vstack=inputs={len(repetitions_groups)}",

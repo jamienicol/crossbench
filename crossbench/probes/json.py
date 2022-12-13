@@ -11,6 +11,7 @@ import pathlib
 from typing import (TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union)
 
 from crossbench.probes import base, helper
+from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
   from crossbench.runner import (BrowsersRunGroup, RepetitionsRunGroup, Run,
@@ -67,7 +68,7 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
     def stop(self, run):
       self._json_data = self.extract_json(run)
 
-    def tear_down(self, run):
+    def tear_down(self, run) -> ProbeResult:
       self._json_data = self.process_json_data(self._json_data)
       return self.write_json(run, self._json_data)
 
@@ -78,21 +79,22 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
             "Probe name=={self.probe.name} produced no data")
         return json_data
 
-    def write_json(self, run: Run, json_data):
+    def write_json(self, run: Run, json_data) -> ProbeResult:
+      flattened_file = None
       with run.actions(f"Writing Probe name={self.probe.name}"):
         assert json_data is not None
         raw_file = self.results_file
         if self.probe.FLATTEN:
-          raw_file = raw_file.with_suffix(".raw.json")
+          raw_file = raw_file.with_suffix(".json.raw")
           flattened_file = self.results_file
           flat_json_data = self.flatten_json_data(json_data)
           with flattened_file.open("w", encoding="utf-8") as f:
             json.dump(flat_json_data, f, indent=2)
         with raw_file.open("w", encoding="utf-8") as f:
           json.dump(json_data, f, indent=2)
-      if self.probe.FLATTEN:
-        return (flattened_file, raw_file)
-      return raw_file
+      if flattened_file:
+        return ProbeResult(json=(flattened_file,), file=(raw_file,))
+      return ProbeResult(json=(raw_file,))
 
     def process_json_data(self, json_data):
       return self.probe.process_json_data(json_data)
@@ -103,62 +105,53 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
   def merge_repetitions(
       self,
       group: RepetitionsRunGroup,
-  ) -> base.ProbeResultType:
+  ) -> ProbeResult:
     merger = helper.ValuesMerger()
     for run in group.runs:
       if self not in run.results:
         raise Exception(f"Probe {self.NAME} produced no data to merge.")
-      source_file = self.get_mergeable_result_file(run.results[self])
+      source_file = run.results[self].json
       assert source_file.is_file()
       with source_file.open(encoding="utf-8") as f:
         merger.add(json.load(f))
     return self.write_group_result(group, merger, write_csv=True)
 
-  def merge_browsers_json_files(self, group: BrowsersRunGroup):
-    merged_json = {}
+  def merge_browsers_json_list(self, group: BrowsersRunGroup) -> ProbeResult:
+    merged_json: Dict[str, Dict[str, Any]] = {}
     for story_group in group.story_groups:
-      merged_json[story_group.browser.unique_name] = browser_result = {}
+      browser_result: Dict[str, Any] = {}
+      merged_json[story_group.browser.unique_name] = browser_result
       browser_result["info"] = story_group.info
-      group_result = story_group.results[self]
-      if isinstance(group_result, dict):
-        browser_json_path: pathlib.Path = group_result["json"]
-      else:
-        assert isinstance(group_result, pathlib.Path)
-        browser_json_path: pathlib.Path = group_result
+      browser_json_path = story_group.results[self].json
+      assert browser_json_path.is_file()
       with browser_json_path.open(encoding="utf-8") as f:
         browser_result["data"] = json.load(f)
     merged_json_path = group.get_probe_results_file(self)
     assert not merged_json_path.exists()
-    assert merged_json_path.suffix == ".json"
     with merged_json_path.open("w", encoding="utf-8") as f:
       json.dump(merged_json, f, indent=2)
-    return merged_json_path
+    return ProbeResult(json=(merged_json_path,))
 
-  def merge_browsers_csv_files(self, group: BrowsersRunGroup) -> pathlib.Path:
-    csv_files: List[pathlib.Path] = []
+  def merge_browsers_csv_list(self, group: BrowsersRunGroup) -> ProbeResult:
+    csv_list: List[pathlib.Path] = []
     headers: List[str] = []
     for story_group in group.story_groups:
-      csv_files.append(story_group.results[self]["csv"])
+      csv_list.append(story_group.results[self].csv)
       headers.append(story_group.browser.unique_name)
-    merged_table = helper.merge_csv(csv_files)
+    merged_table = helper.merge_csv(csv_list)
     merged_json_path = group.get_probe_results_file(self, exists_ok=True)
     merged_csv_path = merged_json_path.with_suffix(".csv")
     assert not merged_csv_path.exists()
     with merged_csv_path.open("w", newline="", encoding="utf-8") as f:
       csv.writer(f, delimiter="\t").writerows(merged_table)
-    return merged_csv_path
-
-  def get_mergeable_result_file(self, results):
-    if isinstance(results, tuple):
-      return pathlib.Path(results[0])
-    return pathlib.Path(results)
+    return ProbeResult(csv=(merged_csv_path,))
 
   def write_group_result(self,
                          group: RunGroup,
                          merged_data: Union[Dict, helper.ValuesMerger],
                          write_csv: bool = False,
                          value_fn: Optional[Callable[[Any], Any]] = None
-                        ) -> base.ProbeResultType:
+                        ) -> ProbeResult:
     merged_json_path = group.get_probe_results_file(self)
     with merged_json_path.open("w", encoding="utf-8") as f:
       if isinstance(merged_data, dict):
@@ -166,7 +159,7 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
       else:
         json.dump(merged_data.to_json(), f, indent=2)
     if not write_csv:
-      return merged_json_path
+      return ProbeResult(json=(merged_json_path,))
     if not isinstance(merged_data, helper.ValuesMerger):
       raise ValueError("write_csv is only supported for ValuesMerger, "
                        f"but found {type(merged_data)}'.")
@@ -178,14 +171,14 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
   def write_group_csv_result(self, group: RunGroup,
                              merged_data: helper.ValuesMerger,
                              merged_json_path: pathlib.Path,
-                             value_fn: Callable[[Any], Any]):
+                             value_fn: Callable[[Any], Any]) -> ProbeResult:
     merged_csv_path = merged_json_path.with_suffix(".csv")
     assert not merged_csv_path.exists()
     with merged_csv_path.open("w", newline="", encoding="utf-8") as f:
       writer = csv.writer(f, delimiter="\t")
       csv_data = merged_data.to_csv(value_fn, list(group.info.items()))
       writer.writerows(csv_data)
-    return {"json": merged_json_path, "csv": merged_csv_path}
+    return ProbeResult(json=(merged_json_path,), csv=(merged_csv_path,))
 
 
 def value_geomean(value):

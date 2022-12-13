@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import crossbench
 from crossbench import helper
 from crossbench.probes import base
+from crossbench.probes.results import ProbeResult
 
 #TODO: fix imports
 cb = crossbench
@@ -78,5 +79,5 @@ class SystemStatsProbe(base.Probe):
     def stop(self, run: cb.runner.Run):
       self._event.set()
 
-    def tear_down(self, run: cb.runner.Run):
-      return self.results_file
+    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
+      return ProbeResult(file=(self.results_file,))

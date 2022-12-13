@@ -10,7 +10,7 @@ import os
 import pathlib
 import re
 import subprocess
-from typing import TYPE_CHECKING, Iterable, List, Optional
+from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
 
 import crossbench
 import crossbench.config
@@ -18,12 +18,14 @@ import crossbench.exception
 import crossbench.flags
 from crossbench import helper
 from crossbench.probes import base
+from crossbench.probes.results import ProbeResult
 
 #TODO: fix imports
 cb = crossbench
 
 if TYPE_CHECKING:
   import crossbench.env
+  from crossbench.runner import Run, Runner
 
 
 class V8LogProbe(base.Probe):
@@ -154,22 +156,23 @@ class V8LogProbe(base.Probe):
       log_dir.mkdir(exist_ok=True)
       return log_dir / self.probe.results_file_name
 
-    def setup(self, run):
+    def setup(self, run: Run):
       run.extra_js_flags["--logfile"] = str(self.results_file)
 
-    def start(self, run):
+    def start(self, run: Run):
       pass
 
-    def stop(self, run):
+    def stop(self, run: Run):
       pass
 
-    def tear_down(self, run):
+    def tear_down(self, run: Run) -> ProbeResult:
       log_dir = self.results_file.parent
       log_files = helper.sort_by_file_size(log_dir.glob("*-v8.log"))
       # Only convert a v8.log file with profile ticks.
-      if "--prof" in self.browser.js_flags:
-        log_files.extend(self.probe.process_log_files(log_files))
-      return tuple(str(f) for f in log_files)
+      json_list: Tuple[pathlib.Path, ...] = ()
+      if "--prof" in getattr(self.browser, "js_flags", {}):
+        json_list = self.probe.process_log_files(log_files)
+      return ProbeResult(file=tuple(log_files), json=json_list)
 
 
 def _process_profview_json(d8_binary: pathlib.Path,

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import crossbench
 from crossbench.probes import base
 from crossbench.probes.json import JsonResultProbe
+from crossbench.probes.results import ProbeResult
 
 #TODO: fix imports
 cb = crossbench
@@ -50,10 +51,10 @@ class RunRunnerLogProbe(base.Probe):
     def stop(self, run: cb.runner.Run):
       pass
 
-    def tear_down(self, run: cb.runner.Run):
+    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
       logging.getLogger().removeHandler(self._log_handler)
       self._log_handler = None
-      return self.results_file
+      return ProbeResult(file=(self.results_file,))
 
 
 class RunDurationsProbe(JsonResultProbe):
@@ -74,7 +75,7 @@ class RunDurationsProbe(JsonResultProbe):
       # Only extract data in the late TearDown phase.
       pass
 
-    def tear_down(self, run: cb.runner.Run):
+    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
       json_data = self.extract_json(run)
       return self.write_json(run, json_data)
 
@@ -112,7 +113,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
     browser = None
 
     for run in group.runs:
-      source_file = pathlib.Path(run.results[self])
+      source_file = run.results[self].json
       assert source_file.is_file()
       with source_file.open(encoding="utf-8") as f:
         iteration_data = json.load(f)
@@ -140,7 +141,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
     browser = None
 
     for story_group in group.repetitions_groups:
-      source_file = pathlib.Path(story_group.results[self])
+      source_file = story_group.results[self].json
       assert source_file.is_file()
       with source_file.open(encoding="utf-8") as f:
         merged_story_data = json.load(f)
@@ -169,7 +170,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
       # Only extract data in the late TearDown phase.
       pass
 
-    def tear_down(self, run):
+    def tear_down(self, run) -> ProbeResult:
       # Extract JSON late, When all other probes have produced data.
       json_data = self.extract_json(run)
       return self.write_json(run, json_data)

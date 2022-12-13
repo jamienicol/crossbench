@@ -36,7 +36,11 @@ from crossbench.browsers.chrome import ChromeDownloader
 cb = crossbench
 
 
-def _map_flag_group_item(flag_name: str, flag_value: Optional[str]):
+FlagGroupItemT = Optional[Tuple[str, Optional[str]]]
+
+
+def _map_flag_group_item(flag_name: str,
+                         flag_value: Optional[str]) -> FlagGroupItemT:
   if flag_value is None:
     return None
   if flag_value == "":
@@ -72,7 +76,7 @@ class FlagGroupConfig:
             "Flag variant contains duplicate entries: {flag_variants}")
         self._variants[flag_name] = tuple(flag_variants_or_value)
 
-  def get_variant_items(self) -> Iterable[Optional[Tuple[str, Optional[str]]]]:
+  def get_variant_items(self) -> Iterable[Tuple[FlagGroupItemT, ...]]:
     for flag_name, flag_values in self._variants.items():
       yield tuple(
           _map_flag_group_item(flag_name, flag_value)
@@ -200,7 +204,7 @@ class BrowserConfig:
     return f"{name}_{cb.browsers.convert_flags_to_label(*flags.get_list())}"
 
   def _parse_flags(self, name, data):
-    flags_product = []
+    flags_variants: List[Tuple[FlagGroupItemT, ...]] = []
     flag_group_names = data.get("flags", [])
     if isinstance(flag_group_names, str):
       flag_group_names = [flag_group_names]
@@ -227,19 +231,38 @@ class BrowserConfig:
         if flag_group is None:
           raise ConfigFileError(f"group='{flag_group_name}' "
                                 f"for browser='{name}' does not exist.")
-      flags_product += flag_group.get_variant_items()
-    if len(flags_product) == 0:
+      flags_variants += flag_group.get_variant_items()
+    if len(flags_variants) == 0:
       # use empty default
       return ({},)
-    flags_product = itertools.product(*flags_product)
-    # Filter out (.., None) value
-    flags_product = list(
-        list(flag_item
-             for flag_item in flags_items
-             if flag_item is not None)
-        for flags_items in flags_product)
-    assert flags_product
-    return flags_product
+    # IN:  [
+    #   (None,            ("--foo", "f1")),
+    #   (("--bar", "b1"), ("--bar", "b2")),
+    # ]
+    # OUT: [
+    #   (None,            ("--bar", "b1")),
+    #   (None,            ("--bar", "b2")),
+    #   (("--foo", "f1"), ("--bar", "b1")),
+    #   (("--foo", "f1"), ("--bar", "b2")),
+    # ]:
+    flags_variants = list(itertools.product(*flags_variants))
+    # IN: [
+    #   (None,            None)
+    #   (None,            ("--foo", "f1")),
+    #   (("--foo", "f1"), ("--bar", "b1")),
+    # ]
+    # OUT: [
+    #   (("--foo", "f1"),),
+    #   (("--foo", "f1"), ("--bar", "b1")),
+    # ]
+    #
+    flags_variants = list(
+        tuple(flag_item
+              for flag_item in flags_items
+              if flag_item is not None)
+        for flags_items in flags_variants)
+    assert flags_variants
+    return flags_variants
 
   def _get_browser_cls_from_path(self, path: pathlib.Path
                                 ) -> Type[cb.browsers.Browser]:

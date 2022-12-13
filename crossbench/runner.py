@@ -21,6 +21,7 @@ import crossbench.browsers
 import crossbench.env
 import crossbench.flags
 import crossbench.probes
+from crossbench.probes.results import ProbeResult, ProbeResultDict
 import crossbench.probes.runner
 import crossbench.stories
 from crossbench import exception, helper
@@ -353,14 +354,16 @@ class RunGroup(abc.ABC):
   def _set_path(self, path: pathlib.Path):
     assert self._path is None
     self._path = path
-    self._merged_probe_results = cb.probes.ProbeResultDict(path)
+    self._merged_probe_results = ProbeResultDict(path)
 
   @property
-  def results(self) -> cb.probes.ProbeResultDict:
+  def results(self) -> ProbeResultDict:
+    assert self._merged_probe_results
     return self._merged_probe_results
 
   @property
   def path(self) -> pathlib.Path:
+    assert self._path
     return self._path
 
   @property
@@ -387,6 +390,7 @@ class RunGroup(abc.ABC):
     return new_file
 
   def merge(self, runner: Runner):
+    assert self._merged_probe_results
     with self._exceptions.info(*self.info_stack):
       for probe in reversed(runner.probes):
         with self._exceptions.capture(f"Probe {probe.name} merge results"):
@@ -396,7 +400,7 @@ class RunGroup(abc.ABC):
           self._merged_probe_results[probe] = results
 
   @abc.abstractmethod
-  def _merge_probe_results(self, probe: cb.probes.Probe):
+  def _merge_probe_results(self, probe: cb.probes.Probe) -> ProbeResult:
     pass
 
 
@@ -451,8 +455,7 @@ class RepetitionsRunGroup(RunGroup):
   def info(self) -> Dict[str, str]:
     return {"story": str(self.story)}
 
-  def _merge_probe_results(self, probe: cb.probes.Probe
-                          ) -> Optional[cb.probes.ProbeResultType]:
+  def _merge_probe_results(self, probe: cb.probes.Probe) -> ProbeResult:
     return probe.merge_repetitions(self)
 
 
@@ -514,8 +517,7 @@ class StoriesRunGroup(RunGroup):
   def stories(self) -> Iterable[cb.stories.Story]:
     return (group.story for group in self._repetitions_groups)
 
-  def _merge_probe_results(self, probe: cb.probes.Probe
-                          ) -> Optional[cb.probes.ProbeResultType]:
+  def _merge_probe_results(self, probe: cb.probes.Probe) -> ProbeResult:
     return probe.merge_stories(self)
 
 
@@ -554,8 +556,7 @@ class BrowsersRunGroup(RunGroup):
   def info(self) -> Dict[str, str]:
     return {}
 
-  def _merge_probe_results(self, probe: cb.probes.Probe
-                          ) -> Optional[cb.probes.ProbeResultType]:
+  def _merge_probe_results(self, probe: cb.probes.Probe) -> ProbeResult:
     return probe.merge_browsers(self)
 
 
@@ -584,7 +585,7 @@ class Run:
     self._iteration = iteration
     self._name = name
     self._out_dir = self.get_out_dir(root_dir).absolute()
-    self._probe_results = cb.probes.ProbeResultDict(self._out_dir)
+    self._probe_results = ProbeResultDict(self._out_dir)
     self._extra_js_flags = cb.flags.JSFlags()
     self._extra_flags = cb.flags.Flags()
     self._durations = helper.Durations()
@@ -676,7 +677,7 @@ class Run:
     return self._runner.probes
 
   @property
-  def results(self) -> cb.probes.ProbeResultDict:
+  def results(self) -> ProbeResultDict:
     return self._probe_results
 
   @property
@@ -742,7 +743,7 @@ class Run:
             f"Got duplicate probe name={probe.name}")
         probe_set.add(probe)
         if probe.PRODUCES_DATA:
-          self._probe_results[probe] = None
+          self._probe_results[probe] = ProbeResult()
         probe_run_scopes.append(probe.get_scope(self))
 
     with self.measure("probes-setup"):
@@ -836,10 +837,9 @@ class Run:
     for probe_scope in reversed(probe_scopes):
       with self.exceptions.capture(f"Probe {probe_scope.name} teardown"):
         assert probe_scope.run == self
-        probe_results: Optional[
-            cb.probes.ProbeResultType] = probe_scope.tear_down(self)
+        probe_results: ProbeResult = probe_scope.tear_down(self)
         probe = probe_scope.probe
-        if probe_results is None:
+        if probe_results.is_empty:
           logging.warning("Probe did not extract any data. probe=%s run=%s",
                           probe, self)
         self._probe_results[probe] = probe_results

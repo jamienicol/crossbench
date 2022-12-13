@@ -62,8 +62,8 @@ class Browser(abc.ABC):
     self.major_version: int = 0
     if path:
       self.path = self._resolve_binary(path)
-      self.version: str = self._extract_version()
-      self.major_version: int = int(self.version.split(".")[0])
+      self.version = self._extract_version()
+      self.major_version = int(self.version.split(".")[0])
       self.unique_name = f"{self.type}_v{self.major_version}_{self.label}"
     else:
       self.unique_name = f"{self.type}_{self.label}".lower()

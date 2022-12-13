@@ -52,13 +52,12 @@ class Benchmark(abc.ABC):
 
   @classmethod
   def describe(cls) -> Dict[str, Any]:
-    assert cls.__doc__
     return {
         "name": cls.NAME,
         "description": cls.cli_description(),
         "stories": [],
         "probes-default": {
-            probe_cls.NAME: probe_cls.__doc__.strip()
+            probe_cls.NAME: (probe_cls.__doc__ or "").strip()
             for probe_cls in cls.DEFAULT_STORY_CLS.PROBES
         }
     }

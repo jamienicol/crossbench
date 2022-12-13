@@ -114,7 +114,7 @@ class TestCLI(BaseCrossbenchTestCase):
         cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", "--probe=v8.log", f"--urls={url}",
-                   "--env-validation=skip")
+                   "--env-validation=skip", "--throw")
       for browser in self.browsers:
         self.assertListEqual([url], browser.url_list[1:])
         self.assertIn("--log-all", browser.js_flags)

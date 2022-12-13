@@ -45,10 +45,10 @@ class PerformanceEntriesProbe(JsonResultProbe):
       """)
 
   def merge_stories(self, group: StoriesRunGroup):
-    merged = probes_helper.ValuesMerger.merge_json_files(
-        story_group.results[self]["json"]
+    merged = probes_helper.ValuesMerger.merge_json_list(
+        story_group.results[self].json
         for story_group in group.repetitions_groups)
     return self.write_group_result(group, merged)
 
   def merge_browsers(self, group: BrowsersRunGroup):
-    return self.merge_browsers_json_files(group)
+    return self.merge_browsers_json_list(group)

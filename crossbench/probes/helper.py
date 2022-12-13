@@ -201,10 +201,10 @@ class ValuesMerger:
   """
 
   @classmethod
-  def merge_json_files(cls,
-                       files: Iterable[pathlib.Path],
-                       key_fn: Optional[_KeyFnType] = None,
-                       merge_duplicate_paths: bool = False):
+  def merge_json_list(cls,
+                      files: Iterable[pathlib.Path],
+                      key_fn: Optional[_KeyFnType] = None,
+                      merge_duplicate_paths: bool = False):
     merger = cls(key_fn=key_fn)
     for file in files:
       with file.open(encoding="utf-8") as f:
@@ -362,7 +362,7 @@ def _ljust(sequence, n, fillvalue=""):
   return sequence + ([fillvalue] * (n - len(sequence)))
 
 
-def merge_csv(csv_files: Sequence[pathlib.Path],
+def merge_csv(csv_list: Sequence[pathlib.Path],
               headers: Optional[List[str]] = None,
               delimiter: str = "\t") -> List[List[Any]]:
   """
@@ -393,13 +393,13 @@ def merge_csv(csv_files: Sequence[pathlib.Path],
     table_headers = [""]
   else:
     table_headers = []
-  with csv_files[0].open(encoding="utf-8") as first_file:
+  with csv_list[0].open(encoding="utf-8") as first_file:
     for row in csv.reader(first_file, delimiter=delimiter):
       assert row, "Mergeable CSV files musth have row names."
       metric_name = row[0]
       table.append([metric_name])
 
-  for csv_file in csv_files:
+  for csv_file in csv_list:
     with csv_file.open(encoding="utf-8") as f:
       csv_data = list(csv.reader(f, delimiter=delimiter))
       # Find the max width

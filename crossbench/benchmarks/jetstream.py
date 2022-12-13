@@ -71,22 +71,19 @@ class JetStream2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
     return total
 
   def merge_stories(self, group: StoriesRunGroup):
-    merged = probes_helper.ValuesMerger.merge_json_files(
-        story_group.results[self]["json"]
+    merged = probes_helper.ValuesMerger.merge_json_list(
+        story_group.results[self].json
         for story_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 
   def merge_browsers(self, group: BrowsersRunGroup):
-    return {
-        "json": self.merge_browsers_json_files(group),
-        "csv": self.merge_browsers_csv_files(group)
-    }
+    return self.merge_browsers_json_list(group).merge(
+        self.merge_browsers_csv_list(group))
 
   def log_result_summary(self, runner: Runner):
     if self not in runner.browser_group.results:
       return
-    results_csv: pathlib.Path = runner.browser_group.results[self]["csv"]
-    assert results_csv.is_file()
+    results_csv: pathlib.Path = runner.browser_group.results[self].csv
     with results_csv.open(encoding="utf-8") as f:
       # TODO: add merged JSON to read data in a more structured way
       data = list(csv.reader(f, delimiter="\t"))

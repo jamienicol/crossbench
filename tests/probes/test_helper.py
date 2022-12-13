@@ -346,8 +346,8 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     with path_b.open("w", encoding="utf-8") as f:
       json.dump(merger.to_json(), f)
 
-    merger = helper.ValuesMerger.merge_json_files([path_a, path_b],
-                                                  merge_duplicate_paths=True)
+    merger = helper.ValuesMerger.merge_json_list([path_a, path_b],
+                                                 merge_duplicate_paths=True)
     data = merger.data
     self.assertListEqual(list(data.keys()), ["a/a/a", "a/a/b", "b"])
     self.assertListEqual(data["a/a/a"].values, [1, 1])
@@ -355,8 +355,8 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     self.assertListEqual(data["b"].values, [3, 3])
 
     # All duplicate entries are ignored
-    merger = helper.ValuesMerger.merge_json_files([path_a, path_b],
-                                                  merge_duplicate_paths=False)
+    merger = helper.ValuesMerger.merge_json_list([path_a, path_b],
+                                                 merge_duplicate_paths=False)
     self.assertListEqual(list(merger.data.keys()), [])
 
   def test_merge_serialized_different_data(self):
@@ -369,15 +369,15 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     with path_b.open("w", encoding="utf-8") as f:
       json.dump(merger_b.to_json(), f)
 
-    merger = helper.ValuesMerger.merge_json_files([path_a, path_b],
-                                                  merge_duplicate_paths=True)
+    merger = helper.ValuesMerger.merge_json_list([path_a, path_b],
+                                                 merge_duplicate_paths=True)
     data = merger.data
     self.assertListEqual(list(data.keys()), ["a/a", "a/b"])
     self.assertListEqual(data["a/a"].values, [1])
     self.assertListEqual(data["a/b"].values, [2])
 
-    merger = helper.ValuesMerger.merge_json_files([path_a, path_b],
-                                                  merge_duplicate_paths=False)
+    merger = helper.ValuesMerger.merge_json_list([path_a, path_b],
+                                                 merge_duplicate_paths=False)
     data = merger.data
     self.assertListEqual(list(data.keys()), ["a/a", "a/b"])
 

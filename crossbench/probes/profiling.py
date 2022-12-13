@@ -11,9 +11,10 @@ import pathlib
 import signal
 import subprocess
 import time
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import crossbench
+from crossbench.probes.results import ProbeResult
 import crossbench.probes.v8
 from crossbench import helper
 from crossbench.probes import base
@@ -176,10 +177,10 @@ class ProfilingProbe(base.Probe):
       # Needs to be SIGINT for xctrace, terminate won't work.
       self._process.send_signal(signal.SIGINT)
 
-    def tear_down(self, run: cb.runner.Run):
+    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
       while self._process.poll() is None:
         time.sleep(1)
-      return self.results_file
+      return ProbeResult(file=(self.results_file,))
 
   class LinuxProfilingScope(base.Probe.Scope):
     PERF_DATA_PATTERN = "*.perf.data"
@@ -214,7 +215,7 @@ class ProfilingProbe(base.Probe):
       if self._perf_process:
         self._perf_process.terminate()
 
-    def tear_down(self, run: cb.runner.Run):
+    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
       # Waiting for linux-perf to flush all perf data
       if self.probe.sample_browser_process:
         time.sleep(3)
@@ -224,16 +225,15 @@ class ProfilingProbe(base.Probe):
           run.out_dir.glob(self.PERF_DATA_PATTERN))
       if self.probe.sample_js:
         perf_files = self._inject_v8_symbols(run, perf_files)
-      perf_files = helper.sort_by_file_size(perf_files)
+      sorted_perf_files = tuple(helper.sort_by_file_size(perf_files))
       if not self.probe.run_pprof or not self.browser_platform.which("gcert"):
-        return map(str, perf_files)
-
+        return ProbeResult(file=sorted_perf_files)
       try:
-        urls = self._export_to_pprof(run, perf_files)
+        urls = self._export_to_pprof(run, sorted_perf_files)
       finally:
         self._clean_up_temp_files(run)
       logging.debug("Profiling results: %s", urls)
-      return urls
+      return ProbeResult(url=urls, file=tuple(perf_files))
 
     def _inject_v8_symbols(self, run: cb.runner.Run,
                            perf_files: List[pathlib.Path]):
@@ -257,7 +257,8 @@ class ProfilingProbe(base.Probe):
         return [file for file in perf_jitted_files if file is not None]
 
     def _export_to_pprof(self, run: cb.runner.Run,
-                         perf_files: List[pathlib.Path]):
+                         perf_files: Tuple[pathlib.Path, ...]
+                        ) -> Tuple[str, ...]:
       run_details_json = json.dumps(run.get_browser_details_json())
       with run.actions(
           f"Probe {self.probe.name}: "
@@ -270,20 +271,17 @@ class ProfilingProbe(base.Probe):
         items = zip(perf_files, [run_details_json] * len(perf_files))
         if self.browser_platform.is_remote:
           # Use loop, as we cannot easily serialize the remote platform.
-          urls = dict(
+          urls = tuple(
               linux_perf_probe_pprof(perf_data_file, run_details,
                                      self.browser_platform)
               for perf_data_file, run_details in items)
         else:
           assert self.browser_platform == helper.platform
           with multiprocessing.Pool() as pool:
-            urls = dict(pool.starmap(linux_perf_probe_pprof, items))
+            urls = tuple(pool.starmap(linux_perf_probe_pprof, items))
         try:
           if perf_files:
-            # Make this configurable as it is generally too slow.
-            # url = urls["combined"] = self.platform.sh_stdout(
-            #     "pprof", "-flame", *perf_files).strip()
-            # logging.info("PPROF COMBINED %s", url)
+            # TODO: Add "combined" profile again
             pass
         except Exception as e:  # pylint: disable=broad-except
           logging.debug("Failed to run pprof: %s", e)
@@ -313,7 +311,7 @@ def linux_perf_probe_inject_v8_symbols(
 
 def linux_perf_probe_pprof(perf_data_file: pathlib.Path,
                            run_details: str,
-                           platform: Optional[helper.Platform] = None):
+                           platform: Optional[helper.Platform] = None) -> str:
   platform = platform or helper.platform
   url = platform.sh_stdout(
       "pprof",
@@ -325,7 +323,4 @@ def linux_perf_probe_pprof(perf_data_file: pathlib.Path,
   logging.info("PPROF")
   logging.info("  linux-perf:   %s %s", perf_data_file.name, size)
   logging.info("  pprof result: %s", url)
-  return (
-      perf_data_file.stem,
-      url,
-  )
+  return url

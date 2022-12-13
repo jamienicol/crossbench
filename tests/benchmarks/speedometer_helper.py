@@ -187,7 +187,8 @@ class Speedometer2BaseTestCase(
         env_config=HostEnvironmentConfig(),
         env_validation_mode=ValidationMode.SKIP,
         platform=self.platform,
-        repetitions=repetitions)
+        repetitions=repetitions,
+        throw=True)
     with mock.patch.object(self.benchmark_cls, "validate_url") as cm:
       runner.run()
     cm.assert_called_once()

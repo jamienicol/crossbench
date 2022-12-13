@@ -2,5 +2,5 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from crossbench.probes.base import (Probe, ProbeConfigParser, ProbeResultDict,
-                                    ProbeResultType)
+from crossbench.probes.base import Probe, ProbeConfigParser
+from crossbench.probes.results import ProbeResult, ProbeResultDict
