@@ -142,7 +142,7 @@ class ChromeDownloader(abc.ABC):
     self._pre_check()
     self.requested_version = (0, 0, 0, 0)
     self.requested_version_str = "0.0.0.0"
-    self.requested_exact_version = True
+    self.requested_exact_version = False
     version_identifier = version_identifier.lower()
     self._parse_version(version_identifier)
     self.path = self._get_path()
@@ -172,10 +172,12 @@ class ChromeDownloader(abc.ABC):
       self.requested_version = (int(version_identifier[1:]), self.ANY_MARKER,
                                 self.ANY_MARKER, self.ANY_MARKER)
       self.requested_version_str = f"M{self.requested_version[0]}"
+      self.requested_exact_version = False
     else:
       self.requested_version = tuple(map(int,
                                          version_identifier.split(".")))[:4]
       self.requested_version_str = ".".join(map(str, self.requested_version))
+      self.requested_exact_version = True
     assert len(self.requested_version) == 4
 
   @abc.abstractmethod
