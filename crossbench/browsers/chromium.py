@@ -46,6 +46,9 @@ class Chromium(Browser):
       "--enable-benchmarking",
       "--disable-extensions",
       "--no-first-run",
+      # limit the effects of putting the browser in the background:
+      "--disable-background-timer-throttling",
+      "--disable-renderer-backgrounding",
   ]
 
   @classmethod
@@ -196,8 +199,8 @@ class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
 
   def _find_driver(self) -> pathlib.Path:
     finder = ChromeDriverFinder(self)
-    assert self.path
-    if self.major_version == 0 or (self.path.parent / "args.gn").exists():
+    assert self.app_path
+    if self.major_version == 0 or (self.app_path.parent / "args.gn").exists():
       return finder.find_local_build()
     return finder.download()
 
@@ -259,9 +262,9 @@ class ChromeDriverFinder:
         f"chromedriver-{self.browser.major_version}{extension}")
 
   def find_local_build(self) -> pathlib.Path:
-    assert self.browser.path
+    assert self.browser.app_path
     # assume it's a local build
-    self.driver_path = self.browser.path.parent / "chromedriver"
+    self.driver_path = self.browser.app_path.parent / "chromedriver"
     if not self.driver_path.exists():
       raise Exception(f"Driver '{self.driver_path}' does not exist. "
                       "Please build 'chromedriver' manually for local builds.")

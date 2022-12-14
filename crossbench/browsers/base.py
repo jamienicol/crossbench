@@ -57,7 +57,7 @@ class Browser(abc.ABC):
     self.label: str = label
     self._unique_name: str = ""
     self.path: Optional[pathlib.Path] = path
-    self.app_name: str = 'none'
+    self.app_name: str = type
     self.version: str = "custom"
     self.major_version: int = 0
     if path:
@@ -190,11 +190,10 @@ class Browser(abc.ABC):
         runner.wait(1)
 
   def info_data_url(self, run: cb.runner.Run):
-    page = (
-        "<html><head>"
-        "<title>Browser Details</title>"
-        "<style>"
-        """
+    page = ("<html><head>"
+            "<title>Browser Details</title>"
+            "<style>"
+            """
             html { font-family: sans-serif; }
             dl {
               display: grid;
@@ -203,10 +202,11 @@ class Browser(abc.ABC):
             dt { grid-column-start: 1; }
             dd { grid-column-start: 2;  font-family: monospace; }
             """
-        "</style>"
-        "<head><body>"
-        f"<h1>{html.escape(self.type).capitalize()} {html.escape(self.version)}</h1>"
-    )
+            "</style>"
+            "<head><body>"
+            "<h1>"
+            f"{html.escape(self.app_name.title())} {html.escape(self.version)}"
+            "</h1>")
     page += (
         "<h2>Browser Details</h2>"
         "<dl>"

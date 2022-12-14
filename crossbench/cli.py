@@ -271,6 +271,9 @@ class BrowserConfig:
       return cb.browsers.SafariWebDriver
     if "chrome" in path_str:
       return cb.browsers.ChromeWebDriver
+    if "chromium" in path_str:
+      # TODO: technically this should be ChromiumWebDriver
+      return cb.browsers.ChromeWebDriver
     if "firefox" in path_str:
       return cb.browsers.FirefoxWebDriver
     if "edge" in path_str:

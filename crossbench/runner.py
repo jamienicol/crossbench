@@ -507,7 +507,7 @@ class StoriesRunGroup(RunGroup):
   def info(self) -> Dict[str, str]:
     return {
         "label": self.browser.label,
-        "browser": self.browser.type.capitalize(),
+        "browser": self.browser.app_name.title(),
         "version": self.browser.version,
         "binary": str(self.browser.path),
         "flags": str(self.browser.flags)

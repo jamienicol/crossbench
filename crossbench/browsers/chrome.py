@@ -161,8 +161,8 @@ class ChromeDownloader(abc.ABC):
       raise ValueError(
           f"Cannot download chrome version {self.version_identifier}: "
           "please install gsutil.\n"
-          "- https://cloud.google.com/storage/docs/gsutil_instal.\n"
-          "- Run 'gclient auth login' to get access to the archives")
+          "- https://cloud.google.com/storage/docs/gsutil_install\n"
+          "- Run 'gcloud auth login' to get access to the archives")
 
   def _parse_version(self, version_identifier: str):
     match = self.VERSION_RE.match(version_identifier)
