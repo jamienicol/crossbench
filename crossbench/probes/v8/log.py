@@ -187,7 +187,7 @@ class V8LogProbe(base.Probe):
     for i, run in enumerate(runner.runs):
       if self not in run.results:
         continue
-      log_files = run.results[self].files
+      log_files = run.results[self].file_list
       if not log_files:
         continue
       largest_log_file = log_files[0]
@@ -197,7 +197,7 @@ class V8LogProbe(base.Probe):
       if len(log_files) > 1:
         logging.info("    %s/.*v8.log: %d files",
                      largest_log_file.parent.relative_to(cwd), len(log_files))
-      profview_files = run.results[self].json_files
+      profview_files = run.results[self].json_list
       if not profview_files:
         continue
       largest_profview_file = profview_files[0]

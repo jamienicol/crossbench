@@ -132,8 +132,6 @@ class Chromium(Browser):
       flags_copy["--js-flags"] = str(js_flags_copy)
     if self.cache_dir and self.cache_dir:
       flags_copy["--user-data-dir"] = str(self.cache_dir)
-    if self.clear_cache_dir:
-      flags_copy.set("--incognito")
     if self.log_file:
       flags_copy.set("--enable-logging")
       flags_copy["--log-file"] = str(self.chrome_log_file)

@@ -247,7 +247,7 @@ class PageLoadBenchmark(cb.benchmarks.SubStoryBenchmark):
   STORY_FILTER_CLS = LoadingPageFilter
 
   @classmethod
-  def stories_from_cli_args(cls, args) -> Optional[Sequence[cb.stories.Story]]:
+  def stories_from_cli_args(cls, args) -> Sequence[cb.stories.Story]:
     if args.page_config:
       args.page_config = PageConfig.from_cli_args(args)
       if args.separate:

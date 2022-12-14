@@ -8,10 +8,14 @@ Supported Browsers: Chrome/Chromium, Firefox, Safari and Edge.
 Supported OS: macOS, linux and windows.
 
 ## Basic usage:
-Use the `./cb.py` script to run benchmarks (requires chrome's 
+### Chromium Devs (with a full chromium checkout)
+Use the `./cb.py` script to run benchmarks (requires chrome's
 [vpython3](https://chromium.googlesource.com/infra/infra/+/main/doc/users/vpython.md))
 
-Run the latest [speedometer benchmark](https://browserbench.org/Speedometer/) 
+### Standalone installation
+Use the "poetry" package manager, see the [development section](#development).
+
+Run the latest [speedometer benchmark](https://browserbench.org/Speedometer/)
 20 times with the system default browser (chrome-stable):
 ```bash
 # Run chrome-stable by default:
@@ -135,7 +139,7 @@ as filter.
 
 ## Development
 
-## Setup:
+## Setup
 This project uses [poetry](https://python-poetry.org/) deps and package scripts
 to setup the correct environment for testing and debugging.
 
@@ -143,13 +147,35 @@ to setup the correct environment for testing and debugging.
 pip3 install poetry
 ```
 
-Install the necessary dependencies from lock file via poetry
+Check that you have poetry on your path and make sure you have the right 
+`$PATH` settings.
+```bash
+poetry --help || echo "Please update your \$PATH to include poetry bin location";
+# Depending on your setup, add one of the following to your $PATH:
+echo "`python3 -m site --user-base`/bin";
+python3 -c "import sysconfig; print(sysconfig.get_path('scripts'))";
+```
+
+Install the necessary dependencies from the lock file using poetry:
 
 ```bash
 poetry install
 ```
 
-### Run Unit tests
+## Crossbench
+For local development / non-chromium installation you should 
+use `poetry run cb ...` instead of `./cb.py ...`.
+
+Side-note, beware that poetry eats up an empty `--`:
+
+```bash
+# With cb.py:
+./cb.py speedometer ... -- --custom-chrome-flag ...
+# With poetry:
+poetry run cb speedometer ... -- -- --custom-chrome-flag ...
+```
+
+## Tests
 ```
 poetry run pytest
 ```
