@@ -200,7 +200,7 @@ class ExceptionAnnotator:
   def to_json(self) -> list:
     return [{
         "title": str(entry.exception),
-        "trace": str(entry.traceback),
+        "trace": str(entry.traceback).splitlines(),
         "info_stack": entry.info_stack
     } for entry in self._exceptions]
 

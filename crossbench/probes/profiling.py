@@ -18,6 +18,7 @@ from crossbench.probes.results import ProbeResult
 import crossbench.probes.v8
 from crossbench import helper
 from crossbench.probes import base
+from crossbench.runner import Run, Runner
 
 #TODO: fix imports
 cb = crossbench
@@ -151,6 +152,37 @@ class ProfilingProbe(base.Probe):
     # Disable sandbox to write profiling data
     browser.flags.set("--no-sandbox")
 
+  def log_result_summary(self, runner: Runner):
+    runs: List[Run] = list(run for run in runner.runs if self in run.results)
+    if not runs:
+      return
+    logging.info("-" * 80)
+    logging.info("Profiling results:")
+    logging.info("  *.perf.data: 'perf report -i $FILE'")
+    logging.info("." * 80)
+    for i, run in enumerate(runner.runs):
+      self._log_run_result_summary(run, i)
+
+  def _log_run_result_summary(self, run: Run, i: int):
+    if self not in run.results:
+      return
+    cwd = pathlib.Path.cwd()
+    urls = run.results[self].url_list
+    perf_files = run.results[self].file_list
+    if not urls and not perf_files:
+      return
+    logging.info("Run %d: %s", i + 1, run.name)
+    if urls:
+      largest_perf_file = perf_files[0]
+      logging.info("    %s", urls[0])
+    if perf_files:
+      largest_perf_file = perf_files[0]
+      logging.info("    %s : %s", largest_perf_file.relative_to(cwd),
+                   helper.get_file_size(largest_perf_file))
+      if len(perf_files) > 1:
+        logging.info("    %s/*.perf.data*: %d more files",
+                     largest_perf_file.parent.relative_to(cwd), len(perf_files))
+
   def get_scope(self, run: cb.runner.Run):
     if self.browser_platform.is_linux:
       return self.LinuxProfilingScope(self, run)
@@ -218,29 +250,33 @@ class ProfilingProbe(base.Probe):
     def tear_down(self, run: cb.runner.Run) -> ProbeResult:
       # Waiting for linux-perf to flush all perf data
       if self.probe.sample_browser_process:
+        logging.debug("Waiting for browser process to stop")
         time.sleep(3)
-      time.sleep(1)
+      if self.probe.sample_browser_process:
+        logging.info("Browser process did not stop after 3s. "
+                     "You might get partial profiles")
+      time.sleep(2)
 
       perf_files = helper.sort_by_file_size(
           run.out_dir.glob(self.PERF_DATA_PATTERN))
-      if self.probe.sample_js:
-        perf_files = self._inject_v8_symbols(run, perf_files)
-      sorted_perf_files = tuple(helper.sort_by_file_size(perf_files))
-      if not self.probe.run_pprof or not self.browser_platform.which("gcert"):
-        return ProbeResult(file=sorted_perf_files)
       try:
-        urls = self._export_to_pprof(run, sorted_perf_files)
+        if not self.probe.run_pprof or not self.browser_platform.which("gcert"):
+          return ProbeResult(file=perf_files)
+        pprof_inputs = perf_files
+        if self.probe.sample_js:
+          pprof_inputs = self._inject_v8_symbols(run, perf_files)
+        urls = self._export_to_pprof(run, pprof_inputs)
       finally:
         self._clean_up_temp_files(run)
       logging.debug("Profiling results: %s", urls)
-      return ProbeResult(url=urls, file=tuple(perf_files))
+      return ProbeResult(url=urls, file=perf_files)
 
     def _inject_v8_symbols(self, run: cb.runner.Run,
                            perf_files: List[pathlib.Path]):
       with run.actions(
           f"Probe {self.probe.name}: "
           f"Injecting V8 symbols into {len(perf_files)} profiles",
-          verbose=True):
+          verbose=True), helper.Spinner():
         # Filter out empty files
         perf_files = [file for file in perf_files if file.stat().st_size > 0]
         if self.browser_platform.is_remote:
@@ -257,13 +293,12 @@ class ProfilingProbe(base.Probe):
         return [file for file in perf_jitted_files if file is not None]
 
     def _export_to_pprof(self, run: cb.runner.Run,
-                         perf_files: Tuple[pathlib.Path, ...]
-                        ) -> Tuple[str, ...]:
+                         perf_files: List[pathlib.Path]) -> List[str]:
       run_details_json = json.dumps(run.get_browser_details_json())
       with run.actions(
           f"Probe {self.probe.name}: "
           f"exporting {len(perf_files)} profiles to pprof (slow)",
-          verbose=True):
+          verbose=True), helper.Spinner():
         self.browser_platform.sh(
             "gcertstatus >&/dev/null || "
             "(echo 'Authenticating with gcert:'; gcert)",
@@ -271,14 +306,15 @@ class ProfilingProbe(base.Probe):
         items = zip(perf_files, [run_details_json] * len(perf_files))
         if self.browser_platform.is_remote:
           # Use loop, as we cannot easily serialize the remote platform.
-          urls = tuple(
+          urls = [
               linux_perf_probe_pprof(perf_data_file, run_details,
                                      self.browser_platform)
-              for perf_data_file, run_details in items)
+              for perf_data_file, run_details in items
+          ]
         else:
           assert self.browser_platform == helper.platform
           with multiprocessing.Pool() as pool:
-            urls = tuple(pool.starmap(linux_perf_probe_pprof, items))
+            urls = list(pool.starmap(linux_perf_probe_pprof, items))
         try:
           if perf_files:
             # TODO: Add "combined" profile again
@@ -299,12 +335,19 @@ def linux_perf_probe_inject_v8_symbols(
   assert perf_data_file.is_file()
   output_file = perf_data_file.with_suffix(".data.jitted")
   assert not output_file.exists()
+  platform = platform or helper.platform
   try:
-    platform = platform or helper.platform
     platform.sh("perf", "inject", "--jit", f"--input={perf_data_file}",
                 f"--output={output_file}")
-  except Exception as e:  # pylint: disable=broad-except
-    logging.warning("Failed processing: %s\n%s", perf_data_file, e)
+  except helper.SubprocessError as e:
+    KB = 1024
+    if perf_data_file.stat().st_size > 200 * KB:
+      logging.warning("Failed processing: %s\n%s", perf_data_file, e)
+    else:
+      # TODO: investigate why almost all small perf.data files fail
+      logging.debug("Failed processing small profile (likely empty): %s\n%s",
+                    perf_data_file, e)
+  if not output_file.exists:
     return None
   return output_file
 

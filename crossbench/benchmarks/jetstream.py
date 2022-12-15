@@ -91,7 +91,7 @@ class JetStream2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
       logging.info("-" * 80)
       logging.info("JetStream results:")
       logging.info("  %s", results_csv.relative_to(pathlib.Path.cwd()))
-      logging.info("-" * 80)
+      logging.info("." * 80)
       logging.info(tabulate(table, tablefmt="plain"))
 
 

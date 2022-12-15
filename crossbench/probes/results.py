@@ -54,6 +54,18 @@ class ProbeResult:
       if not path.is_file():
         raise ValueError(f"ProbeResult file does not exist: {path}")
 
+  def to_json(self):
+    result = {}
+    if self._url_list:
+      result["url"] = self._url_list
+    if self._file_list:
+      result["file"] = list(map(str, self._file_list))
+    if self._json_list:
+      result["json"] = list(map(str, self._json_list))
+    if self._csv_list:
+      result["csv"] = list(map(str, self._csv_list))
+    return result
+
   def all_files(self) -> Iterable[pathlib.Path]:
     yield from self._file_list
     yield from self._json_list
@@ -127,11 +139,9 @@ class ProbeResultDict:
       if isinstance(results, (pathlib.Path, str)):
         data[probe_name] = str(results)
       else:
-        if results is None:
+        if results.is_empty:
           logging.debug("probe=%s did not produce any data.", probe_name)
           data[probe_name] = None
-        elif isinstance(results, dict):
-          data[probe_name] = {key: str(value) for key, value in results.items()}
-        elif isinstance(results, tuple):
-          data[probe_name] = tuple(str(path) for path in results)
+        else:
+          data[probe_name] = results.to_json()
     return data

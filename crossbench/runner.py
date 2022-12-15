@@ -13,6 +13,7 @@ import inspect
 import json
 import logging
 import pathlib
+import sys
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import crossbench
@@ -790,7 +791,7 @@ class Run:
       logging.info("RUNNING STORY")
       assert self._state == self.STATE_RUN, "Invalid state"
       try:
-        with self.measure("run"):
+        with self.measure("run"), helper.Spinner():
           if not is_dry_run:
             self._story.run(self)
         self._run_success = True
@@ -881,6 +882,9 @@ class Actions(helper.TimeScope):
     logging.debug("ACTION START %s", self._message)
     if self._verbose:
       logging.info(self._message)
+    else:
+      # Print message that doesn't overlap with helper.Spinner
+      sys.stdout.write(f"   {self._message}\r")
     return self
 
   def __exit__(self, exc_type, exc_value, exc_traceback):

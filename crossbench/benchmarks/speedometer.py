@@ -71,7 +71,7 @@ class Speedometer2Probe(probes_json.JsonResultProbe, metaclass=abc.ABCMeta):
       logging.info("-" * 80)
       logging.info("Speedometer results:")
       logging.info("  %s", results_csv.relative_to(pathlib.Path.cwd()))
-      logging.info("-" * 80)
+      logging.info("." * 80)
       logging.info(tabulate(table, tablefmt="plain"))
 
 

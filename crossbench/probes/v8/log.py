@@ -171,7 +171,8 @@ class V8LogProbe(base.Probe):
       # Only convert a v8.log file with profile ticks.
       json_list: Tuple[pathlib.Path, ...] = ()
       if "--prof" in getattr(self.browser, "js_flags", {}):
-        json_list = self.probe.process_log_files(log_files)
+        with helper.Spinner():
+          json_list = self.probe.process_log_files(log_files)
       return ProbeResult(file=tuple(log_files), json=json_list)
 
   def log_result_summary(self, runner: Runner):
@@ -179,10 +180,10 @@ class V8LogProbe(base.Probe):
     if not runs:
       return
     logging.info("-" * 80)
-    logging.info("v8.log files:")
+    logging.info("v8.log results:")
     logging.info("  *.v8.log:        https://v8.dev/tools/head/system-analyzer")
     logging.info("  *.profview.json: https://v8.dev/tools/head/profview")
-    logging.info("-" * 80)
+    logging.info("." * 80)
     cwd = pathlib.Path.cwd()
     for i, run in enumerate(runner.runs):
       if self not in run.results:
@@ -204,7 +205,7 @@ class V8LogProbe(base.Probe):
       logging.info("    %s : %s", largest_profview_file.relative_to(cwd),
                    helper.get_file_size(largest_profview_file))
       if len(profview_files) > 1:
-        logging.info("    %s/.*.profview.json: %d files",
+        logging.info("    %s/*.profview.json: %d more files",
                      largest_profview_file.parent.relative_to(cwd),
                      len(profview_files))
 

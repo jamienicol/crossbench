@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import textwrap
+import threading
 import time
 import traceback as tb
 import urllib
@@ -922,3 +923,41 @@ def wrap_lines(body, width: int = 80, indent: str = ""):
   for line in body.splitlines():
     for split in textwrap.wrap(line, width):
       yield f"{indent}{split}"
+
+
+class Spinner:
+  CURSORS = "◐◓◑◒"
+
+  def __init__(self, sleep: float = 0.5):
+    self._is_running = False
+    self._sleep_time = sleep
+
+  def __enter__(self):
+    # Only enable the spinner if the output is an interactive terminal.
+    is_atty = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+    if is_atty:
+      self._is_running = True
+      threading.Thread(target=self._spin).start()
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    if self._is_running:
+      self._is_running = False
+      self._sleep()
+
+  def _cursors(self):
+    while True:
+      yield from Spinner.CURSORS
+
+  def _spin(self):
+    stdout = sys.stdout
+    for cursor in self._cursors():
+      if not self._is_running:
+        return
+      # Print the current wait-cursor and send a carriage return to move to the
+      # start of the line.
+      stdout.write(f" {cursor}\r")
+      stdout.flush()
+      self._sleep()
+
+  def _sleep(self):
+    time.sleep(self._sleep_time)
