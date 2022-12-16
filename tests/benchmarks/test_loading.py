@@ -96,8 +96,24 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
     combined = stories[0]
     self.assertIsInstance(combined, loading.CombinedPage)
 
-  def test_run(self):
+  def test_run_combined(self):
+    stories = [
+        loading.CombinedPage(loading.PAGE_LIST),
+    ]
+    self._test_run(stories)
+    self._assert_urls_loaded([story.url for story in loading.PAGE_LIST])
+
+  def test_run_default(self):
     stories = loading.PAGE_LIST
+    self._test_run(stories)
+    self._assert_urls_loaded([story.url for story in stories])
+
+  def test_run_throw(self):
+    stories = loading.PAGE_LIST
+    self._test_run(stories, throw=True)
+    self._assert_urls_loaded([story.url for story in stories])
+
+  def _test_run(self, stories, throw: bool = False):
     benchmark = self.benchmark_cls(stories)
     self.assertTrue(len(benchmark.describe()) > 0)
     runner = cb.runner.Runner(
@@ -106,14 +122,18 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
         benchmark,
         env_config=cb.env.HostEnvironmentConfig(),
         env_validation_mode=cb.env.ValidationMode.SKIP,
-        platform=self.platform)
+        platform=self.platform,
+        throw=throw)
     runner.run()
-    urls = self.filter_data_urls(self.browsers[0].url_list)
-    self.assertEqual(urls, [story.url for story in stories])
-    urls = self.filter_data_urls(self.browsers[1].url_list)
-    self.assertEqual(urls, [story.url for story in stories])
+    self.assertTrue(runner.is_success)
     self.assertTrue(self.browsers[0].did_run)
     self.assertTrue(self.browsers[1].did_run)
+
+  def _assert_urls_loaded(self, story_urls):
+    browser_1_urls = self.filter_data_urls(self.browsers[0].url_list)
+    self.assertEqual(browser_1_urls, story_urls)
+    browser_2_urls = self.filter_data_urls(self.browsers[1].url_list)
+    self.assertEqual(browser_2_urls, story_urls)
 
 
 class TestPageConfig(unittest.TestCase):

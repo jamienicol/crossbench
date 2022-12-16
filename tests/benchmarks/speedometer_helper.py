@@ -5,13 +5,14 @@
 import abc
 import csv
 from dataclasses import dataclass
-from typing import Type
+from typing import Optional, Type
 from unittest import mock
 
 from crossbench.benchmarks.speedometer import (Speedometer2Benchmark,
                                                Speedometer2Probe,
                                                Speedometer2Story)
-from crossbench.env import HostEnvironmentConfig, ValidationMode
+from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
+                            ValidationMode)
 from crossbench.runner import Runner
 from tests.benchmarks import helper
 
@@ -47,7 +48,7 @@ class Speedometer2BaseTestCase(
     stories = "all"
     iterations = 10
     separate: bool = False
-    is_live: bool = False
+    custom_benchmark_url: Optional[str] = None
 
   def test_default_all(self):
     default_story_names = [
@@ -74,7 +75,6 @@ class Speedometer2BaseTestCase(
     stories = self.story_cls.default(separate=True)
     args = mock.Mock()
     args.stories = "all"
-    args.is_live = False
     args.separate = True
     stories_all = self.benchmark_cls.stories_from_cli_args(args)
     self.assertListEqual(
@@ -86,7 +86,7 @@ class Speedometer2BaseTestCase(
     stories = self.story_cls.default(separate=False)
     args = mock.Mock()
     args.stories = "all"
-    args.is_live = False
+    args.custom_benchmark_url = self.story_cls.URL_LOCAL
     args.separate = False
     stories_all = self.benchmark_cls.stories_from_cli_args(args)
     self.assertEqual(len(stories), 1)
@@ -99,7 +99,7 @@ class Speedometer2BaseTestCase(
     self.assertEqual(story.name, self.name)
     self.assertEqual(story.url, self.story_cls.URL_LOCAL)
 
-    args.is_live = True
+    args.custom_benchmark_url = None
     args.separate = False
     stories_all = self.benchmark_cls.stories_from_cli_args(args)
     self.assertEqual(len(stories_all), 1)
@@ -132,10 +132,29 @@ class Speedometer2BaseTestCase(
         [story.name for story in stories_b],
     )
 
-  def test_run(self):
+  def test_run_throw(self):
+    self._test_run(throw=True)
+
+  def test_run_default(self):
+    self._test_run()
+    for browser in self.browsers:
+      urls = self.filter_data_urls(browser.url_list)
+      self.assertIn(self.story_cls.URL, urls)
+      self.assertNotIn(self.story_cls.URL_LOCAL, urls)
+
+  def test_run_custom_url(self):
+    custom_url = "http://test.example.com/speedometer"
+    self._test_run(custom_url)
+    for browser in self.browsers:
+      urls = self.filter_data_urls(browser.url_list)
+      self.assertIn(custom_url, urls)
+      self.assertNotIn(self.story_cls.URL, urls)
+      self.assertNotIn(self.story_cls.URL_LOCAL, urls)
+
+  def _test_run(self, custom_url: Optional[str] = None, throw: bool = False):
     repetitions = 3
     iterations = 2
-    stories = self.story_cls.from_names(["VanillaJS-TodoMVC"])
+    stories = self.story_cls.from_names(["VanillaJS-TodoMVC"], url=custom_url)
     example_story_data = {
         "tests": {
             "Adding100Items": {
@@ -178,7 +197,7 @@ class Speedometer2BaseTestCase(
           True,  # Wait until done
           speedometer_probe_results,
       ]
-    benchmark = self.benchmark_cls(stories)
+    benchmark = self.benchmark_cls(stories, custom_url=custom_url)
     self.assertTrue(len(benchmark.describe()) > 0)
     runner = Runner(
         self.out_dir,
@@ -188,8 +207,9 @@ class Speedometer2BaseTestCase(
         env_validation_mode=ValidationMode.SKIP,
         platform=self.platform,
         repetitions=repetitions,
-        throw=True)
-    with mock.patch.object(self.benchmark_cls, "validate_url") as cm:
+        throw=throw)
+    with mock.patch.object(
+        HostEnvironment, "validate_url", return_value=True) as cm:
       runner.run()
     cm.assert_called_once()
     for browser in self.browsers:

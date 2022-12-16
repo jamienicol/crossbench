@@ -67,82 +67,48 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     return cls.all_story_names()
 
   @classmethod
-  def from_names(cls: Type[PressBenchmarkStoryT],
-                 substories: Sequence[str],
-                 separate: bool = False,
-                 is_live: bool = False) -> List[PressBenchmarkStoryT]:
-    if is_live:
-      return cls.live(substories=substories, separate=separate)
-    return cls.local(substories=substories, separate=separate)
-
-  @classmethod
   def all(cls: Type[PressBenchmarkStoryT],
-          is_live: bool = True,
-          separate: bool = False):
-    if is_live:
-      return cls.live(cls.all_story_names(), separate)
-    return cls.local(cls.all_story_names(), separate)
+          separate: bool = False,
+          url: Optional[str] = None):
+    return cls.from_names(cls.all_story_names(), separate, url)
 
   @classmethod
   def default(cls: Type[PressBenchmarkStoryT],
-              is_live: bool = True,
-              separate: bool = False):
-    if is_live:
-      return cls.live(cls.default_story_names(), separate)
-    return cls.local(cls.default_story_names(), separate)
+              separate: bool = False,
+              url: Optional[str] = None):
+    return cls.from_names(cls.default_story_names(), separate, url)
 
   @classmethod
-  def local(cls: Type[PressBenchmarkStoryT],
-            substories: Sequence[str],
-            separate: bool = False,
-            **kwargs) -> List[PressBenchmarkStoryT]:
+  def from_names(cls: Type[PressBenchmarkStoryT],
+                 substories: Sequence[str],
+                 separate: bool = False,
+                 url: Optional[str] = None,
+                 **kwargs) -> List[PressBenchmarkStoryT]:
     if not substories:
       raise ValueError("No substories provided")
     if separate:
       return [
           cls(  # pytype: disable=not-instantiable
-              is_live=False,
+              url=url,
               substories=[substory],
               **kwargs) for substory in substories
       ]
     return [
         cls(  # pytype: disable=not-instantiable
-            is_live=False,
+            url=url,
             substories=substories,
             **kwargs)
     ]
 
-
-  @classmethod
-  def live(cls: Type[PressBenchmarkStoryT],
-           substories: Sequence[str],
-           separate: bool = False,
-           **kwargs) -> List[PressBenchmarkStoryT]:
-    if not substories:
-      raise ValueError("No substories provided")
-    if separate:
-      return [
-          cls(  # pytype: disable=not-instantiable
-              is_live=True,
-              substories=[substory],
-              **kwargs) for substory in substories
-      ]
-    return [
-        cls(  # pytype: disable=not-instantiable
-            is_live=True,
-            substories=substories,
-            **kwargs)
-    ]
 
   _substories: Sequence[str]
-  is_live : bool
   _url: str
 
   def __init__(self,
                *args,
-               is_live: bool = True,
                substories: Sequence[str] = (),
                duration: Optional[float] = None,
+               url: Optional[str] = None,
                **kwargs):
     cls = self.__class__
     assert self.SUBSTORIES, f"{cls}.SUBSTORIES is not set."
@@ -155,11 +121,10 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     kwargs["name"] = self._get_unique_name()
     kwargs["duration"] = duration or self._get_initial_duration()
     super().__init__(*args, **kwargs)
-    self.is_live = is_live
-    if is_live:
+    if not url:
       self._url = self.URL
     else:
-      self._url = self.URL_LOCAL
+      self._url = url
     assert self._url, f"Invalid URL for '{self.NAME}' in {type(self)}"
 
   def _get_unique_name(self) -> str:

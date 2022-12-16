@@ -102,11 +102,11 @@ class Speedometer2Story(PressBenchmarkStory, metaclass=abc.ABCMeta):
   )
 
   def __init__(self,
-               is_live=True,
                substories: Sequence[str] = (),
-               iterations=10):
+               iterations=10,
+               url: Optional[str] = None):
     self.iterations = iterations or 10
-    super().__init__(is_live=is_live, substories=substories)
+    super().__init__(url=url, substories=substories)
 
   @property
   def substory_duration(self) -> float:
@@ -200,8 +200,8 @@ class Speedometer2Benchmark(PressBenchmark, metaclass=abc.ABCMeta):
 
   def __init__(self,
                stories: Optional[Sequence[Speedometer2Story]] = None,
-               is_live: bool = True,
-               iterations: Optional[int] = None):
+               iterations: Optional[int] = None,
+               custom_url: Optional[str] = None):
     if stories is None:
       stories = self.DEFAULT_STORY_CLS.default()
     for story in stories:
@@ -209,7 +209,7 @@ class Speedometer2Benchmark(PressBenchmark, metaclass=abc.ABCMeta):
       if iterations is not None:
         assert iterations >= 1
         story.iterations = iterations
-    super().__init__(stories, is_live)
+    super().__init__(stories, custom_url=custom_url)
 
 
 class Speedometer20Benchmark(Speedometer2Benchmark):

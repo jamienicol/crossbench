@@ -4,6 +4,7 @@
 
 import csv
 import sys
+from typing import Optional
 from unittest import mock
 
 import pytest
@@ -11,7 +12,8 @@ import pytest
 from crossbench.benchmarks.motionmark import (MotionMark12Benchmark,
                                               MotionMark12Probe,
                                               MotionMark12Story)
-from crossbench.env import HostEnvironmentConfig, ValidationMode
+from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
+                            ValidationMode)
 from crossbench.runner import Runner
 from tests.benchmarks import helper
 
@@ -77,8 +79,27 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
     self.assertEqual(
         len(names), len(MotionMark12Story.ALL_STORIES["MotionMark"]))
 
-  def test_run(self):
-    stories = MotionMark12Story.from_names(['Multiply'])
+  def test_run_throw(self):
+    self._test_run(throw=True)
+
+  def test_run_default(self):
+    self._test_run()
+    for browser in self.browsers:
+      urls = self.filter_data_urls(browser.url_list)
+      self.assertIn(self.story_cls.URL, urls)
+      self.assertNotIn(self.story_cls.URL_LOCAL, urls)
+
+  def test_run_custom_url(self):
+    custom_url = "http://test.example.com/speedometer"
+    self._test_run(custom_url)
+    for browser in self.browsers:
+      urls = self.filter_data_urls(browser.url_list)
+      self.assertIn(custom_url, urls)
+      self.assertNotIn(self.story_cls.URL, urls)
+      self.assertNotIn(self.story_cls.URL_LOCAL, urls)
+
+  def _test_run(self, custom_url: Optional[str] = None, throw: bool = False):
+    stories = MotionMark12Story.from_names(['Multiply'], url=custom_url)
     for browser in self.browsers:
       browser.js_side_effect = [
           True,  # Page is ready
@@ -88,7 +109,7 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
           self.EXAMPLE_PROBE_DATA
       ]
     repetitions = 3
-    benchmark = self.benchmark_cls(stories)
+    benchmark = self.benchmark_cls(stories, custom_url=custom_url)
     self.assertTrue(len(benchmark.describe()) > 0)
     runner = Runner(
         self.out_dir,
@@ -97,10 +118,13 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
         env_config=HostEnvironmentConfig(),
         env_validation_mode=ValidationMode.SKIP,
         platform=self.platform,
-        repetitions=repetitions)
-    with mock.patch.object(self.benchmark_cls, "validate_url") as cm:
+        repetitions=repetitions,
+        throw=throw)
+    with mock.patch.object(
+        HostEnvironment, "validate_url", return_value=True) as cm:
       runner.run()
     cm.assert_called_once()
+    assert runner.is_success
     for browser in self.browsers:
       urls = self.filter_data_urls(browser.url_list)
       self.assertEqual(len(urls), repetitions)

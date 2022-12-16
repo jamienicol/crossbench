@@ -4,12 +4,13 @@
 
 import abc
 import csv
-from typing import Type
+from typing import Optional, Type
 from unittest import mock
 
 from crossbench.benchmarks.jetstream import (JetStream2Benchmark,
                                              JetStream2Probe, JetStream2Story)
-from crossbench.env import HostEnvironmentConfig, ValidationMode
+from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
+                            ValidationMode)
 from crossbench.runner import Runner
 from tests.benchmarks import helper
 
@@ -32,8 +33,27 @@ class JetStream2BaseTestCase(
   def probe_cls(self) -> Type[JetStream2Probe]:
     pass
 
-  def test_run(self):
-    stories = self.story_cls.from_names(["WSL"])
+  def test_run_throw(self):
+    self._test_run(throw=True)
+
+  def test_run_default(self):
+    self._test_run()
+    for browser in self.browsers:
+      urls = self.filter_data_urls(browser.url_list)
+      self.assertIn(self.story_cls.URL, urls)
+      self.assertNotIn(self.story_cls.URL_LOCAL, urls)
+
+  def test_run_custom_url(self):
+    custom_url = "http://test.example.com/jetstream"
+    self._test_run(custom_url)
+    for browser in self.browsers:
+      urls = self.filter_data_urls(browser.url_list)
+      self.assertIn(custom_url, urls)
+      self.assertNotIn(self.story_cls.URL, urls)
+      self.assertNotIn(self.story_cls.URL_LOCAL, urls)
+
+  def _test_run(self, custom_url: Optional[str] = None, throw: bool = False):
+    stories = self.story_cls.from_names(["WSL"], url=custom_url)
     example_story_data = {"firstIteration": 1, "average": 0.1, "worst4": 1.1}
     jetstream_probe_results = {
         story.name: example_story_data for story in stories
@@ -48,7 +68,7 @@ class JetStream2BaseTestCase(
           jetstream_probe_results,
       ]
     repetitions = 3
-    benchmark = self.benchmark_cls(stories)
+    benchmark = self.benchmark_cls(stories, custom_url=custom_url)
     self.assertTrue(len(benchmark.describe()) > 0)
     runner = Runner(
         self.out_dir,
@@ -58,8 +78,9 @@ class JetStream2BaseTestCase(
         env_validation_mode=ValidationMode.SKIP,
         platform=self.platform,
         repetitions=repetitions,
-        throw=True)
-    with mock.patch.object(self.benchmark_cls, "validate_url") as cm:
+        throw=throw)
+    with mock.patch.object(
+        HostEnvironment, "validate_url", return_value=True) as cm:
       runner.run()
     cm.assert_called_once()
     for browser in self.browsers:

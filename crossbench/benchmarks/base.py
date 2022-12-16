@@ -8,7 +8,7 @@ import abc
 import argparse
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Dict, Generic, List, Sequence, Type, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Sequence, Type, TypeVar, cast
 
 import crossbench
 import crossbench.stories
@@ -213,16 +213,16 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
   def kwargs_from_cli(cls, args):
     kwargs = super().kwargs_from_cli(args)
     kwargs["separate"] = args.separate
-    kwargs["is_live"] = args.is_live
+    kwargs["url"] = args.custom_benchmark_url
     return kwargs
 
   def __init__(self,
                story_cls: Type[cb.stories.PressBenchmarkStory],
                patterns: Sequence[str],
                separate: bool = False,
-               is_live: bool = False):
+               url: Optional[str] = None):
     self.separate = separate
-    self.is_live: bool = is_live
+    self.url = url
     # Using dict instead as ordered set
     self._selected_names: Dict[str, None] = {}
     super().__init__(story_cls, patterns)
@@ -309,7 +309,7 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
                  str(list(map(str, self._selected_names))))
     names = list(self._selected_names.keys())
     return self.story_cls.from_names(
-        names, separate=self.separate, is_live=self.is_live)
+        names, separate=self.separate, url=self.url)
 
 
 class PressBenchmark(SubStoryBenchmark):
@@ -321,24 +321,29 @@ class PressBenchmark(SubStoryBenchmark):
   def add_cli_parser(cls, subparsers,
                      aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
     parser = super().add_cli_parser(subparsers, aliases)
-    is_live_group = parser.add_mutually_exclusive_group()
-    is_live_group.add_argument(
+    benchmark_url_group = parser.add_mutually_exclusive_group()
+    default_live_url = cls.DEFAULT_STORY_CLS.URL
+    default_local_url = cls.DEFAULT_STORY_CLS.URL_LOCAL
+    benchmark_url_group.add_argument(
         "--live",
-        default=True,
-        dest="is_live",
-        action="store_true",
-        help="Use live/online benchmark url.")
-    is_live_group.add_argument(
+        dest="custom_benchmark_url",
+        const=None,
+        action="store_const",
+        help=f"Use live/online benchmark url ({default_live_url}).")
+    benchmark_url_group.add_argument(
         "--local",
-        dest="is_live",
-        action="store_false",
-        help="Use locally hosted benchmark url.")
+        "--custom-benchmark-url",
+        nargs="?",
+        dest="custom_benchmark_url",
+        const=default_local_url,
+        help=(f"Use custom or locally (default={default_local_url}) "
+              "hosted benchmark url."))
     return parser
 
   @classmethod
   def kwargs_from_cli(cls, args) -> Dict[str, Any]:
     kwargs = super().kwargs_from_cli(args)
-    kwargs["is_live"] = args.is_live
+    kwargs["custom_url"] = args.custom_benchmark_url
     return kwargs
 
   @classmethod
@@ -349,23 +354,31 @@ class PressBenchmark(SubStoryBenchmark):
     data["url-local"] = cls.DEFAULT_STORY_CLS.URL_LOCAL
     return data
 
-  def __init__(self, stories: Sequence[cb.stories.Story], is_live: bool = True):
+  def __init__(self,
+               stories: Sequence[cb.stories.Story],
+               custom_url: Optional[str] = None):
     super().__init__(stories)
-    self.is_live: bool = is_live
+    self.custom_url = custom_url
+    if custom_url:
+      for story in stories:
+        press_story = cast(cb.stories.PressBenchmarkStory, story)
+        assert press_story.url == custom_url
 
   def setup(self, runner: Runner):
     super().setup(runner)
     self.validate_url(runner)
 
   def validate_url(self, runner: Runner):
+    if self.custom_url:
+      if runner.env.validate_url(self.custom_url):
+        return
+      raise Exception(
+          f"Could not reach custom benchmark URL: '{self.custom_url}'. "
+          f"Please make sure your local web server is running.")
     first_story = cast(cb.stories.PressBenchmarkStory, self.stories[0])
     url = first_story.url
     if not url:
       raise ValueError("Invalid empty url")
-    if runner.env.validate_url(url):
-      return
-    if self.is_live:
+    if not runner.env.validate_url(url):
       raise Exception(f"Could not reach live benchmark URL: '{url}'. "
                       f"Please make sure you're connected to the internet.")
-    raise Exception(f"Could not reach local benchmark URL: '{url}'. "
-                    f"Please make sure your local web server is running")
