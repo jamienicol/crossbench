@@ -5,21 +5,22 @@ from __future__ import annotations
 
 import abc
 import logging
+import pathlib
 import re
 import time
-import pathlib
-import hjson
-from typing import Optional, Sequence, Type, List, Dict, Any, Union
-from urllib.parse import urlparse
 from enum import Enum
+from typing import (TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Type,
+                    Union)
+from urllib.parse import urlparse
 
-import crossbench
-import crossbench.benchmarks
+import hjson
+
+from crossbench.benchmarks.base import StoryFilter, SubStoryBenchmark
 from crossbench.exception import ExceptionAnnotator
-import crossbench.stories
+from crossbench.stories import Story
 
-#TODO: fix imports
-cb = crossbench
+if TYPE_CHECKING:
+  from crossbench.runner import Run
 
 
 class Scroll(str, Enum):
@@ -40,7 +41,7 @@ class ActionType(str, Enum):
   SCROLL = "scroll"
 
 
-class Page(cb.stories.Story, metaclass=abc.ABCMeta):
+class Page(Story, metaclass=abc.ABCMeta):
 
   url: Optional[str]
 
@@ -143,7 +144,7 @@ PAGE_LIST_SMALL = (PAGES["facebook"], PAGES["maps"], PAGES["timesofindia"],
                    PAGES["cnn"])
 
 
-class LoadingPageFilter(cb.benchmarks.StoryFilter):
+class LoadingPageFilter(StoryFilter):
   """
   Filter / create loading stories
 
@@ -227,7 +228,7 @@ class LoadingPageFilter(cb.benchmarks.StoryFilter):
     return self.stories
 
 
-class PageLoadBenchmark(cb.benchmarks.SubStoryBenchmark):
+class PageLoadBenchmark(SubStoryBenchmark):
   """
   Benchmark runner for loading pages.
 
@@ -297,7 +298,7 @@ class PageConfig:
 
   def __init__(self, raw_config_data: Optional[Dict] = None):
     self._exceptions = ExceptionAnnotator(throw=True)
-    self.stories: List[cb.stories.Story] = []
+    self.stories: List[Story] = []
     if raw_config_data:
       self.load_dict(raw_config_data)
 
@@ -428,7 +429,7 @@ class _TimeSuffix:
 
 class Action(abc.ABC):
   timeout: float
-  _story: cb.stories.Story
+  _story: Story
 
   _EXCEPTION_BASE_STR = "Not valid action for scenario: "
 
@@ -442,11 +443,7 @@ class Action(abc.ABC):
     self.duration = duration
 
   @abc.abstractmethod
-  def run(
-      self,
-      run,
-      story: cb.stories.Story,
-  ):
+  def run(self, run: Run, story: Story):
     pass
 
   @abc.abstractmethod
@@ -459,7 +456,7 @@ class Action(abc.ABC):
 
 class GetAction(Action):
 
-  def run(self, run, story: cb.stories.Story):
+  def run(self, run, story: Story):
     self._story = story
     self._validate_action()
     run.browser.show_url(run.runner, self.value)
@@ -492,7 +489,7 @@ class WaitAction(Action):
 
 class ScrollAction(Action):
 
-  def run(self, run, story: cb.stories.Story):
+  def run(self, run, story: Story):
     self._story = story
     self._validate_action()
     time_end = self.duration + time.time()

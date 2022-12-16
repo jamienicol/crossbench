@@ -12,26 +12,21 @@ import pathlib
 from typing import TYPE_CHECKING, Final, Optional, Sequence, Tuple, Type
 
 from tabulate import tabulate
+from crossbench.benchmarks.base import PressBenchmark
 
-import crossbench
-import crossbench.benchmarks
 import crossbench.probes.helper as probes_helper
-import crossbench.probes.json as probes_json
-import crossbench.stories
-from crossbench import helper
-
-#TODO: fix imports
-cb = crossbench
+from crossbench.probes.json import JsonResultProbe
+from crossbench.stories import PressBenchmarkStory
 
 if TYPE_CHECKING:
-  import crossbench.runner
+  from crossbench.runner import BrowsersRunGroup, Runner, StoriesRunGroup, Run
 
 
 def _probe_remove_tests_segments(path: Tuple[str, ...]):
   return "/".join(segment for segment in path if segment != "tests")
 
 
-class Speedometer2Probe(probes_json.JsonResultProbe, metaclass=abc.ABCMeta):
+class Speedometer2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
   """
   Speedometer2-specific probe (compatible with v2.0 and v2.1).
   Extracts all speedometer times and scores.
@@ -50,17 +45,17 @@ class Speedometer2Probe(probes_json.JsonResultProbe, metaclass=abc.ABCMeta):
             value_fn=lambda values: values.geomean)
     return probes_helper.Flatten(merged).data
 
-  def merge_stories(self, group: cb.runner.StoriesRunGroup):
+  def merge_stories(self, group: StoriesRunGroup):
     merged = probes_helper.ValuesMerger.merge_json_list(
         repetitions_group.results[self].json
         for repetitions_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 
-  def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
+  def merge_browsers(self, group: BrowsersRunGroup):
     return self.merge_browsers_json_list(group).merge(
         self.merge_browsers_csv_list(group))
 
-  def log_result_summary(self, runner: cb.runner.Runner):
+  def log_result_summary(self, runner: Runner):
     if self not in runner.browser_group.results:
       return
     results_csv: pathlib.Path = runner.browser_group.results[self].csv
@@ -85,7 +80,7 @@ class Speedometer21Probe(Speedometer2Probe):
   NAME: Final[str] = "speedometer_2.1"
 
 
-class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
+class Speedometer2Story(PressBenchmarkStory, metaclass=abc.ABCMeta):
   URL_LOCAL: Final[str] = "http://localhost:8000/InteractiveRunner.html"
   SUBSTORIES = (
       "VanillaJS-TodoMVC",
@@ -117,7 +112,7 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
   def substory_duration(self) -> float:
     return self.iterations * 0.4
 
-  def run(self, run: cb.runner.Run):
+  def run(self, run: Run):
     with run.actions("Setup") as actions:
       actions.navigate_to(self._url)
       actions.wait_js_condition(
@@ -134,7 +129,7 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
         """,
             arguments=[self._substories])
       actions.wait(0.5)
-    with run.actions("Start") as actions:
+    with run.actions("Running") as actions:
       actions.js(
           """
         // Store all the results in the benchmarkClient
@@ -153,8 +148,8 @@ class Speedometer2Story(cb.stories.PressBenchmarkStory, metaclass=abc.ABCMeta):
         runner.runMultipleIterations(iterationCount);
         """,
           arguments=[self.iterations])
-    with run.actions("Wait Done") as actions:
       actions.wait(self.fast_duration)
+    with run.actions("Waiting for completion") as actions:
       actions.wait_js_condition("return window.testDone",
                                 self.substory_duration, self.slow_duration)
 
@@ -178,8 +173,7 @@ class Speedometer21Story(Speedometer2Story):
                      "InteractiveRunner.html")
 
 
-class Speedometer2Benchmark(
-    cb.benchmarks.PressBenchmark, metaclass=abc.ABCMeta):
+class Speedometer2Benchmark(PressBenchmark, metaclass=abc.ABCMeta):
 
   DEFAULT_STORY_CLS = Speedometer2Story
 

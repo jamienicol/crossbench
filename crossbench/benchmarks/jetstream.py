@@ -13,15 +13,13 @@ from typing import TYPE_CHECKING, Any, Dict, Final, Tuple, Type
 
 from tabulate import tabulate
 
-from crossbench import helper
 from crossbench.benchmarks.base import PressBenchmark
 from crossbench.probes import helper as probes_helper
 from crossbench.probes.json import JsonResultProbe
 from crossbench.stories import PressBenchmarkStory
 
 if TYPE_CHECKING:
-  from crossbench.probes.base import Probe
-  from crossbench.runner import BrowsersRunGroup, Runner, StoriesRunGroup
+  from crossbench.runner import BrowsersRunGroup, Runner, StoriesRunGroup, Run
 
 
 class JetStream2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
@@ -178,7 +176,7 @@ class JetStream2Story(PressBenchmarkStory, metaclass=abc.ABCMeta):
   def substory_duration(self) -> float:
     return 2
 
-  def run(self, run):
+  def run(self, run: Run):
     with run.actions("Setup") as actions:
       actions.navigate_to(self._url)
       if self._substories != self.SUBSTORIES:
@@ -196,10 +194,10 @@ class JetStream2Story(PressBenchmarkStory, metaclass=abc.ABCMeta):
           """
         return document.querySelectorAll("#results>.benchmark").length > 0;
       """, 1, 30 + self.duration)
-    with run.actions("Start") as actions:
+    with run.actions("Running") as actions:
       actions.js("JetStream.start()")
-    with run.actions("Wait Done") as actions:
       actions.wait(self.fast_duration)
+    with run.actions("Waiting for completion") as actions:
       actions.wait_js_condition(
           """
         let summaryElement = document.getElementById("result-summary");

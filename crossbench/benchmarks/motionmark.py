@@ -5,17 +5,15 @@
 from __future__ import annotations
 
 import itertools
-from typing import List, Sequence, Tuple, Optional
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
-import crossbench
-import crossbench.benchmarks
-import crossbench.probes.helper
-import crossbench.probes.json
-import crossbench.stories
-from crossbench import helper
+import crossbench.probes.helper as probes_helper
+from crossbench.benchmarks.base import PressBenchmark
+from crossbench.probes.json import JsonResultProbe
+from crossbench.stories import PressBenchmarkStory
 
-#TODO: fix imports
-cb = crossbench
+if TYPE_CHECKING:
+  from crossbench.runner import BrowsersRunGroup, Run, StoriesRunGroup
 
 
 def _probe_skip_data_segments(path: Tuple[str, ...]) -> Optional[str]:
@@ -25,7 +23,7 @@ def _probe_skip_data_segments(path: Tuple[str, ...]) -> Optional[str]:
   return "/".join(path)
 
 
-class MotionMark12Probe(cb.probes.json.JsonResultProbe):
+class MotionMark12Probe(JsonResultProbe):
   """
   MotionMark-specific Probe.
   Extracts all MotionMark times and scores.
@@ -42,20 +40,20 @@ class MotionMark12Probe(cb.probes.json.JsonResultProbe):
   def flatten_json_data(self, json_data: List):
     assert isinstance(json_data, list) and len(json_data) == 1, (
       "Motion12MarkProbe requires a results list.")
-    return cb.probes.helper.Flatten(
+    return probes_helper.Flatten(
         json_data[0], key_fn=_probe_skip_data_segments).data
 
-  def merge_stories(self, group: cb.runner.StoriesRunGroup):
-    merged = cb.probes.helper.ValuesMerger.merge_json_list(
+  def merge_stories(self, group: StoriesRunGroup):
+    merged = probes_helper.ValuesMerger.merge_json_list(
         story_group.results[self].json
         for story_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 
-  def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
+  def merge_browsers(self, group: BrowsersRunGroup):
     return self.merge_browsers_csv_list(group)
 
 
-class MotionMark12Story(cb.stories.PressBenchmarkStory):
+class MotionMark12Story(PressBenchmarkStory):
   NAME = "motionmark_1.2"
   PROBES = (MotionMark12Probe,)
   URL = "https://browserbench.org/MotionMark1.2/developer.html"
@@ -163,7 +161,7 @@ class MotionMark12Story(cb.stories.PressBenchmarkStory):
   def substory_duration(self) -> float:
     return 35
 
-  def run(self, run):
+  def run(self, run: Run):
     with run.actions("Setup") as actions:
       actions.navigate_to(self._url)
       actions.wait_js_condition(
@@ -190,16 +188,17 @@ class MotionMark12Story(cb.stories.PressBenchmarkStory):
           arguments=[self._substories])
       assert num_enabled > 0, "No tests were enabled"
       actions.wait(0.1)
-    with run.actions("Run") as actions:
+    with run.actions("Running") as actions:
       actions.js("window.benchmarkController.startBenchmark()")
       actions.wait(self.fast_duration)
+    with run.actions("Waiting for completion") as actions:
       actions.wait_js_condition(
           """
           return window.benchmarkRunnerClient.results._results != undefined
           """, self.substory_duration / 4, self.slow_duration)
 
 
-class MotionMark12Benchmark(cb.benchmarks.PressBenchmark):
+class MotionMark12Benchmark(PressBenchmark):
   """
   Benchmark runner for MotionMark 1.2.
 
