@@ -223,7 +223,8 @@ class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
     service = self.WEB_DRIVER_SERVICE(
         executable_path=str(driver_path),
         log_path=str(self.driver_log_file),
-        service_args=[])
+        # TODO: support clean logging of chrome stdout / stderr
+        service_args=["--verbose"])
     service.log_file = self.stdout_log_file.open("w", encoding="utf-8")
     driver = self._create_driver(options, service)
     # pytype: enable=wrong-keyword-args
