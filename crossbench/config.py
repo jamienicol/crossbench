@@ -8,17 +8,10 @@ import collections
 import inspect
 import pathlib
 import textwrap
-from typing import (TYPE_CHECKING, Any, Callable, Dict, List, Optional,
-                    Sequence, Type, Union)
+from typing import Any, Callable, Dict, List, Optional, Sequence, Type, Union
 
-
-import crossbench as cb
-import crossbench.exception
 from crossbench import helper
-
-if TYPE_CHECKING:
-  import crossbench.probes
-
+from crossbench.exception import ExceptionAnnotator
 
 ArgParserType = Union[Callable[[Any], Any], Type]
 
@@ -49,7 +42,7 @@ class _ConfigArg:
     if self.default is not None:
       self._validate_default()
 
-  def _validate_default(self):
+  def _validate_default(self) -> None:
     # TODO: Remove once pytype can handle self.type
     maybe_class: ArgParserType = self.type
     if self.is_list:
@@ -102,7 +95,7 @@ class _ConfigArg:
 
     return "\n".join(items)
 
-  def parse(self, config_data: Dict[str, Any]):
+  def parse(self, config_data: Dict[str, Any]) -> Any:
     data = config_data.pop(self.name, None)
     if data is None:
       if self.required and self.default is None:
@@ -137,7 +130,7 @@ class _ConfigArg:
 class ConfigParser:
 
   # TODO: combine with the similar method in cli.py and find a better name
-  def existing_file_type(self, str_value):
+  def existing_file_type(self, str_value: str) -> pathlib.Path:
     try:
       path = pathlib.Path(str_value).expanduser()
     except RuntimeError as e:
@@ -162,7 +155,7 @@ class ConfigParser:
       choices: Optional[Sequence[Any]] = None,
       help: Optional[str] = None,
       is_list: bool = False,
-      required: bool = False):
+      required: bool = False) -> None:
     assert name not in self._args, f"Duplicate argument: {name}"
     self._args[name] = _ConfigArg(self, name, type, default, choices, help,
                                   is_list, required)
@@ -170,7 +163,7 @@ class ConfigParser:
   def kwargs_from_config(self, config_data: Dict[str, Any],
                          throw: bool = False) -> Dict[str, Any]:
     kwargs: Dict[str, Any] = {}
-    exceptions = cb.exception.Annotator(throw=throw)
+    exceptions = ExceptionAnnotator(throw=throw)
     for arg in self._args.values():
       with exceptions.capture(f"Parsing ...['{arg.name}']:"):
         kwargs[arg.name] = arg.parse(config_data)
@@ -187,7 +180,7 @@ class ConfigParser:
       return ""
     return self._cls.__doc__.strip()
 
-  def __str__(self):
+  def __str__(self) -> str:
     parts: List[str] = []
     doc_string = self.doc
     if doc_string:

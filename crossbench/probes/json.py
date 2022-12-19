@@ -8,14 +8,14 @@ import abc
 import csv
 import json
 import pathlib
-from typing import (TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union)
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from crossbench.probes import base, helper
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
-  from crossbench.runner import (BrowsersRunGroup, RepetitionsRunGroup, Run,
-                                 RunGroup)
+  from crossbench.runner import (Actions, BrowsersRunGroup, RepetitionsRunGroup,
+                                 Run, RunGroup, Actions)
 
 
 class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
@@ -36,17 +36,17 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
     return f"{self.name}.json"
 
   @abc.abstractmethod
-  def to_json(self, actions):
+  def to_json(self, actions: Actions) -> Any:
     """
     Override in subclasses.
     Returns json-serializable data.
     """
     return None
 
-  def flatten_json_data(self, json_data):
+  def flatten_json_data(self, json_data: Any) -> Dict[str, Any]:
     return helper.Flatten(json_data).data
 
-  def process_json_data(self, json_data):
+  def process_json_data(self, json_data) -> Any:
     return json_data
 
   class Scope(base.Probe.Scope):
@@ -59,27 +59,27 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
     def probe(self) -> JsonResultProbe:
       return super().probe
 
-    def to_json(self, actions):
+    def to_json(self, actions: Actions) -> Any:
       return self.probe.to_json(actions)
 
-    def start(self, run):
+    def start(self, run: Run) -> None:
       pass
 
-    def stop(self, run):
+    def stop(self, run: Run) -> None:
       self._json_data = self.extract_json(run)
 
-    def tear_down(self, run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       self._json_data = self.process_json_data(self._json_data)
       return self.write_json(run, self._json_data)
 
-    def extract_json(self, run: Run):
+    def extract_json(self, run: Run) -> Dict:
       with run.actions(f"Extracting Probe name={self.probe.name}") as actions:
         json_data = self.to_json(actions)
         assert json_data is not None, (
             "Probe name=={self.probe.name} produced no data")
         return json_data
 
-    def write_json(self, run: Run, json_data) -> ProbeResult:
+    def write_json(self, run: Run, json_data: Any) -> ProbeResult:
       flattened_file = None
       with run.actions(f"Writing Probe name={self.probe.name}"):
         assert json_data is not None
@@ -96,10 +96,10 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
         return ProbeResult(json=(flattened_file,), file=(raw_file,))
       return ProbeResult(json=(raw_file,))
 
-    def process_json_data(self, json_data):
+    def process_json_data(self, json_data: Any) -> Any:
       return self.probe.process_json_data(json_data)
 
-    def flatten_json_data(self, json_data):
+    def flatten_json_data(self, json_data: Any) -> Dict[str, Any]:
       return self.probe.flatten_json_data(json_data)
 
   def merge_repetitions(

@@ -14,21 +14,16 @@ import urllib.parse
 import urllib.request
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set
 
+from crossbench import helper
+from crossbench.flags import Flags
+
 if TYPE_CHECKING:
   import datetime as dt
 
-import crossbench
-import crossbench.flags
-import crossbench.probes.base
-import crossbench.runner
-from crossbench import helper
-
-#TODO: fix imports
-cb = crossbench
+  from crossbench.probes.base import Probe
+  from crossbench.runner import Run, Runner
 
 # =============================================================================
-
-FlagsInitialDataType = cb.flags.Flags.InitialDataType
 
 BROWSERS_CACHE = pathlib.Path(__file__).parent.parent / ".browsers-cache"
 
@@ -38,15 +33,14 @@ BROWSERS_CACHE = pathlib.Path(__file__).parent.parent / ".browsers-cache"
 class Browser(abc.ABC):
 
   @classmethod
-  def default_flags(cls, initial_data: FlagsInitialDataType = None
-                   ) -> cb.flags.Flags:
-    return cb.flags.Flags(initial_data)
+  def default_flags(cls, initial_data: Flags.InitialDataType = None) -> Flags:
+    return Flags(initial_data)
 
   def __init__(
       self,
       label: str,
       path: Optional[pathlib.Path],
-      flags: FlagsInitialDataType = None,
+      flags: Flags.InitialDataType = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: Optional[str] = None,  # pylint: disable=redefined-builtin
       platform: Optional[helper.Platform] = None):
@@ -76,8 +70,8 @@ class Browser(abc.ABC):
     self.cache_dir: Optional[pathlib.Path] = cache_dir
     self.clear_cache_dir: bool = True
     self._pid: Optional[int] = None
-    self._probes: Set[cb.probes.Probe] = set()
-    self._flags: cb.flags.Flags = self.default_flags(flags)
+    self._probes: Set[Probe] = set()
+    self._flags: Flags = self.default_flags(flags)
     self.log_file: Optional[pathlib.Path] = None
 
   @property
@@ -85,7 +79,7 @@ class Browser(abc.ABC):
     return self._unique_name
 
   @unique_name.setter
-  def unique_name(self, name: str):
+  def unique_name(self, name: str) -> None:
     assert name
     # Replace any potentially unsafe chars in the name
     self._unique_name = re.sub(r"[^\w\d\-\.]", "_", name).lower()
@@ -95,21 +89,21 @@ class Browser(abc.ABC):
     return False
 
   @property
-  def flags(self) -> cb.flags.Flags:
+  def flags(self) -> Flags:
     return self._flags
 
-  def user_agent(self, runner: cb.runner.Runner) -> str:
+  def user_agent(self, runner: Runner) -> str:
     return self.js(runner, "return window.navigator.userAgent")
 
   @property
-  def pid(self):
+  def pid(self) -> Optional[int]:
     return self._pid
 
   @property
   def is_local(self) -> bool:
     return True
 
-  def set_log_file(self, path):
+  def set_log_file(self, path: pathlib.Path):
     self.log_file = path
 
   @property
@@ -133,7 +127,7 @@ class Browser(abc.ABC):
       raise ValueError(f"Could not find browser executable in {path}")
     return candidate
 
-  def attach_probe(self, probe: cb.probes.Probe):
+  def attach_probe(self, probe: Probe) -> None:
     self._probes.add(probe)
     probe.attach(self)
 
@@ -152,10 +146,10 @@ class Browser(abc.ABC):
         "log": {}
     }
 
-  def setup_binary(self, runner: cb.runner.Runner):
+  def setup_binary(self, runner: Runner) -> None:
     pass
 
-  def setup(self, run: cb.runner.Run):
+  def setup(self, run: Run) -> None:
     assert not self._is_running
     runner = run.runner
     self.clear_cache(runner)
@@ -169,16 +163,16 @@ class Browser(abc.ABC):
   def _extract_version(self) -> str:
     pass
 
-  def clear_cache(self, runner: cb.runner.Runner):
+  def clear_cache(self, runner: Runner) -> None:
     del runner
     if self.clear_cache_dir and self.cache_dir and self.cache_dir.exists():
       shutil.rmtree(self.cache_dir)
 
   @abc.abstractmethod
-  def start(self, run: cb.runner.Run):
+  def start(self, run: Run) -> None:
     pass
 
-  def _prepare_temperature(self, run: cb.runner.Run):
+  def _prepare_temperature(self, run: Run) -> None:
     """Warms up the browser by loading the page 3 times."""
     runner = run.runner
     if run.temperature != "cold" and run.temperature:
@@ -189,7 +183,7 @@ class Browser(abc.ABC):
         self.show_url(runner, "about:blank")
         runner.wait(1)
 
-  def info_data_url(self, run: cb.runner.Run):
+  def info_data_url(self, run: Run) -> str:
     page = ("<html><head>"
             "<title>Browser Details</title>"
             "<style>"
@@ -225,7 +219,7 @@ class Browser(abc.ABC):
     data_url = f"data:text/html;charset=utf-8,{urllib.parse.quote(page)}"
     return data_url
 
-  def quit(self, runner: cb.runner.Runner):
+  def quit(self, runner: Runner) -> None:
     del runner
     assert self._is_running
     try:
@@ -233,7 +227,7 @@ class Browser(abc.ABC):
     finally:
       self._pid = None
 
-  def force_quit(self):
+  def force_quit(self) -> None:
     logging.info("QUIT")
     if self.platform.is_macos:
       self.platform.exec_apple_script(f"""
@@ -247,21 +241,21 @@ class Browser(abc.ABC):
 
   @abc.abstractmethod
   def js(self,
-         runner: cb.runner.Runner,
+         runner: Runner,
          script: str,
          timeout: Optional[dt.timedelta] = None,
-         arguments: Sequence[object] = ()):
+         arguments: Sequence[object] = ()) -> Any:
     pass
 
   @abc.abstractmethod
-  def show_url(self, runner: cb.runner.Runner, url):
+  def show_url(self, runner: Runner, url: str) -> None:
     pass
 
 
 _FLAG_TO_PATH_RE = re.compile(r"[-/\\:\.]")
 
 
-def convert_flags_to_label(*flags, index: Optional[int] = None) -> str:
+def convert_flags_to_label(*flags: str, index: Optional[int] = None) -> str:
   label = "default"
   if flags:
     label = _FLAG_TO_PATH_RE.sub("_", "_".join(flags).replace("--", ""))

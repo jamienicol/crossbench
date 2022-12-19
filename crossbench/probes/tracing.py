@@ -6,17 +6,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterable
 
-import crossbench
-from crossbench.probes import base
-
-#TODO: fix imports
-cb = crossbench
+from crossbench.browsers.chromium import Chromium
+from crossbench.probes.base import Probe
 
 if TYPE_CHECKING:
-  import crossbench.browsers
+  from crossbench.browsers.base import Browser
 
 
-class TracingProbe(base.Probe):
+class TracingProbe(Probe):
   """
   Chromium-only Probe to collect tracing / perfetto data that can be used by
   chrome://tracing or https://ui.perfetto.dev/.
@@ -32,7 +29,7 @@ class TracingProbe(base.Probe):
   def __init__(self,
                categories: Iterable[str],
                startup_duration: float = 0,
-               output_format="json"):
+               output_format: str = "json"):
     super().__init__()
     self._categories = categories
     self._startup_duration = startup_duration
@@ -40,10 +37,10 @@ class TracingProbe(base.Probe):
     assert self._format in ("json", "proto"), (
         f"Invalid trace output output_format={self._format}")
 
-  def is_compatible(self, browser: cb.browsers.Browser):
-    return isinstance(browser, cb.browsers.Chromium)
+  def is_compatible(self, browser: Browser) -> bool:
+    return isinstance(browser, Chromium)
 
-  def attach(self, browser: cb.browsers.Browser):
+  def attach(self, browser: Browser) -> None:
     # "--trace-startup-format"
     # --trace-startup-duration=
     # --trace-startup=categories

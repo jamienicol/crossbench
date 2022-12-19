@@ -12,35 +12,29 @@ from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.safari.options import Options as SafariOptions
 
-import crossbench
-import crossbench.flags
 from crossbench import helper
 from crossbench.browsers.base import Browser
 from crossbench.browsers.webdriver import WebdriverMixin
 
-#TODO: fix imports
-cb = crossbench
-
 if TYPE_CHECKING:
-  import crossbench.runner
-
-FlagsInitialDataType = cb.flags.Flags.InitialDataType
+  from crossbench.flags import Flags
+  from crossbench.runner import Run, Runner
 
 
 class Safari(Browser):
 
   @classmethod
-  def default_path(cls):
+  def default_path(cls) -> pathlib.Path:
     return pathlib.Path("/Applications/Safari.app")
 
   @classmethod
-  def technology_preview_path(cls):
+  def technology_preview_path(cls) -> pathlib.Path:
     return pathlib.Path("/Applications/Safari Technology Preview.app")
 
   def __init__(self,
                label: str,
                path: pathlib.Path,
-               flags: FlagsInitialDataType = None,
+               flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                platform: Optional[helper.MacOSPlatform] = None):
     super().__init__(label, path, flags, type="safari", platform=platform)
@@ -57,7 +51,7 @@ class Safari(Browser):
     app_path = self.path.parents[2]
     return self.platform.app_version(app_path)
 
-  def start(self, run: cb.runner.Run):
+  def start(self, run: Run) -> None:
     assert self.platform.is_macos
     assert not self._is_running
     self.platform.exec_apple_script(f"""
@@ -88,7 +82,7 @@ end tell
     self.platform.sleep(2)
     self._is_running = True
 
-  def show_url(self, runner: cb.runner.Runner, url):
+  def show_url(self, runner: Runner, url: str) -> None:
     self.platform.exec_apple_script(f"""
 tell application "{self.app_name}"
     activate
@@ -102,7 +96,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
   def __init__(self,
                label: str,
                path: pathlib.Path,
-               flags: FlagsInitialDataType = None,
+               flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                platform: Optional[helper.MacOSPlatform] = None):
     super().__init__(label, path, flags, cache_dir, platform)
@@ -116,7 +110,8 @@ class SafariWebDriver(WebdriverMixin, Safari):
       driver_path = pathlib.Path("/usr/bin/safaridriver")
     return driver_path
 
-  def _start_driver(self, run: cb.runner.Run, driver_path: pathlib.Path):
+  def _start_driver(self, run: Run,
+                    driver_path: pathlib.Path) -> webdriver.Safari:
     assert not self._is_running
     logging.info("STARTING BROWSER: browser: %s driver: %s", self.path,
                  driver_path)
@@ -142,7 +137,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
     assert self.log_file.is_file()
     return driver
 
-  def _check_driver_version(self):
+  def _check_driver_version(self) -> None:
     # The bundled driver is always ok
     for parent in self._driver_path.parents:
       if parent == self.path.parent:
@@ -152,10 +147,10 @@ class SafariWebDriver(WebdriverMixin, Safari):
         f"safaridriver={self._driver_path} version='{version}' "
         f" doesn't match safari version={self.major_version}")
 
-  def clear_cache(self, runner: cb.runner.Runner):
+  def clear_cache(self, runner: Runner) -> None:
     pass
 
-  def quit(self, runner: cb.runner.Runner):
+  def quit(self, runner: Runner) -> None:
     super().quit(runner)
     # Safari needs some additional push to quit properly
     self.platform.exec_apple_script(f"""

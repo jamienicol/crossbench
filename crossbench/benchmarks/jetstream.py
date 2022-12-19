@@ -7,8 +7,8 @@ from __future__ import annotations
 import abc
 import csv
 import logging
-from collections import defaultdict
 import pathlib
+from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, Final, Tuple, Type
 
 from tabulate import tabulate
@@ -16,10 +16,12 @@ from tabulate import tabulate
 from crossbench.benchmarks.base import PressBenchmark
 from crossbench.probes import helper as probes_helper
 from crossbench.probes.json import JsonResultProbe
+from crossbench.probes.results import ProbeResult
 from crossbench.stories import PressBenchmarkStory
 
 if TYPE_CHECKING:
-  from crossbench.runner import BrowsersRunGroup, Runner, StoriesRunGroup, Run
+  from crossbench.runner import (Actions, BrowsersRunGroup, Run, Runner,
+                                 StoriesRunGroup)
 
 
 class JetStream2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
@@ -46,12 +48,12 @@ class JetStream2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
   return results;
 """
 
-  def to_json(self, actions):
+  def to_json(self, actions: Actions) -> Dict[str, float]:
     data = actions.js(self.JS)
     assert len(data) > 0, "No benchmark data generated"
     return data
 
-  def process_json_data(self, json_data):
+  def process_json_data(self, json_data: Dict[str, Any]) -> Dict[str, Any]:
     assert "Total" not in json_data
     json_data["Total"] = self._compute_total_metrics(json_data)
     return json_data
@@ -68,17 +70,17 @@ class JetStream2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
       total[metric] = probes_helper.geomean(values)
     return total
 
-  def merge_stories(self, group: StoriesRunGroup):
+  def merge_stories(self, group: StoriesRunGroup) -> ProbeResult:
     merged = probes_helper.ValuesMerger.merge_json_list(
         story_group.results[self].json
         for story_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 
-  def merge_browsers(self, group: BrowsersRunGroup):
+  def merge_browsers(self, group: BrowsersRunGroup) -> ProbeResult:
     return self.merge_browsers_json_list(group).merge(
         self.merge_browsers_csv_list(group))
 
-  def log_result_summary(self, runner: Runner):
+  def log_result_summary(self, runner: Runner) -> None:
     if self not in runner.browser_group.results:
       return
     results_csv: pathlib.Path = runner.browser_group.results[self].csv
@@ -176,7 +178,7 @@ class JetStream2Story(PressBenchmarkStory, metaclass=abc.ABCMeta):
   def substory_duration(self) -> float:
     return 2
 
-  def run(self, run: Run):
+  def run(self, run: Run) -> None:
     with run.actions("Setup") as actions:
       actions.navigate_to(self._url)
       if self._substories != self.SUBSTORIES:

@@ -6,10 +6,9 @@ from __future__ import annotations
 
 import abc
 import datetime as dt
-import logging
 import pathlib
-from typing import (TYPE_CHECKING, Any, Dict, Generic, Iterable, Optional,
-                    Sequence, Set, Tuple, Type, TypeVar, Union)
+from typing import (TYPE_CHECKING, Any, Dict, Generic, Optional, Set, Type,
+                    TypeVar)
 
 import crossbench
 from crossbench import helper
@@ -20,17 +19,17 @@ from crossbench.probes.results import ProbeResult
 cb = crossbench
 
 if TYPE_CHECKING:
-  import crossbench.browsers
-  import crossbench.env
-  import crossbench.probes
-  import crossbench.runner
+  from crossbench.browsers.base import Browser
+  from crossbench.env import HostEnvironment
+  from crossbench.runner import (BrowsersRunGroup, RepetitionsRunGroup, Run,
+                                 Runner, StoriesRunGroup)
 
-ProbeT = TypeVar("ProbeT", bound="cb.probes.Probe")
+ProbeT = TypeVar("ProbeT", bound="Probe")
 
 
 class ProbeConfigParser(ConfigParser):
 
-  def __init__(self, probe_cls: Type[cb.probes.Probe]):
+  def __init__(self, probe_cls: Type[Probe]):
     super().__init__("Probe", probe_cls)
     self._probe_cls = probe_cls
 
@@ -40,7 +39,7 @@ class Probe(abc.ABC):
   Abstract Probe class.
 
   Probes are responsible for extracting performance numbers from websites
-  / cb.stories
+  / stories.
 
   Probe interface:
   - scope(): Return a custom Probe.Scope (see below)
@@ -94,7 +93,7 @@ class Probe(abc.ABC):
   # Set to True if the probe only works on battery power
   BATTERY_ONLY: bool = False
 
-  _browsers: Set[cb.browsers.Browser]
+  _browsers: Set[Browser]
   _browser_platform: helper.Platform
 
   def __init__(self):
@@ -118,7 +117,7 @@ class Probe(abc.ABC):
   def results_file_name(self) -> str:
     return self.name
 
-  def is_compatible(self, browser: cb.browsers.Browser) -> bool:
+  def is_compatible(self, browser: Browser) -> bool:
     """
     Returns a boolean to indicate whether this Probe can be used with the given
     Browser. Override to make browser-specific Probes.
@@ -130,7 +129,7 @@ class Probe(abc.ABC):
   def is_attached(self) -> bool:
     return len(self._browsers) > 0
 
-  def attach(self, browser: cb.browsers.Browser):
+  def attach(self, browser: Browser) -> None:
     assert self.is_compatible(browser), (
         f"Probe {self.name} is not compatible with browser {browser.type}")
     assert browser not in self._browsers, (
@@ -143,7 +142,7 @@ class Probe(abc.ABC):
           f"existing={self._browser_platform }, new={browser.platform}")
     self._browsers.add(browser)
 
-  def pre_check(self, env: cb.env.HostEnvironment):
+  def pre_check(self, env: HostEnvironment) -> None:
     """
     Part of the Checklist, make sure everything is set up correctly for a probe
     to run.
@@ -156,8 +155,7 @@ class Probe(abc.ABC):
     for browser in self._browsers:
       assert self.is_compatible(browser)
 
-  def merge_repetitions(self,
-                        group: cb.runner.RepetitionsRunGroup) -> ProbeResult:
+  def merge_repetitions(self, group: RepetitionsRunGroup) -> ProbeResult:
     """
     Can be used to merge probe data from multiple repetitions of the same story.
     Return None, a result file Path (or a list of Paths)
@@ -165,7 +163,7 @@ class Probe(abc.ABC):
     del group
     return ProbeResult()
 
-  def merge_stories(self, group: cb.runner.StoriesRunGroup) -> ProbeResult:
+  def merge_stories(self, group: StoriesRunGroup) -> ProbeResult:
     """
     Can be used to merge probe data from multiple stories for the same browser.
     Return None, a result file Path (or a list of Paths)
@@ -173,7 +171,7 @@ class Probe(abc.ABC):
     del group
     return ProbeResult()
 
-  def merge_browsers(self, group: cb.runner.BrowsersRunGroup) -> ProbeResult:
+  def merge_browsers(self, group: BrowsersRunGroup) -> ProbeResult:
     """
     Can be used to merge all probe data (from multiple stories and browsers.)
     Return None, a result file Path (or a list of Paths)
@@ -181,12 +179,12 @@ class Probe(abc.ABC):
     del group
     return ProbeResult()
 
-  def get_scope(self: ProbeT, run) -> Probe.Scope[ProbeT]:
+  def get_scope(self: ProbeT, run: Run) -> Probe.Scope[ProbeT]:
     assert self.is_attached, (
         f"Probe {self.name} is not properly attached to a browser")
     return self.Scope(self, run)  # pylint: disable=abstract-class-instantiated
 
-  def log_result_summary(self, runner: cb.runner.Runner):
+  def log_result_summary(self, runner: Runner) -> None:
     """
     Override to print a short summary of the collected results.
     """
@@ -202,7 +200,7 @@ class Probe(abc.ABC):
       override tear_down() method
     """
 
-    def __init__(self, probe: ProbeT, run: cb.runner.Run):
+    def __init__(self, probe: ProbeT, run: Run):
       self._probe = probe
       self._run = run
       self._default_results_file = run.get_probe_results_file(probe)
@@ -211,7 +209,7 @@ class Probe(abc.ABC):
       self._start_time: Optional[dt.datetime] = None
       self._stop_time: Optional[dt.datetime] = None
 
-    def set_start_time(self, start_datetime: dt.datetime):
+    def set_start_time(self, start_datetime: dt.datetime) -> None:
       assert self._start_time is None
       self._start_time = start_datetime
 
@@ -236,15 +234,15 @@ class Probe(abc.ABC):
       return self._probe
 
     @property
-    def run(self) -> cb.runner.Run:
+    def run(self) -> Run:
       return self._run
 
     @property
-    def browser(self) -> cb.browsers.Browser:
+    def browser(self) -> Browser:
       return self._run.browser
 
     @property
-    def runner(self) -> cb.runner.Runner:
+    def runner(self) -> Runner:
       return self._run.runner
 
     @property
@@ -282,7 +280,7 @@ class Probe(abc.ABC):
     def name(self) -> str:
       return self.probe.name
 
-    def setup(self, run):
+    def setup(self, run: Run) -> None:
       """
       Called before starting the browser, typically used to set run-specific
       browser flags.
@@ -290,7 +288,7 @@ class Probe(abc.ABC):
       del run
 
     @abc.abstractmethod
-    def start(self, run: cb.runner.Run):
+    def start(self, run: Run) -> None:
       """
       Called immediately before starting the given Run.
       This method should have as little overhead as possible. If possible,
@@ -298,7 +296,7 @@ class Probe(abc.ABC):
       """
 
     @abc.abstractmethod
-    def stop(self, run: cb.runner.Run):
+    def stop(self, run: Run) -> None:
       """
       Called immediately after finishing the given Run.
       This method should have as little overhead as possible. If possible,
@@ -307,7 +305,7 @@ class Probe(abc.ABC):
       return None
 
     @abc.abstractmethod
-    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       """
       Called after stopping all probes and shutting down the browser.
       Returns

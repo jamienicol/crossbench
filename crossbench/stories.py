@@ -6,10 +6,11 @@ from __future__ import annotations
 
 from abc import ABC, ABCMeta, abstractmethod
 import abc
-from typing import List, Optional, Sequence, TYPE_CHECKING, Tuple, Type, TypeVar
+from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING, Tuple, Type, TypeVar
 
 if TYPE_CHECKING:
   from crossbench.probes import Probe
+  from crossbench.runner import Run
 
 
 class Story(ABC):
@@ -31,17 +32,14 @@ class Story(ABC):
   def name(self) -> str:
     return self._name
 
-  def details_json(self):
+  def details_json(self) -> Dict[str, Any]:
     return {"name": self.name, "duration": self.duration}
 
-  def is_done(self, _) -> bool:
-    return True
-
   @abstractmethod
-  def run(self, run):
+  def run(self, run: Run) -> None:
     pass
 
-  def __str__(self):
+  def __str__(self) -> str:
     return f"Story(name={self.name})"
 
 
@@ -69,13 +67,13 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
   @classmethod
   def all(cls: Type[PressBenchmarkStoryT],
           separate: bool = False,
-          url: Optional[str] = None):
+          url: Optional[str] = None) -> List[PressBenchmarkStoryT]:
     return cls.from_names(cls.all_story_names(), separate, url)
 
   @classmethod
   def default(cls: Type[PressBenchmarkStoryT],
               separate: bool = False,
-              url: Optional[str] = None):
+              url: Optional[str] = None) -> List[PressBenchmarkStoryT]:
     return cls.from_names(cls.default_story_names(), separate, url)
 
   @classmethod
@@ -170,14 +168,14 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     pass
 
   @property
-  def url(self):
+  def url(self) -> str:
     return self._url
 
-  def _verify_url(self, url:str, property_name:str):
+  def _verify_url(self, url: str, property_name: str) -> None:
     cls = self.__class__
     assert url is not None, f"{cls}.{property_name} is not set."
 
-  def _verify_substories(self):
+  def _verify_substories(self) -> None:
     if len(self._substories) != len(set(self._substories)):
       # Beware of the O(n**2):
       duplicates = set(

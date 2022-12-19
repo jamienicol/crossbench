@@ -31,7 +31,7 @@ class Flatten:
   }
   """
   _key_fn: _KeyFnType
-  _accumulator: Dict[str, object]
+  _accumulator: Dict[str, Any]
 
   def __init__(self, *args: Dict, key_fn: Optional[_KeyFnType] = None):
     """_summary_
@@ -46,23 +46,26 @@ class Flatten:
     self.append(*args)
 
   @property
-  def data(self):
+  def data(self) -> Dict[str, Any]:
     items = sorted(self._accumulator.items(), key=lambda item: item[0])
     return dict(items)
 
-  def append(self, *args: Dict, ignore_toplevel=False):
+  def append(self, *args: Dict, ignore_toplevel: bool = False) -> None:
     toplevel_path: Tuple[str, ...] = tuple()
     for merged_data in args:
       self._flatten(toplevel_path, merged_data, ignore_toplevel)
 
-  def _is_leaf_item(self, item):
+  def _is_leaf_item(self, item) -> bool:
     if isinstance(item, (str, float, int, list)):
       return True
     if "values" in item and isinstance(item["values"], list):
       return True
     return False
 
-  def _flatten(self, parent_path: Tuple[str, ...], data, ignore_toplevel=False):
+  def _flatten(self,
+               parent_path: Tuple[str, ...],
+               data,
+               ignore_toplevel: bool = False) -> None:
     for name, item in data.items():
       path = parent_path + (name,)
       if self._is_leaf_item(item):
@@ -138,11 +141,11 @@ class Values:
     variance /= len(self.values)
     return math.sqrt(variance)
 
-  def append(self, value: Any):
+  def append(self, value: Any) -> None:
     self.values.append(value)
     self._is_numeric = self._is_numeric and is_number(value)
 
-  def to_json(self):
+  def to_json(self) -> Dict[str, Any]:
     json_data = {"values": self.values}
     if not self.values:
       return json_data
@@ -204,7 +207,7 @@ class ValuesMerger:
   def merge_json_list(cls,
                       files: Iterable[pathlib.Path],
                       key_fn: Optional[_KeyFnType] = None,
-                      merge_duplicate_paths: bool = False):
+                      merge_duplicate_paths: bool = False) -> ValuesMerger:
     merger = cls(key_fn=key_fn)
     for file in files:
       with file.open(encoding="utf-8") as f:
@@ -229,13 +232,13 @@ class ValuesMerger:
       self.add(data)
 
   @property
-  def data(self):
+  def data(self) -> Dict[str, Values]:
     return self._data
 
   def merge_values(self,
                    data: Dict[str, Dict],
                    prefix_path: Tuple[str, ...] = (),
-                   merge_duplicate_paths=False):
+                   merge_duplicate_paths: bool = False) -> None:
     """Merge a previously json-serialized ValuesMerger object"""
     for property_name, item in data.items():
       path = prefix_path + (property_name,)
@@ -256,7 +259,7 @@ class ValuesMerger:
       else:
         self._data[key] = Values.from_json(item)
 
-  def add(self, data: Union[Dict, List[Dict]]):
+  def add(self, data: Union[Dict, List[Dict]]) -> None:
     """ Merge "arbitrary" hierarchical data that ends up having primitive leafs.
     Anything that is not a dict is considered a leaf node.
     """
@@ -267,7 +270,7 @@ class ValuesMerger:
     else:
       self._merge(data)
 
-  def _merge(self, data, parent_path: Tuple[str, ...] = ()):
+  def _merge(self, data, parent_path: Tuple[str, ...] = ()) -> None:
     assert isinstance(data, dict)
     for property_name, value in data.items():
       path = parent_path + (property_name,)
@@ -304,7 +307,7 @@ class ValuesMerger:
 
   def to_csv(self,
              value_fn: Optional[Callable[[Any], Any]] = None,
-             headers: Sequence[Sequence[Any]] = ()):
+             headers: Sequence[Sequence[Any]] = ()) -> List[Sequence[Any]]:
     """
     Input: {
         "VanillaJS-TodoMVC/Adding100Items/Async": 1
@@ -358,7 +361,7 @@ class ValuesMerger:
     return csv_data
 
 
-def _ljust(sequence, n, fillvalue=""):
+def _ljust(sequence: List, n: int, fillvalue: Any = ""):
   return sequence + ([fillvalue] * (n - len(sequence)))
 
 

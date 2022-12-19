@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-import abc
 
+import abc
 import argparse
 import contextlib
 import dataclasses
@@ -14,24 +14,22 @@ import json
 import logging
 import pathlib
 import sys
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import (TYPE_CHECKING, Any, Dict, Iterable, List, Optional,
+                    Sequence, Union)
 
-import crossbench
-import crossbench.benchmarks
-import crossbench.browsers
-import crossbench.env
-import crossbench.flags
-import crossbench.probes
-from crossbench.probes.results import ProbeResult, ProbeResultDict
-import crossbench.probes.runner
-import crossbench.stories
 from crossbench import exception, helper
+from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
+                            ValidationMode)
+from crossbench.flags import Flags, JSFlags
+from crossbench.probes.results import ProbeResult, ProbeResultDict
+from crossbench.probes.runner import (RunDurationsProbe, RunResultsSummaryProbe,
+                                      RunRunnerLogProbe)
+from crossbench.probes.base import Probe
 
 if TYPE_CHECKING:
+  from crossbench.benchmarks.base import Benchmark
   from crossbench.browsers.base import Browser
-
-# TODO: fix import
-cb = crossbench
+  from crossbench.stories import Story
 
 
 class RunnerException(exception.MultiException):
@@ -66,8 +64,8 @@ class Timing:
 class Runner:
 
   @classmethod
-  def get_out_dir(cls, cwd: pathlib.Path, suffix="",
-                  test=False) -> pathlib.Path:
+  def get_out_dir(cls, cwd: pathlib.Path, suffix: str = "",
+                  test: bool = False) -> pathlib.Path:
     if test:
       return cwd / "results" / "test"
     if suffix:
@@ -76,7 +74,8 @@ class Runner:
             f"{dt.datetime.now().strftime('%Y-%m-%d_%H%M%S')}{suffix}")
 
   @classmethod
-  def add_cli_parser(cls, parser) -> argparse.ArgumentParser:
+  def add_cli_parser(cls, parser: argparse.ArgumentParser
+                    ) -> argparse.ArgumentParser:
     parser.add_argument(
         "--repeat",
         default=1,
@@ -98,7 +97,7 @@ class Runner:
     return parser
 
   @classmethod
-  def kwargs_from_cli(cls, args):
+  def kwargs_from_cli(cls, args: argparse.Namespace) -> Dict[str, Any]:
     if args.out_dir is None:
       label = args.label or args.benchmark_cls.NAME
       cli_dir = pathlib.Path(__file__).parent.parent
@@ -110,18 +109,17 @@ class Runner:
         "throw": args.throw,
     }
 
-  def __init__(
-      self,
-      out_dir: pathlib.Path,
-      browsers: Sequence[cb.browsers.Browser],
-      benchmark: cb.benchmarks.Benchmark,
-      additional_probes: Iterable[cb.probes.Probe] = (),
-      platform: helper.Platform = helper.platform,
-      env_config: Optional[cb.env.HostEnvironmentConfig] = None,
-      env_validation_mode: cb.env.ValidationMode = cb.env.ValidationMode.THROW,
-      repetitions: int = 1,
-      timing: Timing = Timing(),
-      throw: bool = False):
+  def __init__(self,
+               out_dir: pathlib.Path,
+               browsers: Sequence[Browser],
+               benchmark: Benchmark,
+               additional_probes: Iterable[Probe] = (),
+               platform: helper.Platform = helper.platform,
+               env_config: Optional[HostEnvironmentConfig] = None,
+               env_validation_mode: ValidationMode = ValidationMode.THROW,
+               repetitions: int = 1,
+               timing: Timing = Timing(),
+               throw: bool = False):
     self.out_dir = out_dir
     assert not self.out_dir.exists(), f"out_dir={self.out_dir} exists already"
     self.out_dir.mkdir(parents=True)
@@ -133,11 +131,11 @@ class Runner:
     self.stories = benchmark.stories
     self.repetitions = repetitions
     assert self.repetitions > 0, f"Invalid repetitions={self.repetitions}"
-    self._probes: List[cb.probes.Probe] = []
+    self._probes: List[Probe] = []
     self._runs: List[Run] = []
     self._exceptions = exception.Annotator(throw)
     self._platform = platform
-    self._env = cb.env.HostEnvironment(
+    self._env = HostEnvironment(
         self,  # pytype: disable=wrong-arg-types
         env_config,
         env_validation_mode)
@@ -147,13 +145,13 @@ class Runner:
     self._story_groups: List[StoriesRunGroup] = []
     self._browser_group: Optional[BrowsersRunGroup] = None
 
-  def _validate_stories(self):
+  def _validate_stories(self) -> None:
     for probe_cls in self.stories[0].PROBES:
       assert inspect.isclass(probe_cls), (
           f"Story.PROBES must contain classes only, but got {type(probe_cls)}")
       self.attach_probe(probe_cls())
 
-  def _validate_browsers(self):
+  def _validate_browsers(self) -> None:
     assert self.browsers, "No browsers provided"
     browser_unique_names = [browser.unique_name for browser in self.browsers]
     assert len(browser_unique_names) == len(set(browser_unique_names)), (
@@ -163,17 +161,19 @@ class Runner:
         "Browsers running on multiple platforms are not supported: "
         f"platforms={browser_platforms} browsers={self.browsers}")
 
-  def _attach_default_probes(self, probe_list: Iterable[cb.probes.Probe]):
+  def _attach_default_probes(self, probe_list: Iterable[Probe]) -> None:
     assert len(self._probes) == 0
-    self.attach_probe(cb.probes.runner.RunResultsSummaryProbe())
-    self.attach_probe(cb.probes.runner.RunDurationsProbe())
-    self.attach_probe(cb.probes.runner.RunRunnerLogProbe())
+    self.attach_probe(RunResultsSummaryProbe())
+    self.attach_probe(RunDurationsProbe())
+    self.attach_probe(RunRunnerLogProbe())
     for probe in probe_list:
       self.attach_probe(probe)
 
-  def attach_probe(self, probe: cb.probes.Probe, matching_browser_only=False):
-    assert isinstance(probe, cb.probes.Probe), (
-        f"Probe must be an instance of Probe, but got {type(probe)}.")
+  def attach_probe(self, probe: Probe,
+                   matching_browser_only: bool = False) -> Probe:
+    assert isinstance(
+        probe,
+        Probe), (f"Probe must be an instance of Probe, but got {type(probe)}.")
     assert probe not in self._probes, "Cannot add the same probe twice"
     self._probes.append(probe)
     for browser in self.browsers:
@@ -192,7 +192,7 @@ class Runner:
     return self._timing
 
   @property
-  def probes(self) -> List[cb.probes.Probe]:
+  def probes(self) -> List[Probe]:
     return list(self._probes)
 
   @property
@@ -212,7 +212,7 @@ class Runner:
     return self._browser_platform
 
   @property
-  def env(self) -> cb.env.HostEnvironment:
+  def env(self) -> HostEnvironment:
     return self._env
 
   @property
@@ -232,20 +232,21 @@ class Runner:
     assert self._browser_group
     return self._browser_group
 
-  def sh(self, *args, shell=False, stdout=None):
+  def sh(self, *args, shell: bool = False, stdout=None):
     return self._platform.sh(*args, shell=shell, stdout=stdout)
 
-  def wait(self, time: Union[float, dt.timedelta], absolute_time: bool = False):
+  def wait(self, time: Union[float, dt.timedelta],
+           absolute_time: bool = False) -> None:
     delta = self.timing.timedelta(time, absolute_time)
     self._platform.sleep(delta)
 
-  def collect_system_details(self):
+  def collect_system_details(self) -> None:
     with (self.out_dir / "system_details.json").open(
         "w", encoding="utf-8") as f:
       details = self._platform.system_details()
       json.dump(details, f, indent=2)
 
-  def _setup(self):
+  def _setup(self) -> None:
     logging.info("-" * 80)
     logging.info("SETUP")
     logging.info("-" * 80)
@@ -286,11 +287,11 @@ class Runner:
               name=f"{story.name}[{iteration}]",
               throw=self._exceptions.throw)
 
-  def run(self, is_dry_run=False):
+  def run(self, is_dry_run: bool = False) -> None:
     with helper.SystemSleepPreventer():
       self._run(is_dry_run)
 
-  def _run(self, is_dry_run=False):
+  def _run(self, is_dry_run: bool = False) -> None:
     self._setup()
     failed: List[Run] = []
     run_count = len(self._runs)
@@ -307,7 +308,7 @@ class Runner:
     self._exceptions.assert_success(
         f"Runs Failed: {len(failed)}/{run_count} runs failed.", RunnerException)
 
-  def _tear_down(self):
+  def _tear_down(self) -> None:
     logging.info("=" * 80)
     logging.info("RUNS COMPLETED")
     logging.info("-" * 80)
@@ -333,7 +334,7 @@ class Runner:
       self._browser_group.merge(self)
       self._exceptions.extend(self._browser_group.exceptions, is_nested=True)
 
-  def cool_down(self):
+  def cool_down(self) -> None:
     # Cool down between runs
     if not self._platform.is_thermal_throttled():
       return
@@ -347,12 +348,12 @@ class Runner:
 
 class RunGroup(abc.ABC):
 
-  def __init__(self, throw=False):
+  def __init__(self, throw: bool = False):
     self._exceptions = exception.Annotator(throw)
     self._path = None
     self._merged_probe_results = None
 
-  def _set_path(self, path: pathlib.Path):
+  def _set_path(self, path: pathlib.Path) -> None:
     assert self._path is None
     self._path = path
     self._merged_probe_results = ProbeResultDict(path)
@@ -381,8 +382,7 @@ class RunGroup(abc.ABC):
   def info(self) -> Dict[str, str]:
     pass
 
-  def get_probe_results_file(self,
-                             probe: cb.probes.Probe,
+  def get_probe_results_file(self, probe: Probe,
                              exists_ok: bool = False) -> pathlib.Path:
     new_file = self.path / probe.results_file_name
     if not exists_ok:
@@ -390,7 +390,7 @@ class RunGroup(abc.ABC):
           f"Merged file {new_file} for {self.__class__} exists already.")
     return new_file
 
-  def merge(self, runner: Runner):
+  def merge(self, runner: Runner) -> None:
     assert self._merged_probe_results
     with self._exceptions.info(*self.info_stack):
       for probe in reversed(runner.probes):
@@ -401,7 +401,7 @@ class RunGroup(abc.ABC):
           self._merged_probe_results[probe] = results
 
   @abc.abstractmethod
-  def _merge_probe_results(self, probe: cb.probes.Probe) -> ProbeResult:
+  def _merge_probe_results(self, probe: Probe) -> ProbeResult:
     pass
 
 
@@ -413,20 +413,20 @@ class RepetitionsRunGroup(RunGroup):
 
   @classmethod
   def groups(cls, runs: Iterable[Run],
-             throw=False) -> List[RepetitionsRunGroup]:
+             throw: bool = False) -> List[RepetitionsRunGroup]:
     return list(
         helper.group_by(
             runs,
             key=lambda run: (run.story, run.browser),
             group=lambda _: cls(throw)).values())
 
-  def __init__(self, throw=False):
+  def __init__(self, throw: bool = False):
     super().__init__(throw)
     self._runs: List[Run] = []
-    self._story: cb.stories.Story = None
-    self._browser: cb.browsers.Browser = None
+    self._story: Story = None
+    self._browser: Browser = None
 
-  def append(self, run):
+  def append(self, run: Run) -> None:
     if self._path is None:
       self._set_path(run.group_dir)
       self._story = run.story
@@ -441,11 +441,11 @@ class RepetitionsRunGroup(RunGroup):
     return self._runs
 
   @property
-  def story(self) -> cb.stories.Story:
+  def story(self) -> Story:
     return self._story
 
   @property
-  def browser(self) -> cb.browsers.Browser:
+  def browser(self) -> Browser:
     return self._browser
 
   @property
@@ -456,7 +456,7 @@ class RepetitionsRunGroup(RunGroup):
   def info(self) -> Dict[str, str]:
     return {"story": str(self.story)}
 
-  def _merge_probe_results(self, probe: cb.probes.Probe) -> ProbeResult:
+  def _merge_probe_results(self, probe: Probe) -> ProbeResult:
     return probe.merge_repetitions(self)
 
 
@@ -465,21 +465,22 @@ class StoriesRunGroup(RunGroup):
   A group of StoryRepetitionsRunGroups for the same browser.
   """
 
-  def __init__(self, throw=False):
+  def __init__(self, throw: bool = False):
     super().__init__(throw)
     self._repetitions_groups: List[RepetitionsRunGroup] = []
-    self._browser: cb.browsers.Browser = None
+    self._browser: Browser = None
 
   @classmethod
-  def groups(cls, run_groups: Iterable[RepetitionsRunGroup],
-             throw=False) -> List[StoriesRunGroup]:
+  def groups(cls,
+             run_groups: Iterable[RepetitionsRunGroup],
+             throw: bool = False) -> List[StoriesRunGroup]:
     return list(
         helper.group_by(
             run_groups,
             key=lambda run_group: run_group.browser,
             group=lambda _: cls(throw)).values())
 
-  def append(self, group: RepetitionsRunGroup):
+  def append(self, group: RepetitionsRunGroup) -> None:
     if self._path is None:
       self._set_path(group.path.parent)
       self._browser = group.browser
@@ -497,7 +498,7 @@ class StoriesRunGroup(RunGroup):
       yield from group.runs
 
   @property
-  def browser(self) -> cb.browsers.Browser:
+  def browser(self) -> Browser:
     return self._browser
 
   @property
@@ -515,10 +516,10 @@ class StoriesRunGroup(RunGroup):
     }
 
   @property
-  def stories(self) -> Iterable[cb.stories.Story]:
+  def stories(self) -> Iterable[Story]:
     return (group.story for group in self._repetitions_groups)
 
-  def _merge_probe_results(self, probe: cb.probes.Probe) -> ProbeResult:
+  def _merge_probe_results(self, probe: Probe) -> ProbeResult:
     return probe.merge_stories(self)
 
 
@@ -557,7 +558,7 @@ class BrowsersRunGroup(RunGroup):
   def info(self) -> Dict[str, str]:
     return {}
 
-  def _merge_probe_results(self, probe: cb.probes.Probe) -> ProbeResult:
+  def _merge_probe_results(self, probe: Probe) -> ProbeResult:
     return probe.merge_browsers(self)
 
 
@@ -570,13 +571,13 @@ class Run:
 
   def __init__(self,
                runner: Runner,
-               browser: cb.browsers.Browser,
-               story: cb.stories.Story,
+               browser: Browser,
+               story: Story,
                iteration: int,
                root_dir: pathlib.Path,
                name: Optional[str] = None,
                temperature: Optional[int] = None,
-               throw=False):
+               throw: bool = False):
     self._state = self.STATE_INITIAL
     self._run_success: Optional[bool] = None
     self._runner = runner
@@ -587,13 +588,13 @@ class Run:
     self._name = name
     self._out_dir = self.get_out_dir(root_dir).absolute()
     self._probe_results = ProbeResultDict(self._out_dir)
-    self._extra_js_flags = cb.flags.JSFlags()
-    self._extra_flags = cb.flags.Flags()
+    self._extra_js_flags = JSFlags()
+    self._extra_flags = Flags()
     self._durations = helper.Durations()
     self._temperature = temperature
     self._exceptions = exception.Annotator(throw)
 
-  def get_out_dir(self, root_dir) -> pathlib.Path:
+  def get_out_dir(self, root_dir: pathlib.Path) -> pathlib.Path:
     return root_dir / self.browser.unique_name / self.story.name / str(
         self._iteration)
 
@@ -626,7 +627,7 @@ class Run:
     return details
 
   @property
-  def temperature(self):
+  def temperature(self) -> Optional[int]:
     return self._temperature
 
   @property
@@ -646,7 +647,7 @@ class Run:
     return self.runner.timing
 
   @property
-  def browser(self) -> cb.browsers.Browser:
+  def browser(self) -> Browser:
     return self._browser
 
   @property
@@ -654,7 +655,7 @@ class Run:
     return self._browser.platform
 
   @property
-  def story(self) -> cb.stories.Story:
+  def story(self) -> Story:
     return self._story
 
   @property
@@ -662,7 +663,7 @@ class Run:
     return self._name
 
   @property
-  def extra_js_flags(self) -> cb.flags.JSFlags:
+  def extra_js_flags(self) -> JSFlags:
     return self._extra_js_flags
 
   @property
@@ -670,11 +671,11 @@ class Run:
     return self._out_dir
 
   @property
-  def extra_flags(self) -> cb.flags.Flags:
+  def extra_flags(self) -> Flags:
     return self._extra_flags
 
   @property
-  def probes(self) -> Iterable[cb.probes.Probe]:
+  def probes(self) -> Iterable[Probe]:
     return self._runner.probes
 
   @property
@@ -690,17 +691,21 @@ class Run:
     return self._exceptions.is_success
 
   @contextlib.contextmanager
-  def measure(self, label):
+  def measure(self, label: str):
     # Return a combined context manager that adds an named exception info
     # and measures the time during the with-scope.
     with self._exceptions.info(label) as stack, self._durations.measure(
         label) as timer:
       yield (stack, timer)
 
-  def exception_info(self, *stack_entries: str):
+  def exception_info(self,
+                     *stack_entries: str) -> exception.ExceptionAnnotationScope:
     return self._exceptions.info(*stack_entries)
 
-  def exception_handler(self, *stack_entries: str, exceptions=(Exception,)):
+  def exception_handler(self,
+                        *stack_entries: str,
+                        exceptions: exception.TExceptionTypes = (Exception,)
+                       ) -> exception.ExceptionAnnotationScope:
     return self._exceptions.capture(*stack_entries, exceptions=exceptions)
 
   def get_browser_details_json(self) -> dict:
@@ -709,12 +714,12 @@ class Run:
     details_json["flags"] += tuple(self.extra_flags.get_list())
     return details_json
 
-  def get_probe_results_file(self, probe: cb.probes.Probe) -> pathlib.Path:
+  def get_probe_results_file(self, probe: Probe) -> pathlib.Path:
     file = self._out_dir / probe.results_file_name
     assert not file.exists(), f"Probe results file exists already. file={file}"
     return file
 
-  def setup(self, is_dry_run: bool) -> List[cb.probes.Probe.Scope]:
+  def setup(self, is_dry_run: bool) -> List[Probe.Scope]:
     self._advance_state(self.STATE_INITIAL, self.STATE_PREPARE)
     logging.debug("PREPARE")
     logging.info("STORY: %s", self.story)
@@ -736,7 +741,7 @@ class Run:
       self._runner.wait(self._runner.timing.cool_down_time, absolute_time=True)
       self._runner.cool_down()
 
-    probe_run_scopes: List[cb.probes.Probe.Scope] = []
+    probe_run_scopes: List[Probe.Scope] = []
     with self.measure("probes-creation"):
       probe_set = set()
       for probe in self.probes:
@@ -762,7 +767,7 @@ class Run:
         raise
     return probe_run_scopes
 
-  def run(self, is_dry_run=False):
+  def run(self, is_dry_run: bool = False) -> None:
     self._out_dir.mkdir(parents=True, exist_ok=True)
     with helper.ChangeCWD(self._out_dir), self.exception_info(*self.info_stack):
       probe_scopes = self.setup(is_dry_run)
@@ -777,8 +782,7 @@ class Run:
         if not is_dry_run:
           self.tear_down(probe_scopes)
 
-  def _run(self, probe_scopes: Sequence[cb.probes.Probe.Scope],
-           is_dry_run: bool):
+  def _run(self, probe_scopes: Sequence[Probe.Scope], is_dry_run: bool) -> None:
     probe_start_time = dt.datetime.now()
     probe_scope_manager = contextlib.ExitStack()
 
@@ -801,7 +805,7 @@ class Run:
         self._exceptions.append(e)
       self._check_browser_foreground()
 
-  def _check_browser_foreground(self):
+  def _check_browser_foreground(self) -> None:
     if not self.browser.pid:
       return
     info = self.platform.foreground_process()
@@ -812,14 +816,14 @@ class Run:
         "was not in the foreground at the end of the benchmark. "
         "Background apps and tabs can be heavily throttled.")
 
-  def _advance_state(self, expected, next_state):
+  def _advance_state(self, expected: int, next_state: int) -> None:
     assert self._state == expected, (
         f"Invalid state got={self._state} expected={expected}")
     self._state = next_state
 
   def tear_down(self,
-                probe_scopes: List[cb.probes.Probe.Scope],
-                is_shutdown=False):
+                probe_scopes: List[Probe.Scope],
+                is_shutdown: bool = False) -> None:
     self._advance_state(self.STATE_RUN, self.STATE_DONE)
     with self.measure("browser-tear_down"):
       if is_shutdown:
@@ -834,7 +838,7 @@ class Run:
       logging.debug("TEARDOWN")
       self._tear_down_probe_scopes(probe_scopes)
 
-  def _tear_down_probe_scopes(self, probe_scopes: List[cb.probes.Probe.Scope]):
+  def _tear_down_probe_scopes(self, probe_scopes: List[Probe.Scope]) -> None:
     for probe_scope in reversed(probe_scopes):
       with self.exceptions.capture(f"Probe {probe_scope.name} teardown"):
         assert probe_scope.run == self
@@ -851,20 +855,20 @@ class Actions(helper.TimeScope):
   def __init__(self,
                message: str,
                run: Run,
-               runner: Optional[cb.runner.Runner] = None,
-               browser: Optional[cb.browsers.Browser] = None,
+               runner: Optional[Runner] = None,
+               browser: Optional[Browser] = None,
                verbose: bool = False):
     assert message, "Actions need a name"
     super().__init__(message)
     self._exception_annotation = run.exceptions.info(f"Action: {message}")
-    self._run = run
-    self._browser: cb.browsers.Browser = browser or run.browser
-    self._runner: cb.runner.Runner = runner or run.runner
+    self._run: Run = run
+    self._browser: Browser = browser or run.browser
+    self._runner: Runner = runner or run.runner
     self._is_active: bool = False
-    self._verbose = verbose
+    self._verbose: bool = verbose
 
   @property
-  def timing(self) -> cb.runner.Timing:
+  def timing(self) -> Timing:
     return self._runner.timing
 
   @property
@@ -893,22 +897,27 @@ class Actions(helper.TimeScope):
     logging.debug("ACTION END %s", self._message)
     super().__exit__(exc_type, exc_value, exc_traceback)
 
-  def _assert_is_active(self):
+  def _assert_is_active(self) -> None:
     assert self._is_active, "Actions have to be used in a with scope"
 
   def js(self,
          js_code: str,
          timeout: Union[float, int] = 10,
          arguments=(),
-         **kwargs):
+         **kwargs) -> Any:
     self._assert_is_active()
     assert js_code, "js_code must be a valid JS script"
     if kwargs:
       js_code = js_code.format(**kwargs)
     delta = self.timing.timedelta(timeout)
-    return self._browser.js(self._runner, js_code, delta, arguments=arguments)
+    return self._browser.js(
+        self._runner,  # pytype: disable=wrong-arg-types
+        js_code,
+        delta,
+        arguments=arguments)
 
-  def wait_js_condition(self, js_code: str, min_wait: float, timeout: float):
+  def wait_js_condition(self, js_code: str, min_wait: float,
+                        timeout: float) -> None:
     wait_range = helper.WaitRange(
         self.timing.timedelta(min_wait), self.timing.timedelta(timeout))
     assert "return" in js_code, (
@@ -922,10 +931,12 @@ class Actions(helper.TimeScope):
           f"js_code did not return a bool, but got: {result}\n"
           f"js-code: {js_code}")
 
-  def navigate_to(self, url: str):
+  def navigate_to(self, url: str) -> None:
     self._assert_is_active()
-    self._browser.show_url(self._runner, url)
+    self._browser.show_url(
+        self._runner,  # pytype: disable=wrong-arg-types
+        url)
 
-  def wait(self, seconds: float = 1):
+  def wait(self, seconds: float = 1) -> None:
     self._assert_is_active()
     self.platform.sleep(seconds)

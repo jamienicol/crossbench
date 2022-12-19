@@ -4,24 +4,20 @@
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import enum
 import logging
 import urllib.request
+from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterable, List,
+                    Optional, Union)
 from urllib.parse import urlparse
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Union
 
-import dataclasses
-
-import crossbench
 from crossbench import helper
 
-#TODO: fix imports
-cb = crossbench
-
 if TYPE_CHECKING:
-  from crossbench import runner
-  from crossbench import probes
+  from crossbench.probes.base import Probe
+  from crossbench.runner import Runner
 
 
 def merge_bool(name: str, left: Optional[bool],
@@ -159,7 +155,7 @@ class HostEnvironment:
   }
 
   def __init__(self,
-               runner: cb.runner.Runner,
+               runner: Runner,
                config: Optional[HostEnvironmentConfig] = None,
                validation_mode: ValidationMode = ValidationMode.THROW):
     self._wait_until = dt.datetime.now()
@@ -169,24 +165,24 @@ class HostEnvironment:
     self._validation_mode = validation_mode
 
   @property
-  def runner(self) -> runner.Runner:
+  def runner(self) -> Runner:
     return self._runner
 
   @property
   def config(self) -> HostEnvironmentConfig:
     return self._config
 
-  def _add_min_delay(self, seconds: float):
+  def _add_min_delay(self, seconds: float) -> None:
     end_time = dt.datetime.now() + dt.timedelta(seconds=seconds)
     if end_time > self._wait_until:
       self._wait_until = end_time
 
-  def _wait_min_time(self):
+  def _wait_min_time(self) -> None:
     delta = self._wait_until - dt.datetime.now()
     if delta > dt.timedelta(0):
       self._platform.sleep(delta)
 
-  def handle_warning(self, message: str):
+  def handle_warning(self, message: str) -> None:
     """Process a warning, depending on the requested mode, this will
     - throw an error,
     - log a warning,
@@ -214,7 +210,7 @@ class HostEnvironment:
     raise ValidationError(
         f"Runner/Host environment requests cannot be fulfilled: {message}")
 
-  def validate_url(self, url: str):
+  def validate_url(self, url: str) -> bool:
     try:
       result = urlparse(url)
       if not all([
@@ -230,12 +226,12 @@ class HostEnvironment:
       pass
     return False
 
-  def _check_system_monitoring(self):
+  def _check_system_monitoring(self) -> None:
     # TODO(cbruni): refactor to use list_... and disable_system_monitoring api
     if self._platform.is_macos:
       self._check_crowdstrike()
 
-  def _check_crowdstrike(self):
+  def _check_crowdstrike(self) -> None:
     """Crowdstrike security monitoring (for googlers go/crowdstrike-falcon) can
     have quite terrible overhead for each file-access. Disable it to reduce
     flakiness. """
@@ -259,7 +255,7 @@ class HostEnvironment:
           "Use the following command to disable it manually:\n"
           "sudo /Applications/Falcon.app/Contents/Resources/falconctl unload\n")
 
-  def _check_disk_space(self):
+  def _check_disk_space(self) -> None:
     limit = self._config.disk_min_free_space_gib
     if limit is HostEnvironmentConfig.IGNORE:
       return
@@ -270,11 +266,11 @@ class HostEnvironment:
       self.handle_warning(
           f"Only {free_gib}GiB disk space left, expected at least {limit}GiB.")
 
-  def _check_power(self):
+  def _check_power(self) -> None:
     use_battery = self._config.power_use_battery
     if use_battery is HostEnvironmentConfig.IGNORE:
       return
-    battery_probes: List[probes.Probe] = []
+    battery_probes: List[Probe] = []
     # Certain probes may require battery power:
     for probe in self._runner.probes:
       if probe.BATTERY_ONLY:
@@ -289,7 +285,7 @@ class HostEnvironment:
           f"Expected battery_power={use_battery}, "
           f"but the system reported battery_power={sys_use_battery}")
 
-  def _check_cpu_usage(self):
+  def _check_cpu_usage(self) -> None:
     max_cpu_usage = self._config.cpu_max_usage_percent
     if max_cpu_usage is HostEnvironmentConfig.IGNORE:
       return
@@ -298,7 +294,7 @@ class HostEnvironment:
       self.handle_warning(f"CPU usage={cpu_usage_percent}% is higher than "
                           f"requested max={max_cpu_usage}%.")
 
-  def _check_cpu_temperature(self):
+  def _check_cpu_temperature(self) -> None:
     min_relative_speed = self._config.cpu_min_relative_speed
     if min_relative_speed is HostEnvironmentConfig.IGNORE:
       return
@@ -308,7 +304,7 @@ class HostEnvironment:
                           f"Relative speed is {cpu_speed}, "
                           f"but expected at least {min_relative_speed}.")
 
-  def _check_forbidden_system_process(self):
+  def _check_forbidden_system_process(self) -> None:
     # Verify that no terminals are running.
     # They introduce too much overhead. (As measured with powermetrics)
     system_forbidden_process_names = self._config.system_forbidden_process_names
@@ -318,7 +314,7 @@ class HostEnvironment:
       raise Exception(f"Process:{process_found} found."
                       "Make sure not to have a terminal opened. Use SSH.")
 
-  def _check_screen_autobrightness(self):
+  def _check_screen_autobrightness(self) -> None:
     auto_brightness = self._config.screen_allow_autobrightness
     if auto_brightness is HostEnvironmentConfig.IGNORE:
       return
@@ -330,7 +326,7 @@ class HostEnvironment:
     # TODO Implement checks for performance mode
     return True
 
-  def _check_running_binaries(self):
+  def _check_running_binaries(self) -> None:
     if self._config.browser_allow_existing_process:
       return
     browser_binaries = helper.group_by(
@@ -353,7 +349,7 @@ class HostEnvironment:
             f"{browser.app_name} {browser.version} seems to be already running."
         )
 
-  def _check_screen_brightness(self):
+  def _check_screen_brightness(self) -> None:
     brightness = self._config.screen_brightness_percent
     if brightness is HostEnvironmentConfig.IGNORE:
       return
@@ -364,7 +360,7 @@ class HostEnvironment:
       self.handle_warning(f"Requested main display brightness={brightness}%, "
                           "but got {brightness}%")
 
-  def _check_headless(self):
+  def _check_headless(self) -> None:
     requested_headless = self._config.browser_is_headless
     if requested_headless is HostEnvironmentConfig.IGNORE:
       return
@@ -381,7 +377,7 @@ class HostEnvironment:
             f"but browser {browser.unique_name} has conflicting "
             f"headless={browser.is_headless}.")
 
-  def _check_probes(self):
+  def _check_probes(self) -> None:
     for probe in self._runner.probes:
       try:
         probe.pre_check(self)
@@ -394,7 +390,7 @@ class HostEnvironment:
     if self._config.require_probes and not self._runner.probes:
       self.handle_warning("No probes specified.")
 
-  def _check_results_dir(self):
+  def _check_results_dir(self) -> None:
     results_dir = self._runner.out_dir.parent
     if not results_dir.exists():
       return
@@ -405,10 +401,10 @@ class HostEnvironment:
           "Found %d existing crossbench results. "
           "Consider cleaning stale results in '%s'", num_results, results_dir)
 
-  def setup(self):
+  def setup(self) -> None:
     self.validate()
 
-  def validate(self):
+  def validate(self) -> None:
     logging.info("-" * 80)
     if self._validation_mode == ValidationMode.SKIP:
       logging.info("VALIDATE ENVIRONMENT: SKIP")
@@ -435,16 +431,17 @@ class HostEnvironment:
 
   def check_installed(self,
                       binaries: Iterable[str],
-                      message="Missing binaries: {}"):
+                      message: str = "Missing binaries: {}") -> None:
     assert not isinstance(binaries, str), "Expected iterable of strings."
     missing_binaries = list(
         binary for binary in binaries if not self._platform.which(binary))
     if missing_binaries:
       self.handle_warning(message.format(missing_binaries))
 
-  def check_sh_success(self, *args, message="Could not execute: {}"):
+  def check_sh_success(self, *args,
+                       message: str = "Could not execute: {}") -> None:
     assert args, "Missing sh arguments"
     try:
       assert self._platform.sh_stdout(*args, quiet=True)
-    except cb.helper.SubprocessError as e:
+    except helper.SubprocessError as e:
       self.handle_warning(message.format(e))

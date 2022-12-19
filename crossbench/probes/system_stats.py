@@ -3,23 +3,20 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+
 import pathlib
 import threading
 import time
 from typing import TYPE_CHECKING
 
-import crossbench
 from crossbench import helper
 from crossbench.probes import base
 from crossbench.probes.results import ProbeResult
 
-#TODO: fix imports
-cb = crossbench
-
 if TYPE_CHECKING:
-  import crossbench.runner
-  import crossbench.browsers
-  import crossbench.env
+  from crossbench.browsers.base import Browser
+  from crossbench.env import HostEnvironment
+  from crossbench.runner import Run
 
 
 class SystemStatsProbe(base.Probe):
@@ -37,21 +34,22 @@ class SystemStatsProbe(base.Probe):
     self._interval = interval
 
   @property
-  def interval(self):
+  def interval(self) -> float:
     return self._interval
 
-  def is_compatible(self, browser: cb.browsers.Browser) -> bool:
+  def is_compatible(self, browser: Browser) -> bool:
     return not browser.platform.is_remote and (browser.platform.is_linux or
                                                browser.platform.is_macos)
 
-  def pre_check(self, env: cb.env.HostEnvironment):
+  def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)
     if env.runner.repetitions != 1:
       env.handle_warning(f"Probe={self.NAME} cannot merge data over multiple "
                          f"repetitions={env.runner.repetitions}.")
 
   @classmethod
-  def poll(cls, interval: float, path: pathlib.Path, event: threading.Event):
+  def poll(cls, interval: float, path: pathlib.Path,
+           event: threading.Event) -> None:
     while not event.is_set():
       # TODO(cbruni): support remote platform
       data = helper.platform.sh_stdout(*cls.CMD)
@@ -64,10 +62,10 @@ class SystemStatsProbe(base.Probe):
     _event: threading.Event
     _poller: threading.Thread
 
-    def setup(self, run: cb.runner.Run):
+    def setup(self, run: Run) -> None:
       self.results_file.mkdir()
 
-    def start(self, run: cb.runner.Run):
+    def start(self, run: Run) -> None:
       self._event = threading.Event()
       assert self.browser_platform == helper.platform, (
           "Remote platforms are not supported yet")
@@ -76,8 +74,8 @@ class SystemStatsProbe(base.Probe):
           args=(self.probe.interval, self.results_file, self._event))
       self._poller.start()
 
-    def stop(self, run: cb.runner.Run):
+    def stop(self, run: Run) -> None:
       self._event.set()
 
-    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       return ProbeResult(file=(self.results_file,))

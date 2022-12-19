@@ -3,15 +3,15 @@
 # found in the LICENSE file.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict
 
 from crossbench.probes import helper as probes_helper
 from crossbench.probes.json import JsonResultProbe
 
 if TYPE_CHECKING:
-  import crossbench.browsers
-  from crossbench.runner import (Actions, Browser, BrowsersRunGroup,
-                                 StoriesRunGroup)
+  from crossbench.probes.results import ProbeResult
+  from crossbench.browsers.base import Browser
+  from crossbench.runner import (Actions, BrowsersRunGroup, StoriesRunGroup)
 
 
 class PerformanceEntriesProbe(JsonResultProbe):
@@ -23,10 +23,10 @@ class PerformanceEntriesProbe(JsonResultProbe):
   """
   NAME = "performance.entries"
 
-  def is_compatible(self, browser: Browser):
+  def is_compatible(self, browser: Browser) -> bool:
     return hasattr(browser, "js")
 
-  def to_json(self, actions: Actions):
+  def to_json(self, actions: Actions) -> Dict[str, Any]:
     return actions.js("""
       let data = { __proto__: null, paint: {}, mark: {}};
       for (let entryType of Object.keys(data)) {
@@ -44,11 +44,11 @@ class PerformanceEntriesProbe(JsonResultProbe):
       return data;
       """)
 
-  def merge_stories(self, group: StoriesRunGroup):
+  def merge_stories(self, group: StoriesRunGroup) -> ProbeResult:
     merged = probes_helper.ValuesMerger.merge_json_list(
         story_group.results[self].json
         for story_group in group.repetitions_groups)
     return self.write_group_result(group, merged)
 
-  def merge_browsers(self, group: BrowsersRunGroup):
+  def merge_browsers(self, group: BrowsersRunGroup) -> ProbeResult:
     return self.merge_browsers_json_list(group)

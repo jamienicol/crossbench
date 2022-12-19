@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-import abc
 
+import abc
 import logging
 import pathlib
 import plistlib
@@ -17,19 +17,14 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
 
-import crossbench
-import crossbench.flags
 from crossbench import helper
 from crossbench.browsers import BROWSERS_CACHE
 from crossbench.browsers.chromium import Chromium, ChromiumWebDriver
 
-#TODO: fix imports
-cb = crossbench
-
 if TYPE_CHECKING:
   from selenium.webdriver.chromium.webdriver import ChromiumDriver
 
-FlagsInitialDataType = cb.flags.Flags.InitialDataType
+  from crossbench.flags import Flags
 
 
 class Chrome(Chromium):
@@ -72,8 +67,8 @@ class Chrome(Chromium):
   def __init__(self,
                label: str,
                path: pathlib.Path,
-               js_flags: FlagsInitialDataType = None,
-               flags: FlagsInitialDataType = None,
+               js_flags: Flags.InitialDataType = None,
+               flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                platform: Optional[helper.Platform] = None):
     super().__init__(
@@ -94,8 +89,8 @@ class ChromeWebDriver(ChromiumWebDriver):
   def __init__(self,
                label: str,
                path: pathlib.Path,
-               js_flags: FlagsInitialDataType = None,
-               flags: FlagsInitialDataType = None,
+               js_flags: Flags.InitialDataType = None,
+               flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                driver_path: Optional[pathlib.Path] = None,
                platform: Optional[helper.Platform] = None):
@@ -134,7 +129,7 @@ class ChromeDownloader(abc.ABC):
     assert loader.path.exists(), "Could not download browser"
     return loader.path
 
-  def __init__(self, version_identifier, platform_name: str):
+  def __init__(self, version_identifier: str, platform_name: str):
     assert platform_name
     self.platform_name = platform_name
     self.version_identifier = ""
@@ -154,7 +149,7 @@ class ChromeDownloader(abc.ABC):
       logging.info("DOWNLOADING CHROME %s", version_identifier.upper())
       self._download()
 
-  def _pre_check(self):
+  def _pre_check(self) -> None:
     assert not self.platform.is_remote, (
         "Browser download only supported on local machines")
     if not self.platform.which("gsutil"):
@@ -164,7 +159,7 @@ class ChromeDownloader(abc.ABC):
           "- https://cloud.google.com/storage/docs/gsutil_install\n"
           "- Run 'gcloud auth login' to get access to the archives")
 
-  def _parse_version(self, version_identifier: str):
+  def _parse_version(self, version_identifier: str) -> None:
     match = self.VERSION_RE.match(version_identifier)
     assert match, (f"Invalid chrome version identifier: {version_identifier}")
     self.version_identifier = version_identifier = match[1]
@@ -200,7 +195,7 @@ class ChromeDownloader(abc.ABC):
           f"Expected: {self.requested_version} Got: {cached_version}")
     return cached_version_str
 
-  def _download(self):
+  def _download(self) -> None:
     archive_url = self._find_archive_url()
     if not archive_url:
       raise ValueError(
@@ -278,7 +273,7 @@ class ChromeDownloader(abc.ABC):
         return False
     return True
 
-  def _download_and_extract(self, archive_url: str):
+  def _download_and_extract(self, archive_url: str) -> None:
     with tempfile.TemporaryDirectory(prefix="crossbench_download") as tmp_path:
       tmp_dir = pathlib.Path(tmp_path)
       archive_path = self._download_archive(archive_url, tmp_dir)
@@ -298,7 +293,7 @@ class ChromeDownloader(abc.ABC):
     return archive_path
 
   @abc.abstractmethod
-  def _extract_archive(self, archive_path: pathlib.Path):
+  def _extract_archive(self, archive_path: pathlib.Path) -> None:
     pass
 
 
@@ -317,10 +312,10 @@ class ChromeDownloaderLinux(ChromeDownloader):
     return (BROWSERS_CACHE / self.requested_version_str /
             "opt/google/chrome-unstable/chrome")
 
-  def _archive_url(self, folder_url, version_str):
+  def _archive_url(self, folder_url: str, version_str: str) -> str:
     return f"{folder_url}google-chrome-unstable-{version_str}-1.x86_64.rpm"
 
-  def _extract_archive(self, archive_path: pathlib.Path):
+  def _extract_archive(self, archive_path: pathlib.Path) -> None:
     assert helper.platform.which("rpm2cpio"), (
         "Need rpm2cpio to extract downloaded .rpm chrome archive")
     assert helper.platform.which("cpio"), (
@@ -351,21 +346,21 @@ class ChromeDownloaderMacOS(ChromeDownloader):
     assert helper.platform.is_macos
     super().__init__(version_identifier, platform_name="mac-universal")
 
-  def _download(self):
+  def _download(self) -> None:
     if self.platform.is_arm64 and self.requested_version < (87, 0, 0, 0):
       raise ValueError(
           "Chrome Arm64 Apple Silicon is only available starting with M87, "
           f"but requested {self.requested_version_str}")
-    return super()._download()
+    super()._download()
 
-  def _archive_url(self, folder_url, version_str):
+  def _archive_url(self, folder_url, version_str) -> str:
     # Use ChromeCanary since it's built for all version (unlike stable/beta).
     return f"{folder_url}GoogleChromeCanary-{version_str}.dmg"
 
   def _get_path(self) -> pathlib.Path:
     return BROWSERS_CACHE / f"Google Chrome {self.requested_version_str}.app"
 
-  def _extract_archive(self, archive_path: pathlib.Path):
+  def _extract_archive(self, archive_path: pathlib.Path) -> None:
     result = self.platform.sh_stdout("hdiutil", "attach", "-plist",
                                      archive_path).strip()
     data = plistlib.loads(str.encode(result))

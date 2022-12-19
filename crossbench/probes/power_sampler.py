@@ -10,20 +10,16 @@ import pathlib
 import subprocess
 from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 
-import crossbench
-from crossbench.probes import base
-from crossbench.probes.results import ProbeResult
-
-#TODO: fix imports
-cb = crossbench
+from crossbench.probes.base import Probe, ProbeConfigParser
 
 if TYPE_CHECKING:
-  import crossbench.browsers
-  import crossbench.env
-  import crossbench.runner
+  from crossbench.browsers.base import Browser
+  from crossbench.env import HostEnvironment
+  from crossbench.probes.results import ProbeResult
+  from crossbench.runner import Run
 
 
-class PowerSamplerProbe(base.Probe):
+class PowerSamplerProbe(Probe):
   """
   Probe for chrome's power_sampler helper binary to collect MacOS specific
   battery and system usage metrics.
@@ -36,7 +32,7 @@ class PowerSamplerProbe(base.Probe):
   SAMPLERS = ("smc", "user_idle_level", "main_display")
 
   @classmethod
-  def config_parser(cls):
+  def config_parser(cls) -> ProbeConfigParser:
     parser = super().config_parser()
     parser.add_argument("bin_path", type=pathlib.Path)
     parser.add_argument("sampling_interval", type=int, default=10)
@@ -74,20 +70,20 @@ class PowerSamplerProbe(base.Probe):
   def samplers(self) -> Tuple[str, ...]:
     return self._samplers
 
-  def pre_check(self, env: cb.env.HostEnvironment):
+  def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)
     if not self.browser_platform.is_battery_powered:
       env.handle_warning("Power Sampler only works on battery power!")
     # TODO() warn when external monitors are connected
     # TODO() warn about open terminals
 
-  def is_compatible(self, browser: cb.browsers.Browser) -> bool:
+  def is_compatible(self, browser: Browser) -> bool:
     # For now only supported on MacOs
     return browser.platform.is_macos
 
-  class Scope(base.Probe.Scope):
+  class Scope(Probe.Scope):
 
-    def __init__(self, probe: PowerSamplerProbe, run: cb.runner.Run):
+    def __init__(self, probe: PowerSamplerProbe, run: Run):
       super().__init__(probe, run)
       self._bin_path = probe.bin_path
       self._active_user_process: Optional[subprocess.Popen] = None
@@ -96,7 +92,7 @@ class PowerSamplerProbe(base.Probe):
       self._battery_output = self.results_file.with_suffix(".battery.json")
       self._power_output = self.results_file.with_suffix(".power.json")
 
-    def setup(self, run: cb.runner.Run):
+    def setup(self, run: Run) -> None:
       self._active_user_process = self.browser_platform.popen(
           self._bin_path,
           "--no-samplers",
@@ -106,7 +102,7 @@ class PowerSamplerProbe(base.Probe):
           "Could not start active user background sa")
       self._wait_for_battery_not_full(run)
 
-    def start(self, run: cb.runner.Run):
+    def start(self, run: Run) -> None:
       assert self._active_user_process is not None
       self._battery_process = self.browser_platform.popen(
           self._bin_path,
@@ -124,13 +120,13 @@ class PowerSamplerProbe(base.Probe):
           stdout=subprocess.DEVNULL)
       assert self._power_process is not None, "Could not start power sampler"
 
-    def stop(self, run: cb.runner.Run):
+    def stop(self, run: Run) -> None:
       if self._power_process:
         self._power_process.terminate()
       if self._battery_process:
         self._battery_process.terminate()
 
-    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       if self._power_process:
         self._power_process.kill()
       if self._battery_process:
@@ -139,7 +135,7 @@ class PowerSamplerProbe(base.Probe):
         self._active_user_process.terminate()
       return ProbeResult(file=(self._power_output, self._battery_output))
 
-    def _wait_for_battery_not_full(self, run: cb.runner.Run):
+    def _wait_for_battery_not_full(self, run: Run) -> None:
       """
       Empirical evidence has shown that right after a full battery charge, the
       current capacity stays equal to the maximum capacity for several minutes,

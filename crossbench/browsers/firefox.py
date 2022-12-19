@@ -12,29 +12,25 @@ import shlex
 import shutil
 import stat
 import tempfile
-from typing import Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.service import Service as FirefoxService
 
-import crossbench
-import crossbench.exception
-import crossbench.flags
-from crossbench import helper
+from crossbench import exception, helper
 from crossbench.browsers.base import BROWSERS_CACHE, Browser
 from crossbench.browsers.webdriver import WebdriverMixin
 
-#TODO: fix imports
-cb = crossbench
-
-FlagsInitialDataType = cb.flags.Flags.InitialDataType
+if TYPE_CHECKING:
+  from crossbench.flags import Flags
+  from crossbench.runner import Run
 
 
 class Firefox(Browser):
 
   @classmethod
-  def default_path(cls):
+  def default_path(cls) -> pathlib.Path:
     return helper.search_app_or_executable(
         "Firefox",
         macos=["Firefox.app"],
@@ -42,7 +38,7 @@ class Firefox(Browser):
         win=["Mozilla Firefox/firefox.exe"])
 
   @classmethod
-  def developer_edition_path(cls):
+  def developer_edition_path(cls) -> pathlib.Path:
     return helper.search_app_or_executable(
         "Firefox Developer Edition",
         macos=["Firefox Developer Edition.app"],
@@ -50,7 +46,7 @@ class Firefox(Browser):
         win=["Firefox Developer Edition/firefox.exe"])
 
   @classmethod
-  def nightly_path(cls):
+  def nightly_path(cls) -> pathlib.Path:
     return helper.search_app_or_executable(
         "Firefox Nightly",
         macos=["Firefox Nightly.app"],
@@ -60,7 +56,7 @@ class Firefox(Browser):
   def __init__(self,
                label: str,
                path: pathlib.Path,
-               flags: FlagsInitialDataType = None,
+               flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                platform: Optional[helper.Platform] = None):
     if cache_dir is None:
@@ -73,12 +69,13 @@ class Firefox(Browser):
       self.clear_cache_dir = False
     super().__init__(label, path, flags, type="firefox", platform=platform)
 
-  def _extract_version(self):
+  def _extract_version(self) -> str:
+    assert self.path
     version_string = self.platform.app_version(self.path)
     # "Firefox 107.0" => "107.0"
     return re.findall(r"[\d\.]+", version_string)[0]
 
-  def _get_browser_flags(self, run) -> Tuple[str, ...]:
+  def _get_browser_flags(self, run: Run) -> Tuple[str, ...]:
     flags_copy = self.flags.copy()
     flags_copy.update(run.extra_flags)
     flags_copy["--window-size"] = f"{self.width},{self.height}"
@@ -94,7 +91,7 @@ class FirefoxWebDriver(WebdriverMixin, Firefox):
   def __init__(self,
                label: str,
                path: pathlib.Path,
-               flags: FlagsInitialDataType = None,
+               flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                driver_path: Optional[pathlib.Path] = None,
                platform: Optional[helper.Platform] = None):
@@ -105,7 +102,8 @@ class FirefoxWebDriver(WebdriverMixin, Firefox):
     finder = FirefoxDriverFinder(self)
     return finder.download()
 
-  def _start_driver(self, run: cb.runner.Run, driver_path: pathlib.Path):
+  def _start_driver(self, run: Run,
+                    driver_path: pathlib.Path) -> webdriver.Firefox:
     assert not self._is_running
     assert self.log_file
     options = FirefoxOptions()
@@ -128,7 +126,7 @@ class FirefoxWebDriver(WebdriverMixin, Firefox):
         options=options, service=service)
     return driver
 
-  def _check_driver_version(self):
+  def _check_driver_version(self) -> None:
     # TODO
     # version = self.platform.sh_stdout(self._driver_path, "--version")
     pass
@@ -149,12 +147,12 @@ class FirefoxDriverFinder:
 
   def download(self) -> pathlib.Path:
     if not self.driver_path.exists():
-      with cb.exception.annotate(
+      with exception.annotate(
           f"Downloading geckodriver for {self.browser.version}"):
         self._download()
     return self.driver_path
 
-  def _download(self):
+  def _download(self) -> None:
     url, archive_type = self._find_driver_download_url()
     with tempfile.TemporaryDirectory() as tmp_dir:
       tar_file = pathlib.Path(tmp_dir) / f"download.{archive_type}"

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Iterable, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
 if TYPE_CHECKING:
   from crossbench.probes.base import Probe
@@ -40,7 +40,7 @@ class ProbeResult:
         json=self.json_list + other.json_list,
         csv=self.csv_list + other.csv_list)
 
-  def _validate(self):
+  def _validate(self) -> None:
     for path in self._file_list:
       if path.suffix in (".csv", ".json"):
         raise ValueError(f"Use specific parameter for result: {path}")
@@ -54,7 +54,7 @@ class ProbeResult:
       if not path.is_file():
         raise ValueError(f"ProbeResult file does not exist: {path}")
 
-  def to_json(self):
+  def to_json(self) -> Dict[str, Any]:
     result = {}
     if self._url_list:
       result["url"] = self._url_list
@@ -117,7 +117,7 @@ class ProbeResultDict:
     self._path = path
     self._dict: Dict[str, ProbeResult] = {}
 
-  def __setitem__(self, probe: Probe, result: ProbeResult):
+  def __setitem__(self, probe: Probe, result: ProbeResult) -> None:
     assert isinstance(result, ProbeResult)
     self._dict[probe.name] = result
 
@@ -130,10 +130,10 @@ class ProbeResultDict:
   def __contains__(self, probe: Probe) -> bool:
     return probe.name in self._dict
 
-  def get(self, probe: Probe, default=None):
+  def get(self, probe: Probe, default: Any = None) -> ProbeResult:
     return self._dict.get(probe.name, default)
 
-  def to_json(self):
+  def to_json(self) -> Dict[str, Any]:
     data: Dict[str, Any] = {}
     for probe_name, results in self._dict.items():
       if isinstance(results, (pathlib.Path, str)):

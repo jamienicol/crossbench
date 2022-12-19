@@ -10,8 +10,8 @@ import pathlib
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type
 
 from crossbench import helper
-from crossbench.browsers import (Browser, Chrome, Chromium, Edge, Firefox,
-                                 Safari)
+from crossbench.browsers.all import (Browser, Chrome, Chromium, Edge, Firefox,
+                                     Safari)
 from crossbench.flags import ChromeFlags, Flags
 
 if TYPE_CHECKING:
@@ -80,7 +80,7 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
     assert self._is_running
     self._is_running = False
 
-  def _extract_version(self):
+  def _extract_version(self) -> str:
     return self.VERSION
 
   def user_agent(self, runner: Runner) -> str:

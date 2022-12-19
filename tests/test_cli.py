@@ -15,15 +15,16 @@ import pyfakefs.fake_filesystem_unittest
 import pytest
 
 import crossbench
-import crossbench.cli
-import crossbench.probes.all
+from crossbench.browsers.chrome import ChromeWebDriver, Chrome
+from crossbench.browsers.safari import Safari
+from crossbench.cli import CrossBenchCLI, BrowserConfig, FlagGroupConfig, ProbeConfig
 from crossbench import helper
+from crossbench.probes.power_sampler import PowerSamplerProbe
+from crossbench.probes.v8.log import V8LogProbe
+from crossbench.runner import Runner
 
 from tests.mock_helper import BaseCrossbenchTestCase, MockCLI
 from tests import mock_browser
-
-#TODO: fix imports
-cb = crossbench
 
 
 class SysExitException(Exception):
@@ -94,7 +95,7 @@ class TestCLI(BaseCrossbenchTestCase):
       self.assertGreater(len(stdout), 0)
 
   def test_help_subcommand(self):
-    for benchmark_cls, aliases in cb.cli.CrossBenchCLI.BENCHMARKS:
+    for benchmark_cls, aliases in CrossBenchCLI.BENCHMARKS:
       subcommands = (benchmark_cls.NAME,) + aliases
       for subcommand in subcommands:
         with mock.patch(
@@ -106,12 +107,12 @@ class TestCLI(BaseCrossbenchTestCase):
 
   def test_invalid_probe(self):
     with self.assertRaises(ValueError), mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--probe=invalid_probe_name", "--throw")
 
   def test_basic_probe_setting(self):
     with mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", "--probe=v8.log", f"--urls={url}",
                    "--env-validation=skip", "--throw")
@@ -123,7 +124,7 @@ class TestCLI(BaseCrossbenchTestCase):
     config_file = pathlib.Path("/config.hjson")
     config_file.touch()
     with mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       with self.assertRaises(ValueError):
         self.run_cli("loading", f"--probe-config={config_file}",
@@ -138,7 +139,7 @@ class TestCLI(BaseCrossbenchTestCase):
     with config_file.open("w", encoding="utf-8") as f:
       hjson.dump(config_data, f)
     with mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", f"--probe-config={config_file}", f"--urls={url}",
                    "--env-validation=skip")
@@ -152,7 +153,7 @@ class TestCLI(BaseCrossbenchTestCase):
     with config_file.open("w", encoding="utf-8") as f:
       hjson.dump(config_data, f)
     with mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       with self.assertRaises(ValueError):
         self.run_cli("loading", f"--probe-config={config_file}",
@@ -169,7 +170,7 @@ class TestCLI(BaseCrossbenchTestCase):
       hjson.dump(config_data, f)
 
     with mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", f"--probe-config={config_file}", f"--urls={url}",
                    "--env-validation=skip")
@@ -185,7 +186,7 @@ class TestCLI(BaseCrossbenchTestCase):
       hjson.dump(config_data, f)
 
     with mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers",
+        CrossBenchCLI, "_get_browsers",
         return_value=self.browsers), self.assertRaises(ValueError):
       self.run_cli("loading", f"--probe-config={config_file}",
                    "--urls=http://test.com", "--env-validation=skip", "--throw")
@@ -222,8 +223,7 @@ class TestCLI(BaseCrossbenchTestCase):
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
 
     with mock.patch.object(
-        cb.cli.BrowserConfig,
-        "_get_browser_cls_from_path",
+        BrowserConfig, "_get_browser_cls_from_path",
         return_value=browser_cls) as get_browser_cls:
       self.run_cli("loading", f"--browser={browser_bin}",
                    "--urls=http://test.com", "--env-validation=skip")
@@ -238,16 +238,15 @@ class TestCLI(BaseCrossbenchTestCase):
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
 
     with mock.patch.object(
-        cb.cli.BrowserConfig,
-        "_get_browser_cls_from_path",
+        BrowserConfig, "_get_browser_cls_from_path",
         return_value=browser_cls), mock.patch.object(
-            cb.cli.CrossBenchCLI, "_run_benchmark") as run_benchmark:
+            CrossBenchCLI, "_run_benchmark") as run_benchmark:
       self.run_cli("loading", f"--browser={browser_bin}",
                    "--urls=http://test.com", "--env-validation=skip", "--",
                    "--chrome-flag1=value1", "--chrome-flag2")
     run_benchmark.assert_called_once()
     runner = run_benchmark.call_args[0][1]
-    self.assertIsInstance(runner, cb.runner.Runner)
+    self.assertIsInstance(runner, Runner)
     self.assertEqual(len(runner.browsers), 1)
     browser = runner.browsers[0]
     self.assertListEqual(["--chrome-flag1=value1", "--chrome-flag2"],
@@ -291,8 +290,7 @@ class TestCLI(BaseCrossbenchTestCase):
       out_dir = self.out_dir / identifier
       self.assertFalse(out_dir.exists())
       with mock.patch.object(
-          cb.cli.BrowserConfig,
-          "_get_browser_cls_from_path",
+          BrowserConfig, "_get_browser_cls_from_path",
           return_value=browser_cls) as get_browser_cls:
         url = "http://test.com"
         self.run_cli("loading", f"--browser={identifier}", f"--urls={url}",
@@ -324,7 +322,7 @@ class TestCLI(BaseCrossbenchTestCase):
       raise ValueError("Unknown browser path")
 
     with mock.patch.object(
-        cb.cli.BrowserConfig,
+        BrowserConfig,
         "_get_browser_cls_from_path",
         side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
       url = "http://test.com"
@@ -365,7 +363,7 @@ class TestCLI(BaseCrossbenchTestCase):
       raise ValueError("Unknown browser path")
 
     with mock.patch.object(
-        cb.cli.BrowserConfig,
+        BrowserConfig,
         "_get_browser_cls_from_path",
         side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
       url = "http://test.com"
@@ -406,7 +404,7 @@ class TestCLI(BaseCrossbenchTestCase):
       raise ValueError("Unknown browser path")
 
     with mock.patch.object(
-        cb.cli.BrowserConfig,
+        BrowserConfig,
         "_get_browser_cls_from_path",
         side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
       url = "http://test.com"
@@ -429,14 +427,14 @@ class TestCLI(BaseCrossbenchTestCase):
 
   def test_probe_invalid_inline_json_config(self):
     with self.assertRaises(ValueError), mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--probe=v8.log{invalid json: d a t a}",
                    "--urls=cnn", "--env-validation=skip", "--throw")
 
   def test_probe_empty_inline_json_config(self):
     js_flags = ["--log-foo", "--log-bar"]
     with mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", "--probe=v8.log{}", f"--urls={url}",
                    "--env-validation=skip")
@@ -449,7 +447,7 @@ class TestCLI(BaseCrossbenchTestCase):
     js_flags = ["--log-foo", "--log-bar"]
     json_config = json.dumps({"js_flags": js_flags})
     with mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
       self.run_cli("loading", f"--probe=v8.log{json_config}", f"--urls={url}",
                    "--env-validation=skip")
@@ -460,13 +458,13 @@ class TestCLI(BaseCrossbenchTestCase):
 
   def test_env_config_name(self):
     with mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--env=strict", "--urls=http://test.com",
                    "--env-validation=skip")
 
   def test_env_config_inline_hjson(self):
     with mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--env={\"power_use_battery\":false}",
                    "--urls=http://test.com", "--env-validation=skip")
 
@@ -530,7 +528,7 @@ class TestCLI(BaseCrossbenchTestCase):
     with config.open("w", encoding="utf-8") as f:
       hjson.dump({"env": {}}, f)
     with mock.patch.object(
-        cb.cli.CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", f"--env-config={config}",
                    "--urls=http://test.com", "--env-validation=skip")
 
@@ -553,14 +551,14 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
 
   def setUp(self):
     # TODO: Move to separate common helper class
-    self.setUpPyfakefs(modules_to_reload=[cb, mock_browser])
+    self.setUpPyfakefs(modules_to_reload=[crossbench, mock_browser])
 
-  def parse_config(self, config_data) -> cb.cli.ProbeConfig:
+  def parse_config(self, config_data) -> ProbeConfig:
     probe_config_file = pathlib.Path("/probe.config.hjson")
     with probe_config_file.open("w", encoding="utf-8") as f:
       hjson.dump(config_data, f)
     with probe_config_file.open(encoding="utf-8") as f:
-      return cb.cli.ProbeConfig.load(f)
+      return ProbeConfig.load(f)
 
   def test_invalid_empty(self):
     with self.assertRaises(ValueError):
@@ -587,7 +585,7 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
         }})
     self.assertTrue(len(config.probes), 1)
     probe = config.probes[0]
-    self.assertTrue(isinstance(probe, cb.probes.all.V8LogProbe))
+    self.assertTrue(isinstance(probe, V8LogProbe))
     for flag in js_flags + ["--prof"]:
       self.assertIn(flag, probe.js_flags)
 
@@ -606,10 +604,9 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
     })
     self.assertTrue(len(config.probes), 2)
     log_probe = config.probes[0]
-    self.assertTrue(isinstance(log_probe, cb.probes.all.V8LogProbe))
+    self.assertTrue(isinstance(log_probe, V8LogProbe))
     powersampler_probe = config.probes[1]
-    self.assertTrue(
-        isinstance(powersampler_probe, cb.probes.all.PowerSamplerProbe))
+    self.assertTrue(isinstance(powersampler_probe, PowerSamplerProbe))
     self.assertEqual(powersampler_probe.bin_path, powersampler_bin)
 
 
@@ -642,7 +639,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
           f"Test file {self.EXAMPLE_CONFIG_PATH} does not exist")
     self.fs.add_real_file(self.EXAMPLE_CONFIG_PATH)
     with self.EXAMPLE_CONFIG_PATH.open(encoding="utf-8") as f:
-      config = cb.cli.BrowserConfig(browser_lookup_override=self.browser_lookup)
+      config = BrowserConfig(browser_lookup_override=self.browser_lookup)
       config.load(f)
     self.assertIn("flag-group-1", config.flag_groups)
     self.assertGreaterEqual(len(config.flag_groups), 1)
@@ -650,7 +647,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 
   def test_flag_combination_invalid(self):
     with self.assertRaises(Exception):
-      cb.cli.BrowserConfig(
+      BrowserConfig(
           {
               "flags": {
                   "group1": {
@@ -668,7 +665,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 
   def test_flag_combination_duplicate(self):
     with self.assertRaises(ValueError):
-      cb.cli.BrowserConfig(
+      BrowserConfig(
           {
               "flags": {
                   "group1": {
@@ -689,13 +686,13 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 
   def test_empty(self):
     with self.assertRaises(ValueError):
-      cb.cli.BrowserConfig({"other": {}}).variants
+      BrowserConfig({"other": {}}).variants
     with self.assertRaises(ValueError):
-      cb.cli.BrowserConfig({"browsers": {}}).variants
+      BrowserConfig({"browsers": {}}).variants
 
   def test_unknown_group(self):
     with self.assertRaises(ValueError):
-      cb.cli.BrowserConfig({
+      BrowserConfig({
           "browsers": {
               "stable": {
                   "path": "stable",
@@ -706,7 +703,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 
   def test_duplicate_group(self):
     with self.assertRaises(ValueError):
-      cb.cli.BrowserConfig({
+      BrowserConfig({
           "flags": {
               "group1": {}
           },
@@ -720,7 +717,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 
   def test_duplicate_flag_variant_value(self):
     with self.assertRaises(ValueError):
-      cb.cli.BrowserConfig({
+      BrowserConfig({
           "flags": {
               "group1": {
                   "--flag": ["repeated", "repeated"]
@@ -736,7 +733,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 
   def test_unknown_path(self):
     with self.assertRaises(Exception):
-      cb.cli.BrowserConfig({
+      BrowserConfig({
           "browsers": {
               "stable": {
                   "path": "path/does/not/exist",
@@ -744,7 +741,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
           }
       }).variants
     with self.assertRaises(Exception):
-      cb.cli.BrowserConfig({
+      BrowserConfig({
           "browsers": {
               "stable": {
                   "path": "chrome-unknown",
@@ -753,7 +750,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
       }).variants
 
   def test_flag_combination_simple(self):
-    config = cb.cli.BrowserConfig(
+    config = BrowserConfig(
         {
             "flags": {
                 "group1": {
@@ -778,7 +775,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     self.assertDictEqual(dict(browsers[2].flags), {"--foo": "v1"})
 
   def test_flag_combination(self):
-    config = cb.cli.BrowserConfig(
+    config = BrowserConfig(
         {
             "flags": {
                 "group1": {
@@ -797,7 +794,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     self.assertEqual(len(config.variants), 3 * 3)
 
   def test_flag_combination_mixed_inline(self):
-    config = cb.cli.BrowserConfig(
+    config = BrowserConfig(
         {
             "flags": {
                 "compile-hints-experiment": {
@@ -820,7 +817,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
         list(browsers[1].flags.get_list()))
 
   def test_flag_single_inline(self):
-    config = cb.cli.BrowserConfig(
+    config = BrowserConfig(
         {
             "browsers": {
                 "chrome-release": {
@@ -835,7 +832,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     self.assertListEqual(["--no-sandbox"], list(browsers[0].flags.get_list()))
 
   def test_flag_combination_mixed_fixed(self):
-    config = cb.cli.BrowserConfig(
+    config = BrowserConfig(
         {
             "flags": {
                 "compile-hints-experiment": {
@@ -859,7 +856,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
         list(browsers[1].flags.get_list()))
 
   def test_no_flags(self):
-    config = cb.cli.BrowserConfig(
+    config = BrowserConfig(
         {"browsers": {
             "stable": {
                 "path": "stable",
@@ -879,13 +876,13 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 
   def test_inline_flags(self):
     with mock.patch.object(
-        cb.browsers.ChromeWebDriver, "_extract_version",
+        ChromeWebDriver, "_extract_version",
         return_value="101.22.333.44"), mock.patch.object(
-            cb.browsers.Chrome,
+            Chrome,
             "stable_path",
             return_value=mock_browser.MockChromeStable.APP_PATH):
 
-      config = cb.cli.BrowserConfig(
+      config = BrowserConfig(
           {"browsers": {
               "stable": {
                   "path": "stable",
@@ -901,18 +898,12 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
   def test_inline_load_safari(self):
     if not helper.platform.is_macos:
       return
-    with mock.patch.object(
-        cb.browsers.Safari, "_extract_version", return_value="16.0"):
-      config = cb.cli.BrowserConfig(
-          {"browsers": {
-              "safari": {
-                  "path": "safari",
-              }
-          }})
+    with mock.patch.object(Safari, "_extract_version", return_value="16.0"):
+      config = BrowserConfig({"browsers": {"safari": {"path": "safari",}}})
       self.assertEqual(len(config.variants), 1)
 
   def test_flag_combination_with_fixed(self):
-    config = cb.cli.BrowserConfig(
+    config = BrowserConfig(
         {
             "flags": {
                 "group1": {
@@ -937,7 +928,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
       self.assertEqual(browser.app_path, mock_browser.MockChromeStable.APP_PATH)
 
   def test_flag_group_combination(self):
-    config = cb.cli.BrowserConfig(
+    config = BrowserConfig(
         {
             "flags": {
                 "group1": {
@@ -974,10 +965,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 
     args = mock.Mock(browser=None, browser_config=config_file)
     with mock.patch.object(
-        cb.cli.BrowserConfig,
-        "_get_browser_cls_from_path",
-        return_value=browser_cls):
-      config = cb.cli.BrowserConfig.from_cli_args(args)
+        BrowserConfig, "_get_browser_cls_from_path", return_value=browser_cls):
+      config = BrowserConfig.from_cli_args(args)
     self.assertEqual(len(config.variants), 1)
     browser = config.variants[0]
     self.assertIsInstance(browser, browser_cls)
@@ -1000,10 +989,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
         js_flags=None,
         other_browser_args=[])
     with mock.patch.object(
-        cb.cli.BrowserConfig,
-        "_get_browser_cls_from_path",
-        return_value=browser_cls):
-      config = cb.cli.BrowserConfig.from_cli_args(args)
+        BrowserConfig, "_get_browser_cls_from_path", return_value=browser_cls):
+      config = BrowserConfig.from_cli_args(args)
     self.assertEqual(len(config.variants), 1)
     browser = config.variants[0]
     self.assertIsInstance(browser, browser_cls)
@@ -1013,12 +1000,12 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 class TestFlagGroupConfig(unittest.TestCase):
 
   def parse(self, config_dict):
-    config = cb.cli.FlagGroupConfig("test", config_dict)
+    config = FlagGroupConfig("test", config_dict)
     variants = list(config.get_variant_items())
     return variants
 
   def test_empty(self):
-    config = cb.cli.FlagGroupConfig("empty_name", {})
+    config = FlagGroupConfig("empty_name", {})
     self.assertEqual(config.name, "empty_name")
     variants = list(config.get_variant_items())
     self.assertEqual(len(variants), 0)

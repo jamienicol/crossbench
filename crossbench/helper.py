@@ -7,6 +7,7 @@ from __future__ import annotations
 import abc
 import ctypes
 import datetime as dt
+import json
 import logging
 import os
 import pathlib
@@ -23,9 +24,8 @@ import traceback as tb
 import urllib
 import urllib.error
 import urllib.request
-import json
-from typing import (Any, Callable, Dict, Final, Iterable, List, Optional,
-                    Sequence, Tuple, TypeVar, Union)
+from typing import (Any, Callable, Dict, Final, Iterable, Iterator, List,
+                    Optional, Sequence, Tuple, TypeVar, Union)
 
 import psutil
 
@@ -110,7 +110,7 @@ def sort_by_file_size(files: Iterable[pathlib.Path]) -> List[pathlib.Path]:
 SIZE_UNITS: Final[Tuple[str, ...]] = ("B", "KiB", "MiB", "GiB", "TiB")
 
 
-def get_file_size(file, digits=2) -> str:
+def get_file_size(file: pathlib.Path, digits: int = 2) -> str:
   size = file.stat().st_size
   unit_index = 0
   divisor = 1024
@@ -128,11 +128,11 @@ class Platform(abc.ABC):
     pass
 
   @property
-  def is_remote(self):
+  def is_remote(self) -> bool:
     return False
 
   @property
-  def machine(self):
+  def machine(self) -> str:
     return py_platform.machine()
 
   @property
@@ -187,7 +187,7 @@ class Platform(abc.ABC):
   def has_display(self) -> bool:
     return True
 
-  def sleep(self, seconds):
+  def sleep(self, seconds: Union[float, dt.timedelta]) -> None:
     if isinstance(seconds, dt.timedelta):
       seconds = seconds.total_seconds()
     if seconds == 0:
@@ -199,7 +199,8 @@ class Platform(abc.ABC):
     # TODO(cbruni): support remote platforms
     return shutil.which(binary)
 
-  def processes(self, attrs=()) -> List[Dict[str, Any]]:
+  def processes(self,
+                attrs: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     assert not self.is_remote, "Only local platform supported"
     return [
         p.info  # pytype: disable=attribute-error
@@ -216,7 +217,7 @@ class Platform(abc.ABC):
     return None
 
   def process_children(self, parent_pid: int,
-                       recursive=False) -> List[Dict[str, Any]]:
+                       recursive: bool = False) -> List[Dict[str, Any]]:
     return [
         p.as_dict()
         for p in psutil.Process(parent_pid).children(recursive=recursive)
@@ -225,19 +226,23 @@ class Platform(abc.ABC):
   def foreground_process(self) -> Optional[Dict[str, Any]]:
     return None
 
-  def sh_stdout(self, *args, shell=False, quiet=False, encoding="utf-8") -> str:
+  def sh_stdout(self,
+                *args,
+                shell: bool = False,
+                quiet: bool = False,
+                encoding: str = "utf-8") -> str:
     completed_process = self.sh(
         *args, shell=shell, capture_output=True, quiet=quiet)
     return completed_process.stdout.decode(encoding)
 
   def popen(self,
             *args,
-            shell=False,
+            shell: bool = False,
             stdout=None,
             stderr=None,
             stdin=None,
             env=None,
-            quiet=False) -> subprocess.Popen:
+            quiet: bool = False) -> subprocess.Popen:
     if not quiet:
       logging.debug("SHELL: %s", shlex.join(map(str, args)))
       logging.debug("CWD: %s", os.getcwd())
@@ -251,8 +256,8 @@ class Platform(abc.ABC):
 
   def sh(self,
          *args,
-         shell=False,
-         capture_output=False,
+         shell: bool = False,
+         capture_output: bool = False,
          stdout=None,
          stderr=None,
          stdin=None,
@@ -274,17 +279,17 @@ class Platform(abc.ABC):
       raise SubprocessError(process)
     return process
 
-  def exec_apple_script(self, script, quiet=False):
+  def exec_apple_script(self, script: str, quiet: bool = False):
     raise NotImplementedError("AppleScript is only available on MacOS")
 
-  def terminate(self, proc_pid):
+  def terminate(self, proc_pid: int) -> None:
     process = psutil.Process(proc_pid)
     for proc in process.children(recursive=True):
       proc.terminate()
     process.terminate()
 
-  def log(self, *messages, level=2):
-    messages = " ".join(map(str, messages))
+  def log(self, *messages: Any, level: int = 2) -> None:
+    message_str = " ".join(map(str, messages))
     if level == 3:
       level = logging.DEBUG
     if level == 2:
@@ -293,7 +298,7 @@ class Platform(abc.ABC):
       level = logging.WARNING
     if level == 0:
       level = logging.ERROR
-    logging.log(level, messages)
+    logging.log(level, message_str)
 
   # TODO(cbruni): split into separate list_system_monitoring and
   # disable_system_monitoring methods
@@ -355,7 +360,7 @@ class Platform(abc.ABC):
         "CPU": self.cpu_details(),
     }
 
-  def download_to(self, url, path):
+  def download_to(self, url: str, path: pathlib.Path) -> pathlib.Path:
     logging.debug("DOWNLOAD: %s\n       TO: %s", url, path)
     assert not path.exists(), f"Download destination {path} exists already."
     try:
@@ -375,11 +380,11 @@ class Platform(abc.ABC):
           shutil.copyfileobj(input_f, output_f)
     return output
 
-  def set_main_display_brightness(self, brightness_level: int):
+  def set_main_display_brightness(self, brightness_level: int) -> None:
     raise NotImplementedError(
         "Implementation is only available on MacOS for now")
 
-  def get_main_display_brightness(self):
+  def get_main_display_brightness(self) -> int:
     raise NotImplementedError(
         "Implementation is only available on MacOS for now")
 
@@ -395,7 +400,7 @@ class SubprocessError(subprocess.CalledProcessError):
     super().__init__(process.returncode, shlex.join(map(str, process.args)),
                      process.stdout, process.stderr)
 
-  def __str__(self):
+  def __str__(self) -> str:
     super_str = super().__str__()
     if not self.stderr:
       return super_str
@@ -412,11 +417,11 @@ class WinPlatform(Platform):
   )
 
   @property
-  def is_win(self):
+  def is_win(self) -> bool:
     return True
 
   @property
-  def name(self):
+  def name(self) -> str:
     return "win"
 
   def search_binary(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
@@ -452,11 +457,11 @@ class MacOSPlatform(PosixPlatform):
   )
 
   @property
-  def is_macos(self):
+  def is_macos(self) -> bool:
     return True
 
   @property
-  def name(self):
+  def name(self) -> str:
     return "macos"
 
   def _find_app_binary_path(self, app_path: pathlib.Path) -> pathlib.Path:
@@ -537,7 +542,7 @@ class MacOSPlatform(PosixPlatform):
         logging.debug("Could not use --version: %s", e)
     raise ValueError(f"Could not extract app version: {app_path}")
 
-  def exec_apple_script(self, script: str, quiet=False):
+  def exec_apple_script(self, script: str, quiet: bool = False):
     if not quiet:
       logging.debug("AppleScript: %s", script)
     return self.sh("/usr/bin/osascript", "-e", script)
@@ -631,7 +636,7 @@ class MacOSPlatform(PosixPlatform):
     ]
     return display_services, main_display
 
-  def set_main_display_brightness(self, brightness_level: int):
+  def set_main_display_brightness(self, brightness_level: int) -> None:
     """Sets the main display brightness at the specified percentage by
     brightness_level.
 
@@ -689,11 +694,11 @@ class LinuxPlatform(PosixPlatform):
   )
 
   @property
-  def is_linux(self):
+  def is_linux(self) -> bool:
     return True
 
   @property
-  def name(self):
+  def name(self) -> str:
     return "linux"
 
   def check_system_monitoring(self, disable: bool = False) -> bool:
@@ -755,7 +760,7 @@ def search_app_or_executable(name: str,
 # =============================================================================
 
 
-def urlopen(url):
+def urlopen(url: str):
   try:
     return urllib.request.urlopen(url)
   except urllib.error.HTTPError as e:
@@ -768,9 +773,9 @@ def urlopen(url):
 
 class ChangeCWD:
 
-  def __init__(self, destination):
+  def __init__(self, destination: pathlib.Path):
     self.new_dir = destination
-    self.prev_dir = None
+    self.prev_dir: Optional[str] = None
 
   def __enter__(self):
     self.prev_dir = os.getcwd()
@@ -822,6 +827,9 @@ class TimeScope:
 
 
 class WaitRange:
+  min: dt.timedelta
+  max: dt.timedelta
+  current: dt.timedelta
 
   def __init__(
       self,
@@ -853,7 +861,8 @@ class WaitRange:
     assert max_iterations is None or max_iterations > 0
     self.max_iterations = max_iterations
 
-  def __iter__(self):
+  def __iter__(self) -> Iterator[dt.timedelta]:
+    assert self.current
     i = 0
     while self.max_iterations is None or i < self.max_iterations:
       yield self.current
@@ -861,7 +870,7 @@ class WaitRange:
       i += 1
 
 
-def wait_with_backoff(wait_range):
+def wait_with_backoff(wait_range: WaitRange) -> Iterator[Tuple[float, float]]:
   assert isinstance(wait_range, WaitRange)
   start = dt.datetime.now()
   timeout = wait_range.timeout
@@ -882,7 +891,7 @@ class Durations:
 
   class _DurationMeasureContext:
 
-    def __init__(self, durations, name):
+    def __init__(self, durations: Durations, name: str):
       self._start_time = None
       self._durations = durations
       self._name = name
@@ -891,23 +900,24 @@ class Durations:
       self._start_time = dt.datetime.now()
 
     def __exit__(self, exc_type, exc_value, traceback):
+      assert self._start_time
       delta = dt.datetime.now() - self._start_time
       self._durations[self._name] = delta
 
   def __init__(self):
     self._durations: Dict[str, dt.timedelta] = {}
 
-  def __getitem__(self, name) -> dt.timedelta:
+  def __getitem__(self, name: str) -> dt.timedelta:
     return self._durations[name]
 
-  def __setitem__(self, name, duration: dt.timedelta):
+  def __setitem__(self, name: str, duration: dt.timedelta) -> None:
     assert name not in self._durations, (f"Cannot set '{name}' duration twice!")
     self._durations[name] = duration
 
-  def __len__(self):
+  def __len__(self) -> int:
     return len(self._durations)
 
-  def measure(self, name) -> "_DurationMeasureContext":
+  def measure(self, name: str) -> _DurationMeasureContext:
     assert name not in self._durations, (
         f"Cannot measure '{name}' duration twice!")
     return self._DurationMeasureContext(self, name)
@@ -919,7 +929,7 @@ class Durations:
     }
 
 
-def wrap_lines(body, width: int = 80, indent: str = ""):
+def wrap_lines(body: str, width: int = 80, indent: str = "") -> Iterable[str]:
   for line in body.splitlines():
     for split in textwrap.wrap(line, width):
       yield f"{indent}{split}"
@@ -944,11 +954,11 @@ class Spinner:
       self._is_running = False
       self._sleep()
 
-  def _cursors(self):
+  def _cursors(self) -> Iterable[str]:
     while True:
       yield from Spinner.CURSORS
 
-  def _spin(self):
+  def _spin(self) -> None:
     stdout = sys.stdout
     for cursor in self._cursors():
       if not self._is_running:
@@ -959,5 +969,5 @@ class Spinner:
       stdout.flush()
       self._sleep()
 
-  def _sleep(self):
+  def _sleep(self) -> None:
     time.sleep(self._sleep_time)

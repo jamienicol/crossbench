@@ -121,7 +121,7 @@ class ExceptionAnnotator:
   def assert_success(self,
                      message: Optional[str] = None,
                      exception_cls: Type[BaseException] = MultiException,
-                     log: bool = True):
+                     log: bool = True) -> None:
     if self.is_success:
       return
     if log:
@@ -144,19 +144,21 @@ class ExceptionAnnotator:
     """Sets info stack entries and captures exceptions."""
     return ExceptionAnnotationScope(self, exceptions, stack_entries, rethrow)
 
-  def extend(self, annotator: ExceptionAnnotator, is_nested: bool = False):
+  def extend(self, annotator: ExceptionAnnotator,
+             is_nested: bool = False) -> None:
     if is_nested:
       self._extend_with_prepended_stack_info(annotator)
     else:
       self._exceptions.extend(annotator.exceptions)
 
-  def _extend_with_prepended_stack_info(self, annotator: ExceptionAnnotator):
+  def _extend_with_prepended_stack_info(self,
+                                        annotator: ExceptionAnnotator) -> None:
     for entry in annotator.exceptions:
       merged_info_stack = self.info_stack + entry.info_stack
       merged_entry = Entry(entry.traceback, entry.exception, merged_info_stack)
       self._exceptions.append(merged_entry)
 
-  def append(self, exception: BaseException):
+  def append(self, exception: BaseException) -> None:
     traceback: str = tb.format_exc()
     logging.debug("Intermediate Exception %s:%s", type(exception), exception)
     logging.debug(traceback)
@@ -174,7 +176,7 @@ class ExceptionAnnotator:
     if self.throw:
       raise  # pylint: disable=misplaced-bare-raise
 
-  def log(self):
+  def log(self) -> None:
     if self.is_success:
       return
     logging.error("=" * 80)
@@ -213,6 +215,6 @@ Annotator = ExceptionAnnotator
 
 def annotate(*stack_entries: str,
              exceptions: TExceptionTypes = (Exception,),
-             throw: bool = False):
+             throw: bool = False) -> ExceptionAnnotationScope:
   return ExceptionAnnotator(throw=throw).capture(
       *stack_entries, exceptions=exceptions, rethrow=True)

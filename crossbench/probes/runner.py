@@ -6,19 +6,15 @@ from __future__ import annotations
 
 import json
 import logging
-import pathlib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict
 
-import crossbench
 from crossbench.probes import base
 from crossbench.probes.json import JsonResultProbe
 from crossbench.probes.results import ProbeResult
 
-#TODO: fix imports
-cb = crossbench
-
 if TYPE_CHECKING:
-  import crossbench.runner
+  from crossbench.runner import (Actions, RepetitionsRunGroup, Run,
+                                 StoriesRunGroup)
 
 
 class RunRunnerLogProbe(base.Probe):
@@ -36,7 +32,7 @@ class RunRunnerLogProbe(base.Probe):
       super().__init__(*args, **kwargs)
       self._log_handler = None
 
-    def setup(self, run: cb.runner.Run):
+    def setup(self, run: Run) -> None:
       log_formatter = logging.Formatter(
           "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s] "
           "[%(name)s]  %(message)s")
@@ -45,13 +41,13 @@ class RunRunnerLogProbe(base.Probe):
       self._log_handler.setLevel(logging.DEBUG)
       logging.getLogger().addHandler(self._log_handler)
 
-    def start(self, run: cb.runner.Run):
+    def start(self, run: Run) -> None:
       pass
 
-    def stop(self, run: cb.runner.Run):
+    def stop(self, run: Run) -> None:
       pass
 
-    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       logging.getLogger().removeHandler(self._log_handler)
       self._log_handler = None
       return ProbeResult(file=(self.results_file,))
@@ -66,16 +62,16 @@ class RunDurationsProbe(JsonResultProbe):
   IS_GENERAL_PURPOSE = False
   FLATTEN = False
 
-  def to_json(self, actions: cb.runner.Actions):
+  def to_json(self, actions: Actions) -> Any:
     return actions.run.durations.to_json()
 
   class Scope(JsonResultProbe.Scope):
 
-    def stop(self, run: cb.runner.Run):
+    def stop(self, run: Run) -> None:
       # Only extract data in the late TearDown phase.
       pass
 
-    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       json_data = self.extract_json(run)
       return self.write_json(run, json_data)
 
@@ -93,10 +89,10 @@ class RunResultsSummaryProbe(JsonResultProbe):
   FLATTEN = False
 
   @property
-  def is_attached(self):
+  def is_attached(self) -> bool:
     return True
 
-  def to_json(self, actions: cb.runner.Actions):
+  def to_json(self, actions: Actions) -> Dict[str, Any]:
     run = actions.run
     return {
         "name": run.name,
@@ -108,7 +104,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
         "errors": run.exceptions.to_json()
     }
 
-  def merge_repetitions(self, group: cb.runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: RepetitionsRunGroup) -> ProbeResult:
     iterations = []
     browser = None
 
@@ -136,7 +132,7 @@ class RunResultsSummaryProbe(JsonResultProbe):
     }
     return self.write_group_result(group, merged_data)
 
-  def merge_stories(self, group: cb.runner.StoriesRunGroup):
+  def merge_stories(self, group: StoriesRunGroup) -> ProbeResult:
     stories = {}
     browser = None
 
@@ -166,11 +162,11 @@ class RunResultsSummaryProbe(JsonResultProbe):
 
   class Scope(JsonResultProbe.Scope):
 
-    def stop(self, run):
+    def stop(self, run: Run) -> None:
       # Only extract data in the late TearDown phase.
       pass
 
-    def tear_down(self, run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       # Extract JSON late, When all other probes have produced data.
       json_data = self.extract_json(run)
       return self.write_json(run, json_data)

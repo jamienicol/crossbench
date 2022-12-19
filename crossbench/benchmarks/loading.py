@@ -9,8 +9,8 @@ import pathlib
 import re
 import time
 from enum import Enum
-from typing import (TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Type,
-                    Union)
+from typing import (TYPE_CHECKING, Any, Dict, List, Optional, Sequence, TextIO,
+                    Tuple, Type, Union)
 from urllib.parse import urlparse
 
 import hjson
@@ -20,6 +20,8 @@ from crossbench.exception import ExceptionAnnotator
 from crossbench.stories import Story
 
 if TYPE_CHECKING:
+  import argparse
+
   from crossbench.runner import Run
 
 
@@ -46,32 +48,32 @@ class Page(Story, metaclass=abc.ABCMeta):
   url: Optional[str]
 
   @classmethod
-  def all_story_names(cls):
+  def all_story_names(cls) -> Tuple[str, ...]:
     return tuple(page.name for page in PAGE_LIST)
 
 class LivePage(Page):
 
-  def __init__(self, name, url, duration=15):
+  def __init__(self, name: str, url: str, duration: float = 15):
     super().__init__(name, duration)
     assert url, "Invalid page url"
     self.url = url
 
-  def details_json(self):
+  def details_json(self) -> Dict[str, Any]:
     result = super().details_json()
     result["url"] = str(self.url)
     return result
 
-  def run(self, run):
+  def run(self, run: Run) -> None:
     run.browser.show_url(run.runner, self.url)
     run.runner.wait(self.duration + 1)
 
-  def __str__(self):
+  def __str__(self) -> str:
     return f"Page(name={self.name}, url={self.url})"
 
 
 class CombinedPage(Page):
 
-  def __init__(self, pages: Sequence[Page], name="combined"):
+  def __init__(self, pages: Sequence[Page], name: str = "combined"):
     assert len(pages), "No sub-pages provided for CombinedPage"
     assert len(pages) > 1, "Combined Page needs more than one page"
     self._pages = pages
@@ -79,16 +81,16 @@ class CombinedPage(Page):
     super().__init__(name, duration)
     self.url = None
 
-  def details_json(self):
+  def details_json(self) -> Dict[str, Any]:
     result = super().details_json()
     result["pages"] = list(page.details_json() for page in self._pages)
     return result
 
-  def run(self, run):
+  def run(self, run: Run) -> None:
     for page in self._pages:
       page.run(run)
 
-  def __str__(self):
+  def __str__(self) -> str:
     combined_name = ",".join(page.name for page in self._pages)
     return f"CombinedPage({combined_name})"
 
@@ -107,11 +109,11 @@ class InteractivePage(Page):
   def actions(self) -> List[Action]:
     return self._actions
 
-  def run(self, run):
+  def run(self, run: Run) -> None:
     for action in self._actions:
       action.run(run, self)
 
-  def details_json(self):
+  def details_json(self) -> Dict[str, Any]:
     result = super().details_json()
     result["actions"] = list(action.details_json() for action in self._actions)
     return result
@@ -163,7 +165,7 @@ class LoadingPageFilter(StoryFilter):
   stories: Sequence[Page]
 
   @classmethod
-  def kwargs_from_cli(cls, args):
+  def kwargs_from_cli(cls, args: argparse.Namespace) -> Dict[str, Any]:
     kwargs = super().kwargs_from_cli(args)
     kwargs["separate"] = args.separate
     return kwargs
@@ -175,7 +177,7 @@ class LoadingPageFilter(StoryFilter):
     self.separate = separate
     super().__init__(story_cls, patterns)
 
-  def process_all(self, patterns: Sequence[str]):
+  def process_all(self, patterns: Sequence[str]) -> None:
     name_or_url_list = patterns
     if len(name_or_url_list) == 1:
       if name_or_url_list[0] == "all":
@@ -192,7 +194,9 @@ class LoadingPageFilter(StoryFilter):
       # Regenerate with short names
       self._resolve_name_or_urls(name_or_url_list, use_hostname=True)
 
-  def _resolve_name_or_urls(self, name_or_url_list, use_hostname=False):
+  def _resolve_name_or_urls(self,
+                            name_or_url_list: Sequence[str],
+                            use_hostname: bool = False) -> None:
     page = None
     self.stories = []
     for value in name_or_url_list:
@@ -248,7 +252,7 @@ class PageLoadBenchmark(SubStoryBenchmark):
   STORY_FILTER_CLS = LoadingPageFilter
 
   @classmethod
-  def stories_from_cli_args(cls, args) -> Sequence[cb.stories.Story]:
+  def stories_from_cli_args(cls, args: argparse.Namespace) -> Sequence[Story]:
     if args.page_config:
       args.page_config = PageConfig.from_cli_args(args)
       if args.separate:
@@ -287,7 +291,7 @@ class PageConfig:
   _DURATION_RE = re.compile(r"(?P<value>(\d+(\.\d+)?)) ?(?P<unit>[^0-9\.]+)?")
 
   @classmethod
-  def from_cli_args(cls, args) -> PageConfig:
+  def from_cli_args(cls, args: argparse.Namespace) -> PageConfig:
     page_config = PageConfig()
     if args.page_config:
       initial_path = pathlib.Path(args.page_config)
@@ -302,7 +306,7 @@ class PageConfig:
     if raw_config_data:
       self.load_dict(raw_config_data)
 
-  def load(self, f, throw: bool = False):
+  def load(self, f: TextIO, throw: bool = False) -> None:
     assert not self.stories
     self._exceptions.throw = throw
     with self._exceptions.capture(f"Loading Pages config file: {f.name}"):
@@ -311,7 +315,7 @@ class PageConfig:
         self.load_dict(config, throw=throw)
     self._exceptions.assert_success()
 
-  def load_dict(self, raw_config_data: Dict, throw: bool = False):
+  def load_dict(self, raw_config_data: Dict, throw: bool = False) -> None:
     assert not self.stories
     self._exceptions.throw = throw
     with self._exceptions.capture("Parsing scenarios / pages"):
@@ -323,7 +327,7 @@ class PageConfig:
         self._parse_pages(raw_config_data["pages"])
     self._exceptions.assert_success()
 
-  def _parse_pages(self, pages: Dict[str, Any]):
+  def _parse_pages(self, pages: Dict[str, Any]) -> None:
     """
     Behaviour to be aware
 
@@ -443,53 +447,54 @@ class Action(abc.ABC):
     self.duration = duration
 
   @abc.abstractmethod
-  def run(self, run: Run, story: Story):
+  def run(self, run: Run, story: Story) -> None:
     pass
 
   @abc.abstractmethod
-  def _validate_action(self):
+  def _validate_action(self) -> None:
     pass
 
-  def details_json(self):
+  @abc.abstractmethod
+  def details_json(self) -> Dict[str, Any]:
     pass
 
 
 class GetAction(Action):
 
-  def run(self, run, story: Story):
+  def run(self, run: Run, story: Story) -> None:
     self._story = story
     self._validate_action()
     run.browser.show_url(run.runner, self.value)
 
-  def _validate_action(self):
+  def _validate_action(self) -> None:
     if not self.value:
       raise Exception(self._EXCEPTION_BASE_STR +
                       f"{self._story._name}. Argument 'value' is not provided")
 
-  def details_json(self):
+  def details_json(self) -> Dict[str, Any]:
     return {"action": self.action_type, "value": self.value}
 
 
 class WaitAction(Action):
 
-  def run(self, run, story: cb.stories.Story):
+  def run(self, run: Run, story: Story) -> None:
     self._story = story
     self._validate_action()
     run.runner.wait(self.duration)
 
-  def _validate_action(self):
+  def _validate_action(self) -> None:
     if not self.duration:
       raise Exception(
           self._EXCEPTION_BASE_STR +
           f"{self._story._name}. Argument 'duration' is not provided")
 
-  def details_json(self):
+  def details_json(self) -> Dict[str, Any]:
     return {"action": self.action_type, "duration": self.duration}
 
 
 class ScrollAction(Action):
 
-  def run(self, run, story: Story):
+  def run(self, run: Run, story: Story) -> None:
     self._story = story
     self._validate_action()
     time_end = self.duration + time.time()
@@ -507,13 +512,13 @@ class ScrollAction(Action):
       # else :
       #   pyautogui.scroll(direction)
 
-  def _validate_action(self):
+  def _validate_action(self) -> None:
     if not self.duration or not self.value:
       raise Exception(
           self._EXCEPTION_BASE_STR +
           f"{self._story._name}. Argument 'duration' is not provided")
 
-  def details_json(self):
+  def details_json(self) -> Dict[str, Any]:
     return {
         "action": self.action_type,
         "value": self.value,

@@ -20,21 +20,14 @@ from selenium.webdriver.chromium.options import ChromiumOptions
 from selenium.webdriver.chromium.service import ChromiumService
 from selenium.webdriver.chromium.webdriver import ChromiumDriver
 
-import crossbench
-import crossbench.exception
-import crossbench.flags
-from crossbench import helper
+from crossbench import exception, helper
 from crossbench.browsers.base import (BROWSERS_CACHE, Browser,
                                       convert_flags_to_label)
 from crossbench.browsers.webdriver import WebdriverMixin
-
-#TODO: fix imports
-cb = crossbench
+from crossbench.flags import ChromeFeatures, ChromeFlags, Flags, JSFlags
 
 if TYPE_CHECKING:
-  import crossbench.runner
-
-FlagsInitialDataType = cb.flags.Flags.InitialDataType
+  from crossbench.runner import Run, Runner
 
 
 class Chromium(Browser):
@@ -60,15 +53,16 @@ class Chromium(Browser):
         win=["Google/Chromium/Application/chromium.exe"])
 
   @classmethod
-  def default_flags(cls, initial_data: FlagsInitialDataType = None):
-    return cb.flags.ChromeFlags(initial_data)
+  def default_flags(cls,
+                    initial_data: Flags.InitialDataType = None) -> ChromeFlags:
+    return ChromeFlags(initial_data)
 
   def __init__(
       self,
       label: str,
       path: pathlib.Path,
-      js_flags: FlagsInitialDataType = None,
-      flags: FlagsInitialDataType = None,
+      js_flags: Flags.InitialDataType = None,
+      flags: Flags.InitialDataType = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "chromium",  # pylint: disable=redefined-builtin
       platform: Optional[helper.Platform] = None):
@@ -85,12 +79,13 @@ class Chromium(Browser):
         f"js_flags should be a list, but got: {repr(js_flags)}")
     assert not isinstance(
         flags, str), (f"flags should be a list, but got: {repr(flags)}")
-    self._flags: cb.flags.ChromeFlags = self.default_flags(self.DEFAULT_FLAGS)
+    self._flags: ChromeFlags = self.default_flags(self.DEFAULT_FLAGS)
     self._flags.update(flags)
     self.js_flags.update(js_flags)
     self._stdout_log_file = None
 
-  def _extract_version(self):
+  def _extract_version(self) -> str:
+    assert self.path
     version_string = self.platform.app_version(self.path)
     # Sample output: "Chromium 90.0.4430.212 dev" => "90.0.4430.212"
     return re.findall(r"[\d\.]+", version_string)[0]
@@ -105,14 +100,14 @@ class Chromium(Browser):
     return self.log_file.with_suffix(f".{self.type}.log")
 
   @property
-  def js_flags(self) -> cb.flags.JSFlags:
+  def js_flags(self) -> JSFlags:
     return self._flags.js_flags
 
   @property
-  def features(self) -> cb.flags.ChromeFeatures:
+  def features(self) -> ChromeFeatures:
     return self._flags.features
 
-  def exec_apple_script(self, script):
+  def exec_apple_script(self, script: str):
     assert self.platform.is_macos
     return self.platform.exec_apple_script(script)
 
@@ -124,7 +119,7 @@ class Chromium(Browser):
     details["js_flags"] = tuple(self.js_flags.get_list())
     return details
 
-  def _get_browser_flags(self, run) -> Tuple[str, ...]:
+  def _get_browser_flags(self, run: Run) -> Tuple[str, ...]:
     js_flags_copy = self.js_flags.copy()
     js_flags_copy.update(run.extra_js_flags)
 
@@ -144,7 +139,12 @@ class Chromium(Browser):
   def get_label_from_flags(self) -> str:
     return convert_flags_to_label(*self.flags, *self.js_flags)
 
-  def start(self, run):
+  def start(self, run: Run) -> None:
+    # TODO: fix applescript version
+    raise NotImplementedError(
+        "Running the browser with AppleScript is currently broken.")
+
+  def _start_broken(self, run: Run) -> None:
     runner = run.runner
     assert self.platform.is_macos, (
         f"Sorry, f{self.__class__} is only supported on MacOS for now")
@@ -152,8 +152,8 @@ class Chromium(Browser):
     assert self._stdout_log_file is None
     if self.log_file:
       self._stdout_log_file = self.stdout_log_file.open("w", encoding="utf-8")
-    self._pid = runner.popen(
-        self.path, *self._get_browser_flags(run), stdout=self._stdout_log_file)
+    # self._pid = runner.popen(
+    #     self.path, *self._get_browser_flags(run), stdout=self._stdout_log_file)
     runner.wait(0.5)
     self.exec_apple_script(f"""
 tell application "{self.app_name}"
@@ -163,14 +163,13 @@ end tell
     """)
     self._is_running = True
 
-  def quit(self, runner):
+  def quit(self, runner: Runner) -> None:
     super().quit(runner)
     if self._stdout_log_file:
       self._stdout_log_file.close()
       self._stdout_log_file = None
 
-  def show_url(self, runner, url):
-
+  def show_url(self, runner: Runner, url: str) -> None:
     self.exec_apple_script(f"""
 tell application "{self.app_name}"
     activate
@@ -188,8 +187,8 @@ class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
       self,
       label: str,
       path: pathlib.Path,
-      js_flags: FlagsInitialDataType = None,
-      flags: FlagsInitialDataType = None,
+      js_flags: Flags.InitialDataType = None,
+      flags: Flags.InitialDataType = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "chromium",  # pylint: disable=redefined-builtin
       driver_path: Optional[pathlib.Path] = None,
@@ -204,7 +203,7 @@ class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
       return finder.find_local_build()
     return finder.download()
 
-  def _start_driver(self, run: cb.runner.Run,
+  def _start_driver(self, run: Run,
                     driver_path: pathlib.Path) -> ChromiumDriver:
     assert not self._is_running
     assert self.log_file
@@ -236,7 +235,7 @@ class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
   def _create_driver(self, options, service) -> ChromiumDriver:
     pass
 
-  def _check_driver_version(self):
+  def _check_driver_version(self) -> None:
     # TODO
     # version = self.platform.sh_stdout(self._driver_path, "--version")
     pass
@@ -273,13 +272,13 @@ class ChromeDriverFinder:
 
   def download(self) -> pathlib.Path:
     if not self.driver_path.exists():
-      with cb.exception.annotate(
+      with exception.annotate(
           f"Downloading chromedriver for {self.browser.version}"):
         self._download()
 
     return self.driver_path
 
-  def _download(self):
+  def _download(self) -> None:
     major_version = self.browser.major_version
     logging.info("CHROMEDRIVER Downloading from %s for %s v%s", self.URL,
                  self.browser.type, major_version)

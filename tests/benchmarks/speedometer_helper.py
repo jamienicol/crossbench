@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import abc
+import argparse
 import csv
 from dataclasses import dataclass
 from typing import Optional, Type
@@ -44,7 +45,7 @@ class Speedometer2BaseTestCase(
       self.assertEqual(story.iterations, 123)
 
   @dataclass
-  class Namespace:
+  class Namespace(argparse.Namespace):
     stories = "all"
     iterations = 10
     separate: bool = False

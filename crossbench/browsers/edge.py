@@ -141,7 +141,7 @@ class EdgeWebDriverDownloader:
         self._download()
     return self.driver_path
 
-  def _download(self):
+  def _download(self) -> None:
     arch = self._arch_identifier()
     archive_name = f"edgedriver_{arch}.zip"
     url = self.BASE_URL + f"/{self.browser.version}/{archive_name}"

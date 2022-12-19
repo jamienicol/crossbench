@@ -5,15 +5,16 @@
 from __future__ import annotations
 
 import itertools
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import crossbench.probes.helper as probes_helper
 from crossbench.benchmarks.base import PressBenchmark
 from crossbench.probes.json import JsonResultProbe
+from crossbench.probes.results import ProbeResult
 from crossbench.stories import PressBenchmarkStory
 
 if TYPE_CHECKING:
-  from crossbench.runner import BrowsersRunGroup, Run, StoriesRunGroup
+  from crossbench.runner import BrowsersRunGroup, Run, StoriesRunGroup, Actions
 
 
 def _probe_skip_data_segments(path: Tuple[str, ...]) -> Optional[str]:
@@ -34,22 +35,22 @@ class MotionMark12Probe(JsonResultProbe):
     return window.benchmarkRunnerClient.results.results;
   """
 
-  def to_json(self, actions):
+  def to_json(self, actions: Actions) -> Dict[str, Any]:
     return actions.js(self.JS)
 
-  def flatten_json_data(self, json_data: List):
+  def flatten_json_data(self, json_data: List) -> Dict[str, Any]:
     assert isinstance(json_data, list) and len(json_data) == 1, (
       "Motion12MarkProbe requires a results list.")
     return probes_helper.Flatten(
         json_data[0], key_fn=_probe_skip_data_segments).data
 
-  def merge_stories(self, group: StoriesRunGroup):
+  def merge_stories(self, group: StoriesRunGroup) -> ProbeResult:
     merged = probes_helper.ValuesMerger.merge_json_list(
         story_group.results[self].json
         for story_group in group.repetitions_groups)
     return self.write_group_result(group, merged, write_csv=True)
 
-  def merge_browsers(self, group: BrowsersRunGroup):
+  def merge_browsers(self, group: BrowsersRunGroup) -> ProbeResult:
     return self.merge_browsers_csv_list(group)
 
 
@@ -161,7 +162,7 @@ class MotionMark12Story(PressBenchmarkStory):
   def substory_duration(self) -> float:
     return 35
 
-  def run(self, run: Run):
+  def run(self, run: Run) -> None:
     with run.actions("Setup") as actions:
       actions.navigate_to(self._url)
       actions.wait_js_condition(

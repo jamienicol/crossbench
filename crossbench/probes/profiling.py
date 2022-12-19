@@ -11,25 +11,21 @@ import pathlib
 import signal
 import subprocess
 import time
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional
 
-import crossbench
-from crossbench.probes.results import ProbeResult
-import crossbench.probes.v8
 from crossbench import helper
-from crossbench.probes import base
-from crossbench.runner import Run, Runner
-
-#TODO: fix imports
-cb = crossbench
+from crossbench.probes.base import Probe, ProbeConfigParser
+from crossbench.probes.results import ProbeResult
+from crossbench.probes.v8.log import V8LogProbe
+from crossbench.browsers.chromium import Chromium
 
 if TYPE_CHECKING:
-  import crossbench.browsers
-  import crossbench.env
-  import crossbench.runner
+  from crossbench.browsers.base import Browser
+  from crossbench.env import HostEnvironment
+  from crossbench.runner import Run, Runner
 
 
-class ProfilingProbe(base.Probe):
+class ProfilingProbe(Probe):
   """
   General-purpose sampling profiling probe.
 
@@ -51,7 +47,7 @@ class ProfilingProbe(base.Probe):
   IS_GENERAL_PURPOSE = True
 
   @classmethod
-  def config_parser(cls):
+  def config_parser(cls) -> ProbeConfigParser:
     parser = super().config_parser()
     parser.add_argument(
         "js",
@@ -81,10 +77,10 @@ class ProfilingProbe(base.Probe):
     return parser
 
   def __init__(self,
-               js=True,
-               v8_interpreted_frames=True,
-               pprof=True,
-               browser_process=False):
+               js: bool = True,
+               v8_interpreted_frames: bool = True,
+               pprof: bool = True,
+               browser_process: bool = False):
     super().__init__()
     self._sample_js = js
     self._sample_browser_process = browser_process
@@ -93,9 +89,9 @@ class ProfilingProbe(base.Probe):
     if v8_interpreted_frames:
       assert js, "Cannot expose V8 interpreted frames without js profiling."
 
-  def is_compatible(self, browser):
+  def is_compatible(self, browser: Browser) -> bool:
     if browser.platform.is_linux:
-      return isinstance(browser, cb.browsers.Chromium)
+      return isinstance(browser, Chromium)
     if browser.platform.is_macos:
       return True
     return False
@@ -112,14 +108,14 @@ class ProfilingProbe(base.Probe):
   def run_pprof(self) -> bool:
     return self._run_pprof
 
-  def attach(self, browser: cb.browsers.Browser):
+  def attach(self, browser: Browser) -> None:
     super().attach(browser)
     if self.browser_platform.is_linux:
-      assert isinstance(browser, cb.browsers.Chromium), (
+      assert isinstance(browser, Chromium), (
           f"Expected Chromium-based browser, found {type(browser)}.")
       self._attach_linux(browser)
 
-  def pre_check(self, env: cb.env.HostEnvironment):
+  def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)
     if self.browser_platform.is_linux:
       env.check_installed(binaries=["pprof"])
@@ -138,7 +134,7 @@ class ProfilingProbe(base.Probe):
       env.handle_warning(f"Probe={self.NAME} cannot merge data over multiple "
                          f"repetitions={env.runner.repetitions}.")
 
-  def _attach_linux(self, browser: cb.browsers.Chromium):
+  def _attach_linux(self, browser: Chromium) -> None:
     if self._sample_js:
       browser.js_flags.update(self.JS_FLAGS_PERF)
       if self._expose_v8_interpreted_frames:
@@ -152,7 +148,7 @@ class ProfilingProbe(base.Probe):
     # Disable sandbox to write profiling data
     browser.flags.set("--no-sandbox")
 
-  def log_result_summary(self, runner: Runner):
+  def log_result_summary(self, runner: Runner) -> None:
     runs: List[Run] = list(run for run in runner.runs if self in run.results)
     if not runs:
       return
@@ -163,7 +159,7 @@ class ProfilingProbe(base.Probe):
     for i, run in enumerate(runner.runs):
       self._log_run_result_summary(run, i)
 
-  def _log_run_result_summary(self, run: Run, i: int):
+  def _log_run_result_summary(self, run: Run, i: int) -> None:
     if self not in run.results:
       return
     cwd = pathlib.Path.cwd()
@@ -183,21 +179,21 @@ class ProfilingProbe(base.Probe):
         logging.info("    %s/*.perf.data*: %d more files",
                      largest_perf_file.parent.relative_to(cwd), len(perf_files))
 
-  def get_scope(self, run: cb.runner.Run):
+  def get_scope(self, run: Run) -> Probe.Scope:
     if self.browser_platform.is_linux:
       return self.LinuxProfilingScope(self, run)
     if self.browser_platform.is_macos:
       return self.MacOSProfilingScope(self, run)
     raise Exception("Invalid platform")
 
-  class MacOSProfilingScope(base.Probe.Scope):
+  class MacOSProfilingScope(Probe.Scope):
     _process: subprocess.Popen
 
     def __init__(self, *args, **kwargs):
       super().__init__(*args, **kwargs)
       self._default_results_file = self.results_file.parent / "profile.trace"
 
-    def start(self, run):
+    def start(self, run: Run) -> None:
       self._process = self.browser_platform.popen("xctrace", "record",
                                                   "--template", "Time Profiler",
                                                   "--all-processes", "--output",
@@ -205,16 +201,16 @@ class ProfilingProbe(base.Probe):
       # xctrace takes some time to start up
       time.sleep(3)
 
-    def stop(self, run: cb.runner.Run):
+    def stop(self, run: Run) -> None:
       # Needs to be SIGINT for xctrace, terminate won't work.
       self._process.send_signal(signal.SIGINT)
 
-    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       while self._process.poll() is None:
         time.sleep(1)
       return ProbeResult(file=(self.results_file,))
 
-  class LinuxProfilingScope(base.Probe.Scope):
+  class LinuxProfilingScope(Probe.Scope):
     PERF_DATA_PATTERN = "*.perf.data"
     TEMP_FILE_PATTERNS = (
         "*.perf.data.jitted",
@@ -222,11 +218,11 @@ class ProfilingProbe(base.Probe):
         "jit-*.dump",
     )
 
-    def __init__(self, probe: ProfilingProbe, run: cb.runner.Run):
+    def __init__(self, probe: ProfilingProbe, run: Run):
       super().__init__(probe, run)
       self._perf_process = None
 
-    def start(self, run):
+    def start(self, run: Run) -> None:
       if not self.probe.sample_browser_process:
         return
       if run.browser.pid is None:
@@ -238,16 +234,16 @@ class ProfilingProbe(base.Probe):
           "perf", "record", "--call-graph=fp", "--freq=max", "--clockid=mono",
           f"--output={perf_data_file}", f"--pid={run.browser.pid}")
 
-    def setup(self, run: cb.runner.Run):
+    def setup(self, run: Run) -> None:
       for probe in run.probes:
-        assert not isinstance(probe, cb.probes.v8.V8LogProbe), (
+        assert not isinstance(probe, V8LogProbe), (
             "Cannot use profiler and v8.log probe in parallel yet")
 
-    def stop(self, run: cb.runner.Run):
+    def stop(self, run: Run) -> None:
       if self._perf_process:
         self._perf_process.terminate()
 
-    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       # Waiting for linux-perf to flush all perf data
       if self.probe.sample_browser_process:
         logging.debug("Waiting for browser process to stop")
@@ -271,8 +267,8 @@ class ProfilingProbe(base.Probe):
       logging.debug("Profiling results: %s", urls)
       return ProbeResult(url=urls, file=perf_files)
 
-    def _inject_v8_symbols(self, run: cb.runner.Run,
-                           perf_files: List[pathlib.Path]):
+    def _inject_v8_symbols(self, run: Run, perf_files: List[pathlib.Path]
+                          ) -> List[pathlib.Path]:
       with run.actions(
           f"Probe {self.probe.name}: "
           f"Injecting V8 symbols into {len(perf_files)} profiles",
@@ -292,7 +288,7 @@ class ProfilingProbe(base.Probe):
                 pool.imap(linux_perf_probe_inject_v8_symbols, perf_files))
         return [file for file in perf_jitted_files if file is not None]
 
-    def _export_to_pprof(self, run: cb.runner.Run,
+    def _export_to_pprof(self, run: Run,
                          perf_files: List[pathlib.Path]) -> List[str]:
       run_details_json = json.dumps(run.get_browser_details_json())
       with run.actions(
@@ -323,7 +319,7 @@ class ProfilingProbe(base.Probe):
           logging.debug("Failed to run pprof: %s", e)
         return urls
 
-    def _clean_up_temp_files(self, run: cb.runner.Run):
+    def _clean_up_temp_files(self, run: Run) -> None:
       for pattern in self.TEMP_FILE_PATTERNS:
         for file in run.out_dir.glob(pattern):
           file.unlink()
@@ -331,7 +327,7 @@ class ProfilingProbe(base.Probe):
 
 def linux_perf_probe_inject_v8_symbols(
     perf_data_file: pathlib.Path,
-    platform: Optional[helper.Platform] = None):
+    platform: Optional[helper.Platform] = None) -> Optional[pathlib.Path]:
   assert perf_data_file.is_file()
   output_file = perf_data_file.with_suffix(".data.jitted")
   assert not output_file.exists()

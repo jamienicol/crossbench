@@ -10,21 +10,20 @@ import pathlib
 import shutil
 import subprocess
 import tempfile
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, Dict, List, Tuple
 
 import crossbench
-from crossbench.probes.results import ProbeResult
 from crossbench import helper
 from crossbench.probes import base
+from crossbench.probes.results import ProbeResult
 
 #TODO: fix imports
 cb = crossbench
 
 if TYPE_CHECKING:
-  import crossbench.env
-  import crossbench.runner
+  from crossbench.env import HostEnvironment
+  from crossbench.runner import BrowsersRunGroup, RepetitionsRunGroup, Run
   from crossbench.stories import Story
-  from crossbench.runner import RepetitionsRunGroup
 
 
 class VideoProbe(base.Probe):
@@ -47,7 +46,7 @@ class VideoProbe(base.Probe):
   def results_file_name(self) -> str:
     return f"{self.name}.mp4"
 
-  def pre_check(self, env: cb.env.HostEnvironment):
+  def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)
     if env.runner.repetitions > 10:
       env.handle_warning(
@@ -78,7 +77,7 @@ class VideoProbe(base.Probe):
       self._record_process = None
       self._recorder_log_file = None
 
-    def start(self, run: cb.runner.Run):
+    def start(self, run: Run) -> None:
       browser = run.browser
       cmd = self._record_cmd(browser.x, browser.y, browser.width,
                              browser.height)
@@ -94,7 +93,8 @@ class VideoProbe(base.Probe):
       # TODO: Add common start-story-delay on runner for these cases.
       self.runner_platform.sleep(1)
 
-    def _record_cmd(self, x, y, width, height):
+    def _record_cmd(self, x: int, y: int, width: int,
+                    height: int) -> Tuple[str, ...]:
       if self.browser_platform.is_linux:
         env_display = os.environ.get("DISPLAY", ":0.0")
         return ("ffmpeg", "-hide_banner", "-video_size", f"{width}x{height}",
@@ -105,7 +105,7 @@ class VideoProbe(base.Probe):
                 self.results_file)
       raise Exception("Invalid platform")
 
-    def stop(self, run: cb.runner.Run):
+    def stop(self, run: Run) -> None:
       if self.browser_platform.is_macos:
         assert not self._record_process.poll(), (
             "screencapture stopped early. "
@@ -116,7 +116,7 @@ class VideoProbe(base.Probe):
       else:
         self._record_process.terminate()
 
-    def tear_down(self, run: cb.runner.Run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       self._recorder_log_file.close()
       if self._record_process.poll() is not None:
         self._record_process.wait(timeout=5)
@@ -126,7 +126,7 @@ class VideoProbe(base.Probe):
         timestrip_file = self._create_time_strip(pathlib.Path(tmp_dir))
       return ProbeResult(file=(self.results_file, timestrip_file))
 
-    def _create_time_strip(self, tmpdir: pathlib.Path):
+    def _create_time_strip(self, tmpdir: pathlib.Path) -> pathlib.Path:
       logging.info("TIMESTRIP")
       progress_dir = tmpdir / "progress"
       progress_dir.mkdir(parents=True, exist_ok=True)
@@ -160,7 +160,7 @@ class VideoProbe(base.Probe):
                               "x100", timeline_strip_file)
       return timeline_strip_file
 
-  def merge_repetitions(self, group: RepetitionsRunGroup):
+  def merge_repetitions(self, group: RepetitionsRunGroup) -> ProbeResult:
     result_file = group.get_probe_results_file(self)
     timeline_strip_file = result_file.with_suffix(self.TIMESTRIP_FILE_SUFFIX)
     runs = tuple(group.runs)
@@ -170,7 +170,7 @@ class VideoProbe(base.Probe):
       # TODO migrate to platform
       shutil.copy(run_result_file, result_file)
       shutil.copy(run_timeline_strip_file, timeline_strip_file)
-      return (result_file, timeline_strip_file)
+      return ProbeResult(file=(result_file, timeline_strip_file))
     logging.info("TIMESTRIP merge page iterations")
     timeline_strips = (run.results[self].file_list[1] for run in runs)
     self.runner_platform.sh("montage", *timeline_strips, "-tile", "1x",
@@ -192,26 +192,27 @@ class VideoProbe(base.Probe):
         f"hstack=inputs={len(runs)},"
         f"drawtext={draw_text},"
         "scale=3000:-2", *self.VIDEO_QUALITY, result_file)
-    return (result_file, timeline_strip_file)
+    return ProbeResult(file=(result_file, timeline_strip_file))
 
-  def merge_browsers(self, group: cb.runner.BrowsersRunGroup):
+  def merge_browsers(self, group: BrowsersRunGroup) -> ProbeResult:
     """Merge story videos from multiple browser/configurations"""
     groups = list(group.repetitions_groups)
     if len(groups) <= 1:
-      return None
+      return ProbeResult()
     grouped: Dict[Story, List[RepetitionsRunGroup]] = helper.group_by(
         groups, key=lambda repetitions_group: repetitions_group.story)
 
     result_dir = group.get_probe_results_file(self)
     result_dir = result_dir / result_dir.stem
     result_dir.mkdir(parents=True)
-    return tuple(
-        self._merge_stories_for_browser(result_dir, story, repetitions_groups)
-        for story, repetitions_groups in grouped.items())
+    return ProbeResult(
+        file=(self._merge_stories_for_browser(result_dir, story,
+                                              repetitions_groups)
+              for story, repetitions_groups in grouped.items()))
 
   def _merge_stories_for_browser(self, result_dir: pathlib.Path, story: Story,
-                                 repetitions_groups: List[RepetitionsRunGroup]):
-
+                                 repetitions_groups: List[RepetitionsRunGroup]
+                                ) -> pathlib.Path:
     story = repetitions_groups[0].story
     result_file = result_dir / f"{story.name}_combined.mp4"
 

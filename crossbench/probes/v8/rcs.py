@@ -4,21 +4,18 @@
 
 from __future__ import annotations
 
-import pathlib
 from typing import TYPE_CHECKING
 
-import crossbench
-from crossbench.probes import base
+from crossbench.browsers.chromium import Chromium
+from crossbench.probes.base import Probe
 from crossbench.probes.results import ProbeResult
 
-#TODO: fix imports
-cb = crossbench
-
 if TYPE_CHECKING:
-  import crossbench.runner
+  from crossbench.browsers.base import Browser
+  from crossbench.runner import RepetitionsRunGroup, Run, StoriesRunGroup
 
 
-class V8RCSProbe(base.Probe):
+class V8RCSProbe(Probe):
   """
   Chromium-only Probe to extract runtime-call-stats data that can be used
   to analyze precise counters and time spent in various VM components in V8:
@@ -26,31 +23,32 @@ class V8RCSProbe(base.Probe):
   """
   NAME = "v8.rcs"
 
-  def is_compatible(self, browser):
-    return isinstance(browser, cb.browsers.Chromium)
+  def is_compatible(self, browser: Browser) -> bool:
+    return isinstance(browser, Chromium)
 
-  def attach(self, browser):
+  def attach(self, browser: Browser) -> None:
     super().attach(browser)
+    assert isinstance(browser, Chromium)
     browser.js_flags.update(("--runtime-call-stats", "--allow-natives-syntax"))
 
   @property
-  def results_file_name(self):
+  def results_file_name(self) -> str:
     return f"{self.name}.txt"
 
-  class Scope(base.Probe.Scope):
+  class Scope(Probe.Scope):
     _rcs_table: str
 
-    def setup(self, run):
+    def setup(self, run: Run) -> None:
       pass
 
-    def start(self, run):
+    def start(self, run: Run) -> None:
       pass
 
-    def stop(self, run):
+    def stop(self, run: Run) -> None:
       with run.actions("Extract RCS") as actions:
         self._rcs_table = actions.js("return %GetAndResetRuntimeCallStats();")
 
-    def tear_down(self, run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       if not getattr(self, "_rcs_table", None):
         raise Exception("Chrome didn't produce any RCS data. "
                         "Use Chrome Canary or make sure to enable the "
@@ -60,13 +58,14 @@ class V8RCSProbe(base.Probe):
         f.write(self._rcs_table)
       return ProbeResult(file=(rcs_file,))
 
-  def merge_repetitions(self, group: cb.runner.RepetitionsRunGroup):
+  def merge_repetitions(self, group: RepetitionsRunGroup) -> ProbeResult:
     merged_result_path = group.get_probe_results_file(self)
     result_files = (run.results[self].file for run in group.runs)
-    return self.runner_platform.concat_files(
+    result_file = self.runner_platform.concat_files(
         inputs=result_files, output=merged_result_path)
+    return ProbeResult(file=[result_file])
 
-  def merge_stories(self, group: cb.runner.StoriesRunGroup):
+  def merge_stories(self, group: StoriesRunGroup) -> ProbeResult:
     merged_result_path = group.get_probe_results_file(self)
     with merged_result_path.open("w", encoding="utf-8") as merged_file:
       for repetition_group in group.repetitions_groups:
@@ -74,4 +73,4 @@ class V8RCSProbe(base.Probe):
         merged_file.write(f"\n== Page: {repetition_group.story.name}\n")
         with merged_iterations_file.open(encoding="utf-8") as f:
           merged_file.write(f.read())
-    return merged_result_path
+    return ProbeResult(file=[merged_result_path])

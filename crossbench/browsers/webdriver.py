@@ -14,15 +14,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
 import selenium.common.exceptions
 from selenium import webdriver
 
-import crossbench
 from crossbench.browsers.base import Browser
-
-#TODO: fix imports
-cb = crossbench
 
 if TYPE_CHECKING:
   import datetime as dt
-  import crossbench.runner
+
+  from crossbench.runner import Run, Runner
 
 
 class WebdriverMixin(Browser):
@@ -37,7 +34,7 @@ class WebdriverMixin(Browser):
     assert log_file
     return log_file.with_suffix(".driver.log")
 
-  def setup_binary(self, runner: cb.runner.Runner):
+  def setup_binary(self, runner: Runner) -> None:
     self._driver_path = self._find_driver()
     assert self._driver_path.exists(), (
         f"Webdriver path '{self._driver_path}' does not exist")
@@ -47,10 +44,10 @@ class WebdriverMixin(Browser):
     pass
 
   @abc.abstractmethod
-  def _check_driver_version(self):
+  def _check_driver_version(self) -> None:
     pass
 
-  def start(self, run: cb.runner.Run):
+  def start(self, run: Run) -> None:
     assert not self._is_running
     assert self._driver_path
     self._check_driver_version()
@@ -69,7 +66,7 @@ class WebdriverMixin(Browser):
     self._check_driver_version()
 
   @abc.abstractmethod
-  def _start_driver(self, run: cb.runner.Run,
+  def _start_driver(self, run: Run,
                     driver_path: pathlib.Path) -> webdriver.Remote:
     pass
 
@@ -78,7 +75,7 @@ class WebdriverMixin(Browser):
     details["log"]["driver"] = str(self.driver_log_file)
     return details
 
-  def show_url(self, runner: cb.runner.Runner, url):
+  def show_url(self, runner: Runner, url: str) -> None:
     logging.debug("SHOW_URL %s", url)
     assert self._driver.window_handles, "Browser has no more opened windows."
     self._driver.switch_to.window(self._driver.window_handles[0])
@@ -92,10 +89,10 @@ class WebdriverMixin(Browser):
       raise
 
   def js(self,
-         runner: cb.runner.Runner,
+         runner: Runner,
          script: str,
          timeout: Optional[dt.timedelta] = None,
-         arguments: Sequence[object] = ()):
+         arguments: Sequence[object] = ()) -> Any:
     logging.debug("RUN SCRIPT timeout=%s, script: %s", timeout, script[:100])
     assert self._is_running
     try:
@@ -108,11 +105,11 @@ class WebdriverMixin(Browser):
       # pylint: disable=raise-missing-from
       raise Exception(f"Could not execute JS: {e.msg}")
 
-  def quit(self, runner: cb.runner.Runner):
+  def quit(self, runner: Runner) -> None:
     assert self._is_running
     self.force_quit()
 
-  def force_quit(self):
+  def force_quit(self) -> None:
     if getattr(self, "_driver", None) is None:
       return
     logging.debug("QUIT")
@@ -151,28 +148,28 @@ class RemoteWebDriver(WebdriverMixin, Browser):
     self.version : str = driver.capabilities['browserVersion']
     self.major_version: int = int(self.version.split(".")[0])
 
-  def _check_driver_version(self):
+  def _check_driver_version(self) -> None:
     raise NotImplementedError()
 
-  def _extract_version(self):
+  def _extract_version(self) -> None:
     raise NotImplementedError()
 
   def _find_driver(self) -> pathlib.Path:
     raise NotImplementedError()
 
-  def _start_driver(self, run: cb.runner.Run, driver_path: pathlib.Path):
+  def _start_driver(self, run: Run, driver_path: pathlib.Path) -> None:
     raise NotImplementedError()
 
-  def setup_binary(self, runner: cb.runner.Runner):
+  def setup_binary(self, runner: Runner) -> None:
     pass
 
-  def start(self, run: cb.runner.Run):
+  def start(self, run: Run) -> None:
     # Driver has already been started. We just need to mark it as running.
     self._is_running = True
     self._driver.set_window_position(self.x, self.y)
     self._driver.set_window_size(self.width, self.height)
 
-  def quit(self, runner: cb.runner.Runner):
+  def quit(self, runner: Runner) -> None:
     # External code that started the driver is responsible for shutting it down.
     self._is_running = False
 

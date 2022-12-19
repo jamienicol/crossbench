@@ -8,20 +8,18 @@ import abc
 import argparse
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Sequence, Type, TypeVar, cast
+from typing import (TYPE_CHECKING, Any, Dict, Generic, List, Optional, Sequence,
+                    Type, TypeVar, cast)
 
-import crossbench
-import crossbench.stories
+from crossbench.stories import PressBenchmarkStory, Story
+
 if TYPE_CHECKING:
   from crossbench.runner import Runner
-
-# TODO fix imports
-cb = crossbench
 
 
 class Benchmark(abc.ABC):
   NAME: str = ""
-  DEFAULT_STORY_CLS: Type[cb.stories.Story] = cb.stories.Story
+  DEFAULT_STORY_CLS: Type[Story] = Story
 
   @classmethod
   def cli_help(cls) -> str:
@@ -63,23 +61,22 @@ class Benchmark(abc.ABC):
     }
 
   @classmethod
-  def kwargs_from_cli(cls, args) -> dict:
+  def kwargs_from_cli(cls, args: argparse.Namespace) -> Dict[str, Any]:
     del args
     return {}
 
   @classmethod
-  def from_cli_args(cls, args) -> Benchmark:
+  def from_cli_args(cls, args: argparse.Namespace) -> Benchmark:
     kwargs = cls.kwargs_from_cli(args)
     return cls(**kwargs)
 
-  def __init__(self, stories: Sequence[cb.stories.Story]):
+  def __init__(self, stories: Sequence[Story]):
     assert self.NAME is not None, f"{self} has no .NAME property"
-    assert self.DEFAULT_STORY_CLS != cb.stories.Story, (
+    assert self.DEFAULT_STORY_CLS != Story, (
         f"{self} has no .DEFAULT_STORY_CLS property")
-    self.stories: List[cb.stories.Story] = self._validate_stories(stories)
+    self.stories: List[Story] = self._validate_stories(stories)
 
-  def _validate_stories(self, stories: Sequence[cb.stories.Story]
-                       ) -> List[cb.stories.Story]:
+  def _validate_stories(self, stories: Sequence[Story]) -> List[Story]:
     assert stories, "No stories provided"
     for story in stories:
       assert isinstance(story, self.DEFAULT_STORY_CLS), (
@@ -92,28 +89,29 @@ class Benchmark(abc.ABC):
           f"story={story} has different PROBES than {first_story}")
     return list(stories)
 
-  def setup(self, runner: Runner):
+  def setup(self, runner: Runner) -> None:
     del runner
 
 
-StoryT = TypeVar("StoryT", bound=cb.stories.Story)
+StoryT = TypeVar("StoryT", bound=Story)
 
 
 class StoryFilter(Generic[StoryT], metaclass=abc.ABCMeta):
 
   @classmethod
-  def kwargs_from_cli(cls, args) -> Dict[str, Any]:
+  def kwargs_from_cli(cls, args: argparse.Namespace) -> Dict[str, Any]:
     return {"patterns": args.stories.split(",")}
 
   @classmethod
-  def from_cli_args(cls, story_cls: Type[StoryT], args):
+  def from_cli_args(cls, story_cls: Type[StoryT],
+                    args: argparse.Namespace) -> StoryFilter:
     kwargs = cls.kwargs_from_cli(args)
     return cls(story_cls, **kwargs)
 
   def __init__(self, story_cls: Type[StoryT], patterns: Sequence[str]):
     self.story_cls = story_cls
-    assert issubclass(story_cls, cb.stories.Story), (
-        f"Subclass of {cb.stories.Story} expected, found {story_cls}")
+    assert issubclass(
+        story_cls, Story), (f"Subclass of {Story} expected, found {story_cls}")
     # Using order-preserving dict instead of set
     self._known_names: Dict[str, None] = dict.fromkeys(
         story_cls.all_story_names())
@@ -122,7 +120,7 @@ class StoryFilter(Generic[StoryT], metaclass=abc.ABCMeta):
     self.stories = self.create_stories()
 
   @abc.abstractmethod
-  def process_all(self, patterns: Sequence[str]):
+  def process_all(self, patterns: Sequence[str]) -> None:
     pass
 
   @abc.abstractmethod
@@ -173,13 +171,13 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
     return desc
 
   @classmethod
-  def kwargs_from_cli(cls, args) -> Dict[str, Any]:
+  def kwargs_from_cli(cls, args: argparse.Namespace) -> Dict[str, Any]:
     kwargs = super().kwargs_from_cli(args)
     kwargs["stories"] = cls.stories_from_cli_args(args)
     return kwargs
 
   @classmethod
-  def stories_from_cli_args(cls, args) -> Sequence[cb.stories.Story]:
+  def stories_from_cli_args(cls, args: argparse.Namespace) -> Sequence[Story]:
     return cls.STORY_FILTER_CLS.from_cli_args(cls.DEFAULT_STORY_CLS,
                                               args).stories
 
@@ -194,7 +192,7 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
     return sorted(cls.DEFAULT_STORY_CLS.all_story_names())
 
 
-class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
+class PressBenchmarkStoryFilter(StoryFilter[PressBenchmarkStory]):
   """
   Filter stories by name or regexp.
 
@@ -210,14 +208,14 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
   """
 
   @classmethod
-  def kwargs_from_cli(cls, args):
+  def kwargs_from_cli(cls, args: argparse.Namespace) -> Dict[str, Any]:
     kwargs = super().kwargs_from_cli(args)
     kwargs["separate"] = args.separate
     kwargs["url"] = args.custom_benchmark_url
     return kwargs
 
   def __init__(self,
-               story_cls: Type[cb.stories.PressBenchmarkStory],
+               story_cls: Type[PressBenchmarkStory],
                patterns: Sequence[str],
                separate: bool = False,
                url: Optional[str] = None):
@@ -226,37 +224,37 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
     # Using dict instead as ordered set
     self._selected_names: Dict[str, None] = {}
     super().__init__(story_cls, patterns)
-    assert issubclass(self.story_cls, cb.stories.PressBenchmarkStory)
+    assert issubclass(self.story_cls, PressBenchmarkStory)
     for name in self._known_names:
       assert name, "Invalid empty story name"
       assert not name.startswith("-"), (
           f"Known story names cannot start with '-', but got {name}.")
       assert not name == "all", "Known story name cannot match 'all'."
 
-  def process_all(self, patterns: Sequence[str]):
+  def process_all(self, patterns: Sequence[str]) -> None:
     if not isinstance(patterns, (list, tuple)):
       raise ValueError("Expected Sequence of story name or patterns "
                        f"but got '{type(patterns)}'.")
     for pattern in patterns:
       self.process_pattern(pattern)
 
-  def process_pattern(self, pattern: str):
+  def process_pattern(self, pattern: str) -> None:
     if pattern.startswith("-"):
       self.remove(pattern[1:])
     else:
       self.add(pattern)
 
-  def add(self, pattern: str):
+  def add(self, pattern: str) -> None:
     self._check_processed_pattern(pattern)
     regexp = self._pattern_to_regexp(pattern)
     self._add_matching(regexp, pattern)
 
-  def remove(self, pattern: str):
+  def remove(self, pattern: str) -> None:
     self._check_processed_pattern(pattern)
     regexp = self._pattern_to_regexp(pattern)
     self._remove_matching(regexp, pattern)
 
-  def _pattern_to_regexp(self, pattern) -> re.Pattern:
+  def _pattern_to_regexp(self, pattern: str) -> re.Pattern:
     if pattern == "all":
       return re.compile(".*")
     if pattern == "default":
@@ -269,7 +267,7 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
       return re.compile(re.escape(pattern))
     return re.compile(pattern)
 
-  def _check_processed_pattern(self, pattern: str):
+  def _check_processed_pattern(self, pattern: str) -> None:
     if not pattern:
       raise ValueError("Empty pattern is not allowed")
     if pattern == "-":
@@ -277,11 +275,11 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
     if pattern[0] == "-":
       raise ValueError(f"Unprocessed negative pattern not allowed: '{pattern}'")
 
-  def _add_matching(self, regexp: re.Pattern, original_pattern: str):
+  def _add_matching(self, regexp: re.Pattern, original_pattern: str) -> None:
     substories = self._regexp_match(regexp, original_pattern)
     self._selected_names.update(dict.fromkeys(substories))
 
-  def _remove_matching(self, regexp: re.Pattern, original_pattern: str):
+  def _remove_matching(self, regexp: re.Pattern, original_pattern: str) -> None:
     substories = self._regexp_match(regexp, original_pattern)
     for substory in substories:
       try:
@@ -314,8 +312,7 @@ class PressBenchmarkStoryFilter(StoryFilter[cb.stories.PressBenchmarkStory]):
 
 class PressBenchmark(SubStoryBenchmark):
   STORY_FILTER_CLS = PressBenchmarkStoryFilter
-  DEFAULT_STORY_CLS: Type[
-      cb.stories.PressBenchmarkStory] = cb.stories.PressBenchmarkStory
+  DEFAULT_STORY_CLS: Type[PressBenchmarkStory] = PressBenchmarkStory
 
   @classmethod
   def add_cli_parser(cls, subparsers,
@@ -341,41 +338,40 @@ class PressBenchmark(SubStoryBenchmark):
     return parser
 
   @classmethod
-  def kwargs_from_cli(cls, args) -> Dict[str, Any]:
+  def kwargs_from_cli(cls, args: argparse.Namespace) -> Dict[str, Any]:
     kwargs = super().kwargs_from_cli(args)
     kwargs["custom_url"] = args.custom_benchmark_url
     return kwargs
 
   @classmethod
-  def describe(cls) -> dict:
+  def describe(cls) -> Dict[str, Any]:
     data = super().describe()
-    assert issubclass(cls.DEFAULT_STORY_CLS, cb.stories.PressBenchmarkStory)
+    assert issubclass(cls.DEFAULT_STORY_CLS, PressBenchmarkStory)
     data["url"] = cls.DEFAULT_STORY_CLS.URL
     data["url-local"] = cls.DEFAULT_STORY_CLS.URL_LOCAL
     return data
 
-  def __init__(self,
-               stories: Sequence[cb.stories.Story],
+  def __init__(self, stories: Sequence[Story],
                custom_url: Optional[str] = None):
     super().__init__(stories)
     self.custom_url = custom_url
     if custom_url:
       for story in stories:
-        press_story = cast(cb.stories.PressBenchmarkStory, story)
+        press_story = cast(PressBenchmarkStory, story)
         assert press_story.url == custom_url
 
-  def setup(self, runner: Runner):
+  def setup(self, runner: Runner) -> None:
     super().setup(runner)
     self.validate_url(runner)
 
-  def validate_url(self, runner: Runner):
+  def validate_url(self, runner: Runner) -> None:
     if self.custom_url:
       if runner.env.validate_url(self.custom_url):
         return
       raise Exception(
           f"Could not reach custom benchmark URL: '{self.custom_url}'. "
           f"Please make sure your local web server is running.")
-    first_story = cast(cb.stories.PressBenchmarkStory, self.stories[0])
+    first_story = cast(PressBenchmarkStory, self.stories[0])
     url = first_story.url
     if not url:
       raise ValueError("Invalid empty url")

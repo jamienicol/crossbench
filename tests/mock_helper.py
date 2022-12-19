@@ -23,8 +23,6 @@ if TYPE_CHECKING:
 
 from . import mock_browser
 
-FlagsInitialDataType = Flags.InitialDataType
-
 GIB = 1014**3
 
 ActivePlatformClass: Type[helper.Platform] = type(helper.platform)

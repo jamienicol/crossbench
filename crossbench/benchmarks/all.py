@@ -4,6 +4,8 @@
 
 # pylint: disable=unused-import
 
+from __future__ import annotations
+
 from crossbench.benchmarks.jetstream import (JetStream20Benchmark,
                                              JetStream21Benchmark)
 from crossbench.benchmarks.loading import PageLoadBenchmark

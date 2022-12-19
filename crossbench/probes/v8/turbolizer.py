@@ -3,22 +3,21 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+import pathlib
 
 from typing import TYPE_CHECKING
 
-import crossbench
-from crossbench.probes import base
 from crossbench import helper
+from crossbench.browsers.chromium import Chromium
+from crossbench.probes.base import Probe
 from crossbench.probes.results import ProbeResult
 
-#TODO: fix imports
-cb = crossbench
-
 if TYPE_CHECKING:
-  import crossbench.runner
+  from crossbench.browsers.base import Browser
+  from crossbench.runner import Run
 
 
-class V8TurbolizerProbe(base.Probe):
+class V8TurbolizerProbe(Probe):
   """
   Chromium-only Probe for extracting detailed turbofan graphs.
   Note: This probe can have significant overhead.
@@ -26,36 +25,37 @@ class V8TurbolizerProbe(base.Probe):
   """
   NAME = "v8.turbolizer"
 
-  def is_compatible(self, browser):
-    return isinstance(browser, cb.browsers.Chromium)
+  def is_compatible(self, browser: Browser) -> bool:
+    return isinstance(browser, Chromium)
 
-  def attach(self, browser):
+  def attach(self, browser: Browser) -> None:
     super().attach(browser)
+    assert isinstance(browser, Chromium)
     browser.flags.set("--no-sandbox")
     browser.js_flags.set("--trace-turbo")
 
-  class Scope(base.Probe.Scope):
+  class Scope(Probe.Scope):
 
     @property
-    def results_dir(self):
+    def results_dir(self) -> pathlib.Path:
       # Put v8.turbolizer files into separate dirs in case we have
       # multiple isolates
       turbolizer_log_dir = super().results_file
       turbolizer_log_dir.mkdir(exist_ok=True)
       return turbolizer_log_dir
 
-    def setup(self, run):
+    def setup(self, run: Run) -> None:
       run.extra_js_flags["--trace-turbo-path"] = str(self.results_dir)
       run.extra_js_flags["--trace-turbo-cfg-file"] = str(self.results_dir /
                                                          "cfg.graph")
 
-    def start(self, run):
+    def start(self, run: Run) -> None:
       pass
 
-    def stop(self, run):
+    def stop(self, run: Run) -> None:
       pass
 
-    def tear_down(self, run) -> ProbeResult:
+    def tear_down(self, run: Run) -> ProbeResult:
       log_dir = self.results_file.parent
       log_files = helper.sort_by_file_size(log_dir.glob("*"))
       return ProbeResult(file=tuple(log_files))

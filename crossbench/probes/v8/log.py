@@ -12,23 +12,19 @@ import re
 import subprocess
 from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
 
-import crossbench
-import crossbench.config
-import crossbench.exception
-import crossbench.flags
 from crossbench import helper
-from crossbench.probes import base
+from crossbench.browsers.base import Browser
+from crossbench.browsers.chromium import Chromium
+from crossbench.flags import JSFlags
+from crossbench.probes.base import Probe, ProbeConfigParser
 from crossbench.probes.results import ProbeResult
 
-#TODO: fix imports
-cb = crossbench
-
 if TYPE_CHECKING:
-  import crossbench.env
+  from crossbench.env import HostEnvironment
   from crossbench.runner import Run, Runner
 
 
-class V8LogProbe(base.Probe):
+class V8LogProbe(Probe):
   """
   Chromium-only probe that produces a v8.log file with detailed internal V8
   performance and logging information.
@@ -42,7 +38,7 @@ class V8LogProbe(base.Probe):
   _FLAG_RE = re.compile("^--(prof|log-.*|no-log-.*|)$")
 
   @classmethod
-  def config_parser(cls) -> base.ProbeConfigParser:
+  def config_parser(cls) -> ProbeConfigParser:
     parser = super().config_parser()
     parser.add_argument(
         "log_all",
@@ -81,7 +77,7 @@ class V8LogProbe(base.Probe):
                d8_binary: Optional[pathlib.Path] = None,
                v8_checkout: Optional[pathlib.Path] = None):
     super().__init__()
-    self._js_flags = cb.flags.JSFlags()
+    self._js_flags = JSFlags()
     self._d8_binary = d8_binary
     self._v8_checkout = v8_checkout
     assert isinstance(log_all,
@@ -100,7 +96,7 @@ class V8LogProbe(base.Probe):
     assert len(self._js_flags) > 0, "V8LogProbe has no effect"
 
   @property
-  def js_flags(self) -> cb.flags.JSFlags:
+  def js_flags(self) -> JSFlags:
     return self._js_flags.copy()
 
   @property
@@ -111,15 +107,16 @@ class V8LogProbe(base.Probe):
   def d8_binary(self) -> Optional[pathlib.Path]:
     return self._d8_binary
 
-  def is_compatible(self, browser) -> bool:
-    return isinstance(browser, cb.browsers.Chromium)
+  def is_compatible(self, browser: Browser) -> bool:
+    return isinstance(browser, Chromium)
 
-  def attach(self, browser):
+  def attach(self, browser: Browser) -> None:
     super().attach(browser)
+    assert isinstance(browser, Chromium)
     browser.flags.set("--no-sandbox")
     browser.js_flags.update(self._js_flags)
 
-  def pre_check(self, env: cb.env.HostEnvironment):
+  def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)
     if env.runner.repetitions != 1:
       env.handle_warning(f"Probe={self.NAME} cannot merge data over multiple "
@@ -147,22 +144,22 @@ class V8LogProbe(base.Probe):
                        [(finder.d8_binary, finder.tick_processor, log_file)
                         for log_file in log_files]))
 
-  class Scope(base.Probe.Scope):
+  class Scope(Probe.Scope):
 
     @property
-    def results_file(self):
+    def results_file(self) -> pathlib.Path:
       # Put v8.log files into separate dirs in case we have multiple isolates
       log_dir = super().results_file
       log_dir.mkdir(exist_ok=True)
       return log_dir / self.probe.results_file_name
 
-    def setup(self, run: Run):
+    def setup(self, run: Run) -> None:
       run.extra_js_flags["--logfile"] = str(self.results_file)
 
-    def start(self, run: Run):
+    def start(self, run: Run) -> None:
       pass
 
-    def stop(self, run: Run):
+    def stop(self, run: Run) -> None:
       pass
 
     def tear_down(self, run: Run) -> ProbeResult:
@@ -175,7 +172,7 @@ class V8LogProbe(base.Probe):
           json_list = self.probe.process_log_files(log_files)
       return ProbeResult(file=tuple(log_files), json=json_list)
 
-  def log_result_summary(self, runner: Runner):
+  def log_result_summary(self, runner: Runner) -> None:
     runs: List[Run] = list(run for run in runner.runs if self in run.results)
     if not runs:
       return
