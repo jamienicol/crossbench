@@ -151,13 +151,13 @@ class RemoteWebDriver(WebdriverMixin, Browser):
   def _check_driver_version(self) -> None:
     raise NotImplementedError()
 
-  def _extract_version(self) -> None:
+  def _extract_version(self) -> str:
     raise NotImplementedError()
 
   def _find_driver(self) -> pathlib.Path:
     raise NotImplementedError()
 
-  def _start_driver(self, run: Run, driver_path: pathlib.Path) -> None:
+  def _start_driver(self, run: Run, driver_path: pathlib.Path) -> str:
     raise NotImplementedError()
 
   def setup_binary(self, runner: Runner) -> None:
