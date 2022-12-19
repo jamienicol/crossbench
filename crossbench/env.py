@@ -8,6 +8,7 @@ import dataclasses
 import datetime as dt
 import enum
 import logging
+import os
 import urllib.request
 from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterable, List,
                     Optional, Union)
@@ -331,8 +332,13 @@ class HostEnvironment:
       return
     browser_binaries = helper.group_by(
         self._runner.browsers, key=lambda browser: str(browser.path))
+    own_pid = os.getpid()
     for proc_info in self._platform.processes(["cmdline", "exe", "pid",
                                                "name"]):
+      # Skip over this python script which might have the binary path as
+      # part of the command line invocation.
+      if proc_info["pid"] == own_pid:
+        continue
       cmdline = " ".join(proc_info["cmdline"] or "")
       exe = proc_info["exe"]
       for binary, browsers in browser_binaries.items():
