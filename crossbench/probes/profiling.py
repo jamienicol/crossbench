@@ -300,17 +300,21 @@ class ProfilingProbe(Probe):
             "(echo 'Authenticating with gcert:'; gcert)",
             shell=True)
         items = zip(perf_files, [run_details_json] * len(perf_files))
+        urls = []
         if self.browser_platform.is_remote:
           # Use loop, as we cannot easily serialize the remote platform.
-          urls = [
-              linux_perf_probe_pprof(perf_data_file, run_details,
-                                     self.browser_platform)
-              for perf_data_file, run_details in items
-          ]
+          for perf_data_file, run_details in items:
+            url = linux_perf_probe_pprof(perf_data_file, run_details,
+                                         self.browser_platform)
+            if url:
+              urls.append(url)
         else:
           assert self.browser_platform == helper.platform
           with multiprocessing.Pool() as pool:
-            urls = list(pool.starmap(linux_perf_probe_pprof, items))
+            urls = [
+                url for url in pool.starmap(linux_perf_probe_pprof, items)
+                if url
+            ]
         try:
           if perf_files:
             # TODO: Add "combined" profile again
@@ -350,16 +354,44 @@ def linux_perf_probe_inject_v8_symbols(
 
 def linux_perf_probe_pprof(perf_data_file: pathlib.Path,
                            run_details: str,
-                           platform: Optional[helper.Platform] = None) -> str:
-  platform = platform or helper.platform
-  url = platform.sh_stdout(
-      "pprof",
-      "-flame",
-      f"-add_comment={run_details}",
-      perf_data_file,
-  ).strip()
+                           platform: Optional[helper.Platform] = None
+                          ) -> Optional[str]:
   size = helper.get_file_size(perf_data_file)
-  logging.info("PPROF")
+  platform = platform or helper.platform
+  url = ""
+  try:
+    url = platform.sh_stdout(
+        "pprof",
+        "-flame",
+        f"-add_comment={run_details}",
+        perf_data_file,
+    ).strip()
+  except helper.SubprocessError as e:
+    # Occasionally small .jitted files fail, likely due perf inject silently
+    # failing?
+    raw_perf_data_file = perf_data_file.with_suffix("")
+    if perf_data_file.suffix == ".jitted" and raw_perf_data_file.exists():
+      logging.debug(
+          "pprof best-effort: falling back to standard perf data "
+          "without js symbols: %s \n"
+          "Got failures for %s: %s", raw_perf_data_file, perf_data_file.name, e)
+      try:
+        perf_data_file = raw_perf_data_file
+        url = platform.sh_stdout(
+            "pprof",
+            "-flame",
+            f"-add_comment={run_details}",
+            raw_perf_data_file,
+        ).strip()
+      except helper.SubprocessError:
+        pass
+    if not url:
+      logging.warning("Failed processing: %s\n%s", perf_data_file, e)
+      return None
+  if perf_data_file.suffix == ".jitted":
+    logging.info("PPROF (with js-symbols):")
+  else:
+    logging.info("PPROF (no js-symbols):")
   logging.info("  linux-perf:   %s %s", perf_data_file.name, size)
   logging.info("  pprof result: %s", url)
   return url
