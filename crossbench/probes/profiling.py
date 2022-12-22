@@ -11,7 +11,7 @@ import pathlib
 import signal
 import subprocess
 import time
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Iterable, List, Optional
 
 from crossbench import helper
 from crossbench.probes.base import Probe, ProbeConfigParser
@@ -22,7 +22,7 @@ from crossbench.browsers.chromium import Chromium
 if TYPE_CHECKING:
   from crossbench.browsers.base import Browser
   from crossbench.env import HostEnvironment
-  from crossbench.runner import Run, Runner
+  from crossbench.runner import Run, Runner, BrowsersRunGroup
 
 
 class ProfilingProbe(Probe):
@@ -148,15 +148,21 @@ class ProfilingProbe(Probe):
     # Disable sandbox to write profiling data
     browser.flags.set("--no-sandbox")
 
-  def log_result_summary(self, runner: Runner) -> None:
-    runs: List[Run] = list(run for run in runner.runs if self in run.results)
-    if not runs:
+  def log_run_result(self, run: Run) -> None:
+    self._log_results([run])
+
+  def log_browsers_result(self, group: BrowsersRunGroup) -> None:
+    self._log_results(group.runs)
+
+  def _log_results(self, runs: Iterable[Run]):
+    filtered_runs = list(run for run in runs if self in run.results)
+    if not filtered_runs:
       return
     logging.info("-" * 80)
     logging.info("Profiling results:")
     logging.info("  *.perf.data: 'perf report -i $FILE'")
-    logging.info("." * 80)
-    for i, run in enumerate(runner.runs):
+    logging.info("- " * 40)
+    for i, run in enumerate(filtered_runs):
       self._log_run_result_summary(run, i)
 
   def _log_run_result_summary(self, run: Run, i: int) -> None:

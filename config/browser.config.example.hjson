@@ -50,9 +50,9 @@
   // Contains browser configs
   browsers: {
     "chrome-stable": {
-      // For "path" you can use a path, browser name, or a versioned browser. 
+      // For "path" you can use a path, browser name, or a versioned browser.
       // See '--browser' option for all possible values.
-      path: "stable", 
+      path: "chrome-stable",
       flags: [
         // You can reference multiple flag-groups here, any name added to
         // the 'flags' dict above can be used here.

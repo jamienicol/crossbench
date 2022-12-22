@@ -146,6 +146,30 @@ class GroupByTestCase(unittest.TestCase):
 
   def test_basic(self):
     grouped = helper.group_by([1, 1, 1, 2, 2, 3], key=str)
+    self.assertListEqual(list(grouped.keys()), ["1", "2", "3"])
+    self.assertDictEqual({"1": [1, 1, 1], "2": [2, 2], "3": [3]}, grouped)
+
+  def test_basic_out_of_order(self):
+    grouped = helper.group_by([2, 3, 2, 1, 1, 1], key=str)
+    self.assertListEqual(list(grouped.keys()), ["1", "2", "3"])
+    self.assertDictEqual({"1": [1, 1, 1], "2": [2, 2], "3": [3]}, grouped)
+
+  def test_basic_input_order(self):
+    grouped = helper.group_by([2, 3, 2, 1, 1, 1], key=str, sort_key=None)
+    self.assertListEqual(list(grouped.keys()), ["2", "3", "1"])
+    self.assertDictEqual({"1": [1, 1, 1], "2": [2, 2], "3": [3]}, grouped)
+
+  def test_basic_custom_order(self):
+    grouped = helper.group_by([2, 3, 2, 1, 1, 1],
+                              key=str,
+                              sort_key=lambda item: int(item[0]))
+    self.assertListEqual(list(grouped.keys()), ["1", "2", "3"])
+    self.assertDictEqual({"1": [1, 1, 1], "2": [2, 2], "3": [3]}, grouped)
+    # Try reverse sorting
+    grouped = helper.group_by([2, 3, 2, 1, 1, 1],
+                              key=str,
+                              sort_key=lambda item: -int(item[0]))
+    self.assertListEqual(list(grouped.keys()), ["3", "2", "1"])
     self.assertDictEqual({"1": [1, 1, 1], "2": [2, 2], "3": [3]}, grouped)
 
   def test_custom_key(self):
@@ -163,6 +187,17 @@ class GroupByTestCase(unittest.TestCase):
     }, grouped)
 
   def test_custom_group(self):
+    grouped = helper.group_by([1, 1, 1, 2, 2, 3],
+                              key=str,
+                              group=lambda key: ["custom"])
+    self.assertDictEqual(
+        {
+            "1": ["custom", 1, 1, 1],
+            "2": ["custom", 2, 2],
+            "3": ["custom", 3]
+        }, grouped)
+
+  def test_custom_group_out_of_order(self):
     grouped = helper.group_by([1, 1, 1, 2, 2, 3],
                               key=str,
                               group=lambda key: ["custom"])
@@ -195,6 +230,42 @@ class ConcatFilesTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     output = pathlib.Path("ouput")
     self.platform.concat_files([input_a, input_b], output)
     self.assertEqual(output.read_text(encoding="utf-8"), "AAABBB")
+
+
+class FormatMetricTestCase(unittest.TestCase):
+
+  def test_no_stdev(self):
+    self.assertEqual(helper.format_metric(100), "100")
+    self.assertEqual(helper.format_metric(0), "0")
+    self.assertEqual(helper.format_metric(1.5), "1.5")
+    self.assertEqual(helper.format_metric(100, 0), "100")
+    self.assertEqual(helper.format_metric(0, 0), "0")
+    self.assertEqual(helper.format_metric(1.5, 0), "1.5")
+
+  def test_stdev(self):
+    self.assertEqual(helper.format_metric(100, 10), "100 ± 10%")
+    self.assertEqual(helper.format_metric(100, 1), "100.0 ± 1.0%")
+    self.assertEqual(helper.format_metric(100, 1.5), "100.0 ± 1.5%")
+    self.assertEqual(helper.format_metric(100, 0.1), "100.00 ± 0.10%")
+    self.assertEqual(helper.format_metric(100, 0.12), "100.00 ± 0.12%")
+    self.assertEqual(helper.format_metric(100, 0.125), "100.00 ± 0.12%")
+
+  def test_round_stdev(self):
+    value = 100.123456789
+    percent = value / 100
+    self.assertEqual(
+        helper.format_metric(value, percent * 10.1234), "100 ± 10%")
+    self.assertEqual(
+        helper.format_metric(value, percent * 1.2345), "100.1 ± 1.2%")
+    self.assertEqual(
+        helper.format_metric(value, percent * 0.12345), "100.12 ± 0.12%")
+    self.assertEqual(
+        helper.format_metric(value, percent * 0.012345), "100.123 ± 0.012%")
+    self.assertEqual(
+        helper.format_metric(value, percent * 0.0012345), "100.1235 ± 0.0012%")
+    self.assertEqual(
+        helper.format_metric(value, percent * 0.00012345),
+        "100.12346 ± 0.00012%")
 
 
 class PlatformTestCase(unittest.TestCase):

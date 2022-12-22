@@ -256,9 +256,9 @@ class TestCLI(BaseCrossbenchTestCase):
     browsers: Dict[str, Type[mock_browser.MockBrowser]] = {
         "chrome": mock_browser.MockChromeStable,
         "chrome-stable": mock_browser.MockChromeStable,
-        "stable": mock_browser.MockChromeStable,
+        "chr-stable": mock_browser.MockChromeStable,
         "chrome-beta": mock_browser.MockChromeBeta,
-        "beta": mock_browser.MockChromeBeta,
+        "chr-beta": mock_browser.MockChromeBeta,
         "chrome-dev": mock_browser.MockChromeDev,
         "edge": mock_browser.MockEdgeStable,
         "edge-stable": mock_browser.MockEdgeStable,
@@ -274,7 +274,7 @@ class TestCLI(BaseCrossbenchTestCase):
         "ff-trunk": mock_browser.MockFirefoxNightly,
     }
     if not self.platform.is_linux:
-      browsers["canary"] = mock_browser.MockChromeCanary
+      browsers["chr-canary"] = mock_browser.MockChromeCanary
       browsers["chrome-canary"] = mock_browser.MockChromeCanary
       browsers["edge-canary"] = mock_browser.MockEdgeCanary
     if self.platform.is_macos:
@@ -326,8 +326,9 @@ class TestCLI(BaseCrossbenchTestCase):
         "_get_browser_cls_from_path",
         side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
       url = "http://test.com"
-      self.run_cli("loading", "--browser=beta", "--browser=stable",
-                   "--browser=dev", f"--urls={url}", "--env-validation=skip",
+      self.run_cli("loading", "--browser=chrome-beta",
+                   "--browser=chrome-stable", "--browser=chrome-dev",
+                   f"--urls={url}", "--env-validation=skip",
                    f"--out-dir={self.out_dir}")
       self.assertTrue(self.out_dir.exists())
       get_browser_cls.assert_called()
@@ -367,7 +368,7 @@ class TestCLI(BaseCrossbenchTestCase):
         "_get_browser_cls_from_path",
         side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
       url = "http://test.com"
-      self.run_cli("loading", "--browser=dev", "--browser=beta",
+      self.run_cli("loading", "--browser=chrome-dev", "--browser=chrome-beta",
                    f"--urls={url}", "--env-validation=skip",
                    f"--out-dir={self.out_dir}")
       self.assertTrue(self.out_dir.exists())
@@ -408,7 +409,7 @@ class TestCLI(BaseCrossbenchTestCase):
         "_get_browser_cls_from_path",
         side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
       url = "http://test.com"
-      self.run_cli("loading", "--browser=dev", "--browser=beta",
+      self.run_cli("loading", "--browser=chrome-dev", "--browser=chrome-beta",
                    f"--urls={url}", "--env-validation=skip",
                    f"--out-dir={self.out_dir}")
       self.assertTrue(self.out_dir.exists())
@@ -882,13 +883,14 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
             "stable_path",
             return_value=mock_browser.MockChromeStable.APP_PATH):
 
-      config = BrowserConfig(
-          {"browsers": {
+      config = BrowserConfig({
+          "browsers": {
               "stable": {
-                  "path": "stable",
+                  "path": "chrome-stable",
                   "flags": ["--foo=bar"]
               }
-          }})
+          }
+      })
       self.assertEqual(len(config.variants), 1)
       browser = config.variants[0]
       # TODO: Fix once app lookup is cleaned up

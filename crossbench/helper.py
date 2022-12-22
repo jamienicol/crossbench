@@ -9,6 +9,7 @@ import ctypes
 import datetime as dt
 import json
 import logging
+from math import floor, log10
 import os
 import pathlib
 import platform as py_platform
@@ -74,7 +75,8 @@ GroupT = TypeVar("GroupT")
 def group_by(collection: Iterable[InputT],
              key: Callable[[InputT], KeyT],
              value: Optional[Callable[[InputT], Any]] = None,
-             group: Optional[Callable[[KeyT], GroupT]] = None
+             group: Optional[Callable[[KeyT], GroupT]] = None,
+             sort_key: Optional[Callable[[Tuple[KeyT, GroupT]], Any]] = str
             ) -> Dict[KeyT, GroupT]:
   """
   Works similar to itertools.groupby but does a global, SQL-style grouping
@@ -98,9 +100,33 @@ def group_by(collection: Iterable[InputT],
       new_group.append(group_item)
     else:
       groups[group_key].append(group_item)
-  # sort keys as well for more predictable behavior
-  items = sorted(groups.items(), key=str)
+  if sort_key:
+    # sort keys as well for more predictable behavior
+    items = sorted(groups.items(), key=sort_key)
+  else:
+    items = groups.items()
   return dict(items)
+
+
+def format_metric(value: Union[float, int],
+                  stddev: Optional[float] = None) -> str:
+  """Format value and stdev to only expose significant + 1 digits.
+  Example outputs:
+    100 ± 10%
+    100.1 ± 1.2%
+    100.12 ± 0.12%
+    100.123 ± 0.012%
+    100.1235 ± 0.0012%
+  """
+  if not stddev:
+    return str(value)
+  stddev = float(stddev)
+  stddev_significant_digit = int(floor(log10(abs(stddev))))
+  value_width = max(0, 1 - stddev_significant_digit)
+  percent = stddev / value * 100
+  percent_significant_digit = int(floor(log10(abs(percent))))
+  percent_width = max(0, 1 - percent_significant_digit)
+  return f"{value:.{value_width}f} ± {percent:.{percent_width}f}%"
 
 
 def sort_by_file_size(files: Iterable[pathlib.Path]) -> List[pathlib.Path]:

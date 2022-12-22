@@ -151,7 +151,7 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     Keep this low enough to not have to wait needlessly at the end of a
     benchmark.
     """
-    return self.duration / 2
+    return self.duration / 3
 
   @property
   def slow_duration(self) -> float:
@@ -160,7 +160,7 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     Making this number too large might cause needless wait times on broken
     browsers/benchmarks.
     """
-    return 15 + self.duration * 4
+    return 15 + self.duration * 5
 
   @property
   @abc.abstractmethod

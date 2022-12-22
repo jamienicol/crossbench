@@ -5,23 +5,24 @@
 from __future__ import annotations
 
 import abc
-import csv
+import json
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Any, Dict, Final, Optional, Sequence, Tuple, Type
-
-from tabulate import tabulate
+from typing import (TYPE_CHECKING, Any, Dict, Final, List, Optional, Sequence,
+                    Tuple, Type)
 
 import crossbench.probes.helper as probes_helper
+from crossbench import helper
 from crossbench.benchmarks.base import PressBenchmark
 from crossbench.probes.json import JsonResultProbe
-from crossbench.probes.results import ProbeResult
+from crossbench.probes.results import ProbeResult, ProbeResultDict
 from crossbench.stories import PressBenchmarkStory
 
 if TYPE_CHECKING:
   import argparse
 
-  from crossbench.runner import BrowsersRunGroup, Run, Runner, StoriesRunGroup, Actions
+  from crossbench.runner import (Actions, BrowsersRunGroup, Run, Runner,
+                                 StoriesRunGroup)
 
 
 def _probe_remove_tests_segments(path: Tuple[str, ...]) -> str:
@@ -57,19 +58,44 @@ class Speedometer2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
     return self.merge_browsers_json_list(group).merge(
         self.merge_browsers_csv_list(group))
 
-  def log_result_summary(self, runner: Runner) -> None:
-    if self not in runner.browser_group.results:
+  def log_run_result(self, run: Run) -> None:
+    self._log_result(run.results, single_result=True)
+
+  def log_browsers_result(self, group: BrowsersRunGroup) -> None:
+    self._log_result(group.results, single_result=False)
+
+  def _log_result(self, result_dict: ProbeResultDict,
+                  single_result: bool) -> None:
+    if self not in result_dict:
       return
-    results_csv: pathlib.Path = runner.browser_group.results[self].csv
-    with results_csv.open(encoding="utf-8") as f:
-      data = list(csv.reader(f, delimiter="\t"))
-      # TODO: add merged JSON to read data in a more structured way
-      table = data[:3] + data[-2:-1]
-      logging.info("-" * 80)
-      logging.info("Speedometer results:")
-      logging.info("  %s", results_csv.relative_to(pathlib.Path.cwd()))
-      logging.info("." * 80)
-      logging.info(tabulate(table, tablefmt="plain"))
+    results_json: pathlib.Path = result_dict[self].json
+    logging.info("-" * 80)
+    logging.info("Speedometer results:")
+    if not single_result:
+      relative_path = result_dict[self].csv.relative_to(pathlib.Path.cwd())
+      logging.info("  %s", relative_path)
+    logging.info("- " * 40)
+
+    with results_json.open(encoding="utf-8") as f:
+      data = json.load(f)
+      if single_result:
+        logging.info("Score %s", data["score"])
+      else:
+        self._log_result_metrics(data)
+
+  def _extract_result_metrics_table(self, metrics: Dict[str, Any],
+                                    table: Dict[str, List[str]]) -> None:
+    for metric_key, metric in metrics.items():
+      parts = metric_key.split("/")
+      if len(parts) != 2 or parts[-1] != "total":
+        continue
+      table[metric_key].append(
+          helper.format_metric(metric["average"], metric["stddev"]))
+      # Separate runs don't produce a score
+    if "score" in metrics:
+      metric = metrics["score"]
+      table["Score"].append(
+          helper.format_metric(metric["average"], metric["stddev"]))
 
 
 class Speedometer20Probe(Speedometer2Probe):

@@ -184,11 +184,18 @@ class Probe(abc.ABC):
         f"Probe {self.name} is not properly attached to a browser")
     return self.Scope(self, run)  # pylint: disable=abstract-class-instantiated
 
-  def log_result_summary(self, runner: Runner) -> None:
+  def log_run_result(self, run: Run) -> None:
     """
-    Override to print a short summary of the collected results.
+    Override to print a short summary of the collected results after a run
+    completes.
     """
-    del runner
+    del run
+
+  def log_browsers_result(self, group: BrowsersRunGroup) -> None:
+    """
+    Override to print a short summary of all the collected results.
+    """
+    del group
 
   class Scope(Generic[ProbeT], metaclass=abc.ABCMeta):
     """

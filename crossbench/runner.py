@@ -296,11 +296,13 @@ class Runner:
     failed: List[Run] = []
     run_count = len(self._runs)
     for i, run in enumerate(self._runs):
-      logging.info("-" * 80)
+      logging.info("=" * 80)
       logging.info("RUN %s/%s", i + 1, run_count)
-      logging.info("-" * 80)
+      logging.info("=" * 80)
       run.run(is_dry_run)
-      if not run.exceptions.is_success:
+      if run.is_success:
+        run.log_results()
+      else:
         self._exceptions.extend(run.exceptions)
         failed.append(run)
     if not is_dry_run:
@@ -418,7 +420,8 @@ class RepetitionsRunGroup(RunGroup):
         helper.group_by(
             runs,
             key=lambda run: (run.story, run.browser),
-            group=lambda _: cls(throw)).values())
+            group=lambda _: cls(throw),
+            sort_key=None).values())
 
   def __init__(self, throw: bool = False):
     super().__init__(throw)
@@ -442,10 +445,12 @@ class RepetitionsRunGroup(RunGroup):
 
   @property
   def story(self) -> Story:
+    assert self._story
     return self._story
 
   @property
   def browser(self) -> Browser:
+    assert self._browser
     return self._browser
 
   @property
@@ -478,7 +483,8 @@ class StoriesRunGroup(RunGroup):
         helper.group_by(
             run_groups,
             key=lambda run_group: run_group.browser,
-            group=lambda _: cls(throw)).values())
+            group=lambda _: cls(throw),
+            sort_key=None).values())
 
   def append(self, group: RepetitionsRunGroup) -> None:
     if self._path is None:
@@ -848,6 +854,10 @@ class Run:
           logging.warning("Probe did not extract any data. probe=%s run=%s",
                           probe, self)
         self._probe_results[probe] = probe_results
+
+  def log_results(self):
+    for probe in self.probes:
+      probe.log_run_result(self)
 
 
 class Actions(helper.TimeScope):

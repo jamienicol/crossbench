@@ -21,7 +21,7 @@ from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
   from crossbench.env import HostEnvironment
-  from crossbench.runner import Run, Runner
+  from crossbench.runner import Run, BrowsersRunGroup
 
 
 class V8LogProbe(Probe):
@@ -172,17 +172,18 @@ class V8LogProbe(Probe):
           json_list = self.probe.process_log_files(log_files)
       return ProbeResult(file=tuple(log_files), json=json_list)
 
-  def log_result_summary(self, runner: Runner) -> None:
-    runs: List[Run] = list(run for run in runner.runs if self in run.results)
+  def log_browsers_result(self, group: BrowsersRunGroup) -> None:
+    runs: List[Run] = list(run for run in group.runs if self in run.results)
     if not runs:
       return
     logging.info("-" * 80)
     logging.info("v8.log results:")
     logging.info("  *.v8.log:        https://v8.dev/tools/head/system-analyzer")
     logging.info("  *.profview.json: https://v8.dev/tools/head/profview")
-    logging.info("." * 80)
+    logging.info("- " * 40)
     cwd = pathlib.Path.cwd()
-    for i, run in enumerate(runner.runs):
+    # Iterate over all runs again, to get proper indices:
+    for i, run in enumerate(group.runs):
       if self not in run.results:
         continue
       log_files = run.results[self].file_list

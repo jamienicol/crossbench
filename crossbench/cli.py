@@ -378,13 +378,13 @@ class BrowserConfig:
     identifier = path_or_identifier.lower()
     # We're not using a dict-based lookup here, since not all browsers are
     # available on all platforms
-    if identifier in ("chrome", "chrome-stable", "stable"):
+    if identifier in ("chrome", "chrome-stable", "chr-stable"):
       return browsers.Chrome.stable_path()
-    if identifier in ("chrome-beta", "beta"):
+    if identifier in ("chrome-beta", "chr-beta"):
       return browsers.Chrome.beta_path()
-    if identifier in ("chrome-dev", "dev"):
+    if identifier in ("chrome-dev", "chr-dev"):
       return browsers.Chrome.dev_path()
-    if identifier in ("chrome-canary", "canary"):
+    if identifier in ("chrome-canary", "chr-canary"):
       return browsers.Chrome.canary_path()
     if identifier in ("edge", "edge-stable"):
       return browsers.Edge.stable_path()
@@ -396,7 +396,7 @@ class BrowserConfig:
       return browsers.Edge.canary_path()
     if identifier in ("safari", "sf"):
       return browsers.Safari.default_path()
-    if identifier in ("safari-technology-preview", "sf-tp", "tp"):
+    if identifier in ("safari-technology-preview", "safari-tp", "sf-tp", "tp"):
       return browsers.Safari.technology_preview_path()
     if identifier in ("firefox", "ff"):
       return browsers.Firefox.default_path()
@@ -915,7 +915,7 @@ class CrossBenchCLI:
     logging.info("=" * 80)
     for probe in runner.probes:
       try:
-        probe.log_result_summary(runner)
+        probe.log_browsers_result(runner.browser_group)
       except Exception as e:  # pylint disable=broad-except
         if args.throw:
           raise

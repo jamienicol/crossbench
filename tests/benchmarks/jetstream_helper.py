@@ -54,7 +54,12 @@ class JetStream2BaseTestCase(
 
   def _test_run(self, custom_url: Optional[str] = None, throw: bool = False):
     stories = self.story_cls.from_names(["WSL"], url=custom_url)
-    example_story_data = {"firstIteration": 1, "average": 0.1, "worst4": 1.1}
+    example_story_data = {
+        "firstIteration": 1,
+        "average": 0.1,
+        "worst4": 1.1,
+        "score": 1
+    }
     jetstream_probe_results = {
         story.name: example_story_data for story in stories
     }
@@ -97,9 +102,17 @@ class JetStream2BaseTestCase(
         'dev': '102.22.33.44',
         'stable': '100.22.33.44'
     })
+
     with self.assertLogs(level='INFO') as cm:
       for probe in runner.probes:
-        probe.log_result_summary(runner)
+        for run in runner.runs:
+          probe.log_run_result(run)
+    output = "\n".join(cm.output)
+    self.assertIn("JetStream results", output)
+
+    with self.assertLogs(level='INFO') as cm:
+      for probe in runner.probes:
+        probe.log_browsers_result(runner.browser_group)
     output = "\n".join(cm.output)
     self.assertIn("JetStream results", output)
     self.assertIn("102.22.33.44", output)

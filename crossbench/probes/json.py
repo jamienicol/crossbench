@@ -7,15 +7,19 @@ from __future__ import annotations
 import abc
 import csv
 import json
+import logging
 import pathlib
+from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+
+from tabulate import tabulate
 
 from crossbench.probes import base, helper
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
   from crossbench.runner import (Actions, BrowsersRunGroup, RepetitionsRunGroup,
-                                 Run, RunGroup, Actions)
+                                 Run, RunGroup)
 
 
 class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
@@ -179,6 +183,25 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
       csv_data = merged_data.to_csv(value_fn, list(group.info.items()))
       writer.writerows(csv_data)
     return ProbeResult(json=(merged_json_path,), csv=(merged_csv_path,))
+
+  def _log_result_metrics(self, data: Dict):
+    table: Dict[str, List[str]] = defaultdict(list)
+    for browser_result in data.values():
+      for info_key in ("label", "browser", "version"):
+        table[info_key].append(browser_result["info"][info_key])
+      data = browser_result["data"]
+      self._extract_result_metrics_table(data, table)
+    flattened: List[List[str]] = list(
+        [label] + values for label, values in table.items())
+    logging.info(tabulate(flattened, tablefmt="plain"))
+
+  def _extract_result_metrics_table(self, metrics: Dict[str, Any],
+                                    table: Dict[str, List[str]]) -> None:
+    """Add individual metrics to the table in here.
+    Typically you only add score and total values for each benchmark or 
+    benchmark item."""
+    del metrics
+    del table
 
 
 def value_geomean(value):
