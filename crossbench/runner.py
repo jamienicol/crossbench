@@ -462,7 +462,8 @@ class RepetitionsRunGroup(RunGroup):
     return {"story": str(self.story)}
 
   def _merge_probe_results(self, probe: Probe) -> ProbeResult:
-    return probe.merge_repetitions(self)
+    # TODO: enable pytype again
+    return probe.merge_repetitions(self)  # pytype: disable=wrong-arg-types
 
 
 class StoriesRunGroup(RunGroup):
@@ -526,7 +527,8 @@ class StoriesRunGroup(RunGroup):
     return (group.story for group in self._repetitions_groups)
 
   def _merge_probe_results(self, probe: Probe) -> ProbeResult:
-    return probe.merge_stories(self)
+    # TODO: enable pytype again
+    return probe.merge_stories(self)  # pytype: disable=wrong-arg-types
 
 
 class BrowsersRunGroup(RunGroup):
@@ -565,7 +567,8 @@ class BrowsersRunGroup(RunGroup):
     return {}
 
   def _merge_probe_results(self, probe: Probe) -> ProbeResult:
-    return probe.merge_browsers(self)
+    # TODO: enable pytype again
+    return probe.merge_browsers(self)  # pytype: disable=wrong-arg-types
 
 
 class Run:

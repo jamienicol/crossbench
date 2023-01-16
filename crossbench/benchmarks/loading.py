@@ -256,8 +256,7 @@ class PageLoadBenchmark(SubStoryBenchmark):
     if args.page_config:
       args.page_config = PageConfig.from_cli_args(args)
       if args.separate:
-        return (InteractivePage(args.page_config.stories,
-                                "Page Scenarios - Seperate"),)
+        return args.page_config.stories
       return (CombinedPage(args.page_config.stories,
                            "Page Scenarios - Combined"),)
     return super().stories_from_cli_args(args)
@@ -302,7 +301,7 @@ class PageConfig:
 
   def __init__(self, raw_config_data: Optional[Dict] = None):
     self._exceptions = ExceptionAnnotator(throw=True)
-    self.stories: List[Story] = []
+    self.stories: List[InteractivePage] = []
     if raw_config_data:
       self.load_dict(raw_config_data)
 
