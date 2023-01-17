@@ -977,7 +977,7 @@ class CrossBenchCLI:
         timing=timing,
         **runner_kwargs)
 
-  def run(self, argv: List[str]) -> None:
+  def run(self, argv: Sequence[str]) -> None:
     args: argparse.Namespace = self.parser.parse_args(argv)
     self._initialize_logging(args)
     args.subcommand(args)

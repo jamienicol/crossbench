@@ -2,6 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+
+wheel: <
+  name: "infra/python/wheels/pytype/${vpython_platform}"
+  version: "version:2022.12.15"
+>
+
 wheel: <
   name: "infra/python/wheels/pytest-py3"
   version: "version:6.2.2"
@@ -43,8 +49,63 @@ wheel: <
 >
 
 wheel: <
+  name: "infra/python/wheels/pyyaml-py3"
+  version: "version:5.3.1"
+>
+
+wheel: <
+  name: "infra/python/wheels/typing-inspect-py3"
+  version: "version:0.7.1"
+>
+
+wheel: <
+  name: "infra/python/wheels/mypy-extensions-py3"
+  version: "version:0.4.3"
+>
+
+wheel: <
+  name: "infra/python/wheels/importlab-py3"
+  version: "version:0.8"
+>
+
+wheel: <
+  name: "infra/python/wheels/zstandard/${vpython_platform}"
+  version: "version:0.16.0"
+>
+
+wheel: <
+  name: "infra/python/wheels/networkx-py3"
+  version: "version:2.5"
+>
+
+wheel: <
+  name: "infra/python/wheels/decorator-py3"
+  version: "version:5.0.9"
+>
+
+wheel: <
+  name: "infra/python/wheels/ninja/${vpython_platform}"
+  version: "version:1.10.2.4"
+>
+
+wheel: <
+  name: "infra/python/wheels/libcst/${vpython_platform}"
+  version: "version:0.4.9"
+>
+
+wheel: <
+  name: "infra/python/wheels/typing-extensions-py3"
+  version: "version:4.3.0"
+>
+
+wheel: <
+  name: "infra/python/wheels/jinja2-py3"
+  version: "version:3.1.2"
+>
+
+wheel: <
   name: "infra/python/wheels/toml-py3"
-  version: "version:0.10.1"
+  version: "version:0.10.2"
 >
 
 wheel: <
@@ -139,7 +200,7 @@ wheel: <
 
 wheel: <
   name: "infra/python/wheels/tabulate-py3"
-  version: "version:0.8.9"
+  version: "version:0.8.10"
 >
 
 wheel: <
@@ -160,4 +221,14 @@ wheel: <
 wheel: <
   name: "infra/python/wheels/debugpy/${vpython_platform}"
   version: "version:1.5.1"
+>
+
+wheel: <
+  name: "infra/python/wheels/markupsafe/${vpython_platform}"
+  version: "version:2.0.1"
+>
+
+wheel: <
+  name: "infra/python/wheels/pydot-py2_py3"
+  version: "version:1.4.2"
 >

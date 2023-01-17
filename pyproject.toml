@@ -29,7 +29,7 @@ cb = 'scripts:crossbench'
 [tool.poetry.group.dev.dependencies]
 pyfakefs = "^4.6.3"
 isort = "^5.10.1"
-pytype = "^2022.10.13"
+pytype = "2022.12.15"
 pytest-cov = "^3.0.0"
 debugpy = "^1.6.3"
 mypy = "^0.982"

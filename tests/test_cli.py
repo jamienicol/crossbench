@@ -586,7 +586,7 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
         }})
     self.assertTrue(len(config.probes), 1)
     probe = config.probes[0]
-    self.assertTrue(isinstance(probe, V8LogProbe))
+    assert isinstance(probe, V8LogProbe)
     for flag in js_flags + ["--prof"]:
       self.assertIn(flag, probe.js_flags)
 
@@ -605,9 +605,9 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
     })
     self.assertTrue(len(config.probes), 2)
     log_probe = config.probes[0]
-    self.assertTrue(isinstance(log_probe, V8LogProbe))
+    assert isinstance(log_probe, V8LogProbe)
     powersampler_probe = config.probes[1]
-    self.assertTrue(isinstance(powersampler_probe, PowerSamplerProbe))
+    assert isinstance(powersampler_probe, PowerSamplerProbe)
     self.assertEqual(powersampler_probe.bin_path, powersampler_bin)
 
 
