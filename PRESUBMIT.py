@@ -54,7 +54,7 @@ def CheckChange(input_api, output_api, on_commit):
     dirs_to_check = [crossbench_test_path]
     files_to_check = [r'.*test_cli\.py$']
   for dir_to_check in dirs_to_check:
-    if dir_to_check.name == "__pycache__":
+    if dir_to_check.name in ["__pycache__", 'cbb']:
       continue
     tests += input_api.canned_checks.GetUnitTestsInDirectory(
         input_api,
