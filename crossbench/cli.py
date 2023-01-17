@@ -22,6 +22,7 @@ import hjson
 from tabulate import tabulate
 
 import crossbench.benchmarks.all as benchmarks
+from cli_helper import existing_file_type, positive_float_type
 from crossbench import helper
 from crossbench.benchmarks.base import Benchmark
 from crossbench.browsers import all as browsers
@@ -316,8 +317,6 @@ class BrowserConfig:
     self._ensure_unique_browser_names()
 
   def _verify_browser_flags(self, args: argparse.Namespace) -> None:
-    if len(self._variants) == 1:
-      return
     chrome_args = {
         "--enable-features": args.enable_features,
         "--disable-features": args.disable_features,
@@ -496,26 +495,6 @@ class ProbeConfig:
   def raise_unknown_probe(self, probe_name: str) -> None:
     raise ValueError(f"Unknown probe name: '{probe_name}'\n"
                      f"Options are: {list(self.LOOKUP.keys())}")
-
-
-def existing_file_type(str_value: str) -> pathlib.Path:
-  try:
-    path = pathlib.Path(str_value).expanduser()
-  except RuntimeError as e:
-    raise argparse.ArgumentTypeError(f"Invalid Path '{str_value}': {e}") from e
-  if not path.exists():
-    raise argparse.ArgumentTypeError(f"Path '{path}', does not exist.")
-  if not path.is_file():
-    raise argparse.ArgumentTypeError(f"Path '{path}', is not a file.")
-  return path
-
-
-def positive_float_type(value: str) -> float:
-  value_f = float(value)
-  if not math.isfinite(value_f) or value_f < 0:
-    raise argparse.ArgumentTypeError(
-        f"Expected positive value but got: {value_f}")
-  return value_f
 
 
 def inline_env_config(value: str) -> HostEnvironmentConfig:

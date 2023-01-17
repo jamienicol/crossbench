@@ -14,6 +14,7 @@ from typing import (TYPE_CHECKING, Any, Dict, List, Optional, Sequence, TextIO,
 from urllib.parse import urlparse
 
 import hjson
+from cli_helper import existing_file_type
 
 from crossbench.benchmarks.base import StoryFilter, SubStoryBenchmark
 from crossbench.exception import ExceptionAnnotator
@@ -272,6 +273,7 @@ class PageLoadBenchmark(SubStoryBenchmark):
         help="List of urls and durations to load: url,seconds,...")
     group.add_argument(
         "--page-config",
+        type=existing_file_type,
         help="Stories we want to perform in the benchmark run following a"
         "specified scenario. For a reference on how to build scenarios and"
         "possible actions check  pages.config.example.hjson")
@@ -291,13 +293,11 @@ class PageConfig:
 
   @classmethod
   def from_cli_args(cls, args: argparse.Namespace) -> PageConfig:
-    page_config = PageConfig()
-    if args.page_config:
-      initial_path = pathlib.Path(args.page_config)
-      path = initial_path.expanduser()
-      with path.open() as f:
-        page_config.load(f)
-    return page_config
+    assert args.page_config
+    with args.page_config.open(encoding="utf-8") as f:
+      config = PageConfig()
+      config.load(f)
+      return config
 
   def __init__(self, raw_config_data: Optional[Dict] = None):
     self._exceptions = ExceptionAnnotator(throw=True)

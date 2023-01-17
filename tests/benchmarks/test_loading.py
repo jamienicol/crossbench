@@ -5,11 +5,14 @@
 # pytype: disable=attribute-error
 
 from __future__ import annotations
+import json
 
 import sys
 import unittest
 import pathlib
+from unittest import mock
 import hjson
+import pyfakefs.fake_filesystem_unittest
 from typing import Sequence, cast
 
 import pytest
@@ -136,7 +139,11 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
     self.assertEqual(browser_2_urls, story_urls)
 
 
-class TestPageConfig(unittest.TestCase):
+class TestPageConfig(pyfakefs.fake_filesystem_unittest.TestCase):
+
+  def setUp(self):
+    # TODO: Move to separate common helper class
+    self.setUpPyfakefs(modules_to_reload=[crossbench])
 
   @unittest.skipIf(hjson.__name__ != "hjson", "hjson not available")
   def test_parse_example_page_config_file(self):
@@ -153,6 +160,46 @@ class TestPageConfig(unittest.TestCase):
     dict_config.load_dict(data)
     self.assertTrue(dict_config.stories)
     self.assertTrue(file_config.stories)
+
+  def test_example(self):
+    config_data = {
+        "pages": {
+            "Google Story": [
+                {
+                    "action": "get",
+                    "value": "https://www.google.com"
+                },
+                {
+                    "action": "wait",
+                    "duration": 5
+                },
+                {
+                    "action": "scroll",
+                    "value": "down",
+                    "duration": 3
+                },
+            ],
+        }
+    }
+    config = loading.PageConfig()
+    config.load_dict(config_data, throw=True)
+    self.assert_single_google_story(config)
+    # Loading the same config from a file should result in the same actions.
+    file = pathlib.Path("page.config.hjson")
+    assert not file.exists()
+    with file.open("w", encoding="utf-8") as f:
+      hjson.dump(config_data, f)
+    args = mock.Mock(page_config=file, wraps=False)
+    config = loading.PageConfig.from_cli_args(args)
+    self.assert_single_google_story(config)
+
+  def assert_single_google_story(self, config):
+    self.assertTrue(len(config.stories), 1)
+    story = config.stories[0]
+    assert isinstance(story, loading.InteractivePage)
+    self.assertEqual(story.name, "Google Story")
+    self.assertListEqual([action.action_type for action in story.actions],
+                         ["get", "wait", "scroll"])
 
   def test_no_scenarios(self):
     with self.assertRaises(ValueError):

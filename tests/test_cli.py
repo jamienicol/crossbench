@@ -15,16 +15,16 @@ import pyfakefs.fake_filesystem_unittest
 import pytest
 
 import crossbench
-from crossbench.browsers.chrome import ChromeWebDriver, Chrome
-from crossbench.browsers.safari import Safari
-from crossbench.cli import CrossBenchCLI, BrowserConfig, FlagGroupConfig, ProbeConfig
 from crossbench import helper
+from crossbench.browsers.chrome import Chrome, ChromeWebDriver
+from crossbench.browsers.safari import Safari
+from crossbench.cli import (BrowserConfig, ConfigFileError, CrossBenchCLI,
+                            FlagGroupConfig, ProbeConfig)
 from crossbench.probes.power_sampler import PowerSamplerProbe
 from crossbench.probes.v8.log import V8LogProbe
 from crossbench.runner import Runner
-
-from tests.mock_helper import BaseCrossbenchTestCase, MockCLI
 from tests import mock_browser
+from tests.mock_helper import BaseCrossbenchTestCase, MockCLI
 
 
 class SysExitException(Exception):
@@ -524,6 +524,51 @@ class TestCLI(BaseCrossbenchTestCase):
           "--env-validation=skip",
           raises=SysExitException)
 
+  def test_multiple_browser_compatible_flags(self):
+    mock_browsers: List[Type[mock_browser.MockBrowser]] = [
+        mock_browser.MockChromeStable,
+        mock_browser.MockFirefox,
+        mock_browser.MockChromeDev,
+    ]
+
+    def mock_get_browser_cls_from_path(path):
+      for mock_browser_cls in mock_browsers:
+        if mock_browser_cls.APP_PATH == path:
+          return mock_browser_cls
+      raise ValueError("Unknown browser path")
+
+    for chrome_flag in ("--js-flags=--no-opt", "--enable-features=Foo",
+                        "--disable-features=bar"):
+      # Fail for chrome flags for non-chrome browser
+      with self.assertRaises(ValueError), mock.patch.object(
+          BrowserConfig,
+          "_get_browser_cls_from_path",
+          side_effect=mock_get_browser_cls_from_path):
+        self.run_cli("loading", "--urls=http://test.com",
+                     "--env-validation=skip", "--throw", "--browser=firefox",
+                     chrome_flag)
+      # Fail for mixed browsers and chrome flags
+      with self.assertRaises(ValueError), mock.patch.object(
+          BrowserConfig,
+          "_get_browser_cls_from_path",
+          side_effect=mock_get_browser_cls_from_path):
+        self.run_cli("loading", "--urls=http://test.com",
+                     "--env-validation=skip", "--throw", "--browser=chrome",
+                     "--browser=firefox", chrome_flag)
+      with self.assertRaises(ValueError), mock.patch.object(
+          BrowserConfig,
+          "_get_browser_cls_from_path",
+          side_effect=mock_get_browser_cls_from_path):
+        self.run_cli("loading", "--urls=http://test.com",
+                     "--env-validation=skip", "--throw", "--browser=chrome",
+                     "--browser=firefox", "--", chrome_flag)
+    # Flags for the same type are allowed.
+    with mock.patch.object(
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      self.run_cli("loading", "--urls=http://test.com", "--env-validation=skip",
+                   "--throw", "--browser=chrome", "--browser=chrome-dev", "--",
+                   "--js-flags=--no-opt")
+
   def test_env_config_file(self):
     config = pathlib.Path("/test.config.hjson")
     with config.open("w", encoding="utf-8") as f:
@@ -575,7 +620,7 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
     config = self.parse_config({"probes": {}})
     self.assertListEqual(config.probes, [])
 
-  def test_single_c8_log(self):
+  def test_single_v8_log(self):
     js_flags = ["--log-maps", "--log-function-events"]
     config = self.parse_config(
         {"probes": {
@@ -589,6 +634,65 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
     assert isinstance(probe, V8LogProbe)
     for flag in js_flags + ["--prof"]:
       self.assertIn(flag, probe.js_flags)
+
+  def test_from_cli_args(self):
+    file = pathlib.Path("probe.config.hjson")
+    js_flags = ["--log-maps", "--log-function-events"]
+    config_data = {
+        "probes": {
+            "v8.log": {
+                "prof": True,
+                "js_flags": js_flags,
+            }
+        }
+    }
+    with file.open("w", encoding="utf-8") as f:
+      hjson.dump(config_data, f)
+    args = mock.Mock(probe_config=file)
+    config = ProbeConfig.from_cli_args(args)
+    self.assertTrue(len(config.probes), 1)
+    probe = config.probes[0]
+    self.assertTrue(isinstance(probe, V8LogProbe))
+    for flag in js_flags + ["--prof"]:
+      self.assertIn(flag, probe.js_flags)
+
+  def test_inline_config(self):
+    mock_d8_file = pathlib.Path("out/d8")
+    self.fs.create_file(mock_d8_file)
+    config_data = {"d8_binary": str(mock_d8_file)}
+    args = mock.Mock(
+        probe=[f"v8.log{hjson.dumps(config_data)}"],
+        probe_config=None,
+        throw=True,
+        wraps=False)
+    config = ProbeConfig.from_cli_args(args)
+    self.assertTrue(len(config.probes), 1)
+    probe = config.probes[0]
+    self.assertTrue(isinstance(probe, V8LogProbe))
+
+  def test_inline_config_dir_instead_of_file(self):
+    mock_dir = pathlib.Path("some/dir")
+    mock_dir.mkdir(parents=True)
+    config_data = {"d8_binary": str(mock_dir)}
+    args = mock.Mock(
+        probe=[f"v8.log{hjson.dumps(config_data)}"],
+        probe_config=None,
+        throw=True,
+        wraps=False)
+    with self.assertRaises(ValueError) as cm:
+      ProbeConfig.from_cli_args(args)
+    self.assertIn(str(mock_dir), str(cm.exception))
+
+  def test_inline_config_non_existent_file(self):
+    config_data = {"d8_binary": "does/not/exist/d8"}
+    args = mock.Mock(
+        probe=[f"v8.log{hjson.dumps(config_data)}"],
+        probe_config=None,
+        throw=True,
+        wraps=False)
+    with self.assertRaises(ValueError) as cm:
+      ProbeConfig.from_cli_args(args)
+    self.assertIn("does/not/exist/d8", str(cm.exception))
 
   def test_multiple_probes(self):
     powersampler_bin = pathlib.Path("/powersampler.bin")
@@ -621,10 +725,10 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     super().setUp()
     self.browser_lookup: Dict[
         str, Tuple[Type[mock_browser.MockBrowser], pathlib.Path]] = {
-            "stable": (mock_browser.MockChromeStable,
-                       mock_browser.MockChromeStable.APP_PATH),
-            "dev": (mock_browser.MockChromeDev,
-                    mock_browser.MockChromeDev.APP_PATH),
+            "chr-stable": (mock_browser.MockChromeStable,
+                           mock_browser.MockChromeStable.APP_PATH),
+            "chr-dev": (mock_browser.MockChromeDev,
+                        mock_browser.MockChromeDev.APP_PATH),
             "chrome-stable": (mock_browser.MockChromeStable,
                               mock_browser.MockChromeStable.APP_PATH),
             "chrome-dev": (mock_browser.MockChromeDev,
@@ -647,25 +751,46 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     self.assertGreaterEqual(len(config.variants), 1)
 
   def test_flag_combination_invalid(self):
-    with self.assertRaises(Exception):
+    with self.assertRaises(ConfigFileError) as cm:
       BrowserConfig(
           {
               "flags": {
                   "group1": {
-                      "invalidFlag": [None, "", "v1"],
+                      "invalid-flag-name": [None, "", "v1"],
                   },
               },
               "browsers": {
-                  "stable": {
-                      "path": "stable",
-                      "flags": ["group1", "group2"]
+                  "chrome-stable": {
+                      "path": "chrome-stable",
+                      "flags": ["group1",]
                   }
               }
           },
           browser_lookup_override=self.browser_lookup).variants
+    self.assertIn("group1", str(cm.exception))
+    self.assertIn("invalid-flag-name", str(cm.exception))
+
+  def test_flag_combination_none(self):
+    with self.assertRaises(ConfigFileError) as cm:
+      BrowserConfig(
+          {
+              "flags": {
+                  "group1": {
+                      "--foo": ["None,", "", "v1"],
+                  },
+              },
+              "browsers": {
+                  "chrome-stable": {
+                      "path": "chrome-stable",
+                      "flags": ["group1"]
+                  }
+              }
+          },
+          browser_lookup_override=self.browser_lookup).variants
+    self.assertIn("None", str(cm.exception))
 
   def test_flag_combination_duplicate(self):
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ValueError) as cm:
       BrowserConfig(
           {
               "flags": {
@@ -677,13 +802,14 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                   }
               },
               "browsers": {
-                  "stable": {
-                      "path": "stable",
+                  "chrome-stable": {
+                      "path": "chrome-stable",
                       "flags": ["group1", "group2"]
                   }
               }
           },
           browser_lookup_override=self.browser_lookup).variants
+    self.assertIn("--duplicate-flag", str(cm.exception))
 
   def test_empty(self):
     with self.assertRaises(ValueError):
@@ -692,32 +818,83 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
       BrowserConfig({"browsers": {}}).variants
 
   def test_unknown_group(self):
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ValueError) as cm:
       BrowserConfig({
           "browsers": {
-              "stable": {
-                  "path": "stable",
+              "chrome-stable": {
+                  "path": "chrome-stable",
                   "flags": ["unknown-flag-group"]
               }
           }
       }).variants
+    self.assertIn("unknown-flag-group", str(cm.exception))
 
   def test_duplicate_group(self):
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ConfigFileError):
       BrowserConfig({
           "flags": {
               "group1": {}
           },
           "browsers": {
-              "stable": {
-                  "path": "stable",
+              "chrome-stable": {
+                  "path": "chrome-stable",
                   "flags": ["group1", "group1"]
               }
           }
       }).variants
 
+  def test_non_list_group(self):
+    BrowserConfig(
+        {
+            "flags": {
+                "group1": {}
+            },
+            "browsers": {
+                "chrome-stable": {
+                    "path": "chrome-stable",
+                    "flags": "group1"
+                }
+            }
+        },
+        browser_lookup_override=self.browser_lookup).variants
+    with self.assertRaises(ConfigFileError) as cm:
+      BrowserConfig(
+          {
+              "flags": {
+                  "group1": {}
+              },
+              "browsers": {
+                  "chrome-stable": {
+                      "path": "chrome-stable",
+                      "flags": 1
+                  }
+              }
+          },
+          browser_lookup_override=self.browser_lookup).variants
+    self.assertIn("chrome-stable", str(cm.exception))
+    self.assertIn("flags", str(cm.exception))
+
+    with self.assertRaises(ConfigFileError) as cm:
+      BrowserConfig(
+          {
+              "flags": {
+                  "group1": {}
+              },
+              "browsers": {
+                  "chrome-stable": {
+                      "path": "chrome-stable",
+                      "flags": {
+                          "group1": True
+                      }
+                  }
+              }
+          },
+          browser_lookup_override=self.browser_lookup).variants
+    self.assertIn("chrome-stable", str(cm.exception))
+    self.assertIn("flags", str(cm.exception))
+
   def test_duplicate_flag_variant_value(self):
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ConfigFileError) as cm:
       BrowserConfig({
           "flags": {
               "group1": {
@@ -725,18 +902,20 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
               }
           },
           "browsers": {
-              "stable": {
-                  "path": "stable",
+              "chrome-stable": {
+                  "path": "chrome-stable",
                   "flags": "group1",
               }
           }
       }).variants
+    self.assertIn("group1", str(cm.exception))
+    self.assertIn("--flag", str(cm.exception))
 
   def test_unknown_path(self):
     with self.assertRaises(Exception):
       BrowserConfig({
           "browsers": {
-              "stable": {
+              "chrome-stable": {
                   "path": "path/does/not/exist",
               }
           }
@@ -744,7 +923,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     with self.assertRaises(Exception):
       BrowserConfig({
           "browsers": {
-              "stable": {
+              "chrome-stable": {
                   "path": "chrome-unknown",
               }
           }
@@ -759,8 +938,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             },
             "browsers": {
-                "stable": {
-                    "path": "stable",
+                "chrome-stable": {
+                    "path": "chrome-stable",
                     "flags": ["group1"]
                 }
             }
@@ -785,8 +964,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             },
             "browsers": {
-                "stable": {
-                    "path": "stable",
+                "chrome-stable": {
+                    "path": "chrome-stable",
                     "flags": ["group1"]
                 }
             }
@@ -804,7 +983,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
             },
             "browsers": {
                 "chrome-release": {
-                    "path": "stable",
+                    "path": "chrome-stable",
                     "flags": ["--no-sandbox", "compile-hints-experiment"]
                 }
             }
@@ -822,7 +1001,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
         {
             "browsers": {
                 "chrome-release": {
-                    "path": "stable",
+                    "path": "chrome-stable",
                     "flags": "--no-sandbox",
                 }
             }
@@ -843,7 +1022,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
             },
             "browsers": {
                 "chrome-release": {
-                    "path": "stable",
+                    "path": "chrome-stable",
                     "flags": "compile-hints-experiment"
                 }
             }
@@ -858,14 +1037,16 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 
   def test_no_flags(self):
     config = BrowserConfig(
-        {"browsers": {
-            "stable": {
-                "path": "stable",
-            },
-            "dev": {
-                "path": "dev",
+        {
+            "browsers": {
+                "chrome-stable": {
+                    "path": "chrome-stable",
+                },
+                "chrome-dev": {
+                    "path": "chrome-dev",
+                }
             }
-        }},
+        },
         browser_lookup_override=self.browser_lookup)
     self.assertEqual(len(config.variants), 2)
     browser_0 = config.variants[0]
@@ -917,8 +1098,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             },
             "browsers": {
-                "stable": {
-                    "path": "stable",
+                "chrome-stable": {
+                    "path": "chrome-stable",
                     "flags": ["group1"]
                 }
             }
@@ -944,8 +1125,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             },
             "browsers": {
-                "stable": {
-                    "path": "stable",
+                "chrome-stable": {
+                    "path": "chrome-stable",
                     "flags": ["group1", "group2", "group3"]
                 }
             }
@@ -960,7 +1141,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     browser_bin = browser_cls.APP_PATH.with_name(
         f"Custom Google Chrome{suffix}")
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
-    config_data = {"browsers": {"stable": {"path": str(browser_bin),}}}
+    config_data = {"browsers": {"chrome-stable": {"path": str(browser_bin),}}}
     config_file = pathlib.Path("config.hjson")
     with config_file.open("w", encoding="utf-8") as f:
       hjson.dump(config_data, f)

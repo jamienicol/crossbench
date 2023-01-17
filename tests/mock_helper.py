@@ -7,6 +7,7 @@ from __future__ import annotations
 import abc
 import pathlib
 from typing import TYPE_CHECKING, Type
+from unittest import mock
 
 import psutil
 from pyfakefs import fake_filesystem_unittest
@@ -103,6 +104,7 @@ class BaseCrossbenchTestCase(
     fake_filesystem_unittest.TestCase, metaclass=abc.ABCMeta):
 
   def setUp(self):
+    super().setUp()
     self.setUpPyfakefs(modules_to_reload=[crossbench, mock_browser])
     for mock_browser_cls in mock_browser.ALL:
       mock_browser_cls.setup_fs(self.fs)
@@ -114,3 +116,9 @@ class BaseCrossbenchTestCase(
         mock_browser.MockChromeDev("dev", platform=self.platform),
         mock_browser.MockChromeStable("stable", platform=self.platform)
     ]
+    self.sleep_patcher = mock.patch('time.sleep', return_value=None)
+    self.sleep_patcher.start()
+
+  def tearDown(self) -> None:
+    self.sleep_patcher.stop()
+    super().tearDown()
