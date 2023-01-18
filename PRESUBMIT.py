@@ -15,7 +15,7 @@ def CheckChange(input_api, output_api, on_commit):
   testing_env = dict(input_api.environ)
   testing_path = pathlib.Path(input_api.PresubmitLocalPath())
   crossbench_test_path = testing_path / "tests"
-  testing_env['PYTHONPATH'] = input_api.os_path.pathsep.join(
+  testing_env["PYTHONPATH"] = input_api.os_path.pathsep.join(
       map(str, [testing_path, crossbench_test_path]))
   # ---------------------------------------------------------------------------
   # Validate the vpython spec
@@ -27,7 +27,7 @@ def CheckChange(input_api, output_api, on_commit):
   #     input_api.canned_checks.CheckVPythonSpec(input_api, output_api))
   # ---------------------------------------------------------------------------
   # Pylint
-  files_to_check = [r'^[^\.]+\.py$']
+  files_to_check = [r"^[^\.]+\.py$"]
   disabled_warnings = [
       "missing-module-docstring",
       "missing-class-docstring",
@@ -48,13 +48,17 @@ def CheckChange(input_api, output_api, on_commit):
   # Only run test_cli to speed up the presubmit checks
   if on_commit:
     dirs_to_check = crossbench_test_path.glob("**")
-    files_to_check = [r'.*test_.*\.py$']
+    files_to_check = [r".*test_.*\.py$"]
   else:
     # Only check a small subset on upload
     dirs_to_check = [crossbench_test_path]
-    files_to_check = [r'.*test_cli\.py$']
+    files_to_check = [r".*test_cli\.py$"]
   for dir_to_check in dirs_to_check:
-    if dir_to_check.name in ["__pycache__", 'cbb']:
+    # CBB tests run end-to-end tests and require custom setup.
+    if dir_to_check.name == "cbb":
+      continue
+    # Skip potentially empty dirs
+    if dir_to_check.name == "__pycache__":
       continue
     tests += input_api.canned_checks.GetUnitTestsInDirectory(
         input_api,
@@ -69,9 +73,9 @@ def CheckChange(input_api, output_api, on_commit):
   if on_commit and platform.system() in ("Linux", "Darwin"):
     tests.append(
         input_api.Command(
-            name='pytype',
+            name="pytype",
             cmd=[
-                input_api.python3_executable, '-m', 'pytype', "--keep-going",
+                input_api.python3_executable, "-m", "pytype", "--keep-going",
                 "--jobs=auto",
                 str(testing_path / "crossbench"),
                 str(testing_path / "tests")
