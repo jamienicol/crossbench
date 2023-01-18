@@ -98,12 +98,14 @@ class Runner:
 
   @classmethod
   def kwargs_from_cli(cls, args: argparse.Namespace) -> Dict[str, Any]:
-    if args.out_dir is None:
+    if args.out_dir:
+      out_dir = args.out_dir
+    else:
       label = args.label or args.benchmark_cls.NAME
       cli_dir = pathlib.Path(__file__).parent.parent
-      args.out_dir = cls.get_out_dir(cli_dir, label)
+      out_dir = cls.get_out_dir(cli_dir, label)
     return {
-        "out_dir": args.out_dir,
+        "out_dir": out_dir,
         "browsers": args.browser,
         "repetitions": args.repeat,
         "throw": args.throw,

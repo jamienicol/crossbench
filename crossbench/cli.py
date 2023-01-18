@@ -883,6 +883,15 @@ class CrossBenchCLI:
     except:  # pylint disable=broad-except
       self._log_results(args, runner, is_success=False)
       raise
+    finally:
+      if not args.out_dir:
+        latest = runner.out_dir.parent / "latest"
+        if latest.is_symlink():
+          latest.unlink()
+        if not latest.exists():
+          latest.symlink_to(runner.out_dir, target_is_directory=True)
+        else:
+          logging.error("Could not create %s", latest)
 
   def _log_results(self, args: argparse.Namespace, runner: Runner,
                    is_success: bool) -> None:
