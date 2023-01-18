@@ -6,7 +6,7 @@ import abc
 import argparse
 import csv
 from dataclasses import dataclass
-from typing import Optional, Type
+from typing import Optional, Sequence, Type
 from unittest import mock
 
 from crossbench.benchmarks.speedometer import (Speedometer2Benchmark,
@@ -29,6 +29,11 @@ class Speedometer2BaseTestCase(
   @property
   @abc.abstractmethod
   def story_cls(self) -> Type[Speedometer2Story]:
+    pass
+
+  @property
+  @abc.abstractmethod
+  def probe_cls(self) -> Type[Speedometer2Probe]:
     pass
 
   @property
@@ -228,6 +233,81 @@ class Speedometer2BaseTestCase(
         'stable': '100.22.33.44'
     })
 
+  def _run_story_names(self, story_names: Sequence[str], separate: bool,
+                       expected_num_urls: int):
+    repetitions = 3
+    iterations = 2
+    stories = self.story_cls.from_names(story_names, separate=separate)
+    example_story_data = {
+        "tests": {
+            "Adding100Items": {
+                "tests": {
+                    "Sync": 74.6000000089407,
+                    "Async": 6.299999997019768
+                },
+                "total": 80.90000000596046
+            },
+            "CompletingAllItems": {
+                "tests": {
+                    "Sync": 22.600000008940697,
+                    "Async": 5.899999991059303
+                },
+                "total": 28.5
+            },
+            "DeletingItems": {
+                "tests": {
+                    "Sync": 11.800000011920929,
+                    "Async": 0.19999998807907104
+                },
+                "total": 12
+            }
+        },
+        "total": 121.40000000596046
+    }
+    speedometer_probe_results = [{
+        "tests": {story.name: example_story_data for story in stories},
+        "total": 1000,
+        "mean": 2000,
+        "geomean": 3000,
+        "score": 10
+    } for i in range(iterations)]
+
+    for browser in self.browsers:
+      browser.js_side_effect = [
+          True,  # Page is ready
+          None,  # filter benchmarks
+          None,  # Start running benchmark
+          True,  # Wait until done
+          speedometer_probe_results,
+      ]
+    benchmark = self.benchmark_cls(stories)
+    self.assertTrue(len(benchmark.describe()) > 0)
+    runner = Runner(
+        self.out_dir,
+        self.browsers,
+        benchmark,
+        env_config=HostEnvironmentConfig(),
+        env_validation_mode=ValidationMode.SKIP,
+        platform=self.platform,
+        repetitions=repetitions)
+    with mock.patch.object(self.benchmark_cls, "validate_url") as cm:
+      runner.run()
+    cm.assert_called_once()
+
+    for browser in self.browsers:
+      urls = self.filter_data_urls(browser.url_list)
+      self.assertEqual(len(urls), expected_num_urls)
+      self.assertIn(self.probe_cls.JS, browser.js_list)
+
+    with (self.out_dir /
+          f"{self.probe_cls.NAME}.csv").open(encoding="utf-8") as f:
+      csv_data = list(csv.DictReader(f, delimiter="\t"))
+    self.assertListEqual(list(csv_data[0].keys()), ["label", "dev", "stable"])
+    self.assertDictEqual(csv_data[1], {
+        'label': 'version',
+        'dev': '102.22.33.44',
+        'stable': '100.22.33.44'
+    })
     with self.assertLogs(level='INFO') as cm:
       for probe in runner.probes:
         for run in runner.runs:
@@ -242,3 +322,13 @@ class Speedometer2BaseTestCase(
     self.assertIn("Speedometer results", output)
     self.assertIn("102.22.33.44", output)
     self.assertIn("100.22.33.44", output)
+
+  def test_run_combined(self):
+    self._run_story_names(["VanillaJS-TodoMVC", "Elm-TodoMVC"],
+                          separate=False,
+                          expected_num_urls=3)
+
+  def test_run_separate(self):
+    self._run_story_names(["VanillaJS-TodoMVC", "Elm-TodoMVC"],
+                          separate=True,
+                          expected_num_urls=6)
