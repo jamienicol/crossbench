@@ -371,7 +371,9 @@ class BrowserConfig:
       for feature in args.disable_features.split(","):
         flags.features.disable(feature)
     if args.js_flags:
-      flags.js_flags.update(args.js_flags.split(","))
+      for js_flag in args.js_flags.split(","):
+        js_flag_name, js_flag_value = Flags.split(js_flag.lstrip())
+        flags.js_flags.set(js_flag_name, js_flag_value)
 
   def _get_browser_path(self, path_or_identifier: str) -> pathlib.Path:
     identifier = path_or_identifier.lower()
