@@ -9,7 +9,6 @@ import datetime as dt
 import itertools
 import json
 import logging
-import math
 import pathlib
 import sys
 import tempfile
@@ -22,12 +21,12 @@ import hjson
 from tabulate import tabulate
 
 import crossbench.benchmarks.all as benchmarks
-from cli_helper import existing_file_type, positive_float_type
 from crossbench import helper
 from crossbench.benchmarks.base import Benchmark
 from crossbench.browsers import all as browsers
 from crossbench.browsers.base import convert_flags_to_label
 from crossbench.browsers.chrome import ChromeDownloader
+from crossbench.cli_helper import existing_file_type, positive_float_type
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.exception import ExceptionAnnotator

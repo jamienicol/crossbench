@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import abc
 import logging
-import pathlib
 import re
 import time
 from enum import Enum
@@ -14,9 +13,9 @@ from typing import (TYPE_CHECKING, Any, Dict, List, Optional, Sequence, TextIO,
 from urllib.parse import urlparse
 
 import hjson
-from cli_helper import existing_file_type
 
 from crossbench.benchmarks.base import StoryFilter, SubStoryBenchmark
+from crossbench.cli_helper import existing_file_type
 from crossbench.exception import ExceptionAnnotator
 from crossbench.stories import Story
 
