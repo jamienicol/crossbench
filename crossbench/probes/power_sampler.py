@@ -130,6 +130,7 @@ class PowerSamplerProbe(Probe):
           f"--sample-interval={self.probe.sampling_interval}",
           f"--samplers={','.join(self.probe.samplers)}",
           f"--json-output-file={self._power_output}",
+          f"--resource-coalition-pid={self.browser_pid}",
           stdout=subprocess.DEVNULL)
       assert self._power_process is not None, "Could not start power sampler"
 

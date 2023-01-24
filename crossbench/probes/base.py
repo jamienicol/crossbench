@@ -287,6 +287,12 @@ class Probe(abc.ABC):
     def name(self) -> str:
       return self.probe.name
 
+    @property
+    def browser_pid(self) -> str:
+      maybe_pid = self.run.browser.pid
+      assert maybe_pid, "Browser is not runner or does not provide a pid."
+      return maybe_pid
+
     def setup(self, run: Run) -> None:
       """
       Called before starting the browser, typically used to set run-specific
