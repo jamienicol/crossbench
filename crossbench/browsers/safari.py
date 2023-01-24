@@ -45,6 +45,8 @@ class Safari(Browser):
     self.cache_dir = pathlib.Path(
         f"~/Library/Containers/com.apple.{self.bundle_name}/Data/Library/Caches"
     ).expanduser()
+    if flags and "--start-fullscreen" in str(flags):
+      self._start_fullscreen = True
 
   def _extract_version(self) -> str:
     assert self.path
@@ -66,9 +68,14 @@ tell application "{self.app_name}"
       to click menu item "New Private Window"
       of menu "File" of menu bar 1
       of process '{self.bundle_name}'
+      if {self._start_fullscreen} then
+        keystroke "f" using {{command down, control down}}
+      end if
   set URL of current tab of front window to ''
-  set the bounds of the first window
-      to {{{self.x},{self.y},{self.width},{self.height}}}
+  if {not self._start_fullscreen} then
+    set the bounds of the first window
+        to {{{self.x},{self.y},{self.width},{self.height}}}
+  end if
   tell application "System Events"
       to keystroke "e" using {{command down, option down}}
   tell application "System Events"

@@ -125,7 +125,10 @@ class Chromium(Browser):
 
     flags_copy = self.flags.copy()
     flags_copy.update(run.extra_flags)
-    flags_copy["--window-size"] = f"{self.width},{self.height}"
+    if "--start-fullscreen" in flags_copy:
+      self._start_fullscreen = True
+    else:
+      flags_copy["--window-size"] = f"{self.width},{self.height}"
     if len(js_flags_copy):
       flags_copy["--js-flags"] = str(js_flags_copy)
     if self.cache_dir and self.cache_dir:

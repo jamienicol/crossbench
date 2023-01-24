@@ -78,7 +78,10 @@ class Firefox(Browser):
   def _get_browser_flags(self, run: Run) -> Tuple[str, ...]:
     flags_copy = self.flags.copy()
     flags_copy.update(run.extra_flags)
-    flags_copy["--window-size"] = f"{self.width},{self.height}"
+    if "--start-fullscreen" in flags_copy:
+      self._start_fullscreen = True
+    else:
+      flags_copy["--window-size"] = f"{self.width},{self.height}"
     if self.cache_dir and self.cache_dir:
       flags_copy["--profile"] = str(self.cache_dir)
     if self.log_file:

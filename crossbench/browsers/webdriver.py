@@ -61,8 +61,11 @@ class WebdriverMixin(Browser):
     self._is_running = True
     # Force main window to foreground.
     self._driver.switch_to.window(self._driver.current_window_handle)
-    self._driver.set_window_position(self.x, self.y)
-    self._driver.set_window_size(self.width, self.height)
+    if self._start_fullscreen:
+      self._driver.fullscreen_window()
+    else:
+      self._driver.set_window_position(self.x, self.y)
+      self._driver.set_window_size(self.width, self.height)
     self._check_driver_version()
 
   @abc.abstractmethod
@@ -167,8 +170,11 @@ class RemoteWebDriver(WebdriverMixin, Browser):
   def start(self, run: Run) -> None:
     # Driver has already been started. We just need to mark it as running.
     self._is_running = True
-    self._driver.set_window_position(self.x, self.y)
-    self._driver.set_window_size(self.width, self.height)
+    if self._start_fullscreen:
+      self._driver.fullscreen_window()
+    else:
+      self._driver.set_window_position(self.x, self.y)
+      self._driver.set_window_size(self.width, self.height)
 
   def quit(self, runner: Runner) -> None:
     # External code that started the driver is responsible for shutting it down.

@@ -66,6 +66,8 @@ class Browser(abc.ABC):
     self.x: int = 10
     # Move down to avoid menu bars
     self.y: int = 50
+    # TODO: Use WindowSize object
+    self._start_fullscreen: bool = False
     self._is_running: bool = False
     self.cache_dir: Optional[pathlib.Path] = cache_dir
     self.clear_cache_dir: bool = True
