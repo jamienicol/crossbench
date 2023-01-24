@@ -42,12 +42,19 @@ class PowerSamplerProbe(Probe):
         choices=cls.SAMPLERS,
         default=cls.SAMPLERS,
         is_list=True)
+    parser.add_argument(
+        "wait_for_battery",
+        type=bool,
+        default=True,
+        help="Wait for the first non-100% battery measurement before "
+        "running the benchmark to ensure accurate readings.")
     return parser
 
   def __init__(self,
                bin_path: pathlib.Path,
                sampling_interval: int = 10,
-               samplers: Sequence[str] = SAMPLERS):
+               samplers: Sequence[str] = SAMPLERS,
+               wait_for_battery: bool = True):
     super().__init__()
     self._bin_path = bin_path
     assert self._bin_path.exists(), ("Could not find power_sampler binary at "
@@ -57,6 +64,7 @@ class PowerSamplerProbe(Probe):
         f"Invalid sampling_interval={sampling_interval}")
     assert "battery" not in samplers
     self._samplers = tuple(samplers)
+    self._wait_for_battery = wait_for_battery
 
   @property
   def bin_path(self) -> pathlib.Path:
@@ -69,6 +77,10 @@ class PowerSamplerProbe(Probe):
   @property
   def samplers(self) -> Tuple[str, ...]:
     return self._samplers
+
+  @property
+  def wait_for_battery(self) -> bool:
+    return self._wait_for_battery
 
   def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)
@@ -100,7 +112,8 @@ class PowerSamplerProbe(Probe):
           stdout=subprocess.DEVNULL)
       assert self._active_user_process is not None, (
           "Could not start active user background sa")
-      self._wait_for_battery_not_full(run)
+      if self.probe.wait_for_battery:
+        self._wait_for_battery_not_full(run)
 
     def start(self, run: Run) -> None:
       assert self._active_user_process is not None
