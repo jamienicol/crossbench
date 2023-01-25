@@ -66,14 +66,6 @@ class Chromium(Browser):
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "chromium",  # pylint: disable=redefined-builtin
       platform: Optional[helper.Platform] = None):
-    if cache_dir is None:
-      # pylint: disable=bad-option-value, consider-using-with
-      self.cache_dir = pathlib.Path(
-          tempfile.TemporaryDirectory(prefix=type).name)
-      self.clear_cache_dir = True
-    else:
-      self.cache_dir = cache_dir
-      self.clear_cache_dir = False
     super().__init__(label, path, type=type, platform=platform)
     assert not isinstance(js_flags, str), (
         f"js_flags should be a list, but got: {repr(js_flags)}")
@@ -82,6 +74,16 @@ class Chromium(Browser):
     self._flags: ChromeFlags = self.default_flags(self.DEFAULT_FLAGS)
     self._flags.update(flags)
     self.js_flags.update(js_flags)
+    if cache_dir is None:
+      cache_dir = self._flags.get("--user-data-dir")
+    if cache_dir is None:
+      # pylint: disable=bad-option-value, consider-using-with
+      self.cache_dir = pathlib.Path(
+          tempfile.TemporaryDirectory(prefix=type).name)
+      self.clear_cache_dir = True
+    else:
+      self.cache_dir = cache_dir
+      self.clear_cache_dir = False
     self._stdout_log_file = None
 
   def _extract_version(self) -> str:
@@ -131,7 +133,11 @@ class Chromium(Browser):
       flags_copy["--window-size"] = f"{self.width},{self.height}"
     if len(js_flags_copy):
       flags_copy["--js-flags"] = str(js_flags_copy)
-    if self.cache_dir and self.cache_dir:
+    if user_data_dir := self.flags.get("--user-data-dir"):
+      assert user_data_dir == self.cache_dir, (
+          f"--user-data-dir path: {user_data_dir} was passed"
+          f"but does not match cache-dir: {self.cache_dir}")
+    if self.cache_dir:
       flags_copy["--user-data-dir"] = str(self.cache_dir)
     if self.log_file:
       flags_copy.set("--enable-logging")
