@@ -290,12 +290,21 @@ class HostEnvironmentTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
       env.validate()
     cm.assert_not_called()
 
+  def test_results_dir_many(self):
+    # Create fake test result dirs:
+    for i in range(30):
+      (self.out_dir.parent / str(i)).mkdir()
+    env = cb.env.HostEnvironment(self.mock_runner)
+    with mock.patch("logging.warning") as cm:
+      env.validate()
+    cm.assert_called_once()
+
   def test_results_dir_too_many(self):
     # Create fake test result dirs:
     for i in range(100):
       (self.out_dir.parent / str(i)).mkdir()
     env = cb.env.HostEnvironment(self.mock_runner)
-    with mock.patch("logging.warning") as cm:
+    with mock.patch("logging.error") as cm:
       env.validate()
     cm.assert_called_once()
 

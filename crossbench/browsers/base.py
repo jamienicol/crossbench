@@ -56,6 +56,7 @@ class Browser(abc.ABC):
     self.major_version: int = 0
     if path:
       self.path = self._resolve_binary(path)
+      assert self.path.is_absolute()
       self.version = self._extract_version()
       self.major_version = int(self.version.split(".")[0])
       self.unique_name = f"{self.type}_v{self.major_version}_{self.label}"
@@ -114,6 +115,7 @@ class Browser(abc.ABC):
     return self.log_file.with_suffix(".stdout.log")
 
   def _resolve_binary(self, path: pathlib.Path) -> pathlib.Path:
+    path = path.absolute()
     assert path.exists(), f"Binary at path={path} does not exist."
     self.app_path = path
     self.app_name = self.app_path.stem

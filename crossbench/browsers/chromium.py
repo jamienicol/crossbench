@@ -396,10 +396,16 @@ class ChromeDriverFinder:
         zip_ref.extractall(zip_file.parent)
       zip_file.unlink()
       maybe_driver = None
-      maybe_drivers: List[pathlib.Path] = [
+      candidates: List[pathlib.Path] = [
           path for path in zip_file.parent.glob("**/*")
           if path.is_file() and "chromedriver" in path.name
       ]
+      # Find exact match first:
+      maybe_drivers: List[pathlib.Path] = [
+          path for path in candidates if path.stem == "chromedriver"
+      ]
+      # Backup less strict matching:
+      maybe_drivers += candidates
       if len(maybe_drivers) > 0:
         maybe_driver = maybe_drivers[0]
       assert maybe_driver and maybe_driver.is_file(), (

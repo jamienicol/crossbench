@@ -402,10 +402,14 @@ class HostEnvironment:
       return
     results = [path for path in results_dir.iterdir() if path.is_dir()]
     num_results = len(results)
-    if num_results > 20:
-      logging.warning(
-          "Found %d existing crossbench results. "
-          "Consider cleaning stale results in '%s'", num_results, results_dir)
+    if num_results < 20:
+      return
+    message = (f"Found {num_results} existing crossbench results. "
+               f"Consider cleaning stale results in '{results_dir}'")
+    if num_results > 50:
+      logging.error(message)
+    else:
+      logging.warning(message)
 
   def setup(self) -> None:
     self.validate()

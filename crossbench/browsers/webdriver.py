@@ -35,7 +35,7 @@ class WebdriverMixin(Browser):
     return log_file.with_suffix(".driver.log")
 
   def setup_binary(self, runner: Runner) -> None:
-    self._driver_path = self._find_driver()
+    self._driver_path = self._find_driver().absolute()
     assert self._driver_path.exists(), (
         f"Webdriver path '{self._driver_path}' does not exist")
 
@@ -50,6 +50,7 @@ class WebdriverMixin(Browser):
   def start(self, run: Run) -> None:
     assert not self._is_running
     assert self._driver_path
+    assert self._driver_path.is_absolute()
     self._check_driver_version()
     self._driver = self._start_driver(run, self._driver_path)
     if hasattr(self._driver, "service"):
