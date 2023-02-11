@@ -460,7 +460,15 @@ class ProbeConfig:
     if probe_name_with_args[-1] == "}":
       probe_name, json_args = probe_name_with_args.split("{", maxsplit=1)
       assert json_args[-1] == "}"
-      inline_config = hjson.loads("{" + json_args)
+      try:
+        json_args = "{" + json_args
+        inline_config = hjson.loads(json_args)
+      except ValueError as e:
+        message = (f"Could not decode inline probe config: {json_args}\n"
+                   f"   {str(e)}")
+        if "eof" in message:
+          message += "\n   Likely missing quotes for --probe argument."
+        raise ValueError(message) from e
     else:
       # Default case without the additional hjson payload
       probe_name = probe_name_with_args
@@ -494,8 +502,11 @@ class ProbeConfig:
         self._probes.append(probe_cls.from_config(config_data))
 
   def raise_unknown_probe(self, probe_name: str) -> None:
-    raise ValueError(f"Unknown probe name: '{probe_name}'\n"
-                     f"Options are: {list(self.LOOKUP.keys())}")
+    additional_msg = ""
+    if ":" in probe_name or "}" in probe_name:
+      additional_msg = "\n    Likely missing quotes for --probe argument"
+    msg = f"    Options are: {list(self.LOOKUP.keys())}{additional_msg}"
+    raise ValueError(f"Unknown probe name: '{probe_name}'\n{msg}")
 
 
 def inline_env_config(value: str) -> HostEnvironmentConfig:
