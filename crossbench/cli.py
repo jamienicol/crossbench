@@ -543,7 +543,7 @@ class CrossBenchCLI:
       (benchmarks.JetStream20Benchmark, ()),
       (benchmarks.JetStream21Benchmark, ("jetstream",)),
       (benchmarks.MotionMark12Benchmark, ("motionmark",)),
-      (benchmarks.PageLoadBenchmark, ()),
+      (benchmarks.PageLoadBenchmark, ("load",)),
   )
 
   RUNNER_CLS: Type[Runner] = Runner
@@ -615,7 +615,7 @@ class CrossBenchCLI:
     data: Dict[str, Dict[str, Any]] = {
         "benchmarks": benchmarks_data,
         "probes": {
-            probe_cls.NAME: probe_cls.help_text()
+            str(probe_cls.NAME): probe_cls.help_text()
             for probe_cls in GENERAL_PURPOSE_PROBES
             if not args.filter or probe_cls.NAME == args.filter
         }
@@ -638,7 +638,11 @@ class CrossBenchCLI:
           if isinstance(value, (tuple, list)):
             value = "\n".join(value)
           elif isinstance(value, dict):
-            value = tabulate(value.items(), tablefmt="plain")
+            if not value.items():
+              value = "[]"
+            else:
+              kwargs = {"maxcolwidths": 60}
+              value = tabulate(value.items(), tablefmt="plain", **kwargs)
           table.append([None, name, value])
       if len(table) > 1:
         print(tabulate(table, tablefmt="grid"))

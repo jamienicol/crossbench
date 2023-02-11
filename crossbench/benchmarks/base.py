@@ -10,6 +10,7 @@ import logging
 import re
 from typing import (TYPE_CHECKING, Any, Dict, Generic, List, Optional, Sequence,
                     Type, TypeVar, cast)
+from crossbench import helper
 
 from crossbench.stories import PressBenchmarkStory, Story
 
@@ -52,10 +53,11 @@ class Benchmark(abc.ABC):
   def describe(cls) -> Dict[str, Any]:
     return {
         "name": cls.NAME,
-        "description": cls.cli_description(),
+        "description": "\n".join(helper.wrap_lines(cls.cli_description(), 70)),
         "stories": [],
         "probes-default": {
-            probe_cls.NAME: (probe_cls.__doc__ or "").strip()
+            probe_cls.NAME: "\n".join(
+                list(helper.wrap_lines((probe_cls.__doc__ or "").strip(), 70)))
             for probe_cls in cls.DEFAULT_STORY_CLS.PROBES
         }
     }

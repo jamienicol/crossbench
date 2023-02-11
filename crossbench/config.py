@@ -76,9 +76,9 @@ class _ConfigArg:
         items.append("type    = list")
     else:
       if self.is_list:
-        items.append(f"type    = List[{self.type}]")
+        items.append(f"type    = List[{self.type.__qualname__}]")
       else:
-        items.append(f"type    = {self.type}")
+        items.append(f"type    = {self.type.__qualname__}")
 
     if self.default is None:
       items.append("default = not set")
