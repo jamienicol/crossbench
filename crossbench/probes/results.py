@@ -51,8 +51,8 @@ class ProbeResult:
       if path.suffix != ".csv":
         raise ValueError(f"Expected .csv file but got: {path}")
     for path in self.all_files():
-      if not path.is_file():
-        raise ValueError(f"ProbeResult file does not exist: {path}")
+      if not path.exists():
+        raise ValueError(f"ProbeResult path does not exist: {path}")
 
   def to_json(self) -> Dict[str, Any]:
     result = {}
