@@ -211,6 +211,7 @@ class Speedometer2Benchmark(PressBenchmark, metaclass=abc.ABCMeta):
     parser = super().add_cli_parser(subparsers, aliases)
     parser.add_argument(
         "--iterations",
+        "--iteration-count",
         default=10,
         type=int,
         help="Number of iterations each Speedometer subtest is run "
