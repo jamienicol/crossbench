@@ -206,6 +206,8 @@ class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
     self._driver_path = driver_path
 
   def _find_driver(self) -> pathlib.Path:
+    if self._driver_path:
+      return self._driver_path
     finder = ChromeDriverFinder(self)
     assert self.app_path
     if self.major_version == 0 or (self.app_path.parent / "args.gn").exists():
