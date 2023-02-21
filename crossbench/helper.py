@@ -196,7 +196,7 @@ class Platform(abc.ABC):
     status = psutil.sensors_battery()
     if not status:
       return False
-    return status.power_plugged
+    return not status.power_plugged
 
   def search_app(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
     return self.search_binary(app_path)

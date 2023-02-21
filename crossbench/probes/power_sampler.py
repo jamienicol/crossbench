@@ -154,8 +154,8 @@ class PowerSamplerProbe(Probe):
         self._active_user_process.kill()
       if self.probe.sampling_interval > 0:
         return ProbeResult(
-            file=[self._power_output, self._power_battery_output])
-      return ProbeResult(file=[self._power_battery_output])
+            json=[self._power_output, self._power_battery_output])
+      return ProbeResult(json=[self._power_battery_output])
 
     def _wait_for_battery_not_full(self, run: Run) -> None:
       """

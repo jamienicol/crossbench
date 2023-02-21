@@ -803,6 +803,17 @@ class CrossBenchCLI:
         timing = self._get_timing(args)
         runner = self._get_runner(args, benchmark, env_config,
                                   env_validation_mode, timing)
+
+        # We prevent running multiple stories in repetition when 'power' probes
+        # are used.
+        single_run_probes_list = ['powermetrics', 'powersampler']
+        for probe in probes:
+          if probe.NAME in single_run_probes_list:
+            raise ValueError(
+                "Cannot use 'powermetric' and/or 'powersampler' probe(s) with"
+                "the repeat > 1. Since running the stories not from the same"
+                "starting battery level will create erroneous data")
+
         for probe in probes:
           runner.attach_probe(probe, matching_browser_only=True)
 

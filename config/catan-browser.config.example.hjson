@@ -15,7 +15,19 @@
       ]
     }
   },
-  env: "catan",
+  env: {
+    "disk_min_free_space_gib": null,
+    "power_use_battery": true,
+    "screen_brightness_percent": 60,
+    "cpu_max_usage_percent": 98,
+    "cpu_min_relative_speed": 1,
+    "system_allow_monitoring": false,
+    "browser_allow_existing_process": false,
+    "browser_is_headless": false,
+    "require_probes": true,
+    "system_forbidden_process_names": "",
+    "screen_allow_autobrightness": false,
+  },
   probes: {
     "powersampler": {
       bin_path: "/Users/aattar/chromium/src/out/Release/power_sampler",
