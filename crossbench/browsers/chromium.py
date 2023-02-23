@@ -129,8 +129,14 @@ class Chromium(Browser):
     flags_copy.update(run.extra_flags)
     if "--start-fullscreen" in flags_copy:
       self._start_fullscreen = True
+    if "--start-maximized" in flags_copy:
+      self._start_maximized = True
     else:
       flags_copy["--window-size"] = f"{self.width},{self.height}"
+    if self._start_maximized and self._start_fullscreen:
+      raise ValueError(
+          "Cannot use '--start-fullscreen' and '--start-maximized' in the same "
+          "browser configuration")
     if len(js_flags_copy):
       flags_copy["--js-flags"] = str(js_flags_copy)
     if user_data_dir := self.flags.get("--user-data-dir"):

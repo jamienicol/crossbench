@@ -10,7 +10,8 @@
         // Usefull in scenarios where the users wants to use an existent
         // user-data-dir instead of creating a new temporary directory.
         --user-data-dir="PATH/SOMETHING/SOMETHING",
-        --start-fullscreen=true,
+        //--start-fullscreen=true,
+        --start-maximized=true,
         --center-mouse=true
       ]
     }

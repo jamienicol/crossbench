@@ -64,6 +64,8 @@ class WebdriverMixin(Browser):
     self._driver.switch_to.window(self._driver.current_window_handle)
     if self._start_fullscreen:
       self._driver.fullscreen_window()
+    elif self._start_maximized:
+      self._driver.maximize_window()
     else:
       self._driver.set_window_position(self.x, self.y)
       self._driver.set_window_size(self.width, self.height)
@@ -173,6 +175,8 @@ class RemoteWebDriver(WebdriverMixin, Browser):
     self._is_running = True
     if self._start_fullscreen:
       self._driver.fullscreen_window()
+    elif self._start_maximized:
+      self._driver.maximize_window()
     else:
       self._driver.set_window_position(self.x, self.y)
       self._driver.set_window_size(self.width, self.height)

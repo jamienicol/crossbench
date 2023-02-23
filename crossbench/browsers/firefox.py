@@ -80,8 +80,14 @@ class Firefox(Browser):
     flags_copy.update(run.extra_flags)
     if "--start-fullscreen" in flags_copy:
       self._start_fullscreen = True
+    if "--start-maximized" in flags_copy:
+      self._start_maximized = True
     else:
       flags_copy["--window-size"] = f"{self.width},{self.height}"
+    if self._start_maximized and self._start_fullscreen:
+      raise ValueError(
+          "Cannot use '--start-fullscreen' and '--start-maximized' in the same "
+          "browser configuration")
     if self.cache_dir and self.cache_dir:
       flags_copy["--profile"] = str(self.cache_dir)
     if self.log_file:

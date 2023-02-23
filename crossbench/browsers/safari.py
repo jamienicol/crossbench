@@ -47,6 +47,8 @@ class Safari(Browser):
     ).expanduser()
     if flags and "--start-fullscreen" in str(flags):
       self._start_fullscreen = True
+    if flags and "--start-maximized" in str(flags):
+      self._start_maximized = True
 
   def _extract_version(self) -> str:
     assert self.path
