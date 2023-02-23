@@ -39,6 +39,7 @@ if TYPE_CHECKING:
   from crossbench.probes.base import Probe
   BrowserLookupTableT = Dict[str, Tuple[Type[browsers.Browser], pathlib.Path]]
 
+
 FlagGroupItemT = Optional[Tuple[str, Optional[str]]]
 
 
@@ -577,9 +578,18 @@ class CrossBenchCLI:
         help="Disable colored output")
 
   def _add_verbosity_argument(self, parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "-v",
+    verbosity_group = parser.add_mutually_exclusive_group()
+    verbosity_group.add_argument(
+        "--quiet",
+        "-q",
+        dest="verbosity",
+        default=0,
+        action="store_const",
+        const=-1,
+        help="Disable most output printing.")
+    verbosity_group.add_argument(
         "--verbose",
+        "-v",
         dest="verbosity",
         action="count",
         default=0,
@@ -924,9 +934,9 @@ class CrossBenchCLI:
                    is_success: bool) -> None:
     logging.info("=" * 80)
     if is_success:
-      logging.info("RESULTS: %s", runner.out_dir)
+      logging.critical("RESULTS: %s", runner.out_dir)
     else:
-      logging.info("RESULTS (maybe incomplete/broken): %s", runner.out_dir)
+      logging.critical("RESULTS (maybe incomplete/broken): %s", runner.out_dir)
     logging.info("=" * 80)
     for probe in runner.probes:
       try:
@@ -1000,7 +1010,9 @@ class CrossBenchCLI:
   def _initialize_logging(self, args: argparse.Namespace) -> None:
     logging.getLogger().setLevel(logging.INFO)
     console_handler = logging.StreamHandler()
-    if args.verbosity == 0:
+    if args.verbosity == -1:
+      console_handler.setLevel(logging.ERROR)
+    elif args.verbosity == 0:
       console_handler.setLevel(logging.INFO)
     elif args.verbosity >= 1:
       console_handler.setLevel(logging.DEBUG)

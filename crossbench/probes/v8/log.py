@@ -177,7 +177,7 @@ class V8LogProbe(Probe):
     if not runs:
       return
     logging.info("-" * 80)
-    logging.info("v8.log results:")
+    logging.critical("v8.log results:")
     logging.info("  *.v8.log:        https://v8.dev/tools/head/system-analyzer")
     logging.info("  *.profview.json: https://v8.dev/tools/head/profview")
     logging.info("- " * 40)
@@ -191,7 +191,7 @@ class V8LogProbe(Probe):
         continue
       largest_log_file = log_files[0]
       logging.info("Run %d: %s", i + 1, run.name)
-      logging.info("    %s : %s", largest_log_file.relative_to(cwd),
+      logging.critical("    %s : %s", largest_log_file.relative_to(cwd),
                    helper.get_file_size(largest_log_file))
       if len(log_files) > 1:
         logging.info("    %s/.*v8.log: %d files",
@@ -200,7 +200,7 @@ class V8LogProbe(Probe):
       if not profview_files:
         continue
       largest_profview_file = profview_files[0]
-      logging.info("    %s : %s", largest_profview_file.relative_to(cwd),
+      logging.critical("    %s : %s", largest_profview_file.relative_to(cwd),
                    helper.get_file_size(largest_profview_file))
       if len(profview_files) > 1:
         logging.info("    %s/*.profview.json: %d more files",

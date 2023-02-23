@@ -193,7 +193,7 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
       self._extract_result_metrics_table(data, table)
     flattened: List[List[str]] = list(
         [label] + values for label, values in table.items())
-    logging.info(tabulate(flattened, tablefmt="plain"))
+    logging.critical(tabulate(flattened, tablefmt="plain"))
 
   def _extract_result_metrics_table(self, metrics: Dict[str, Any],
                                     table: Dict[str, List[str]]) -> None:

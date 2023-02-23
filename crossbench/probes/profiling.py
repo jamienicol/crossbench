@@ -159,7 +159,7 @@ class ProfilingProbe(Probe):
     if not filtered_runs:
       return
     logging.info("-" * 80)
-    logging.info("Profiling results:")
+    logging.critical("Profiling results:")
     logging.info("  *.perf.data: 'perf report -i $FILE'")
     logging.info("- " * 40)
     for i, run in enumerate(filtered_runs):
@@ -176,10 +176,10 @@ class ProfilingProbe(Probe):
     logging.info("Run %d: %s", i + 1, run.name)
     if urls:
       largest_perf_file = perf_files[0]
-      logging.info("    %s", urls[0])
+      logging.critical("    %s", urls[0])
     if perf_files:
       largest_perf_file = perf_files[0]
-      logging.info("    %s : %s", largest_perf_file.relative_to(cwd),
+      logging.critical("    %s : %s", largest_perf_file.relative_to(cwd),
                    helper.get_file_size(largest_perf_file))
       if len(perf_files) > 1:
         logging.info("    %s/*.perf.data*: %d more files",

@@ -91,16 +91,16 @@ class JetStream2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
       return
     results_json: pathlib.Path = result_dict[self].json
     logging.info("-" * 80)
-    logging.info("JetStream results:")
+    logging.critical("JetStream results:")
     if not single_result:
       relative_path = result_dict[self].csv.relative_to(pathlib.Path.cwd())
-      logging.info("  %s", relative_path)
+      logging.critical("  %s", relative_path)
     logging.info("- " * 40)
 
     with results_json.open(encoding="utf-8") as f:
       data = json.load(f)
       if single_result:
-        logging.info("Score %s", data["Total"]["score"])
+        logging.critical("Score %s", data["Total"]["score"])
       else:
         self._log_result_metrics(data)
 

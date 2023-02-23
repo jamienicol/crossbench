@@ -33,7 +33,6 @@ import psutil
 if not hasattr(shlex, "join"):
   raise Exception("Please update to python v3.8 that has shlex.join")
 
-
 class TTYColor:
   CYAN = "\033[1;36;6m"
   PURPLE = "\033[1;35;5m"
@@ -58,7 +57,7 @@ class ColoredLogFormatter(logging.Formatter):
       logging.INFO: TTYColor.GREEN + FORMAT + TTYColor.RESET,
       logging.WARNING: TTYColor.YELLOW + FORMAT + TTYColor.RESET,
       logging.ERROR: TTYColor.RED + FORMAT + TTYColor.RESET,
-      logging.CRITICAL: TTYColor.BOLD + TTYColor.RED + FORMAT + TTYColor.RESET,
+      logging.CRITICAL: TTYColor.BOLD + FORMAT + TTYColor.RESET,
   }
 
   def format(self, record):
