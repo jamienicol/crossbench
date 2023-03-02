@@ -61,6 +61,14 @@ class ProfilingProbe(Probe):
         help=("Chrome-only: also profile the browser process, "
               "(as opposed to only renderer processes)"))
     parser.add_argument(
+        "spare_renderer_process",
+        type=bool,
+        default=False,
+        help=("Chrome-only: Enable/Disable spare renderer processes via "
+              "--enable-/--disable-features=SpareRendererForSitePerProcess. "
+              "Spare renderers are disabled by default when profiling "
+              "for fewer uninteresting processes."))
+    parser.add_argument(
         "v8_interpreted_frames",
         type=bool,
         default=True,
@@ -80,10 +88,12 @@ class ProfilingProbe(Probe):
                js: bool = True,
                v8_interpreted_frames: bool = True,
                pprof: bool = True,
-               browser_process: bool = False):
+               browser_process: bool = False,
+               spare_renderer_process: bool = False):
     super().__init__()
     self._sample_js = js
     self._sample_browser_process = browser_process
+    self._spare_renderer_process = spare_renderer_process
     self._run_pprof = pprof
     self._expose_v8_interpreted_frames = v8_interpreted_frames
     if v8_interpreted_frames:
@@ -110,6 +120,9 @@ class ProfilingProbe(Probe):
 
   def attach(self, browser: Browser) -> None:
     super().attach(browser)
+    if isinstance(browser, Chromium):
+      if not self._spare_renderer_process:
+        browser.features.disable("SpareRendererForSitePerProcess")
     if self.browser_platform.is_linux:
       assert isinstance(browser, Chromium), (
           f"Expected Chromium-based browser, found {type(browser)}.")
