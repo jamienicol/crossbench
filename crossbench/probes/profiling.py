@@ -91,11 +91,11 @@ class ProfilingProbe(Probe):
                browser_process: bool = False,
                spare_renderer_process: bool = False):
     super().__init__()
-    self._sample_js = js
-    self._sample_browser_process = browser_process
-    self._spare_renderer_process = spare_renderer_process
-    self._run_pprof = pprof
-    self._expose_v8_interpreted_frames = v8_interpreted_frames
+    self._sample_js: bool = js
+    self._sample_browser_process: bool = browser_process
+    self._spare_renderer_process: bool = spare_renderer_process
+    self._run_pprof: bool = pprof
+    self._expose_v8_interpreted_frames: bool = v8_interpreted_frames
     if v8_interpreted_frames:
       assert js, "Cannot expose V8 interpreted frames without js profiling."
 
@@ -130,13 +130,18 @@ class ProfilingProbe(Probe):
 
   def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)
+    if self.run_pprof:
+      self._run_pprof = self.browser_platform.which("gcert") is not None
+      if not self.run_pprof:
+        logging.warn(
+            "Disabled automatic pprof uploading for non-googler machine.")
     if self.browser_platform.is_linux:
       env.check_installed(binaries=["pprof"])
       assert self.browser_platform.which("perf"), "Please install linux-perf"
     elif self.browser_platform.is_macos:
       assert self.browser_platform.which("xctrace"), (
           "Please install Xcode to use xctrace")
-    if self._run_pprof:
+    if self.run_pprof:
       try:
         self.browser_platform.sh(self.browser_platform.which("gcertstatus"))
         return
@@ -208,8 +213,8 @@ class ProfilingProbe(Probe):
   class MacOSProfilingScope(Probe.Scope):
     _process: subprocess.Popen
 
-    def __init__(self, *args, **kwargs):
-      super().__init__(*args, **kwargs)
+    def __init__(self, probe: ProfilingProbe, run: Run):
+      super().__init__(probe, run)
       self._default_results_file = self.results_file.parent / "profile.trace"
 
     def start(self, run: Run) -> None:
@@ -272,19 +277,26 @@ class ProfilingProbe(Probe):
                      "You might get partial profiles")
       time.sleep(2)
 
-      perf_files = helper.sort_by_file_size(
+      perf_files: List[pathlib.Path] = helper.sort_by_file_size(
           run.out_dir.glob(self.PERF_DATA_PATTERN))
+      raw_perf_files = perf_files
+      urls: List[str] = []
       try:
-        if not self.probe.run_pprof or not self.browser_platform.which("gcert"):
-          return ProbeResult(file=perf_files)
-        pprof_inputs = perf_files
         if self.probe.sample_js:
-          pprof_inputs = self._inject_v8_symbols(run, perf_files)
-        urls = self._export_to_pprof(run, pprof_inputs)
+          perf_files = self._inject_v8_symbols(run, perf_files)
+        if self.probe.run_pprof:
+          urls = self._export_to_pprof(run, perf_files)
       finally:
         self._clean_up_temp_files(run)
-      logging.debug("Profiling results: %s", urls)
-      return ProbeResult(url=urls, file=perf_files)
+      if self.probe.run_pprof:
+        logging.debug("Profiling results: %s", urls)
+        return ProbeResult(url=urls, file=raw_perf_files)
+      if self.browser_platform.which("pprof"):
+        logging.info("Run pprof over all (or single) perf data files "
+                     "for interactive analysis:")
+        logging.info("   pprof --http=localhost:1984 %s",
+                     " ".join(map(str, perf_files)))
+      return ProbeResult(file=perf_files)
 
     def _inject_v8_symbols(self, run: Run, perf_files: List[pathlib.Path]
                           ) -> List[pathlib.Path]:
@@ -309,6 +321,7 @@ class ProfilingProbe(Probe):
 
     def _export_to_pprof(self, run: Run,
                          perf_files: List[pathlib.Path]) -> List[str]:
+      assert self.probe.run_pprof
       run_details_json = json.dumps(run.get_browser_details_json())
       with run.actions(
           f"Probe {self.probe.name}: "
@@ -318,8 +331,9 @@ class ProfilingProbe(Probe):
             "gcertstatus >&/dev/null || "
             "(echo 'Authenticating with gcert:'; gcert)",
             shell=True)
-        items = zip(perf_files, [run_details_json] * len(perf_files))
-        urls = []
+        size = len(perf_files)
+        items = zip(perf_files, [run_details_json] * size)
+        urls: List[str] = []
         if self.browser_platform.is_remote:
           # Use loop, as we cannot easily serialize the remote platform.
           for perf_data_file, run_details in items:
@@ -343,6 +357,8 @@ class ProfilingProbe(Probe):
         return urls
 
     def _clean_up_temp_files(self, run: Run) -> None:
+      if not self.probe.run_pprof:
+        return
       for pattern in self.TEMP_FILE_PATTERNS:
         for file in run.out_dir.glob(pattern):
           file.unlink()
@@ -371,10 +387,10 @@ def linux_perf_probe_inject_v8_symbols(
   return output_file
 
 
-def linux_perf_probe_pprof(perf_data_file: pathlib.Path,
-                           run_details: str,
-                           platform: Optional[helper.Platform] = None
-                          ) -> Optional[str]:
+def linux_perf_probe_pprof(
+    perf_data_file: pathlib.Path,
+    run_details: str,
+    platform: Optional[helper.Platform] = None) -> Optional[str]:
   size = helper.get_file_size(perf_data_file)
   platform = platform or helper.platform
   url = ""
