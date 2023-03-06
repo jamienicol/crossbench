@@ -73,6 +73,8 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
       self._json_data = self.extract_json(run)
 
     def tear_down(self, run: Run) -> ProbeResult:
+      if self._json_data is None:
+        return ProbeResult()
       self._json_data = self.process_json_data(self._json_data)
       return self.write_json(run, self._json_data)
 
@@ -86,7 +88,8 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
     def write_json(self, run: Run, json_data: Any) -> ProbeResult:
       flattened_file = None
       with run.actions(f"Writing Probe name={self.probe.name}"):
-        assert json_data is not None
+        assert json_data is not None, (
+            f"Probe {self.probe.name} produced no JSON data.")
         raw_file = self.results_file
         if self.probe.FLATTEN:
           raw_file = raw_file.with_suffix(".json.raw")
@@ -115,7 +118,8 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
       if self not in run.results:
         raise Exception(f"Probe {self.NAME} produced no data to merge.")
       source_file = run.results[self].json
-      assert source_file.is_file()
+      assert source_file.is_file(), (
+          f"{source_file} from {run} is not a file or doesn't exist.")
       with source_file.open(encoding="utf-8") as f:
         merger.add(json.load(f))
     return self.write_group_result(group, merger, write_csv=True)
@@ -127,11 +131,14 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
       merged_json[story_group.browser.unique_name] = browser_result
       browser_result["info"] = story_group.info
       browser_json_path = story_group.results[self].json
-      assert browser_json_path.is_file()
+      assert browser_json_path.is_file(), (
+          f"{browser_json_path} from {story_group} is not a file or doesn't exist."
+      )
       with browser_json_path.open(encoding="utf-8") as f:
         browser_result["data"] = json.load(f)
     merged_json_path = group.get_probe_results_file(self)
-    assert not merged_json_path.exists()
+    assert not merged_json_path.exists(), (
+        f"Cannot override existing JSON result: {merged_json_path}")
     with merged_json_path.open("w", encoding="utf-8") as f:
       json.dump(merged_json, f, indent=2)
     return ProbeResult(json=(merged_json_path,))
@@ -145,7 +152,8 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
     merged_table = helper.merge_csv(csv_list)
     merged_json_path = group.get_probe_results_file(self, exists_ok=True)
     merged_csv_path = merged_json_path.with_suffix(".csv")
-    assert not merged_csv_path.exists()
+    assert not merged_csv_path.exists(), (
+        f"Cannot override existing CSV result: {merged_csv_path}")
     with merged_csv_path.open("w", newline="", encoding="utf-8") as f:
       csv.writer(f, delimiter="\t").writerows(merged_table)
     return ProbeResult(csv=(merged_csv_path,))
@@ -177,7 +185,8 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
                              merged_json_path: pathlib.Path,
                              value_fn: Callable[[Any], Any]) -> ProbeResult:
     merged_csv_path = merged_json_path.with_suffix(".csv")
-    assert not merged_csv_path.exists()
+    assert not merged_csv_path.exists(), (
+        f"Cannot override existing CSV result: {merged_csv_path}")
     with merged_csv_path.open("w", newline="", encoding="utf-8") as f:
       writer = csv.writer(f, delimiter="\t")
       csv_data = merged_data.to_csv(value_fn, list(group.info.items()))

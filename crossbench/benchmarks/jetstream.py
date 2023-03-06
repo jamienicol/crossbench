@@ -53,7 +53,8 @@ class JetStream2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
     return data
 
   def process_json_data(self, json_data: Dict[str, Any]) -> Dict[str, Any]:
-    assert "Total" not in json_data
+    assert "Total" not in json_data, (
+        "JSON result data already contains a ['Total'] entry.")
     json_data["Total"] = self._compute_total_metrics(json_data)
     return json_data
 

@@ -104,6 +104,15 @@ class Browser(abc.ABC):
     return self._pid
 
   @property
+  def is_running(self) -> Optional[bool]:
+    if self.pid is None:
+      return None
+    info = self.platform.process_info(self.pid)
+    if info is None:
+      return None
+    return info["status"] == "running"
+
+  @property
   def is_local(self) -> bool:
     return True
 

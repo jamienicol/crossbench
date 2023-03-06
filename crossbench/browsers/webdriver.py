@@ -9,7 +9,7 @@ import logging
 import pathlib
 import time
 import traceback
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
 import selenium.common.exceptions
 from selenium import webdriver
@@ -55,10 +55,16 @@ class WebdriverMixin(Browser):
     self._driver = self._start_driver(run, self._driver_path)
     if hasattr(self._driver, "service"):
       self._driver_pid = self._driver.service.process.pid
+      candidates: List[int] = []
       for child in self.platform.process_children(self._driver_pid):
         if str(child["exe"]) == str(self.path):
-          self._pid = int(child["pid"])
-          break
+          candidates.append(child["pid"])
+      if len(candidates) == 1:
+        self._pid = candidates[0]
+      else:
+        logging.debug(
+            "Could not find unique browser process for webdriver: %s, got %s",
+            self, candidates)
     self._is_running = True
     # Force main window to foreground.
     self._driver.switch_to.window(self._driver.current_window_handle)

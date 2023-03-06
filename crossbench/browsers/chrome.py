@@ -221,6 +221,10 @@ class ChromeDownloader(abc.ABC):
         raise ValueError(
             f"Could not find version {self.requested_version_str} "
             f"for {self.platform.name} {self.platform.machine} ") from e
+      if "AccessDeniedException" in str(e):
+        raise ValueError(f"Could not access {list_url}.\n"
+                         "Please run `gcert` and `gcloud auth login` "
+                         "(googlers only).") from e
       raise
     logging.info("FILTERING %d CANDIDATES", len(listing))
     return self._filter_candidates(listing)
@@ -350,7 +354,7 @@ class ChromeDownloaderMacOS(ChromeDownloader):
     if self.platform.is_arm64 and self.requested_version < (87, 0, 0, 0):
       raise ValueError(
           "Chrome Arm64 Apple Silicon is only available starting with M87, "
-          f"but requested {self.requested_version_str}")
+          f"but requested {self.requested_version_str} is too old.")
     super()._download()
 
   def _archive_url(self, folder_url, version_str) -> str:
@@ -378,7 +382,7 @@ class ChromeDownloaderMacOS(ChromeDownloader):
     app = apps[0]
     try:
       logging.info("COPYING BROWSER src=%s dst=%s", app, self.path)
-      shutil.copytree(app, self.path, dirs_exist_ok=False)
+      shutil.copytree(app, self.path, symlinks=True, dirs_exist_ok=False)
     finally:
       self.platform.sh("hdiutil", "detach", dmg_path)
       archive_path.unlink()

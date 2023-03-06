@@ -837,14 +837,17 @@ class Run:
                 is_shutdown: bool = False) -> None:
     self._advance_state(self.STATE_RUN, self.STATE_DONE)
     with self.measure("browser-tear_down"):
-      if is_shutdown:
-        try:
+      if self._browser.is_running is False:
+        logging.warning("Browser is no longer running (crashed or closed).")
+      else:
+        if is_shutdown:
+          try:
+            self._browser.quit(self._runner)  # pytype: disable=wrong-arg-types
+          except Exception as e:  # pylint: disable=broad-except
+            logging.warning("Error quitting browser: %s", e)
+            return
+        with self._exceptions.capture("Quit browser"):
           self._browser.quit(self._runner)  # pytype: disable=wrong-arg-types
-        except Exception as e:  # pylint: disable=broad-except
-          logging.warning("Error quitting browser: %s", e)
-          return
-      with self._exceptions.capture("Quit browser"):
-        self._browser.quit(self._runner)  # pytype: disable=wrong-arg-types
     with self.measure("probes-tear_down"):
       logging.debug("TEARDOWN")
       self._tear_down_probe_scopes(probe_scopes)

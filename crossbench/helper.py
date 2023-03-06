@@ -226,6 +226,7 @@ class Platform(abc.ABC):
 
   def processes(self,
                 attrs: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    # TODO(cbruni): support remote platforms
     assert not self.is_remote, "Only local platform supported"
     return [
         p.info  # pytype: disable=attribute-error
@@ -233,6 +234,7 @@ class Platform(abc.ABC):
     ]
 
   def process_running(self, process_name_list: List[str]) -> Optional[str]:
+    # TODO(cbruni): support remote platforms
     for proc in psutil.process_iter():
       try:
         if proc.name().lower() in process_name_list:
@@ -243,13 +245,29 @@ class Platform(abc.ABC):
 
   def process_children(self, parent_pid: int,
                        recursive: bool = False) -> List[Dict[str, Any]]:
-    return [
-        p.as_dict()
-        for p in psutil.Process(parent_pid).children(recursive=recursive)
-    ]
+    # TODO(cbruni): support remote platforms
+    try:
+      process = psutil.Process(parent_pid)
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+      return []
+    return [p.as_dict() for p in process.children(recursive=recursive)]
+
+  def process_info(self, pid: int) -> Optional[Dict[str, Any]]:
+    # TODO(cbruni): support remote platforms
+    try:
+      return psutil.Process(pid).as_dict()
+    except psutil.NoSuchProcess:
+      return None
 
   def foreground_process(self) -> Optional[Dict[str, Any]]:
     return None
+
+  def terminate(self, proc_pid: int) -> None:
+    # TODO(cbruni): support remote platforms
+    process = psutil.Process(proc_pid)
+    for proc in process.children(recursive=True):
+      proc.terminate()
+    process.terminate()
 
   def sh_stdout(self,
                 *args,
@@ -306,12 +324,6 @@ class Platform(abc.ABC):
 
   def exec_apple_script(self, script: str, quiet: bool = False):
     raise NotImplementedError("AppleScript is only available on MacOS")
-
-  def terminate(self, proc_pid: int) -> None:
-    process = psutil.Process(proc_pid)
-    for proc in process.children(recursive=True):
-      proc.terminate()
-    process.terminate()
 
   def log(self, *messages: Any, level: int = 2) -> None:
     message_str = " ".join(map(str, messages))
