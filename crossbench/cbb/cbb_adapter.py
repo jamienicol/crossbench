@@ -16,7 +16,7 @@ from typing import List, Optional
 
 import crossbench.benchmarks.all
 import crossbench.browsers.base
-from crossbench.browsers import webdriver as cb_webdriver
+import crossbench.browsers.webdriver as cb_webdriver
 import crossbench.env
 import crossbench.runner
 from selenium import webdriver

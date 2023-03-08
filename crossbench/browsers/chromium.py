@@ -21,7 +21,7 @@ from selenium.webdriver.chromium.service import ChromiumService
 from selenium.webdriver.chromium.webdriver import ChromiumDriver
 
 from crossbench import exception, helper
-from crossbench.browsers.base import (BROWSERS_CACHE, Browser,
+from crossbench.browsers.base import (BROWSERS_CACHE, Browser, Viewport,
                                       convert_flags_to_label)
 from crossbench.browsers.webdriver import WebdriverMixin
 from crossbench.flags import ChromeFeatures, ChromeFlags, Flags, JSFlags
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 
 class Chromium(Browser):
+  MIN_HEADLESS_NEW_VERSION = 112
   DEFAULT_FLAGS = [
       "--no-default-browser-check",
       "--disable-component-update",
@@ -65,8 +66,10 @@ class Chromium(Browser):
       flags: Flags.InitialDataType = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "chromium",  # pylint: disable=redefined-builtin
+      viewport: Viewport = Viewport.DEFAULT,
       platform: Optional[helper.Platform] = None):
-    super().__init__(label, path, type=type, platform=platform)
+    super().__init__(
+        label, path, type=type, viewport=viewport, platform=platform)
     assert not isinstance(js_flags, str), (
         f"js_flags should be a list, but got: {repr(js_flags)}")
     assert not isinstance(
@@ -127,16 +130,8 @@ class Chromium(Browser):
 
     flags_copy = self.flags.copy()
     flags_copy.update(run.extra_flags)
-    if "--start-fullscreen" in flags_copy:
-      self._start_fullscreen = True
-    if "--start-maximized" in flags_copy:
-      self._start_maximized = True
-    else:
-      flags_copy["--window-size"] = f"{self.width},{self.height}"
-    if self._start_maximized and self._start_fullscreen:
-      raise ValueError(
-          "Cannot use '--start-fullscreen' and '--start-maximized' in the same "
-          "browser configuration")
+    self._handle_viewport_flags(flags_copy)
+
     if len(js_flags_copy):
       flags_copy["--js-flags"] = str(js_flags_copy)
     if user_data_dir := self.flags.get("--user-data-dir"):
@@ -150,6 +145,42 @@ class Chromium(Browser):
       flags_copy["--log-file"] = str(self.chrome_log_file)
 
     return tuple(flags_copy.get_list())
+
+  def _handle_viewport_flags(self, flags: Flags):
+    self._sync_viewport_flag(flags, "--start-fullscreen",
+                             self.viewport.is_fullscreen, Viewport.FULLSCREEN)
+    self._sync_viewport_flag(flags, "--start-maximized",
+                             self.viewport.is_maximized, Viewport.MAXIMIZED)
+    self._sync_viewport_flag(flags, "--headless", self.viewport.is_headless,
+                             Viewport.HEADLESS)
+    # M112 added --headless=new as replacement for --headless
+    if "--headless" in flags and (self.major_version >=
+                                  self.MIN_HEADLESS_NEW_VERSION):
+      if flags["--headless"] is None:
+        logging.info("Replacing --headless with --headless=new")
+        flags.set("--headless", "new", override=True)
+
+    if self.viewport.is_default:
+      update_viewport = False
+      width, height = self.viewport.size
+      x, y = self.viewport.position
+      if "--window-size" in flags:
+        update_viewport = True
+        width, height = map(int, flags["--window-size"].split(","))
+      if "--window-position" in flags:
+        update_viewport = True
+        x, y = map(int, flags["--window-position"].split(","))
+      if update_viewport:
+        self.viewport = Viewport(width, height, x, y)
+    if self.viewport.has_size:
+      flags["--window-size"] = f"{self.viewport.width},{self.viewport.height}"
+      flags["--window-position"] = f"{self.viewport.x},{self.viewport.y}"
+    else:
+      for flag in ("--window-position", "--window-size"):
+        if flag in flags:
+          flag_value = flags[flag]
+          raise ValueError(f"Viewport {self.viewport} conflicts with flag "
+                           f"{flag}={flag_value}")
 
   def get_label_from_flags(self) -> str:
     return convert_flags_to_label(*self.flags, *self.js_flags)
@@ -207,8 +238,10 @@ class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "chromium",  # pylint: disable=redefined-builtin
       driver_path: Optional[pathlib.Path] = None,
+      viewport: Viewport = Viewport.DEFAULT,
       platform: Optional[helper.Platform] = None):
-    super().__init__(label, path, js_flags, flags, cache_dir, type, platform)
+    super().__init__(label, path, js_flags, flags, cache_dir, type, viewport,
+                     platform)
     self._driver_path = driver_path
 
   def _find_driver(self) -> pathlib.Path:

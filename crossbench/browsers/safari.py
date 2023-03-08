@@ -6,14 +6,14 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.safari.options import Options as SafariOptions
 
 from crossbench import helper
-from crossbench.browsers.base import Browser
+from crossbench.browsers.base import Browser, Viewport
 from crossbench.browsers.webdriver import WebdriverMixin
 
 if TYPE_CHECKING:
@@ -36,8 +36,10 @@ class Safari(Browser):
                path: pathlib.Path,
                flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
+               viewport: Viewport = Viewport.DEFAULT,
                platform: Optional[helper.MacOSPlatform] = None):
-    super().__init__(label, path, flags, type="safari", platform=platform)
+    super().__init__(
+        label, path, flags, type="safari", viewport=viewport, platform=platform)
     assert self.platform.is_macos, "Safari only works on MacOS"
     assert self.path
     self.bundle_name = self.path.stem.replace(" ", "")
@@ -45,10 +47,11 @@ class Safari(Browser):
     self.cache_dir = pathlib.Path(
         f"~/Library/Containers/com.apple.{self.bundle_name}/Data/Library/Caches"
     ).expanduser()
-    if flags and "--start-fullscreen" in str(flags):
-      self._start_fullscreen = True
-    if flags and "--start-maximized" in str(flags):
-      self._start_maximized = True
+
+  def _get_browser_flags(self, run: Run) -> Tuple[str, ...]:
+    flags_copy = self.flags.copy()
+    flags_copy.update(run.extra_flags)
+    return tuple(flags_copy.get_list())
 
   def _extract_version(self) -> str:
     assert self.path
@@ -70,13 +73,13 @@ tell application "{self.app_name}"
       to click menu item "New Private Window"
       of menu "File" of menu bar 1
       of process '{self.bundle_name}'
-      if {self._start_fullscreen} then
+      if {self.viewport.is_fullscreen} then
         keystroke "f" using {{command down, control down}}
       end if
   set URL of current tab of front window to ''
-  if {not self._start_fullscreen} then
+  if {not self.viewport.is_fullscreen} then
     set the bounds of the first window
-        to {{{self.x},{self.y},{self.width},{self.height}}}
+        to {{{self.viewport.x},{self.viewport.y},{self.viewport.width},{self.viewport.height}}}
   end if
   tell application "System Events"
       to keystroke "e" using {{command down, option down}}
@@ -107,8 +110,9 @@ class SafariWebDriver(WebdriverMixin, Safari):
                path: pathlib.Path,
                flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
+               viewport: Viewport = Viewport.DEFAULT,
                platform: Optional[helper.MacOSPlatform] = None):
-    super().__init__(label, path, flags, cache_dir, platform)
+    super().__init__(label, path, flags, cache_dir, viewport, platform)
     assert self.platform.is_macos
 
   def _find_driver(self) -> pathlib.Path:
@@ -125,6 +129,9 @@ class SafariWebDriver(WebdriverMixin, Safari):
     logging.info("STARTING BROWSER: browser: %s driver: %s", self.path,
                  driver_path)
     options = SafariOptions()
+    args = self._get_browser_flags(run)
+    for arg in args:
+      options.add_argument(arg)
     options.binary_location = str(self.path)
     capabilities = DesiredCapabilities.SAFARI.copy()
     capabilities["safari.cleanSession"] = "true"

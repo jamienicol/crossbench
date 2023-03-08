@@ -23,8 +23,8 @@ from tabulate import tabulate
 import crossbench.benchmarks.all as benchmarks
 from crossbench import helper
 from crossbench.benchmarks.base import Benchmark
-from crossbench.browsers import all as browsers
-from crossbench.browsers.base import convert_flags_to_label
+import crossbench.browsers.all as browsers
+from crossbench.browsers.base import Viewport, convert_flags_to_label
 from crossbench.browsers.chrome import ChromeDownloader
 from crossbench.cli_helper import existing_file_type, positive_float_type
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
@@ -357,7 +357,8 @@ class BrowserConfig:
     browser_instance = browser_cls(  # pytype: disable=not-instantiable
         label=label,
         path=path,
-        flags=flags)
+        flags=flags,
+        viewport=args.viewport)
     logging.info("SELECTED BROWSER: name=%s path='%s' ",
                  browser_instance.unique_name, path)
     self._variants.append(browser_instance)
@@ -685,7 +686,7 @@ class CrossBenchCLI:
         f"an ArgumentParser: {subparser}")
     self._subparsers[benchmark_cls] = subparser
 
-    runner_group = subparser.add_argument_group("Runner Settings", "")
+    runner_group = subparser.add_argument_group("Runner Options", "")
     runner_group.add_argument(
         "--cool-down-time",
         type=positive_float_type,
@@ -700,7 +701,7 @@ class CrossBenchCLI:
         "Increase this for slow builds or machines. "
         "Default 1 time unit == 1 second.")
 
-    env_group = subparser.add_argument_group("Runner Environment Settings", "")
+    env_group = subparser.add_argument_group("Environment Options", "")
     env_settings_group = env_group.add_mutually_exclusive_group()
     env_settings_group.add_argument(
         "--env",
@@ -725,7 +726,7 @@ class CrossBenchCLI:
             throw:  Strict mode, throw and abort on env issues,
             prompt: Prompt to accept potential env issues,
             warn:   Only display a warning for env issues,
-            skip:   Don't perform any env validation". 
+            skip:   Don't perform any env validation".
           """))
     env_group.add_argument(
         "--dry-run",
@@ -733,8 +734,11 @@ class CrossBenchCLI:
         default=False,
         help="Don't run any browsers or probes")
 
-    browser_group = subparser.add_mutually_exclusive_group()
-    browser_group.add_argument(
+    browser_group = subparser.add_argument_group(
+        "Browser Options", "Any other browser option can be passed "
+        "after the '--' arguments separator.")
+    browser_config_group = browser_group.add_mutually_exclusive_group()
+    browser_config_group.add_argument(
         "--browser",
         action="append",
         default=[],
@@ -750,7 +754,7 @@ class CrossBenchCLI:
         "--browser=path/to/archive.rpm on linux "
         "for locally cached versions (chrome only)."
         "Cannot be used with --browser-config")
-    browser_group.add_argument(
+    browser_config_group.add_argument(
         "--browser-config",
         type=existing_file_type,
         help="Browser configuration.json file. "
@@ -759,32 +763,27 @@ class CrossBenchCLI:
         "configuration file. "
         "Cannot be used together with --browser.")
 
-    probe_group = subparser.add_mutually_exclusive_group()
-    probe_group.add_argument(
-        "--probe",
-        action="append",
-        default=[],
-        help="Enable general purpose probes to measure data on all cb.stories. "
-        "This argument can be specified multiple times to add more probes. "
-        "Use inline hjson (e.g. '--probe=$NAME{$CONFIG}') to configure probes. "
-        "Use 'describe probes' or 'describe probe $NAME' for probe "
-        "configuration details."
-        "Cannot be used together with --probe-config."
-        f"\n\nChoices: {', '.join(ProbeConfig.LOOKUP.keys())}")
-    probe_group.add_argument(
-        "--probe-config",
-        type=existing_file_type,
-        help="Browser configuration.json file. "
-        "Use this config file to specify more complex Probe settings."
-        "See config/probe.config.example.hjson on how to set up a complex "
-        "configuration file. "
-        "Cannot be used together with --probe.")
+    viewport_group = browser_group.add_mutually_exclusive_group()
+    viewport_group.add_argument(
+        "--viewport",
+        default=Viewport.DEFAULT,
+        type=Viewport.parse,
+        help="Set the browser window position."
+        "Options: size, size and position, 'max', 'maximized', 'fullscreen', 'headless'."
+        "Examples: --viewport=1550x300 --viewport=fullscreen. "
+        f"Default: {Viewport.DEFAULT}")
+    viewport_group.add_argument(
+        "--headless",
+        dest="viewport",
+        const=Viewport.HEADLESS,
+        action="store_const",
+        help="Start the browser in headless if supported. "
+        "Equivalent to --viewport=headless.")
 
     chrome_args = subparser.add_argument_group(
-        "Chrome-forwarded Options",
+        "Browsers Options: Chrome/Chromium",
         "For convenience these arguments are directly are forwarded "
-        "directly to chrome. Any other browser option can be passed "
-        "after the '--' arguments separator.")
+        "directly to chrome. ")
     chrome_args.add_argument("--js-flags", dest="js_flags")
 
     doc_str = "See chrome's base/feature_list.h source file for more details"
@@ -796,6 +795,28 @@ class CrossBenchCLI:
         "--disable-features",
         help="Command-separated list of disabled chrome features. " + doc_str,
         default="")
+
+    probe_group = subparser.add_argument_group("Probe Options", "")
+    probe_config_group = probe_group.add_mutually_exclusive_group()
+    probe_config_group.add_argument(
+        "--probe",
+        action="append",
+        default=[],
+        help="Enable general purpose probes to measure data on all cb.stories. "
+        "This argument can be specified multiple times to add more probes. "
+        "Use inline hjson (e.g. --probe=\"$NAME{$CONFIG}\") to configure probes. "
+        "Use 'describe probes' or 'describe probe $NAME' for probe "
+        "configuration details."
+        "Cannot be used together with --probe-config."
+        f"\n\nChoices: {', '.join(ProbeConfig.LOOKUP.keys())}")
+    probe_config_group.add_argument(
+        "--probe-config",
+        type=existing_file_type,
+        help="Browser configuration.json file. "
+        "Use this config file to specify more complex Probe settings."
+        "See config/probe.config.example.hjson on how to set up a complex "
+        "configuration file. "
+        "Cannot be used together with --probe.")
     subparser.set_defaults(
         subcommand=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
     self._add_verbosity_argument(subparser)

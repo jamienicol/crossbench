@@ -19,7 +19,7 @@ import crossbench
 import crossbench.exception
 import crossbench.flags
 from crossbench import helper
-from crossbench.browsers.base import BROWSERS_CACHE
+from crossbench.browsers.base import BROWSERS_CACHE, Viewport
 from crossbench.browsers.chromium import Chromium, ChromiumWebDriver
 
 #TODO: fix imports
@@ -82,9 +82,17 @@ class Edge(Chromium):
                js_flags: FlagsInitialDataType = None,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
+               viewport: Viewport = Viewport.DEFAULT,
                platform: Optional[helper.Platform] = None):
     super().__init__(
-        label, path, js_flags, flags, cache_dir, type="edge", platform=platform)
+        label,
+        path,
+        js_flags,
+        flags,
+        cache_dir,
+        type="edge",
+        viewport=viewport,
+        platform=platform)
 
 
 class EdgeWebDriver(ChromiumWebDriver):
@@ -99,6 +107,7 @@ class EdgeWebDriver(ChromiumWebDriver):
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                driver_path: Optional[pathlib.Path] = None,
+               viewport: Viewport = Viewport.DEFAULT,
                platform: Optional[helper.Platform] = None):
     super().__init__(
         label,
@@ -108,6 +117,7 @@ class EdgeWebDriver(ChromiumWebDriver):
         cache_dir,
         type="edge",
         driver_path=driver_path,
+        viewport=viewport,
         platform=platform)
 
   def _find_driver(self) -> pathlib.Path:

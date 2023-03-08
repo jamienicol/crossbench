@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import abc
+from argparse import ArgumentTypeError
+from enum import Enum
 import html
 import logging
 import pathlib
@@ -12,7 +14,7 @@ import re
 import shutil
 import urllib.parse
 import urllib.request
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set, Tuple
 
 from crossbench import helper
 from crossbench.flags import Flags
@@ -30,6 +32,140 @@ BROWSERS_CACHE = pathlib.Path(__file__).parent.parent / ".browsers-cache"
 # =============================================================================
 
 
+class ViewportMode(str, Enum):
+  SIZE = "size"
+  MAXIMIZED = "maximized"
+  FULLSCREEN = "fullscreen"
+  HEADLESS = "headless"
+
+
+class Viewport:
+  DEFAULT: Viewport
+  MAXIMIZED: Viewport
+  FULLSCREEN: Viewport
+  HEADLESS: Viewport
+
+  @classmethod
+  def parse(cls, value: str) -> Viewport:
+    if not value:
+      return cls.DEFAULT
+    if value in ("m", "max", "maximised", "maximized"):
+      return cls.MAXIMIZED
+    if value in ("f", "full", "fullscreen"):
+      return cls.FULLSCREEN
+    if value in "headless":
+      return cls.HEADLESS
+    size, _, position = value.partition(",")
+    width, _, height = size.partition("x")
+    if not height:
+      raise ArgumentTypeError(f"Missing viewport height in input: {value}")
+    x = 0
+    y = 0
+    if position:
+      x, _, y = position.partition("x")
+      if not y:
+        raise ArgumentTypeError(
+            f"Missing viewport y position in input: {value}")
+    return Viewport(int(width), int(height), int(x), int(y))
+
+  def __init__(self,
+               width: int = 1500,
+               height: int = 1000,
+               x: int = 10,
+               y: int = 50,
+               mode: ViewportMode = ViewportMode.SIZE):
+    self._width = width
+    self._height = height
+    self._x = x
+    self._y = y
+    self._mode = mode
+    self._validate()
+
+  def _validate(self) -> None:
+    if self._mode == ViewportMode.SIZE:
+      if self._width <= 0:
+        raise ArgumentTypeError(f"width must be > 0, but got {self._width}")
+      if self._height <= 0:
+        raise ArgumentTypeError(f"height must be > 0, but got {self._height}")
+      if self._x < 0:
+        raise ArgumentTypeError(f"x must be >= 0, but got {self._x}")
+      if self._y < 0:
+        raise ArgumentTypeError(f"y must be >= 0, but got {self._y}")
+    else:
+      if self._width != 0:
+        raise ArgumentTypeError(
+            "Non-zero width only allowed with ViewportMode.SIZE")
+      if self._height != 0:
+        raise ArgumentTypeError(
+            "Non-zero height only allowed with ViewportMode.SIZE")
+      if self._x != 0:
+        raise ArgumentTypeError(
+            "Non-zero x only allowed with ViewportMode.SIZE")
+      if self._y != 0:
+        raise ArgumentTypeError(
+            "Non-zero y only allowed with ViewportMode.SIZE")
+
+  @property
+  def is_default(self) -> bool:
+    return self == Viewport.DEFAULT
+
+  @property
+  def is_maximized(self) -> bool:
+    return self._mode == ViewportMode.MAXIMIZED
+
+  @property
+  def is_fullscreen(self) -> bool:
+    return self._mode == ViewportMode.FULLSCREEN
+
+  @property
+  def is_headless(self) -> bool:
+    return self._mode == ViewportMode.HEADLESS
+
+  @property
+  def has_size(self) -> bool:
+    return self._mode == ViewportMode.SIZE
+
+  @property
+  def position(self) -> Tuple[int, int]:
+    assert self.has_size, f"Viewport has no explicit size: {self._mode}"
+    return (self._x, self._y)
+
+  @property
+  def size(self) -> Tuple[int, int]:
+    assert self.has_size, f"Viewport has no explicit size: {self._mode}"
+    return (self._width, self._height)
+
+  @property
+  def width(self) -> int:
+    assert self.has_size, f"Viewport has no explicit size: {self._mode}"
+    return self._width
+
+  @property
+  def height(self) -> int:
+    assert self.has_size, f"Viewport has no explicit size: {self._mode}"
+    return self._height
+
+  @property
+  def x(self) -> int:
+    assert self.has_size, f"Viewport has no explicit size: {self._mode}"
+    return self._x
+
+  @property
+  def y(self) -> int:
+    assert self.has_size, f"Viewport has no explicit size: {self._mode}"
+    return self._y
+
+  @property
+  def mode(self) -> ViewportMode:
+    return self._mode
+
+
+Viewport.DEFAULT = Viewport()
+Viewport.MAXIMIZED = Viewport(0, 0, 0, 0, ViewportMode.MAXIMIZED)
+Viewport.FULLSCREEN = Viewport(0, 0, 0, 0, ViewportMode.FULLSCREEN)
+Viewport.HEADLESS = Viewport(0, 0, 0, 0, ViewportMode.HEADLESS)
+
+
 class Browser(abc.ABC):
 
   @classmethod
@@ -43,6 +179,7 @@ class Browser(abc.ABC):
       flags: Flags.InitialDataType = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: Optional[str] = None,  # pylint: disable=redefined-builtin
+      viewport: Viewport = Viewport.DEFAULT,
       platform: Optional[helper.Platform] = None):
     self.platform = platform or helper.platform
     # Marked optional to make subclass constructor calls easier with pytype.
@@ -62,14 +199,7 @@ class Browser(abc.ABC):
       self.unique_name = f"{self.type}_v{self.major_version}_{self.label}"
     else:
       self.unique_name = f"{self.type}_{self.label}".lower()
-    self.width: int = 1500
-    self.height: int = 1000
-    self.x: int = 10
-    # Move down to avoid menu bars
-    self.y: int = 50
-    # TODO: Use WindowSize object
-    self._start_fullscreen: bool = False
-    self._start_maximized: bool = False
+    self._viewport = viewport
     self._is_running: bool = False
     self.cache_dir: Optional[pathlib.Path] = cache_dir
     self.clear_cache_dir: bool = True
@@ -89,8 +219,13 @@ class Browser(abc.ABC):
     self._unique_name = re.sub(r"[^\w\d\-\.]", "_", name).lower()
 
   @property
-  def is_headless(self) -> bool:
-    return False
+  def viewport(self) -> Viewport:
+    return self._viewport
+
+  @viewport.setter
+  def viewport(self, value: Viewport) -> None:
+    assert self._viewport.is_default
+    self._viewport = value
 
   @property
   def flags(self) -> Flags:
@@ -264,6 +399,18 @@ class Browser(abc.ABC):
   @abc.abstractmethod
   def show_url(self, runner: Runner, url: str) -> None:
     pass
+
+  def _sync_viewport_flag(self, flags: Flags, flag: str,
+                          is_requested_by_viewport: bool,
+                          replacement: Viewport) -> None:
+    if is_requested_by_viewport:
+      flags.set(flag)
+    elif flag in flags:
+      if self.viewport.is_default:
+        self.viewport = replacement
+      else:
+        raise ValueError(
+            f"{flag} conflicts with requested --viewport={self.viewport}")
 
 
 _FLAG_TO_PATH_RE = re.compile(r"[-/\\:\.]")

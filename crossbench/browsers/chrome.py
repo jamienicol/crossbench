@@ -19,6 +19,7 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 
 from crossbench import helper
 from crossbench.browsers import BROWSERS_CACHE
+from crossbench.browsers.base import Viewport
 from crossbench.browsers.chromium import Chromium, ChromiumWebDriver
 
 if TYPE_CHECKING:
@@ -70,6 +71,7 @@ class Chrome(Chromium):
                js_flags: Flags.InitialDataType = None,
                flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
+               viewport: Viewport = Viewport.DEFAULT,
                platform: Optional[helper.Platform] = None):
     super().__init__(
         label,
@@ -78,6 +80,7 @@ class Chrome(Chromium):
         flags,
         cache_dir,
         type="chrome",
+        viewport=viewport,
         platform=platform)
 
 
@@ -93,6 +96,7 @@ class ChromeWebDriver(ChromiumWebDriver):
                flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                driver_path: Optional[pathlib.Path] = None,
+               viewport: Viewport = Viewport.DEFAULT,
                platform: Optional[helper.Platform] = None):
     super().__init__(
         label,
@@ -102,6 +106,7 @@ class ChromeWebDriver(ChromiumWebDriver):
         cache_dir,
         type="chrome",
         driver_path=driver_path,
+        viewport=viewport,
         platform=platform)
 
   def _create_driver(self, options, service) -> ChromiumDriver:

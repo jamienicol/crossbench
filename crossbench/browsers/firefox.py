@@ -19,7 +19,7 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.service import Service as FirefoxService
 
 from crossbench import exception, helper
-from crossbench.browsers.base import BROWSERS_CACHE, Browser
+from crossbench.browsers.base import BROWSERS_CACHE, Browser, Viewport
 from crossbench.browsers.webdriver import WebdriverMixin
 
 if TYPE_CHECKING:
@@ -58,6 +58,7 @@ class Firefox(Browser):
                path: pathlib.Path,
                flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
+               viewport: Viewport = Viewport.DEFAULT,
                platform: Optional[helper.Platform] = None):
     if cache_dir is None:
       # pylint: disable=bad-option-value, consider-using-with
@@ -67,7 +68,13 @@ class Firefox(Browser):
     else:
       self.cache_dir = cache_dir
       self.clear_cache_dir = False
-    super().__init__(label, path, flags, type="firefox", platform=platform)
+    super().__init__(
+        label,
+        path,
+        flags,
+        type="firefox",
+        viewport=viewport,
+        platform=platform)
 
   def _extract_version(self) -> str:
     assert self.path
@@ -78,21 +85,50 @@ class Firefox(Browser):
   def _get_browser_flags(self, run: Run) -> Tuple[str, ...]:
     flags_copy = self.flags.copy()
     flags_copy.update(run.extra_flags)
-    if "--start-fullscreen" in flags_copy:
-      self._start_fullscreen = True
-    if "--start-maximized" in flags_copy:
-      self._start_maximized = True
-    else:
-      flags_copy["--window-size"] = f"{self.width},{self.height}"
-    if self._start_maximized and self._start_fullscreen:
-      raise ValueError(
-          "Cannot use '--start-fullscreen' and '--start-maximized' in the same "
-          "browser configuration")
+    self._handle_viewport_flags(flags_copy)
     if self.cache_dir and self.cache_dir:
       flags_copy["--profile"] = str(self.cache_dir)
     if self.log_file:
       flags_copy["--MOZ_LOG_FILE"] = str(self.log_file)
     return tuple(flags_copy.get_list())
+
+  def _handle_viewport_flags(self, flags: Flags):
+    new_width, new_height = 0, 0
+    if self.viewport.has_size:
+      new_width, new_height = self.viewport.size
+    update_size = False
+    if "--width" in flags:
+      if self.viewport.is_default:
+        new_width = int(flags["--width"])
+        update_size = True
+      else:
+        assert self.viewport.width == int(flags["--width"])
+    if "--height" in flags:
+      if self.viewport.is_default:
+        new_height = int(flags["--height"])
+        update_size = True
+      else:
+        assert self.viewport.height == int(flags["--height"])
+    if update_size:
+      assert self.viewport.is_default
+      self.viewport = Viewport(new_width, new_height)
+    elif self.viewport.has_size:
+      flags["--width"] = str(self.viewport.width)
+      flags["--height"] = str(self.viewport.height)
+
+    self._sync_viewport_flag(flags, "--kiosk", self.viewport.is_fullscreen,
+                             Viewport.FULLSCREEN)
+    self._sync_viewport_flag(flags, "--headless", self.viewport.is_headless,
+                             Viewport.HEADLESS)
+
+    if self.viewport.has_size and not self.viewport.is_default:
+      if not isinstance(self, WebdriverMixin) and self.viewport.size != (0, 0):
+        raise ValueError(f"Browser {self} cannot handle viewport position: "
+                         f"{self.viewport.position}")
+    else:
+      if not isinstance(self, WebdriverMixin):
+        raise ValueError(
+            f"Browser {self} cannot handle viewport mode: {self.viewport}")
 
 
 class FirefoxWebDriver(WebdriverMixin, Firefox):
@@ -103,8 +139,9 @@ class FirefoxWebDriver(WebdriverMixin, Firefox):
                flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                driver_path: Optional[pathlib.Path] = None,
+               viewport: Viewport = Viewport.DEFAULT,
                platform: Optional[helper.Platform] = None):
-    super().__init__(label, path, flags, cache_dir, platform)
+    super().__init__(label, path, flags, cache_dir, viewport, platform)
     self._driver_path = driver_path
 
   def _find_driver(self) -> pathlib.Path:

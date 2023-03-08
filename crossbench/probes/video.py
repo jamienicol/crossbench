@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Dict, List, Tuple
 
 import crossbench
 from crossbench import helper
+from crossbench.browsers.base import Viewport
 from crossbench.probes import base
 from crossbench.probes.results import ProbeResult
 
@@ -79,8 +80,7 @@ class VideoProbe(base.Probe):
 
     def start(self, run: Run) -> None:
       browser = run.browser
-      cmd = self._record_cmd(browser.x, browser.y, browser.width,
-                             browser.height)
+      cmd = self._record_cmd(browser.viewport)
       self._recorder_log_file = self.results_file.with_suffix(
           ".recorder.log").open(
               "w", encoding="utf-8")
@@ -93,16 +93,19 @@ class VideoProbe(base.Probe):
       # TODO: Add common start-story-delay on runner for these cases.
       self.runner_platform.sleep(1)
 
-    def _record_cmd(self, x: int, y: int, width: int,
-                    height: int) -> Tuple[str, ...]:
+    def _record_cmd(self, viewport: Viewport) -> Tuple[str, ...]:
       if self.browser_platform.is_linux:
         env_display = os.environ.get("DISPLAY", ":0.0")
-        return ("ffmpeg", "-hide_banner", "-video_size", f"{width}x{height}",
-                "-f", "x11grab", "-framerate", "60", "-i",
-                f"{env_display}+{x},{y}", self.results_file)
+        return ("ffmpeg", "-hide_banner", "-video_size",
+                f"{viewport.width}x{viewport.height}", "-f", "x11grab",
+                "-framerate", "60", "-i",
+                f"{env_display}+{viewport.x},{viewport.y}",
+                str(self.results_file))
       if self.browser_platform.is_macos:
-        return ("/usr/sbin/screencapture", "-v", f"-R{x},{y},{width},{height}",
-                self.results_file)
+        return (
+            "/usr/sbin/screencapture", "-v",
+            f"-R{viewport.x},{viewport.y},{viewport.width},{viewport.height}",
+            str(self.results_file))
       raise Exception("Invalid platform")
 
     def stop(self, run: Run) -> None:

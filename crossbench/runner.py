@@ -817,7 +817,7 @@ class Run:
       self._check_browser_foreground()
 
   def _check_browser_foreground(self) -> None:
-    if not self.browser.pid:
+    if not self.browser.pid or self.browser.viewport.is_headless:
       return
     info = self.platform.foreground_process()
     if not info:

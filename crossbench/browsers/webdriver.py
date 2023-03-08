@@ -66,16 +66,21 @@ class WebdriverMixin(Browser):
             "Could not find unique browser process for webdriver: %s, got %s",
             self, candidates)
     self._is_running = True
+    self._setup_window()
+    self._check_driver_version()
+
+  def _setup_window(self) -> None:
     # Force main window to foreground.
     self._driver.switch_to.window(self._driver.current_window_handle)
-    if self._start_fullscreen:
+    if self.viewport.is_headless:
+      return
+    if self.viewport.is_fullscreen:
       self._driver.fullscreen_window()
-    elif self._start_maximized:
+    elif self.viewport.is_maximized:
       self._driver.maximize_window()
     else:
-      self._driver.set_window_position(self.x, self.y)
-      self._driver.set_window_size(self.width, self.height)
-    self._check_driver_version()
+      self._driver.set_window_position(self.viewport.x, self.viewport.y)
+      self._driver.set_window_size(self.viewport.width, self.viewport.height)
 
   @abc.abstractmethod
   def _start_driver(self, run: Run,
@@ -179,13 +184,13 @@ class RemoteWebDriver(WebdriverMixin, Browser):
   def start(self, run: Run) -> None:
     # Driver has already been started. We just need to mark it as running.
     self._is_running = True
-    if self._start_fullscreen:
+    if self.viewport.is_fullscreen:
       self._driver.fullscreen_window()
-    elif self._start_maximized:
+    elif self.viewport.is_maximized:
       self._driver.maximize_window()
     else:
-      self._driver.set_window_position(self.x, self.y)
-      self._driver.set_window_size(self.width, self.height)
+      self._driver.set_window_position(self.viewport.x, self.viewport.y)
+      self._driver.set_window_size(self.viewport.width, self.viewport.height)
 
   def quit(self, runner: Runner) -> None:
     # External code that started the driver is responsible for shutting it down.
