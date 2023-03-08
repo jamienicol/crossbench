@@ -405,8 +405,9 @@ class BrowserConfig:
       return browsers.Firefox.developer_edition_path()
     if identifier in ("firefox-nightly", "ff-nightly", "ff-trunk"):
       return browsers.Firefox.nightly_path()
-    if ChromeDownloader.VERSION_RE.match(identifier):
-      return ChromeDownloader.load(identifier)
+    platform = helper.platform
+    if ChromeDownloader.is_valid(path_or_identifier, platform):
+      return ChromeDownloader.load(path_or_identifier, platform)
     path = pathlib.Path(path_or_identifier)
     if path.exists():
       return path
@@ -743,8 +744,11 @@ class CrossBenchCLI:
         "Repeat for adding multiple browsers. "
         "Defaults to 'chrome-stable'. "
         "Use --browser=chrome-M107 to download the latest milestone, "
-        "--browser=chrome-100.0.4896.168 to download a specific version "
-        "(macos and googlers only)."
+        "--browser=chrome-100.0.4896.168 to download a specific chrome version "
+        "(macOS and linux for googlers and chrome only). "
+        "Use --browser=path/to/archive.dmg on macOS or "
+        "--browser=path/to/archive.rpm on linux "
+        "for locally cached versions (chrome only)."
         "Cannot be used with --browser-config")
     browser_group.add_argument(
         "--browser-config",
