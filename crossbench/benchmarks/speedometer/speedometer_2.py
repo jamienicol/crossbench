@@ -98,16 +98,6 @@ class Speedometer2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
           helper.format_metric(metric["average"], metric["stddev"]))
 
 
-class Speedometer20Probe(Speedometer2Probe):
-  __doc__ = Speedometer2Probe.__doc__
-  NAME: Final[str] = "speedometer_2.0"
-
-
-class Speedometer21Probe(Speedometer2Probe):
-  __doc__ = Speedometer2Probe.__doc__
-  NAME: Final[str] = "speedometer_2.1"
-
-
 class Speedometer2Story(PressBenchmarkStory, metaclass=abc.ABCMeta):
   URL_LOCAL: Final[str] = "http://localhost:8000/InteractiveRunner.html"
   SUBSTORIES = (
@@ -185,29 +175,13 @@ class Speedometer2Story(PressBenchmarkStory, metaclass=abc.ABCMeta):
 ProbeClsTupleT = Tuple[Type[Speedometer2Probe], ...]
 
 
-class Speedometer20Story(Speedometer2Story):
-  __doc__ = Speedometer2Story.__doc__
-  NAME: Final[str] = "speedometer_2.0"
-  PROBES: Final[ProbeClsTupleT] = (Speedometer20Probe,)
-  URL: Final[str] = ("https://browserbench.org/Speedometer2.0"
-                     "/InteractiveRunner.html")
-
-
-class Speedometer21Story(Speedometer2Story):
-  __doc__ = Speedometer2Story.__doc__
-  NAME: Final[str] = "speedometer_2.1"
-  PROBES: Final[ProbeClsTupleT] = (Speedometer21Probe,)
-  URL: Final[str] = ("https://browserbench.org/Speedometer2.1/"
-                     "InteractiveRunner.html")
-
-
 class Speedometer2Benchmark(PressBenchmark, metaclass=abc.ABCMeta):
 
   DEFAULT_STORY_CLS = Speedometer2Story
 
   @classmethod
-  def add_cli_parser(cls, subparsers,
-                     aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
+  def add_cli_parser(
+      cls, subparsers, aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
     parser = super().add_cli_parser(subparsers, aliases)
     parser.add_argument(
         "--iterations",
@@ -239,19 +213,3 @@ class Speedometer2Benchmark(PressBenchmark, metaclass=abc.ABCMeta):
         assert iterations >= 1
         story.iterations = iterations
     super().__init__(stories, custom_url=custom_url)
-
-
-class Speedometer20Benchmark(Speedometer2Benchmark):
-  """
-  Benchmark runner for Speedometer 2.0
-  """
-  NAME: Final[str] = "speedometer_2.0"
-  DEFAULT_STORY_CLS = Speedometer20Story
-
-
-class Speedometer21Benchmark(Speedometer2Benchmark):
-  """
-  Benchmark runner for Speedometer 2.1
-  """
-  NAME: Final[str] = "speedometer_2.1"
-  DEFAULT_STORY_CLS = Speedometer21Story

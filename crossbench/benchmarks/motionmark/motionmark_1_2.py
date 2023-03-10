@@ -40,7 +40,7 @@ class MotionMark12Probe(JsonResultProbe):
 
   def flatten_json_data(self, json_data: List) -> Dict[str, Any]:
     assert isinstance(json_data, list) and len(json_data) == 1, (
-      "Motion12MarkProbe requires a results list.")
+        "Motion12MarkProbe requires a results list.")
     return probes_helper.Flatten(
         json_data[0], key_fn=_probe_skip_data_segments).data
 

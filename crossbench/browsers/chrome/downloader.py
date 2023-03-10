@@ -1,4 +1,4 @@
-# Copyright 2022 The Chromium Authors
+# Copyright 2023 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -11,107 +11,10 @@ import plistlib
 import re
 import shutil
 import tempfile
-from typing import TYPE_CHECKING, Final, List, Optional, Tuple, Type, Union
-
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options as ChromeOptions
-from selenium.webdriver.chrome.service import Service as ChromeService
+from typing import Final, List, Optional, Tuple, Type, Union
 
 from crossbench import helper
 from crossbench.browsers import BROWSERS_CACHE
-from crossbench.browsers.base import Viewport
-from crossbench.browsers.chromium import Chromium, ChromiumWebDriver
-
-if TYPE_CHECKING:
-  from selenium.webdriver.chromium.webdriver import ChromiumDriver
-
-  from crossbench.flags import Flags
-
-
-class Chrome(Chromium):
-
-  @classmethod
-  def default_path(cls) -> pathlib.Path:
-    return cls.stable_path()
-
-  @classmethod
-  def stable_path(cls) -> pathlib.Path:
-    return helper.search_app_or_executable(
-        "Chrome Stable",
-        macos=["Google Chrome.app"],
-        linux=["google-chrome", "chrome"],
-        win=["Google/Chrome/Application/chrome.exe"])
-
-  @classmethod
-  def beta_path(cls) -> pathlib.Path:
-    return helper.search_app_or_executable(
-        "Chrome Beta",
-        macos=["Google Chrome Beta.app"],
-        linux=["google-chrome-beta"],
-        win=["Google/Chrome Beta/Application/chrome.exe"])
-
-  @classmethod
-  def dev_path(cls) -> pathlib.Path:
-    return helper.search_app_or_executable(
-        "Chrome Dev",
-        macos=["Google Chrome Dev.app"],
-        linux=["google-chrome-unstable"],
-        win=["Google/Chrome Dev/Application/chrome.exe"])
-
-  @classmethod
-  def canary_path(cls) -> pathlib.Path:
-    return helper.search_app_or_executable(
-        "Chrome Canary",
-        macos=["Google Chrome Canary.app"],
-        win=["Google/Chrome SxS/Application/chrome.exe"])
-
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               js_flags: Flags.InitialDataType = None,
-               flags: Flags.InitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               viewport: Viewport = Viewport.DEFAULT,
-               platform: Optional[helper.Platform] = None):
-    super().__init__(
-        label,
-        path,
-        js_flags,
-        flags,
-        cache_dir,
-        type="chrome",
-        viewport=viewport,
-        platform=platform)
-
-
-class ChromeWebDriver(ChromiumWebDriver):
-
-  WEB_DRIVER_OPTIONS = ChromeOptions
-  WEB_DRIVER_SERVICE = ChromeService
-
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               js_flags: Flags.InitialDataType = None,
-               flags: Flags.InitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               driver_path: Optional[pathlib.Path] = None,
-               viewport: Viewport = Viewport.DEFAULT,
-               platform: Optional[helper.Platform] = None):
-    super().__init__(
-        label,
-        path,
-        js_flags,
-        flags,
-        cache_dir,
-        type="chrome",
-        driver_path=driver_path,
-        viewport=viewport,
-        platform=platform)
-
-  def _create_driver(self, options, service) -> ChromiumDriver:
-    return webdriver.Chrome(  # pytype: disable=wrong-keyword-args
-        options=options, service=service)
 
 
 class ChromeDownloader(abc.ABC):

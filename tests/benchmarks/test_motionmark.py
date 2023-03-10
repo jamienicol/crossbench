@@ -9,9 +9,8 @@ from unittest import mock
 
 import pytest
 
-from crossbench.benchmarks.motionmark import (MotionMark12Benchmark,
-                                              MotionMark12Probe,
-                                              MotionMark12Story)
+from crossbench.benchmarks.motionmark.motionmark_1_2 import (
+    MotionMark12Benchmark, MotionMark12Probe, MotionMark12Story)
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.runner import Runner

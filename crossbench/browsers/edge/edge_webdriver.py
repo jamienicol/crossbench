@@ -1,4 +1,4 @@
-# Copyright 2022 The Chromium Authors
+# Copyright 2023 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -20,79 +20,14 @@ import crossbench.exception
 import crossbench.flags
 from crossbench import helper
 from crossbench.browsers.base import BROWSERS_CACHE, Viewport
-from crossbench.browsers.chromium import Chromium, ChromiumWebDriver
-
-#TODO: fix imports
-cb = crossbench
+from crossbench.browsers.chromium import ChromiumWebDriver
 
 if TYPE_CHECKING:
   from selenium.webdriver.chromium.webdriver import ChromiumDriver
 
   import crossbench.runner
 
-FlagsInitialDataType = cb.flags.Flags.InitialDataType
-
-
-class Edge(Chromium):
-  DEFAULT_FLAGS = [
-      "--enable-benchmarking",
-      "--disable-extensions",
-      "--no-first-run",
-  ]
-
-  @classmethod
-  def default_path(cls) -> pathlib.Path:
-    return cls.stable_path()
-
-  @classmethod
-  def stable_path(cls) -> pathlib.Path:
-    return helper.search_app_or_executable(
-        "Edge Stable",
-        macos=["Microsoft Edge.app"],
-        linux=["microsoft-edge"],
-        win=["Microsoft/Edge/Application/msedge.exe"])
-
-  @classmethod
-  def beta_path(cls) -> pathlib.Path:
-    return helper.search_app_or_executable(
-        "Edge Beta",
-        macos=["Microsoft Edge Beta.app"],
-        linux=["microsoft-edge-beta"],
-        win=["Microsoft/Edge Beta/Application/msedge.exe"])
-
-  @classmethod
-  def dev_path(cls) -> pathlib.Path:
-    return helper.search_app_or_executable(
-        "Edge Dev",
-        macos=["Microsoft Edge Dev.app"],
-        linux=["microsoft-edge-dev"],
-        win=["Microsoft/Edge Dev/Application/msedge.exe"])
-
-  @classmethod
-  def canary_path(cls) -> pathlib.Path:
-    return helper.search_app_or_executable(
-        "Edge Canary",
-        macos=["Microsoft Edge Canary.app"],
-        linux=[],
-        win=["Microsoft/Edge SxS/Application/msedge.exe"])
-
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               js_flags: FlagsInitialDataType = None,
-               flags: FlagsInitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               viewport: Viewport = Viewport.DEFAULT,
-               platform: Optional[helper.Platform] = None):
-    super().__init__(
-        label,
-        path,
-        js_flags,
-        flags,
-        cache_dir,
-        type="edge",
-        viewport=viewport,
-        platform=platform)
+FlagsInitialDataType = crossbench.flags.Flags.InitialDataType
 
 
 class EdgeWebDriver(ChromiumWebDriver):
@@ -146,7 +81,7 @@ class EdgeWebDriverDownloader:
 
   def download(self) -> pathlib.Path:
     if not self.driver_path.exists():
-      with cb.exception.annotate(
+      with crossbench.exception.annotate(
           f"Downloading edgedriver for {self.browser.version}"):
         self._download()
     return self.driver_path

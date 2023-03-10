@@ -6,7 +6,8 @@ import sys
 
 import pytest
 
-from crossbench.benchmarks import speedometer
+from crossbench.benchmarks.speedometer import speedometer_2_0
+from crossbench.benchmarks.speedometer import speedometer_2_1
 from tests.benchmarks import speedometer_helper
 
 
@@ -14,15 +15,15 @@ class Speedometer20TestCase(speedometer_helper.Speedometer2BaseTestCase):
 
   @property
   def benchmark_cls(self):
-    return speedometer.Speedometer20Benchmark
+    return speedometer_2_0.Speedometer20Benchmark
 
   @property
   def story_cls(self):
-    return speedometer.Speedometer20Story
+    return speedometer_2_0.Speedometer20Story
 
   @property
   def probe_cls(self):
-    return speedometer.Speedometer20Probe
+    return speedometer_2_0.Speedometer20Probe
 
   @property
   def name(self):
@@ -33,15 +34,15 @@ class Speedometer21TestCase(speedometer_helper.Speedometer2BaseTestCase):
 
   @property
   def benchmark_cls(self):
-    return speedometer.Speedometer21Benchmark
+    return speedometer_2_1.Speedometer21Benchmark
 
   @property
   def story_cls(self):
-    return speedometer.Speedometer21Story
+    return speedometer_2_1.Speedometer21Story
 
   @property
   def probe_cls(self):
-    return speedometer.Speedometer21Probe
+    return speedometer_2_1.Speedometer21Probe
 
   @property
   def name(self):

@@ -7,7 +7,7 @@ import sys
 import unittest
 import pytest
 
-from crossbench.browsers.base import Viewport, ViewportMode
+from crossbench.browsers.viewport import Viewport, ViewportMode
 
 
 class ViewportTestCase(unittest.TestCase):

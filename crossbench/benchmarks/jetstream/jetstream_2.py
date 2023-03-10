@@ -19,7 +19,7 @@ from crossbench.probes.results import ProbeResult, ProbeResultDict
 from crossbench.stories import PressBenchmarkStory
 
 if TYPE_CHECKING:
-  from crossbench.runner import (Actions, BrowsersRunGroup, Run, Runner,
+  from crossbench.runner import (Actions, BrowsersRunGroup, Run,
                                  StoriesRunGroup)
 
 
@@ -58,8 +58,8 @@ class JetStream2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
     json_data["Total"] = self._compute_total_metrics(json_data)
     return json_data
 
-  def _compute_total_metrics(self,
-                             json_data: Dict[str, Any]) -> Dict[str, float]:
+  def _compute_total_metrics(self, json_data: Dict[str,
+                                                   Any]) -> Dict[str, float]:
     # Manually add all total scores
     accumulated_metrics = defaultdict(list)
     for _, metrics in json_data.items():
@@ -118,16 +118,6 @@ class JetStream2Probe(JsonResultProbe, metaclass=abc.ABCMeta):
       metric = metrics["Total/score"]
       table["Score"].append(
           helper.format_metric(metric["average"], metric["stddev"]))
-
-
-class JetStream20Probe(JetStream2Probe):
-  __doc__ = JetStream2Probe.__doc__
-  NAME: str = "jetstream_2.0"
-
-
-class JetStream21Probe(JetStream2Probe):
-  __doc__ = JetStream2Probe.__doc__
-  NAME: str = "jetstream_2.1"
 
 
 class JetStream2Story(PressBenchmarkStory, metaclass=abc.ABCMeta):
@@ -235,37 +225,5 @@ class JetStream2Story(PressBenchmarkStory, metaclass=abc.ABCMeta):
 ProbeClsTupleT = Tuple[Type[JetStream2Probe], ...]
 
 
-class JetStream20Story(JetStream2Story):
-  __doc__ = JetStream2Story.__doc__
-  NAME: Final[str] = "jetstream_2.0"
-  URL: Final[str] = "https://browserbench.org/JetStream2.0/"
-  PROBES: Final[ProbeClsTupleT] = (JetStream20Probe,)
-
-
-class JetStream21Story(JetStream2Story):
-  __doc__ = JetStream2Story.__doc__
-  NAME: Final[str] = "jetstream_2.1"
-  URL: Final[str] = "https://browserbench.org/JetStream2.1/"
-  PROBES: Final[ProbeClsTupleT] = (JetStream21Probe,)
-
-
 class JetStream2Benchmark(PressBenchmark, metaclass=abc.ABCMeta):
   pass
-
-
-class JetStream20Benchmark(JetStream2Benchmark):
-  """
-  Benchmark runner for JetStream 2.0.
-  """
-
-  NAME: Final[str] = "jetstream_2.0"
-  DEFAULT_STORY_CLS = JetStream20Story
-
-
-class JetStream21Benchmark(JetStream2Benchmark):
-  """
-  Benchmark runner for JetStream 2.1.
-  """
-
-  NAME: Final[str] = "jetstream_2.1"
-  DEFAULT_STORY_CLS = JetStream21Story

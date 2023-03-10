@@ -7,8 +7,9 @@ import csv
 from typing import Optional, Type
 from unittest import mock
 
-from crossbench.benchmarks.jetstream import (JetStream2Benchmark,
-                                             JetStream2Probe, JetStream2Story)
+from crossbench.benchmarks.jetstream.jetstream_2 import (JetStream2Benchmark,
+                                                         JetStream2Probe,
+                                                         JetStream2Story)
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.runner import Runner

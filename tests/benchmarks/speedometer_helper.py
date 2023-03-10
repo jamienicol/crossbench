@@ -9,9 +9,8 @@ from dataclasses import dataclass
 from typing import Optional, Sequence, Type
 from unittest import mock
 
-from crossbench.benchmarks.speedometer import (Speedometer2Benchmark,
-                                               Speedometer2Probe,
-                                               Speedometer2Story)
+from crossbench.benchmarks.speedometer.speedometer_2 import (
+    Speedometer2Benchmark, Speedometer2Probe, Speedometer2Story)
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.runner import Runner

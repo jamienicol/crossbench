@@ -6,7 +6,8 @@ import sys
 
 import pytest
 
-from crossbench.benchmarks import jetstream
+from crossbench.benchmarks.jetstream import jetstream_2_0
+from crossbench.benchmarks.jetstream import jetstream_2_1
 from tests.benchmarks import jetstream_helper
 
 
@@ -14,15 +15,15 @@ class JetStream20TestCase(jetstream_helper.JetStream2BaseTestCase):
 
   @property
   def benchmark_cls(self):
-    return jetstream.JetStream20Benchmark
+    return jetstream_2_0.JetStream20Benchmark
 
   @property
   def story_cls(self):
-    return jetstream.JetStream20Story
+    return jetstream_2_0.JetStream20Story
 
   @property
   def probe_cls(self):
-    return jetstream.JetStream20Probe
+    return jetstream_2_0.JetStream20Probe
 
   @property
   def name(self):
@@ -33,15 +34,15 @@ class JetStream21TestCase(jetstream_helper.JetStream2BaseTestCase):
 
   @property
   def benchmark_cls(self):
-    return jetstream.JetStream21Benchmark
+    return jetstream_2_1.JetStream21Benchmark
 
   @property
   def story_cls(self):
-    return jetstream.JetStream21Story
+    return jetstream_2_1.JetStream21Story
 
   @property
   def probe_cls(self):
-    return jetstream.JetStream21Probe
+    return jetstream_2_1.JetStream21Probe
 
   @property
   def name(self):

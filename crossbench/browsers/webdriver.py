@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 import selenium.common.exceptions
 from selenium import webdriver
 
-from crossbench.browsers.base import Browser
+from .base import Browser
 
 if TYPE_CHECKING:
   import datetime as dt
