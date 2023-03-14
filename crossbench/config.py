@@ -10,7 +10,7 @@ import pathlib
 import textwrap
 from typing import Any, Callable, Dict, List, Optional, Sequence, Type, Union
 
-from crossbench import helper
+from crossbench import cli_helper, helper
 from crossbench.exception import ExceptionAnnotator
 
 ArgParserType = Union[Callable[[Any], Any], Type]
@@ -128,18 +128,6 @@ class _ConfigArg:
 
 
 class ConfigParser:
-
-  # TODO: combine with the similar method in cli.py and find a better name
-  def existing_file_type(self, str_value: str) -> pathlib.Path:
-    try:
-      path = pathlib.Path(str_value).expanduser()
-    except RuntimeError as e:
-      raise ValueError(f"Invalid Path '{str_value}': {e}") from e
-    if not path.exists():
-      raise ValueError(f"Path '{path}', does not exist.")
-    if not path.is_file():
-      raise ValueError(f"Path '{path}', is not a file.")
-    return path
 
   def __init__(self, title: str, cls: Type[object]):
     self.title = title

@@ -12,7 +12,7 @@ import re
 import subprocess
 from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
 
-from crossbench import helper
+from crossbench import cli_helper, helper
 from crossbench.browsers.base import Browser
 from crossbench.browsers.chromium import Chromium
 from crossbench.flags import JSFlags
@@ -58,13 +58,13 @@ class V8LogProbe(Probe):
         help="Manually pass --log-.* flags to V8")
     parser.add_argument(
         "d8_binary",
-        type=parser.existing_file_type,
+        type=cli_helper.parse_file_path,
         help="Path to a D8 binary for extended log processing."
         "If not specified the $D8_PATH env variable is used and/or "
         "default build locations are tried.")
     parser.add_argument(
         "v8_checkout",
-        type=parser.existing_file_type,
+        type=cli_helper.parse_dir_path,
         help="Path to a V8 checkout for extended log processing."
         "If not specified it is auto inferred from either the provided"
         "d8_binary or standard installation locations.")
@@ -99,14 +99,6 @@ class V8LogProbe(Probe):
   def js_flags(self) -> JSFlags:
     return self._js_flags.copy()
 
-  @property
-  def v8_checkout(self) -> Optional[pathlib.Path]:
-    return self._v8_checkout
-
-  @property
-  def d8_binary(self) -> Optional[pathlib.Path]:
-    return self._d8_binary
-
   def is_compatible(self, browser: Browser) -> bool:
     return isinstance(browser, Chromium)
 
@@ -124,7 +116,7 @@ class V8LogProbe(Probe):
 
   def process_log_files(self,
                         log_files: List[pathlib.Path]) -> List[pathlib.Path]:
-    finder = V8ToolsFinder(self)
+    finder = V8ToolsFinder(self, self._d8_binary, self._v8_checkout)
     if not finder.d8_binary or not finder.tick_processor or not log_files:
       logging.info("Did not find $D8_PATH for profview processing.")
       return []
@@ -231,10 +223,11 @@ class V8ToolsFinder:
   If no explicit d8 and checkout path are given, $D8_PATH and common v8 and
   chromium installation directories are checked."""
 
-  def __init__(self, log_probe: V8LogProbe):
+  def __init__(self, log_probe: V8LogProbe, d8_binary: Optional[pathlib.Path],
+               v8_checkout: Optional[pathlib.Path]):
     self._log_probe = log_probe
-    self.d8_binary: Optional[pathlib.Path] = log_probe.d8_binary
-    self.v8_checkout: Optional[pathlib.Path] = log_probe.v8_checkout
+    self.d8_binary: Optional[pathlib.Path] = d8_binary
+    self.v8_checkout: Optional[pathlib.Path] = v8_checkout
     self.tick_processor: Optional[pathlib.Path] = None
     self.platform = log_probe.browser_platform
     # A generous list of potential locations of a V8 or chromium checkout

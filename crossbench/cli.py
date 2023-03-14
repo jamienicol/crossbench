@@ -10,11 +10,12 @@ import itertools
 import json
 import logging
 import pathlib
+import re
 import sys
 import tempfile
 import textwrap
 import traceback
-from typing import (TYPE_CHECKING, Any, Dict, Iterable, List, Optional,
+from typing import (TYPE_CHECKING, Any, Dict, Final, Iterable, List, Optional,
                     Sequence, TextIO, Tuple, Type, Union)
 
 import hjson
@@ -26,7 +27,7 @@ from crossbench.benchmarks.base import Benchmark
 import crossbench.browsers.all as browsers
 from crossbench.browsers.base import Viewport, convert_flags_to_label
 from crossbench.browsers.chrome import ChromeDownloader
-from crossbench.cli_helper import existing_file_type, positive_float_type
+from crossbench.cli_helper import parse_file_path, parse_positive_float
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.exception import ExceptionAnnotator
@@ -421,11 +422,19 @@ class BrowserConfig:
         f"Unknown browser path or short name: '{path_or_identifier}'")
 
 
+class ProbeConfigError(argparse.ArgumentTypeError):
+  pass
+
+
 class ProbeConfig:
 
   LOOKUP: Dict[str, Type[Probe]] = {
       cls.NAME: cls for cls in GENERAL_PURPOSE_PROBES
   }
+
+  _PROBE_RE: Final[re.Pattern] = re.compile(
+      r"(?P<probe_name>[\w.]+)(:?(?P<config>\{.*\}))?",
+      re.MULTILINE | re.DOTALL)
 
   @classmethod
   def from_cli_args(cls, args: argparse.Namespace) -> ProbeConfig:
@@ -458,23 +467,29 @@ class ProbeConfig:
     return self._probes
 
   def add_probe(self, probe_name_with_args: str) -> None:
-    # look for "ProbeName{json_key:json_value, ...}"
+    # Look for probes with json payload:
+    # - "ProbeName{json_key:json_value, ...}"
+    # - "ProbeName:{json_key:json_value, ...}"
     inline_config = {}
-    if probe_name_with_args[-1] == "}":
-      probe_name, json_args = probe_name_with_args.split("{", maxsplit=1)
-      assert json_args[-1] == "}"
+    match = self._PROBE_RE.fullmatch(probe_name_with_args)
+    if match is None:
+      raise ProbeConfigError(
+          f"Could not parse probe argument: {probe_name_with_args}")
+    if match["config"]:
+      probe_name = match["probe_name"]
+      json_args = match["config"]
+      assert json_args[0] == "{" and json_args[-1] == "}"
       try:
-        json_args = "{" + json_args
         inline_config = hjson.loads(json_args)
       except ValueError as e:
         message = (f"Could not decode inline probe config: {json_args}\n"
                    f"   {str(e)}")
         if "eof" in message:
           message += "\n   Likely missing quotes for --probe argument."
-        raise ValueError(message) from e
+        raise ProbeConfigError(message) from e
     else:
       # Default case without the additional hjson payload
-      probe_name = probe_name_with_args
+      probe_name = match["probe_name"]
     if probe_name not in self.LOOKUP:
       self.raise_unknown_probe(probe_name)
     with self._exceptions.info(
@@ -491,7 +506,7 @@ class ProbeConfig:
       with self._exceptions.info(f"Parsing {hjson.__name__}"):
         data = hjson.load(file)
       if not isinstance(data, dict) or "probes" not in data:
-        raise ValueError(
+        raise ProbeConfigError(
             "Probe config file does not contain a 'probes' dict value.")
       self.load_dict(data["probes"])
 
@@ -509,10 +524,10 @@ class ProbeConfig:
     if ":" in probe_name or "}" in probe_name:
       additional_msg = "\n    Likely missing quotes for --probe argument"
     msg = f"    Options are: {list(self.LOOKUP.keys())}{additional_msg}"
-    raise ValueError(f"Unknown probe name: '{probe_name}'\n{msg}")
+    raise ProbeConfigError(f"Unknown probe name: '{probe_name}'\n{msg}")
 
 
-def inline_env_config(value: str) -> HostEnvironmentConfig:
+def parse_inline_env_config(value: str) -> HostEnvironmentConfig:
   if value in HostEnvironment.CONFIGS:
     return HostEnvironment.CONFIGS[value]
   if value[0] != "{":
@@ -531,8 +546,8 @@ def inline_env_config(value: str) -> HostEnvironmentConfig:
         f"Invalid inline config string: {value}{msg}") from e
 
 
-def env_config_file(value: str) -> HostEnvironmentConfig:
-  config_path = existing_file_type(value)
+def parse_env_config_file(value: str) -> HostEnvironmentConfig:
+  config_path: pathlib.Path = parse_file_path(value)
   try:
     with config_path.open(encoding="utf-8") as f:
       data = hjson.load(f)
@@ -689,13 +704,13 @@ class CrossBenchCLI:
     runner_group = subparser.add_argument_group("Runner Options", "")
     runner_group.add_argument(
         "--cool-down-time",
-        type=positive_float_type,
+        type=parse_positive_float,
         default=2,
         help="Time the runner waits between different runs or repetitions. "
         "Increase this to let the CPU cool down between runs.")
     runner_group.add_argument(
         "--time-unit",
-        type=positive_float_type,
+        type=parse_positive_float,
         default=1,
         help="Absolute duration of 1 time unit in the runner. "
         "Increase this for slow builds or machines. "
@@ -705,14 +720,14 @@ class CrossBenchCLI:
     env_settings_group = env_group.add_mutually_exclusive_group()
     env_settings_group.add_argument(
         "--env",
-        type=inline_env_config,
+        type=parse_inline_env_config,
         help="Set default runner environment settings. "
         f"Possible values: {', '.join(HostEnvironment.CONFIGS)}"
         "or an inline hjson configuration (see --env-config). "
         "Mutually exclusive with --env-config")
     env_settings_group.add_argument(
         "--env-config",
-        type=env_config_file,
+        type=parse_env_config_file,
         help="Path to an env.config.hjson file that specifies detailed "
         "runner environment settings and requirements. "
         "See config/env.config.hjson for more details."
@@ -756,7 +771,7 @@ class CrossBenchCLI:
         "Cannot be used with --browser-config")
     browser_config_group.add_argument(
         "--browser-config",
-        type=existing_file_type,
+        type=parse_file_path,
         help="Browser configuration.json file. "
         "Use this to run multiple browsers and/or multiple flag configurations."
         "See config/browser.config.example.hjson on how to set up a complex "
@@ -811,7 +826,7 @@ class CrossBenchCLI:
         f"\n\nChoices: {', '.join(ProbeConfig.LOOKUP.keys())}")
     probe_config_group.add_argument(
         "--probe-config",
-        type=existing_file_type,
+        type=parse_file_path,
         help="Browser configuration.json file. "
         "Use this config file to specify more complex Probe settings."
         "See config/probe.config.example.hjson on how to set up a complex "
@@ -963,9 +978,13 @@ class CrossBenchCLI:
     else:
       logging.critical("RESULTS (maybe incomplete/broken): %s", runner.out_dir)
     logging.info("=" * 80)
+    if not runner.has_browser_group:
+      logging.debug("No browser group in %s", runner)
+      return
+    browser_group = runner.browser_group
     for probe in runner.probes:
       try:
-        probe.log_browsers_result(runner.browser_group)
+        probe.log_browsers_result(browser_group)
       except Exception as e:  # pylint disable=broad-except
         if args.throw:
           raise

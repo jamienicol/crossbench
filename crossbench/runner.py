@@ -231,8 +231,12 @@ class Runner:
 
   @property
   def browser_group(self) -> BrowsersRunGroup:
-    assert self._browser_group
+    assert self._browser_group, f"No BrowsersRunGroup in {self}"
     return self._browser_group
+
+  @property
+  def has_browser_group(self) -> bool:
+    return self._browser_group is not None
 
   def sh(self, *args, shell: bool = False, stdout=None):
     return self._platform.sh(*args, shell=shell, stdout=stdout)

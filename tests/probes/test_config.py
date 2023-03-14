@@ -26,7 +26,7 @@ def custom_arg_type(value):
   return CustomArgType(value)
 
 
-class TestProbeConfig(unittest.TestCase):
+class ProbeConfigTestCase(unittest.TestCase):
 
   def test_help_text(self):
     parser = ProbeConfigParser(MockProbe)

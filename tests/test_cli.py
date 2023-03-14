@@ -7,6 +7,7 @@ import json
 import pathlib
 import sys
 import unittest
+from argparse import ArgumentTypeError
 from typing import Dict, List, Tuple, Type
 from unittest import mock
 
@@ -19,7 +20,7 @@ from crossbench import helper
 from crossbench.browsers.chrome import Chrome, ChromeWebDriver
 from crossbench.browsers.safari import Safari
 from crossbench.cli import (BrowserConfig, ConfigFileError, CrossBenchCLI,
-                            FlagGroupConfig, ProbeConfig)
+                            FlagGroupConfig, ProbeConfig, ProbeConfigError)
 from crossbench.probes.power_sampler import PowerSamplerProbe
 from crossbench.probes.v8.log import V8LogProbe
 from crossbench.runner import Runner
@@ -106,7 +107,7 @@ class TestCLI(BaseCrossbenchTestCase):
           self.assertGreater(len(stdout), 0)
 
   def test_invalid_probe(self):
-    with self.assertRaises(ValueError), mock.patch.object(
+    with self.assertRaises(ProbeConfigError), mock.patch.object(
         CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--probe=invalid_probe_name", "--throw")
 
@@ -126,7 +127,7 @@ class TestCLI(BaseCrossbenchTestCase):
     with mock.patch.object(
         CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
-      with self.assertRaises(ValueError):
+      with self.assertRaises(ProbeConfigError):
         self.run_cli("loading", f"--probe-config={config_file}",
                      f"--urls={url}", "--env-validation=skip", "--throw")
       for browser in self.browsers:
@@ -155,7 +156,7 @@ class TestCLI(BaseCrossbenchTestCase):
     with mock.patch.object(
         CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
-      with self.assertRaises(ValueError):
+      with self.assertRaises(ProbeConfigError):
         self.run_cli("loading", f"--probe-config={config_file}",
                      f"--urls={url}", "--env-validation=skip", "--throw")
       for browser in self.browsers:
@@ -187,7 +188,7 @@ class TestCLI(BaseCrossbenchTestCase):
 
     with mock.patch.object(
         CrossBenchCLI, "_get_browsers",
-        return_value=self.browsers), self.assertRaises(ValueError):
+        return_value=self.browsers), self.assertRaises(ProbeConfigError):
       self.run_cli("loading", f"--probe-config={config_file}",
                    "--urls=http://test.com", "--env-validation=skip", "--throw")
 
@@ -427,7 +428,7 @@ class TestCLI(BaseCrossbenchTestCase):
         self.assertIn(mock_browser_cls.VERSION, versions)
 
   def test_probe_invalid_inline_json_config(self):
-    with self.assertRaises(ValueError), mock.patch.object(
+    with self.assertRaises(ProbeConfigError), mock.patch.object(
         CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--probe=v8.log{invalid json: d a t a}",
                    "--urls=cnn", "--env-validation=skip", "--throw")
@@ -569,7 +570,7 @@ class TestCLI(BaseCrossbenchTestCase):
                    "--throw", "--browser=chrome", "--browser=chrome-dev", "--",
                    "--js-flags=--no-opt")
 
-  def test_env_config_file(self):
+  def test_parse_env_config_file(self):
     config = pathlib.Path("/test.config.hjson")
     with config.open("w", encoding="utf-8") as f:
       hjson.dump({"env": {}}, f)
@@ -661,14 +662,47 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
     self.fs.create_file(mock_d8_file)
     config_data = {"d8_binary": str(mock_d8_file)}
     args = mock.Mock(
-        probe=[f"v8.log{hjson.dumps(config_data)}"],
         probe_config=None,
         throw=True,
         wraps=False)
+
+    args.probe = [
+        f"v8.log{hjson.dumps(config_data)}",
+    ]
     config = ProbeConfig.from_cli_args(args)
     self.assertTrue(len(config.probes), 1)
     probe = config.probes[0]
     self.assertTrue(isinstance(probe, V8LogProbe))
+
+    args.probe = [
+        f"v8.log:{hjson.dumps(config_data)}",
+    ]
+    config = ProbeConfig.from_cli_args(args)
+    self.assertTrue(len(config.probes), 1)
+    probe = config.probes[0]
+    self.assertTrue(isinstance(probe, V8LogProbe))
+
+  def test_inline_config_invalid(self):
+    mock_d8_file = pathlib.Path("out/d8")
+    self.fs.create_file(mock_d8_file)
+    config_data = {"d8_binary": str(mock_d8_file)}
+    args = mock.Mock(probe_config=None, throw=True, wraps=False)
+    trailing_brace = "}"
+    args.probe = [
+        f"v8.log{hjson.dumps(config_data)}{trailing_brace}",
+    ]
+    with self.assertRaises(ProbeConfigError):
+      ProbeConfig.from_cli_args(args)
+    args.probe = [
+        f"v8.log:{hjson.dumps(config_data)}{trailing_brace}",
+    ]
+    with self.assertRaises(ProbeConfigError):
+      ProbeConfig.from_cli_args(args)
+    args.probe = [
+        "v8.log::",
+    ]
+    with self.assertRaises(ProbeConfigError):
+      ProbeConfig.from_cli_args(args)
 
   def test_inline_config_dir_instead_of_file(self):
     mock_dir = pathlib.Path("some/dir")
@@ -679,7 +713,7 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
         probe_config=None,
         throw=True,
         wraps=False)
-    with self.assertRaises(ValueError) as cm:
+    with self.assertRaises(ArgumentTypeError) as cm:
       ProbeConfig.from_cli_args(args)
     self.assertIn(str(mock_dir), str(cm.exception))
 
@@ -690,7 +724,7 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
         probe_config=None,
         throw=True,
         wraps=False)
-    with self.assertRaises(ValueError) as cm:
+    with self.assertRaises(ArgumentTypeError) as cm:
       ProbeConfig.from_cli_args(args)
     self.assertIn("does/not/exist/d8", str(cm.exception))
 
