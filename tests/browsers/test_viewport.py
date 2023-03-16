@@ -127,6 +127,14 @@ class ViewportTestCase(unittest.TestCase):
     with self.assertRaises(ArgumentTypeError):
       Viewport(width=0, height=0, x=0, y=100, mode=ViewportMode.MAXIMIZED)
 
+  def test_parse(self):
+    viewport: Viewport = Viewport.parse("100x200")
+    self.assertTupleEqual(viewport.size, (100, 200))
+    self.assertTupleEqual(viewport.position, Viewport.DEFAULT.position)
+    viewport = Viewport.parse("100x200,22x33")
+    self.assertTupleEqual(viewport.size, (100, 200))
+    self.assertTupleEqual(viewport.position, (22, 33))
+
 
 if __name__ == "__main__":
   sys.exit(pytest.main([__file__]))

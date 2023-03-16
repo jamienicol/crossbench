@@ -277,6 +277,9 @@ class Browser(abc.ABC):
         raise ValueError(
             f"{flag} conflicts with requested --viewport={self.viewport}")
 
+  def __str__(self) -> str:
+    return f"{self.type.capitalize()}:{self.label}"
+
 
 _FLAG_TO_PATH_RE = re.compile(r"[-/\\:\.]")
 

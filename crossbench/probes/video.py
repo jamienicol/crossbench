@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Dict, List, Tuple
 
 import crossbench
 from crossbench import helper
-from crossbench.browsers.base import Viewport
 from crossbench.probes import base
 from crossbench.probes.results import ProbeResult
 
@@ -22,6 +21,7 @@ from crossbench.probes.results import ProbeResult
 cb = crossbench
 
 if TYPE_CHECKING:
+  from crossbench.browsers.base import Viewport
   from crossbench.env import HostEnvironment
   from crossbench.runner import BrowsersRunGroup, RepetitionsRunGroup, Run
   from crossbench.stories import Story
@@ -62,6 +62,28 @@ class VideoProbe(base.Probe):
         message="Missing 'montage' binary, please install imagemagick.")
     # Check that montage can be executed
     env.check_sh_success("montage", "--version")
+    self._pre_check_viewport_size(env)
+
+  def _pre_check_viewport_size(self, env: HostEnvironment) -> None:
+    first_viewport: Viewport = env.runner.browsers[0].viewport
+    for browser in env.runner.browsers:
+      viewport: Viewport = browser.viewport
+      if viewport.is_headless:
+        env.handle_warning(
+            f"Cannot record video for headless browser: {browser}")
+      # TODO: support fullscreen / maximised
+      if not viewport.has_size:
+        env.handle_warning(
+            "Can only record video for browsers with explicit viewport sizes, "
+            f"but got {viewport} for {browser}.")
+      if viewport.x < 10 or viewport.y < 50:
+        env.handle_warning(
+            f"Viewport for '{browser}' might include toolbar: {viewport}")
+      if viewport != first_viewport:
+        env.handle_warning(
+            "Video recording requires same viewport size for all browsers.\n"
+            f"Viewport size for {browser} is {viewport}, "
+            f"which differs from first viewport {first_viewport}. ")
 
   class Scope(base.Probe.Scope):
     IMAGE_FORMAT = "png"
@@ -73,8 +95,8 @@ class VideoProbe(base.Probe):
         "y=h-line_h-5:x=5:"
         "box=1:boxborderw=15:boxcolor=white")
 
-    def __init__(self, *args, **kwargs):
-      super().__init__(*args, **kwargs)
+    def __init__(self, probe: base.Probe, run: Run):
+      super().__init__(probe, run)
       self._record_process = None
       self._recorder_log_file = None
 

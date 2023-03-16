@@ -36,8 +36,8 @@ class Viewport:
     width, _, height = size.partition("x")
     if not height:
       raise ArgumentTypeError(f"Missing viewport height in input: {value}")
-    x = 0
-    y = 0
+    x = cls.DEFAULT.x
+    y = cls.DEFAULT.y
     if position:
       x, _, y = position.partition("x")
       if not y:
@@ -135,6 +135,9 @@ class Viewport:
   @property
   def mode(self) -> ViewportMode:
     return self._mode
+
+  def __str__(self) -> str:
+    return f"Viewport({self.width}x{self.height},{self.x}x{self.y})"
 
 
 Viewport.DEFAULT = Viewport()
