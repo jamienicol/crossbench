@@ -644,8 +644,9 @@ class CrossBenchCLI:
   def describe_subcommand(self, args: argparse.Namespace) -> None:
     benchmarks_data: Dict[str, Any] = {}
     for benchmark_cls, aliases in self.BENCHMARKS:
-      if args.filter and benchmark_cls.NAME != args.filter:
-        continue
+      if args.filter:
+        if benchmark_cls.NAME != args.filter and args.filter not in aliases:
+          continue
       benchmark_info = benchmark_cls.describe()
       benchmark_info["aliases"] = aliases or "None"
       benchmark_info["help"] = f"See `{benchmark_cls.NAME} --help`"
