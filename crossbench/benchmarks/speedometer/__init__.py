@@ -6,3 +6,8 @@ from __future__ import annotations
 
 from .speedometer_2_0 import Speedometer20Benchmark
 from .speedometer_2_1 import Speedometer21Benchmark
+
+__all__ = [
+    "Speedometer20Benchmark",
+    "Speedometer21Benchmark",
+]

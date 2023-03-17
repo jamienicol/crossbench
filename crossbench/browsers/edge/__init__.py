@@ -6,3 +6,8 @@ from __future__ import annotations
 
 from .edge import Edge
 from .edge_webdriver import EdgeWebDriver
+
+__all__ = [
+    "Edge",
+    "EdgeWebDriver",
+]

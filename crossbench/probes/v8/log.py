@@ -75,7 +75,7 @@ class V8LogProbe(Probe):
                prof: bool = False,
                js_flags: Optional[Iterable[str]] = None,
                d8_binary: Optional[pathlib.Path] = None,
-               v8_checkout: Optional[pathlib.Path] = None):
+               v8_checkout: Optional[pathlib.Path] = None) -> None:
     super().__init__()
     self._js_flags = JSFlags()
     self._d8_binary = d8_binary
@@ -141,7 +141,7 @@ class V8LogProbe(Probe):
     @property
     def results_file(self) -> pathlib.Path:
       # Put v8.log files into separate dirs in case we have multiple isolates
-      log_dir = super().results_file
+      log_dir: pathlib.Path = super().results_file
       log_dir.mkdir(exist_ok=True)
       return log_dir / self.probe.results_file_name
 

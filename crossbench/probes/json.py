@@ -193,7 +193,7 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
       writer.writerows(csv_data)
     return ProbeResult(json=(merged_json_path,), csv=(merged_csv_path,))
 
-  def _log_result_metrics(self, data: Dict):
+  def _log_result_metrics(self, data: Dict) -> None:
     table: Dict[str, List[str]] = defaultdict(list)
     for browser_result in data.values():
       for info_key in ("label", "browser", "version"):

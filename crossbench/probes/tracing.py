@@ -29,7 +29,7 @@ class TracingProbe(Probe):
   def __init__(self,
                categories: Iterable[str],
                startup_duration: float = 0,
-               output_format: str = "json"):
+               output_format: str = "json") -> None:
     super().__init__()
     self._categories = categories
     self._startup_duration = startup_duration

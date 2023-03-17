@@ -12,3 +12,20 @@ from crossbench.browsers.edge import Edge, EdgeWebDriver
 from crossbench.browsers.firefox import Firefox, FirefoxWebDriver
 from crossbench.browsers.safari import Safari, SafariWebDriver
 from crossbench.browsers.webdriver import RemoteWebDriver
+
+__all__ = [
+    "Chrome",
+    "ChromeWebDriver",
+    "Chromium",
+    "ChromiumWebDriver",
+    "Edge",
+    "EdgeWebDriver",
+    "Firefox",
+    "FirefoxWebDriver",
+    "Safari",
+    "SafariWebDriver",
+    "RemoteWebDriver",
+    "Browser",
+    "convert_flags_to_label",
+    "BROWSERS_CACHE",
+]

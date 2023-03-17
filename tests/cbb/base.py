@@ -52,9 +52,11 @@ class CbbTest(unittest.TestCase, metaclass=ABCMeta):
       return None
 
     stories = story_class.default_story_names()[:1]
-    workload = story_class(substories=stories)
+    workload = story_class(  # pytype: disable=not-instantiable
+        substories=stories)
 
-    benchmark_cls = cbb_adapter.get_pressbenchmark_cls(self.benchmark_name)
+    benchmark_cls = cbb_adapter.get_pressbenchmark_cls(  # pytype: disable=not-instantiable
+        self.benchmark_name)
     benchmark = benchmark_cls(stories=[workload])
     return benchmark
 

@@ -53,6 +53,8 @@ class Page(Story, metaclass=abc.ABCMeta):
 
 class LivePage(Page):
 
+  url: str
+
   def __init__(self, name: str, url: str, duration: float = 15):
     super().__init__(name, duration)
     assert url, "Invalid page url"
@@ -210,6 +212,7 @@ class LoadingPageFilter(StoryFilter):
           url = value
         if use_hostname:
           name = urlparse(url).hostname
+          assert name, f"URL-parsing failed: {url}"
         page = LivePage(name, url)
       else:
         # Use the last created page and set the duration on it
@@ -403,7 +406,8 @@ class PageConfig:
       return float(value)
     return float(value) * _TimeSuffix.get_multiplier(time_unit)
 
-  def _create_action(self, action_type, value, duration) -> Action:
+  def _create_action(self, action_type: ActionType, value: Optional[str],
+                     duration: float) -> Action:
     if action_type not in _ACTION_FACTORY:
       raise ValueError(f"Unknown action name: '{action_type}'")
     return _ACTION_FACTORY[action_type](action_type, value, duration)

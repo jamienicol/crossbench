@@ -6,3 +6,8 @@ from __future__ import annotations
 
 from .firefox import Firefox
 from .firefox_webdriver import FirefoxWebDriver
+
+__all__ = [
+    "Firefox",
+    "FirefoxWebDriver",
+]

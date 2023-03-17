@@ -12,27 +12,31 @@ with corresponding changes in CBB in google3
 
 import os
 import pathlib
-from typing import List, Optional
+from typing import List, Optional, Type
 
-import crossbench.benchmarks.all
+import crossbench.benchmarks.all as benchmarks
+from crossbench.benchmarks.base import PressBenchmark
 import crossbench.browsers.base
 import crossbench.browsers.webdriver as cb_webdriver
 import crossbench.env
 import crossbench.runner
 from selenium import webdriver
 
+from crossbench.stories import PressBenchmarkStory
+
 press_benchmarks = [
-    crossbench.benchmarks.speedometer.Speedometer20Benchmark,
-    crossbench.benchmarks.speedometer.Speedometer21Benchmark,
-    crossbench.benchmarks.motionmark.MotionMark12Benchmark,
-    crossbench.benchmarks.jetstream.JetStream20Benchmark,
-    crossbench.benchmarks.jetstream.JetStream21Benchmark,
+    benchmarks.Speedometer20Benchmark,
+    benchmarks.Speedometer21Benchmark,
+    benchmarks.MotionMark12Benchmark,
+    benchmarks.JetStream20Benchmark,
+    benchmarks.JetStream21Benchmark,
 ]
 
 press_benchmarks_dict = {cls.NAME: cls for cls in press_benchmarks}
 
 
-def get_pressbenchmark_cls(benchmark_name: str):
+def get_pressbenchmark_cls(
+    benchmark_name: str) -> Optional[Type[PressBenchmark]]:
   """Returns the class of the specified pressbenchmark.
 
   Args:
@@ -44,7 +48,8 @@ def get_pressbenchmark_cls(benchmark_name: str):
   return press_benchmarks_dict.get(benchmark_name)
 
 
-def get_pressbenchmark_story_cls(benchmark_name: str):
+def get_pressbenchmark_story_cls(
+    benchmark_name: str) -> Optional[Type[PressBenchmarkStory]]:
   """Returns the class of the specified pressbenchmark story.
 
   Args:
@@ -77,7 +82,7 @@ def create_remote_webdriver(driver: webdriver.Remote
 def get_probe_result_file(benchmark_name: str,
                           browser: crossbench.browsers.base.Browser,
                           output_dir: str,
-                          probe_name: Optional[str] = None):
+                          probe_name: Optional[str] = None) -> Optional[str]:
   """Returns the path to the probe result file.
 
   Args:
@@ -100,7 +105,7 @@ def get_probe_result_file(benchmark_name: str,
 
 def run_benchmark(output_folder: str,
                   browser_list: List[crossbench.browsers.base.Browser],
-                  benchmark):
+                  benchmark: PressBenchmark) -> None:
   """Runs the benchmark using crossbench runner.
 
   Args:

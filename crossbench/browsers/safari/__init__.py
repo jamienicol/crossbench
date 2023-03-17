@@ -6,3 +6,8 @@ from __future__ import annotations
 
 from .safari import Safari
 from .safari_webdriver import SafariWebDriver
+
+__all__ = [
+    "Safari",
+    "SafariWebDriver",
+]

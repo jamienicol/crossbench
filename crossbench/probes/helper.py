@@ -55,7 +55,7 @@ class Flatten:
     for merged_data in args:
       self._flatten(toplevel_path, merged_data, ignore_toplevel)
 
-  def _is_leaf_item(self, item) -> bool:
+  def _is_leaf_item(self, item: Any) -> bool:
     if isinstance(item, (str, float, int, list)):
       return True
     if "values" in item and isinstance(item["values"], list):
@@ -95,10 +95,10 @@ class Values:
   """
 
   @classmethod
-  def from_json(cls, json_data):
+  def from_json(cls, json_data: Dict[str, Any]):
     return cls(json_data["values"])
 
-  def __init__(self, values=None):
+  def __init__(self, values: Optional[List] = None):
     self.values = values or []
     self._is_numeric: bool = all(map(is_number, self.values))
 
@@ -146,7 +146,7 @@ class Values:
     self._is_numeric = self._is_numeric and is_number(value)
 
   def to_json(self) -> Dict[str, Any]:
-    json_data = {"values": self.values}
+    json_data: Dict[str, Any] = {"values": self.values}
     if not self.values:
       return json_data
     if self.is_numeric:
@@ -270,7 +270,9 @@ class ValuesMerger:
     else:
       self._merge(data)
 
-  def _merge(self, data, parent_path: Tuple[str, ...] = ()) -> None:
+  def _merge(
+      self, data: Union[Dict,
+                        List[Dict]], parent_path: Tuple[str, ...] = ()) -> None:
     assert isinstance(data, dict)
     for property_name, value in data.items():
       path = parent_path + (property_name,)
@@ -361,7 +363,7 @@ class ValuesMerger:
     return csv_data
 
 
-def _ljust(sequence: List, n: int, fillvalue: Any = ""):
+def _ljust(sequence: List, n: int, fillvalue: Any = "") -> List:
   return sequence + ([fillvalue] * (n - len(sequence)))
 
 

@@ -10,7 +10,8 @@ import tempfile
 from typing import TYPE_CHECKING, Optional, Tuple
 
 from crossbench import helper
-from crossbench.browsers.base import Browser, Viewport
+from crossbench.browsers.base import Browser
+from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebdriverMixin
 
 if TYPE_CHECKING:
@@ -71,7 +72,7 @@ class Firefox(Browser):
     assert self.path
     version_string = self.platform.app_version(self.path)
     # "Firefox 107.0" => "107.0"
-    return re.findall(r"[\d\.]+", version_string)[0]
+    return str(re.findall(r"[\d\.]+", version_string)[0])
 
   def _get_browser_flags(self, run: Run) -> Tuple[str, ...]:
     flags_copy = self.flags.copy()
@@ -83,7 +84,7 @@ class Firefox(Browser):
       flags_copy["--MOZ_LOG_FILE"] = str(self.log_file)
     return tuple(flags_copy.get_list())
 
-  def _handle_viewport_flags(self, flags: Flags):
+  def _handle_viewport_flags(self, flags: Flags) -> None:
     new_width, new_height = 0, 0
     if self.viewport.has_size:
       new_width, new_height = self.viewport.size

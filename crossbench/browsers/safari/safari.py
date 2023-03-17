@@ -8,7 +8,8 @@ import pathlib
 from typing import TYPE_CHECKING, Optional, Tuple
 
 from crossbench import helper
-from crossbench.browsers.base import Browser, Viewport
+from crossbench.browsers.base import Browser
+from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
   from crossbench.flags import Flags

@@ -14,7 +14,7 @@ import tempfile
 from typing import Final, List, Optional, Tuple, Type, Union
 
 from crossbench import helper
-from crossbench.browsers import BROWSERS_CACHE
+from crossbench.browsers.base import BROWSERS_CACHE
 
 
 class ChromeDownloader(abc.ABC):
@@ -109,7 +109,7 @@ class ChromeDownloader(abc.ABC):
     if not self._requested_exact_version:
       self._archive_path.unlink()
 
-  def _load_from_archive(self):
+  def _load_from_archive(self) -> None:
     assert not self._requested_exact_version
     assert not self._version_identifier
     assert self._archive_path.exists()
@@ -235,7 +235,7 @@ class ChromeDownloader(abc.ABC):
   def _archive_url(self, folder_url: str, version_str: str) -> str:
     pass
 
-  def _version_matches(self, version: Tuple[int, int, int, int]) -> bool:
+  def _version_matches(self, version: Tuple[int, ...]) -> bool:
     # Iterate over the version parts. Use 9999 as placeholder to accept
     # an arbitrary version part.
     #
@@ -356,7 +356,7 @@ class ChromeDownloaderMacOS(ChromeDownloader):
           f"but requested {self._requested_version_str} is too old.")
     super()._download_archive(archive_url)
 
-  def _archive_url(self, folder_url, version_str) -> str:
+  def _archive_url(self, folder_url: str, version_str: str) -> str:
     # Use ChromeCanary since it's built for all version (unlike stable/beta).
     return f"{folder_url}GoogleChromeCanary-{version_str}.dmg"
 

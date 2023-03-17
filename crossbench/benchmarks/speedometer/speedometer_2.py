@@ -21,7 +21,7 @@ from crossbench.stories import PressBenchmarkStory
 if TYPE_CHECKING:
   import argparse
 
-  from crossbench.runner import (Actions, BrowsersRunGroup, Run, Runner,
+  from crossbench.runner import (Actions, BrowsersRunGroup, Run,
                                  StoriesRunGroup)
 
 

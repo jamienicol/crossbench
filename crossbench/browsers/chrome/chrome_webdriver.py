@@ -12,8 +12,8 @@ from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
 
 from crossbench import helper
-from crossbench.browsers.base import Viewport
 from crossbench.browsers.chromium import ChromiumWebDriver
+from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
   from selenium.webdriver.chromium.webdriver import ChromiumDriver

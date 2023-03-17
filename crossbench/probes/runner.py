@@ -28,7 +28,7 @@ class RunRunnerLogProbe(base.Probe):
 
   class Scope(base.Probe.Scope):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
       super().__init__(*args, **kwargs)
       self._log_handler = None
 

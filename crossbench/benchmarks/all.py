@@ -12,3 +12,12 @@ from crossbench.benchmarks.loading import PageLoadBenchmark
 from crossbench.benchmarks.motionmark import MotionMark12Benchmark
 from crossbench.benchmarks.speedometer import (Speedometer20Benchmark,
                                                Speedometer21Benchmark)
+
+__all__ = [
+    "JetStream20Benchmark",
+    "JetStream21Benchmark",
+    "PageLoadBenchmark",
+    "MotionMark12Benchmark",
+    "Speedometer20Benchmark",
+    "Speedometer21Benchmark",
+]

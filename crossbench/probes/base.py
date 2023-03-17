@@ -96,7 +96,7 @@ class Probe(abc.ABC):
   _browsers: Set[Browser]
   _browser_platform: helper.Platform
 
-  def __init__(self):
+  def __init__(self) -> None:
     assert self.name is not None, "A Probe must define a name"
     self._browsers = set()
 
@@ -220,7 +220,7 @@ class Probe(abc.ABC):
       assert self._start_time is None
       self._start_time = start_datetime
 
-    def __enter__(self):
+    def __enter__(self) -> Scope:
       assert not self._is_active
       assert not self._is_success
       with self._run.exception_handler(f"Probe {self.name} start"):
@@ -228,7 +228,7 @@ class Probe(abc.ABC):
         self.start(self._run)
       return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
       assert self._is_active
       with self._run.exception_handler(f"Probe {self.name} stop"):
         self.stop(self._run)

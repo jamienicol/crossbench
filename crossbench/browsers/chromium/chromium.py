@@ -11,7 +11,8 @@ import tempfile
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 from crossbench import helper
-from crossbench.browsers.base import (Browser, Viewport, convert_flags_to_label)
+from crossbench.browsers.base import (Browser, convert_flags_to_label)
+from crossbench.browsers.viewport import Viewport
 from crossbench.flags import ChromeFeatures, ChromeFlags, Flags, JSFlags
 
 if TYPE_CHECKING:
@@ -134,7 +135,7 @@ class Chromium(Browser):
 
     return tuple(flags_copy.get_list())
 
-  def _handle_viewport_flags(self, flags: Flags):
+  def _handle_viewport_flags(self, flags: Flags) -> None:
     self._sync_viewport_flag(flags, "--start-fullscreen",
                              self.viewport.is_fullscreen, Viewport.FULLSCREEN)
     self._sync_viewport_flag(flags, "--start-maximized",

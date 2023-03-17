@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Dict, List, Tuple
 
 import crossbench
 from crossbench import helper
+from crossbench.browsers.viewport import Viewport
 from crossbench.probes import base
 from crossbench.probes.results import ProbeResult
 
@@ -39,7 +40,7 @@ class VideoProbe(base.Probe):
   IMAGE_FORMAT = "png"
   TIMESTRIP_FILE_SUFFIX = f".timestrip.{IMAGE_FORMAT}"
 
-  def __init__(self, *args, **kwargs):
+  def __init__(self, *args, **kwargs) -> None:
     super().__init__(*args, **kwargs)
     self._duration = None
 
@@ -95,7 +96,7 @@ class VideoProbe(base.Probe):
         "y=h-line_h-5:x=5:"
         "box=1:boxborderw=15:boxcolor=white")
 
-    def __init__(self, probe: base.Probe, run: Run):
+    def __init__(self, probe: base.Probe, run: Run) -> None:
       super().__init__(probe, run)
       self._record_process = None
       self._recorder_log_file = None
@@ -131,6 +132,7 @@ class VideoProbe(base.Probe):
       raise Exception("Invalid platform")
 
     def stop(self, run: Run) -> None:
+      assert self._record_process, "screencapture stopped early."
       if self.browser_platform.is_macos:
         assert not self._record_process.poll(), (
             "screencapture stopped early. "
@@ -142,6 +144,7 @@ class VideoProbe(base.Probe):
         self._record_process.terminate()
 
     def tear_down(self, run: Run) -> ProbeResult:
+      assert self._record_process, "Screen recorder stopped early."
       self._recorder_log_file.close()
       if self._record_process.poll() is not None:
         self._record_process.wait(timeout=5)

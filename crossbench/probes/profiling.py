@@ -123,9 +123,9 @@ class ProfilingProbe(Probe):
     if isinstance(browser, Chromium):
       if not self._spare_renderer_process:
         browser.features.disable("SpareRendererForSitePerProcess")
-    if self.browser_platform.is_linux:
-      assert isinstance(browser, Chromium), (
-          f"Expected Chromium-based browser, found {type(browser)}.")
+      if self.browser_platform.is_linux:
+        assert isinstance(browser, Chromium), (
+            f"Expected Chromium-based browser, found {type(browser)}.")
       self._attach_linux(browser)
 
   def pre_check(self, env: HostEnvironment) -> None:
@@ -172,7 +172,7 @@ class ProfilingProbe(Probe):
   def log_browsers_result(self, group: BrowsersRunGroup) -> None:
     self._log_results(group.runs)
 
-  def _log_results(self, runs: Iterable[Run]):
+  def _log_results(self, runs: Iterable[Run]) -> None:
     filtered_runs = list(run for run in runs if self in run.results)
     if not filtered_runs:
       return
@@ -213,7 +213,7 @@ class ProfilingProbe(Probe):
   class MacOSProfilingScope(Probe.Scope):
     _process: subprocess.Popen
 
-    def __init__(self, probe: ProfilingProbe, run: Run):
+    def __init__(self, probe: ProfilingProbe, run: Run) -> None:
       super().__init__(probe, run)
       self._default_results_file = self.results_file.parent / "profile.trace"
 
@@ -242,7 +242,7 @@ class ProfilingProbe(Probe):
         "jit-*.dump",
     )
 
-    def __init__(self, probe: ProfilingProbe, run: Run):
+    def __init__(self, probe: ProfilingProbe, run: Run) -> None:
       super().__init__(probe, run)
       self._perf_process = None
 

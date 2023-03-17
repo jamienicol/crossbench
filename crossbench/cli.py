@@ -25,8 +25,9 @@ import crossbench.benchmarks.all as benchmarks
 from crossbench import helper
 from crossbench.benchmarks.base import Benchmark
 import crossbench.browsers.all as browsers
-from crossbench.browsers.base import Viewport, convert_flags_to_label
+from crossbench.browsers.base import convert_flags_to_label
 from crossbench.browsers.chrome import ChromeDownloader
+from crossbench.browsers.viewport import Viewport
 from crossbench.cli_helper import parse_file_path, parse_positive_float
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
@@ -180,7 +181,7 @@ class BrowserConfig:
     self._ensure_unique_browser_names()
 
   def _parse_browser(self, name: str, raw_browser_data: Dict[str, Any]) -> None:
-    path_or_identifier = raw_browser_data["path"]
+    path_or_identifier: str = raw_browser_data["path"]
     if path_or_identifier in self._browser_lookup_override:
       browser_cls, path = self._browser_lookup_override[path_or_identifier]
     else:
@@ -211,7 +212,10 @@ class BrowserConfig:
   def _flags_to_label(self, name: str, flags: Flags) -> str:
     return f"{name}_{convert_flags_to_label(*flags.get_list())}"
 
-  def _parse_flags(self, name: str, data: Dict[str, Any]):
+  FlagItemT = Tuple[str, Optional[str]]
+
+  def _parse_flags(self, name: str,
+                   data: Dict[str, Any]) -> List[Tuple[FlagItemT, ...]]:
     flags_variants: List[Tuple[FlagGroupItemT, ...]] = []
     flag_group_names = data.get("flags", [])
     if isinstance(flag_group_names, str):
@@ -242,7 +246,7 @@ class BrowserConfig:
       flags_variants += flag_group.get_variant_items()
     if len(flags_variants) == 0:
       # use empty default
-      return ({},)
+      return [tuple()]
     # IN:  [
     #   (None,            ("--foo", "f1")),
     #   (("--bar", "b1"), ("--bar", "b2")),
@@ -577,7 +581,7 @@ class CrossBenchCLI:
 
   RUNNER_CLS: Type[Runner] = Runner
 
-  def __init__(self):
+  def __init__(self) -> None:
     self._subparsers: Dict[BenchmarkClsT, argparse.ArgumentParser] = {}
     self.parser = argparse.ArgumentParser()
     self._setup_parser()

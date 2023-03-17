@@ -60,7 +60,7 @@ class ColoredLogFormatter(logging.Formatter):
       logging.CRITICAL: TTYColor.BOLD + FORMAT + TTYColor.RESET,
   }
 
-  def format(self, record):
+  def format(self, record: logging.LogRecord) -> str:
     log_fmt = self.FORMATS.get(record.levelno)
     formatter = logging.Formatter(log_fmt)
     return formatter.format(record)
@@ -220,9 +220,12 @@ class Platform(abc.ABC):
     logging.debug("WAIT %ss", seconds)
     time.sleep(seconds)
 
-  def which(self, binary):
+  def which(self, binary_name: str) -> Optional[pathlib.Path]:
     # TODO(cbruni): support remote platforms
-    return shutil.which(binary)
+    result = shutil.which(binary_name)
+    if not result:
+      return None
+    return pathlib.Path(result)
 
   def processes(self,
                 attrs: Optional[List[str]] = None) -> List[Dict[str, Any]]:
@@ -433,7 +436,7 @@ class Platform(abc.ABC):
 class SubprocessError(subprocess.CalledProcessError):
   """ Custom version that also prints stderr for debugging"""
 
-  def __init__(self, process):
+  def __init__(self, process) -> None:
     super().__init__(process.returncode, shlex.join(map(str, process.args)),
                      process.stdout, process.stderr)
 
@@ -579,7 +582,9 @@ class MacOSPlatform(PosixPlatform):
         logging.debug("Could not use --version: %s", e)
     raise ValueError(f"Could not extract app version: {app_path}")
 
-  def exec_apple_script(self, script: str, quiet: bool = False):
+  def exec_apple_script(self,
+                        script: str,
+                        quiet: bool = False) -> subprocess.CompletedProcess:
     if not quiet:
       logging.debug("AppleScript: %s", script)
     return self.sh("/usr/bin/osascript", "-e", script)
@@ -658,7 +663,7 @@ class MacOSPlatform(PosixPlatform):
     self.sh("sudo", falconctl, "unload")
     return True
 
-  def _get_display_service(self):
+  def _get_display_service(self) -> Tuple:
     core_graphics = ctypes.CDLL(
         "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
     main_display = core_graphics.CGMainDisplayID()
@@ -810,15 +815,16 @@ def urlopen(url: str):
 
 class ChangeCWD:
 
-  def __init__(self, destination: pathlib.Path):
+  def __init__(self, destination: pathlib.Path) -> None:
     self.new_dir = destination
     self.prev_dir: Optional[str] = None
 
-  def __enter__(self):
+  def __enter__(self) -> None:
     self.prev_dir = os.getcwd()
     os.chdir(self.new_dir)
 
-  def __exit__(self, exc_type, exc_value, exc_traceback):
+  def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
+    assert self.prev_dir, "ChangeCWD was not entered correctly."
     os.chdir(self.prev_dir)
 
 
@@ -827,15 +833,15 @@ class SystemSleepPreventer:
   Prevent the system from going to sleep while running the benchmark.
   """
 
-  def __init__(self):
+  def __init__(self) -> None:
     self._process = None
 
-  def __enter__(self):
+  def __enter__(self) -> None:
     if platform.is_macos:
       self._process = platform.popen("caffeinate", "-imdsu")
     # TODO: Add linux support
 
-  def __exit__(self, exc_type, exc_value, exc_traceback):
+  def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
     if self._process is not None:
       self._process.kill()
 
@@ -845,7 +851,7 @@ class TimeScope:
   Measures and logs the time spend during the lifetime of the TimeScope.
   """
 
-  def __init__(self, message: str, level: int = 3):
+  def __init__(self, message: str, level: int = 3) -> None:
     self._message = message
     self._level = level
     self._start: Optional[dt.datetime] = None
@@ -854,10 +860,11 @@ class TimeScope:
   def message(self) -> str:
     return self._message
 
-  def __enter__(self):
+  def __enter__(self) -> TimeScope:
     self._start = dt.datetime.now()
+    return self
 
-  def __exit__(self, exc_type, exc_value, exc_traceback):
+  def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
     assert self._start
     diff = dt.datetime.now() - self._start
     log(f"{self._message} duration={diff}", level=self._level)
@@ -874,7 +881,8 @@ class WaitRange:
       timeout: Union[float, dt.timedelta] = 10,
       factor: float = 1.01,
       max: Optional[Union[float, dt.timedelta]] = None,  # pylint: disable=redefined-builtin
-      max_iterations: Optional[int] = None):
+      max_iterations: Optional[int] = None
+  ) -> None:
     if isinstance(min, dt.timedelta):
       self.min = min
     else:
@@ -921,27 +929,29 @@ def wait_with_backoff(wait_range: WaitRange) -> Iterator[Tuple[float, float]]:
     platform.sleep(sleep_for.total_seconds())
 
 
+class DurationMeasureContext:
+
+  def __init__(self, durations: Durations, name: str) -> None:
+    self._start_time = None
+    self._durations = durations
+    self._name = name
+
+  def __enter__(self) -> DurationMeasureContext:
+    self._start_time = dt.datetime.now()
+    return self
+
+  def __exit__(self, exc_type, exc_value, traceback) -> None:
+    assert self._start_time
+    delta = dt.datetime.now() - self._start_time
+    self._durations[self._name] = delta
+
+
 class Durations:
   """
   Helper object to track durations.
   """
 
-  class _DurationMeasureContext:
-
-    def __init__(self, durations: Durations, name: str):
-      self._start_time = None
-      self._durations = durations
-      self._name = name
-
-    def __enter__(self):
-      self._start_time = dt.datetime.now()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-      assert self._start_time
-      delta = dt.datetime.now() - self._start_time
-      self._durations[self._name] = delta
-
-  def __init__(self):
+  def __init__(self) -> None:
     self._durations: Dict[str, dt.timedelta] = {}
 
   def __getitem__(self, name: str) -> dt.timedelta:
@@ -954,10 +964,10 @@ class Durations:
   def __len__(self) -> int:
     return len(self._durations)
 
-  def measure(self, name: str) -> _DurationMeasureContext:
+  def measure(self, name: str) -> DurationMeasureContext:
     assert name not in self._durations, (
         f"Cannot measure '{name}' duration twice!")
-    return self._DurationMeasureContext(self, name)
+    return DurationMeasureContext(self, name)
 
   def to_json(self) -> Dict[str, float]:
     return {
@@ -975,18 +985,18 @@ def wrap_lines(body: str, width: int = 80, indent: str = "") -> Iterable[str]:
 class Spinner:
   CURSORS = "◐◓◑◒"
 
-  def __init__(self, sleep: float = 0.5):
+  def __init__(self, sleep: float = 0.5) -> None:
     self._is_running = False
     self._sleep_time = sleep
 
-  def __enter__(self):
+  def __enter__(self) -> None:
     # Only enable the spinner if the output is an interactive terminal.
     is_atty = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
     if is_atty:
       self._is_running = True
       threading.Thread(target=self._spin).start()
 
-  def __exit__(self, exc_type, exc_value, traceback):
+  def __exit__(self, exc_type, exc_value, traceback) -> None:
     if self._is_running:
       self._is_running = False
       self._sleep()

@@ -18,7 +18,8 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.service import Service as FirefoxService
 
 from crossbench import exception, helper
-from crossbench.browsers.base import BROWSERS_CACHE, Viewport
+from crossbench.browsers.base import BROWSERS_CACHE
+from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebdriverMixin
 
 from .firefox import Firefox

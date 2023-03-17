@@ -116,7 +116,7 @@ class Browser(abc.ABC):
   def is_local(self) -> bool:
     return True
 
-  def set_log_file(self, path: pathlib.Path):
+  def set_log_file(self, path: pathlib.Path) -> None:
     self.log_file = path
 
   @property

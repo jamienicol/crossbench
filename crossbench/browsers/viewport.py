@@ -36,8 +36,8 @@ class Viewport:
     width, _, height = size.partition("x")
     if not height:
       raise ArgumentTypeError(f"Missing viewport height in input: {value}")
-    x = cls.DEFAULT.x
-    y = cls.DEFAULT.y
+    x = str(cls.DEFAULT.x)
+    y = str(cls.DEFAULT.y)
     if position:
       x, _, y = position.partition("x")
       if not y:

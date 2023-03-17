@@ -13,7 +13,7 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.safari.options import Options as SafariOptions
 
 from crossbench import helper
-from crossbench.browsers.base import Viewport
+from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebdriverMixin
 
 from .safari import Safari
@@ -75,6 +75,7 @@ class SafariWebDriver(WebdriverMixin, Safari):
 
   def _check_driver_version(self) -> None:
     # The bundled driver is always ok
+    assert self._driver_path
     for parent in self._driver_path.parents:
       if parent == self.path.parent:
         return

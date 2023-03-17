@@ -8,9 +8,9 @@ import pathlib
 from typing import TYPE_CHECKING, Optional
 
 from crossbench import helper
-from crossbench.browsers.base import Viewport
 
 from crossbench.browsers.chromium import Chromium
+from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
   from crossbench.flags import Flags
