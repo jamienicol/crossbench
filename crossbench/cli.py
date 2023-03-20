@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
 import itertools
 import json
@@ -42,6 +43,53 @@ if TYPE_CHECKING:
   BrowserLookupTableT = Dict[str, Tuple[Type[browsers.Browser], pathlib.Path]]
 
 
+class CrossBenchArgumentError(argparse.ArgumentError):
+  """Custom class that also prints the argument.help if available.
+  """
+
+  def __init__(self, argument: Any, message: str) -> None:
+    self.help: str = ""
+    super().__init__(argument, message)
+    if self.argument_name:
+      self.help = getattr(argument, "help", "")
+
+  def __str__(self) -> str:
+    formatted = super().__str__()
+    if not self.help:
+      return formatted
+    return (f"argument error {self.argument_name}:\n\n"
+            f"Help {self.argument_name}:\n{self.help}\n\n"
+            f"{formatted}")
+
+
+argparse.ArgumentError = CrossBenchArgumentError
+
+
+class LateArgumentError(argparse.ArgumentTypeError):
+  """Signals argument parse errors after parser.parse_args().
+  This is used to map errors back to the original argument, much like
+  argparse.ArgumentError does internally. However, since this happens after
+  the internal argument parsing we need this custom implementation to print
+  more descriptive error messages.
+  """
+
+  def __init__(self, flag: str, message: str):
+    super().__init__(message)
+    self.flag = flag
+    self.message = message
+
+
+@contextlib.contextmanager
+def late_argument_type_error_wrapper(flag: str):
+  """Converts raised ValueError and ArgumentTypeError to LateArgumentError
+  that are associated with the given flag.
+  """
+  try:
+    yield
+  except (ValueError, argparse.ArgumentTypeError) as e:
+    raise LateArgumentError(flag, str(e)) from e
+
+
 FlagGroupItemT = Optional[Tuple[str, Optional[str]]]
 
 
@@ -54,7 +102,7 @@ def _map_flag_group_item(flag_name: str,
   return (flag_name, flag_value)
 
 
-class ConfigFileError(ValueError):
+class ConfigFileError(argparse.ArgumentTypeError):
   pass
 
 
@@ -89,19 +137,19 @@ class FlagGroupConfig:
           for flag_value in flag_values)
 
 
-
-
 class BrowserConfig:
 
   @classmethod
   def from_cli_args(cls, args: argparse.Namespace) -> BrowserConfig:
     browser_config = BrowserConfig()
     if args.browser_config:
-      path = args.browser_config.expanduser()
-      with path.open(encoding="utf-8") as f:
-        browser_config.load(f)
+      with late_argument_type_error_wrapper("--browser-config"):
+        path = args.browser_config.expanduser()
+        with path.open(encoding="utf-8") as f:
+          browser_config.load(f)
     else:
-      browser_config.load_from_args(args)
+      with late_argument_type_error_wrapper("--browser"):
+        browser_config.load_from_args(args)
     return browser_config
 
   def __init__(self,
@@ -141,6 +189,17 @@ class BrowserConfig:
         self._parse_browsers(raw_config_data["browsers"])
     except Exception as e:  # pylint: disable=broad-except
       self._exceptions.append(e)
+
+  def load_from_args(self, args: argparse.Namespace) -> None:
+    browser_list = args.browser or ["chrome-stable"]
+    assert isinstance(browser_list, list)
+    if len(browser_list) != len(set(browser_list)):
+      raise argparse.ArgumentTypeError(
+          f"Got duplicate --browser arguments: {browser_list}")
+    for browser in browser_list:
+      self._append_browser(args, browser)
+    self._verify_browser_flags(args)
+    self._ensure_unique_browser_names()
 
   def _parse_flag_groups(self, data: Dict[str, Any]) -> None:
     for flag_name, group_config in data.items():
@@ -289,7 +348,7 @@ class BrowserConfig:
       return browsers.FirefoxWebDriver
     if "edge" in path_str:
       return browsers.EdgeWebDriver
-    raise ValueError(f"Unsupported browser='{path}'")
+    raise argparse.ArgumentTypeError(f"Unsupported browser='{path}'")
 
   def _ensure_unique_browser_names(self) -> None:
     if self._has_unique_variant_names():
@@ -311,16 +370,6 @@ class BrowserConfig:
     unique_names = set(names)
     return len(unique_names) == len(names)
 
-  def load_from_args(self, args: argparse.Namespace) -> None:
-    browser_list = args.browser or ["chrome-stable"]
-    assert isinstance(browser_list, list)
-    if len(browser_list) != len(set(browser_list)):
-      raise ValueError(f"Got duplicate --browser arguments: {browser_list}")
-    for browser in browser_list:
-      self._append_browser(args, browser)
-    self._verify_browser_flags(args)
-    self._ensure_unique_browser_names()
-
   def _verify_browser_flags(self, args: argparse.Namespace) -> None:
     chrome_args = {
         "--enable-features": args.enable_features,
@@ -332,17 +381,19 @@ class BrowserConfig:
         continue
       for browser in self._variants:
         if not isinstance(browser, browsers.Chromium):
-          raise ValueError(f"Used chrome/chromium-specific flags {flag_name} "
-                           f"for non-chrome {browser.unique_name}.\n"
-                           "Use --browser-config for complex variants.")
+          raise argparse.ArgumentTypeError(
+              f"Used chrome/chromium-specific flags {flag_name} "
+              f"for non-chrome {browser.unique_name}.\n"
+              "Use --browser-config for complex variants.")
     if not args.other_browser_args:
       return
     browser_types = set(browser.type for browser in self._variants)
     if len(browser_types) > 1:
-      raise ValueError(f"Multiple browser types {browser_types} "
-                       "cannot be used with common extra browser flags: "
-                       f"{args.other_browser_args}.\n"
-                       "Use --browser-config for complex variants.")
+      raise argparse.ArgumentTypeError(
+          f"Multiple browser types {browser_types} "
+          "cannot be used with common extra browser flags: "
+          f"{args.other_browser_args}.\n"
+          "Use --browser-config for complex variants.")
 
   def _append_browser(self, args: argparse.Namespace, browser: str) -> None:
     assert browser, "Expected non-empty browser name"
@@ -421,8 +472,8 @@ class BrowserConfig:
     if path.exists():
       return path
     if len(path.parts) > 1:
-      raise ValueError(f"Browser at '{path}' does not exist.")
-    raise ValueError(
+      raise argparse.ArgumentTypeError(f"Browser at '{path}' does not exist.")
+    raise argparse.ArgumentTypeError(
         f"Unknown browser path or short name: '{path_or_identifier}'")
 
 
@@ -584,6 +635,9 @@ class CrossBenchCLI:
   def __init__(self) -> None:
     self._subparsers: Dict[BenchmarkClsT, argparse.ArgumentParser] = {}
     self.parser = argparse.ArgumentParser()
+    self.describe_parser = argparse.ArgumentParser()
+    # TODO: use self.args instead of passing it along as parameter.
+    self.args = argparse.Namespace()
     self._setup_parser()
     self._setup_subparser()
 
@@ -624,26 +678,27 @@ class CrossBenchCLI:
     self._setup_describe_subparser()
 
   def _setup_describe_subparser(self) -> None:
-    describe_parser = self.subparsers.add_parser(
+    self.describe_parser = self.subparsers.add_parser(
         "describe", aliases=["desc"], help="Print all benchmarks and stories")
-    describe_parser.add_argument(
+    self.describe_parser.add_argument(
         "category",
         nargs="?",
         choices=["all", "benchmark", "benchmarks", "probe", "probes"],
         default="all",
         help="Limit output to the given category, defaults to 'all'")
-    describe_parser.add_argument(
+    self.describe_parser.add_argument(
         "filter",
         nargs="?",
         help=("Only display the given item from the provided category. "
               "By default all items are displayed. "
               "Example: describe probes v8.log"))
-    describe_parser.add_argument("--json",
-                                 default=False,
-                                 action="store_true",
-                                 help="Print the data as json data")
-    describe_parser.set_defaults(subcommand=self.describe_subcommand)
-    self._add_verbosity_argument(describe_parser)
+    self.describe_parser.add_argument(
+        "--json",
+        default=False,
+        action="store_true",
+        help="Print the data as json data")
+    self.describe_parser.set_defaults(subcommand_fn=self.describe_subcommand)
+    self._add_verbosity_argument(self.describe_parser)
 
   def describe_subcommand(self, args: argparse.Namespace) -> None:
     benchmarks_data: Dict[str, Any] = {}
@@ -789,7 +844,8 @@ class CrossBenchCLI:
         default=Viewport.DEFAULT,
         type=Viewport.parse,
         help="Set the browser window position."
-        "Options: size, size and position, 'max', 'maximized', 'fullscreen', 'headless'."
+        "Options: size, size and position, "
+        "'max', 'maximized', 'fullscreen', 'headless'. "
         "Examples: --viewport=1550x300 --viewport=fullscreen. "
         f"Default: {Viewport.DEFAULT}")
     viewport_group.add_argument(
@@ -838,7 +894,7 @@ class CrossBenchCLI:
         "configuration file. "
         "Cannot be used together with --probe.")
     subparser.set_defaults(
-        subcommand=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
+        subcommand_fn=self.benchmark_subcommand, benchmark_cls=benchmark_cls)
     self._add_verbosity_argument(subparser)
     subparser.add_argument("other_browser_args", nargs="*")
 
@@ -864,7 +920,7 @@ class CrossBenchCLI:
         single_run_probes_list = ['powermetrics', 'powersampler']
         for probe in probes:
           if probe.NAME in single_run_probes_list:
-            raise ValueError(
+            raise argparse.ArgumentTypeError(
                 "Cannot use 'powermetric' and/or 'powersampler' probe(s) with"
                 "the repeat > 1. Since running the stories not from the same"
                 "starting battery level will create erroneous data")
@@ -875,6 +931,10 @@ class CrossBenchCLI:
         self._run_benchmark(args, runner)
     except KeyboardInterrupt:
       sys.exit(2)
+    except LateArgumentError as e:
+      if args.throw:
+        raise
+      self.handle_late_argument_error(e)
     except Exception as e:  # pylint: disable=broad-except
       if args.throw:
         raise
@@ -1052,21 +1112,42 @@ class CrossBenchCLI:
         **runner_kwargs)
 
   def run(self, argv: Sequence[str]) -> None:
-    args: argparse.Namespace = self.parser.parse_args(argv)
-    self._initialize_logging(args)
-    args.subcommand(args)
+    # Manually check for unprocessed_argv to print nicer error messages.
+    self.args, unprocessed_argv = self.parser.parse_known_args(argv)
+    if unprocessed_argv:
+      self.error(f"unrecognized arguments: {unprocessed_argv}\n"
+                 f"Use `{self.parser.prog} {self.args.subcommand} --help` "
+                 "for more details.")
+    self._initialize_logging()
+    self.args.subcommand_fn(self.args)
 
-  def _initialize_logging(self, args: argparse.Namespace) -> None:
+  def handle_late_argument_error(self, e: LateArgumentError) -> None:
+    self.error(f"error argument {e.flag}: {e.message}")
+
+  def error(self, message: str) -> None:
+    parser = self.parser
+    # Try to use the subparser to print nicer usage help on errors.
+    # ArgumentParser tends to default to the toplevel parser instead of the
+    # current subcommand, which in turn prints the wrong usage text.
+    if self.args.subcommand == "describe":
+      parser = self.describe_parser
+    else:
+      maybe_benchmark_cls = getattr(self.args, "benchmark_cls", None)
+      if maybe_benchmark_cls:
+        parser = self._subparsers[maybe_benchmark_cls]
+    parser.error(f"{self.args.subcommand}: {message}")
+
+  def _initialize_logging(self) -> None:
     logging.getLogger().setLevel(logging.INFO)
     console_handler = logging.StreamHandler()
-    if args.verbosity == -1:
+    if self.args.verbosity == -1:
       console_handler.setLevel(logging.ERROR)
-    elif args.verbosity == 0:
+    elif self.args.verbosity == 0:
       console_handler.setLevel(logging.INFO)
-    elif args.verbosity >= 1:
+    elif self.args.verbosity >= 1:
       console_handler.setLevel(logging.DEBUG)
       logging.getLogger().setLevel(logging.DEBUG)
     console_handler.addFilter(logging.Filter("root"))
-    if args.color:
+    if self.args.color:
       console_handler.setFormatter(helper.ColoredLogFormatter())
     logging.getLogger().addHandler(console_handler)

@@ -193,7 +193,7 @@ class TestCLI(BaseCrossbenchTestCase):
                    "--urls=http://test.com", "--env-validation=skip", "--throw")
 
   def test_invalid_browser_identifier(self):
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ArgumentTypeError):
       self.run_cli(
           "loading",
           "--browser=unknown_browser_identifier",
@@ -206,7 +206,7 @@ class TestCLI(BaseCrossbenchTestCase):
     browser_bin = pathlib.Path("/foo/custom/browser.bin")
     browser_bin.parent.mkdir(parents=True)
     browser_bin.touch()
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ArgumentTypeError):
       self.run_cli(
           "loading",
           f"--browser={browser_bin}",
@@ -305,7 +305,7 @@ class TestCLI(BaseCrossbenchTestCase):
         self.assertIn("test.com", results["stories"])
 
   def test_browser_identifiers_duplicate(self):
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ArgumentTypeError):
       self.run_cli("loading", "--browser=chrome", "--browser=chrome",
                    "--urls=http://test.com", "--env-validation=skip", "--throw")
 
@@ -541,7 +541,7 @@ class TestCLI(BaseCrossbenchTestCase):
     for chrome_flag in ("--js-flags=--no-opt", "--enable-features=Foo",
                         "--disable-features=bar"):
       # Fail for chrome flags for non-chrome browser
-      with self.assertRaises(ValueError), mock.patch.object(
+      with self.assertRaises(ArgumentTypeError), mock.patch.object(
           BrowserConfig,
           "_get_browser_cls_from_path",
           side_effect=mock_get_browser_cls_from_path):
@@ -549,14 +549,14 @@ class TestCLI(BaseCrossbenchTestCase):
                      "--env-validation=skip", "--throw", "--browser=firefox",
                      chrome_flag)
       # Fail for mixed browsers and chrome flags
-      with self.assertRaises(ValueError), mock.patch.object(
+      with self.assertRaises(ArgumentTypeError), mock.patch.object(
           BrowserConfig,
           "_get_browser_cls_from_path",
           side_effect=mock_get_browser_cls_from_path):
         self.run_cli("loading", "--urls=http://test.com",
                      "--env-validation=skip", "--throw", "--browser=chrome",
                      "--browser=firefox", chrome_flag)
-      with self.assertRaises(ValueError), mock.patch.object(
+      with self.assertRaises(ArgumentTypeError), mock.patch.object(
           BrowserConfig,
           "_get_browser_cls_from_path",
           side_effect=mock_get_browser_cls_from_path):
@@ -608,13 +608,13 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
       return ProbeConfig.load(f)
 
   def test_invalid_empty(self):
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ArgumentTypeError):
       self.parse_config({}).probes
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ArgumentTypeError):
       self.parse_config({"foo": {}}).probes
 
   def test_invalid_names(self):
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ArgumentTypeError):
       self.parse_config({"probes": {"invalid probe name": {}}}).probes
 
   def test_empty(self):
@@ -824,7 +824,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     self.assertIn("None", str(cm.exception))
 
   def test_flag_combination_duplicate(self):
-    with self.assertRaises(ValueError) as cm:
+    with self.assertRaises(ConfigFileError) as cm:
       BrowserConfig(
           {
               "flags": {
@@ -846,13 +846,13 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     self.assertIn("--duplicate-flag", str(cm.exception))
 
   def test_empty(self):
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ConfigFileError):
       BrowserConfig({"other": {}}).variants
-    with self.assertRaises(ValueError):
+    with self.assertRaises(ConfigFileError):
       BrowserConfig({"browsers": {}}).variants
 
   def test_unknown_group(self):
-    with self.assertRaises(ValueError) as cm:
+    with self.assertRaises(ConfigFileError) as cm:
       BrowserConfig({
           "browsers": {
               "chrome-stable": {
