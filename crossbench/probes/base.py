@@ -220,7 +220,7 @@ class Probe(abc.ABC):
       assert self._start_time is None
       self._start_time = start_datetime
 
-    def __enter__(self) -> Scope:
+    def __enter__(self) -> Probe.Scope:
       assert not self._is_active
       assert not self._is_success
       with self._run.exception_handler(f"Probe {self.name} start"):

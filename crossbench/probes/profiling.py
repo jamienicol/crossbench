@@ -11,7 +11,7 @@ import pathlib
 import signal
 import subprocess
 import time
-from typing import TYPE_CHECKING, Iterable, List, Optional
+from typing import TYPE_CHECKING, Iterable, List, Optional, cast
 
 from crossbench import helper
 from crossbench.probes.base import Probe, ProbeConfigParser
@@ -120,13 +120,14 @@ class ProfilingProbe(Probe):
 
   def attach(self, browser: Browser) -> None:
     super().attach(browser)
+    if self.browser_platform.is_linux:
+      assert isinstance(browser, Chromium), (
+          f"Expected Chromium-based browser, found {type(browser)}.")
     if isinstance(browser, Chromium):
+      chromium = cast(Chromium, browser)
       if not self._spare_renderer_process:
-        browser.features.disable("SpareRendererForSitePerProcess")
-      if self.browser_platform.is_linux:
-        assert isinstance(browser, Chromium), (
-            f"Expected Chromium-based browser, found {type(browser)}.")
-      self._attach_linux(browser)
+        chromium.features.disable("SpareRendererForSitePerProcess")
+      self._attach_linux(chromium)
 
   def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)

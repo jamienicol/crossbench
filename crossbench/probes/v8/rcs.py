@@ -26,7 +26,7 @@ class V8RCSProbe(Probe):
   def is_compatible(self, browser: Browser) -> bool:
     return isinstance(browser, Chromium)
 
-  def attach(self, browser: Browser) -> None:
+  def attach(self, browser: Chromium) -> None:
     super().attach(browser)
     assert isinstance(browser, Chromium), "Expected Chromium-based browser."
     browser.js_flags.update(("--runtime-call-stats", "--allow-natives-syntax"))

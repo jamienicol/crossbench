@@ -25,7 +25,7 @@ class V8BuiltinsPGOProbe(Probe):
   def is_compatible(self, browser: Browser) -> bool:
     return isinstance(browser, Chromium)
 
-  def attach(self, browser: Browser) -> None:
+  def attach(self, browser: Chromium) -> None:
     # Use inline isinstance assert to hint that we have a Chrome browser.
     assert isinstance(browser, Chromium), "Expected Chromium-based browser."
     super().attach(browser)

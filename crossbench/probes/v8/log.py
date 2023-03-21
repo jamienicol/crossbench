@@ -102,7 +102,7 @@ class V8LogProbe(Probe):
   def is_compatible(self, browser: Browser) -> bool:
     return isinstance(browser, Chromium)
 
-  def attach(self, browser: Browser) -> None:
+  def attach(self, browser: Chromium) -> None:
     super().attach(browser)
     assert isinstance(browser, Chromium)
     browser.flags.set("--no-sandbox")
