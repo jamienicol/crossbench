@@ -559,7 +559,10 @@ class ProbeConfig:
     with self._exceptions.capture(f"Loading probe config file: {file.name}"):
       data = None
       with self._exceptions.info(f"Parsing {hjson.__name__}"):
-        data = hjson.load(file)
+        try:
+          data = hjson.load(file)
+        except ValueError as e:
+          raise ProbeConfigError(f"Parsing error: {e}") from e
       if not isinstance(data, dict) or "probes" not in data:
         raise ProbeConfigError(
             "Probe config file does not contain a 'probes' dict value.")
