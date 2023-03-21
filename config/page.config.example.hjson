@@ -5,11 +5,11 @@
         // A Scenario named = Google and will perfom the actions listed synchronisly
         // Check class Action for supported actions
 
-        //Time suffixes accepted:
-        // milliseconds: ['ms', 'milli', 'milliseconds']
-        // seconds: [s, sec, second, seconds]
-        // minutes: [m', 'min', 'minute', 'minutes]
-        // hours: ['h', 'hrs', 'hour', 'hours']
+        // Time suffixes accepted:
+        //   milliseconds: ['ms', 'milli', 'milliseconds']
+        //   seconds: [s, sec, second, seconds]
+        //   minutes: [m', 'min', 'minute', 'minutes]
+        //   hours: ['h', 'hrs', 'hour', 'hours']
 
         Google: [
             {action: "get", value: "https://www.google.com"},

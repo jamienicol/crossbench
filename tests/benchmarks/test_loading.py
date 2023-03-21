@@ -5,6 +5,7 @@
 # pytype: disable=attribute-error
 
 from __future__ import annotations
+import argparse
 import json
 
 import sys
@@ -25,6 +26,67 @@ from tests.benchmarks import helper
 
 #TODO: fix imports
 cb = crossbench
+
+
+class PlaybackControllerTest(unittest.TestCase):
+
+  def test_parse_invalid(self):
+    for invalid in [
+        "11", "something", "1.5x", "4.3.h", "4.5.x", "-1x", "-1.4x", "-2h",
+        "-2.1h", "1h30", "infx", "infh", "nanh", "nanx"
+    ]:
+      with self.subTest(pattern=invalid):
+        with self.assertRaises((argparse.ArgumentTypeError, ValueError)):
+          loading.PlaybackController.parse(invalid)
+
+  def test_parse_repeat(self):
+    playback = loading.PlaybackController.parse("once")
+    self.assertIsInstance(playback, loading.RepeatPlaybackController)
+    assert isinstance(playback, loading.RepeatPlaybackController)
+    self.assertEqual(playback.count, 1)
+    self.assertEqual(len(list(playback)), 1)
+
+    playback = loading.PlaybackController.parse("1x")
+    self.assertIsInstance(playback, loading.RepeatPlaybackController)
+    assert isinstance(playback, loading.RepeatPlaybackController)
+    self.assertEqual(playback.count, 1)
+    self.assertEqual(len(list(playback)), 1)
+
+    playback = loading.PlaybackController.parse("11x")
+    self.assertIsInstance(playback, loading.RepeatPlaybackController)
+    assert isinstance(playback, loading.RepeatPlaybackController)
+    self.assertEqual(playback.count, 11)
+    self.assertEqual(len(list(playback)), 11)
+
+  def test_parse_forever(self):
+    playback = loading.PlaybackController.parse("forever")
+    self.assertIsInstance(playback, loading.PlaybackController)
+    playback = loading.PlaybackController.parse("inf")
+    self.assertIsInstance(playback, loading.PlaybackController)
+    playback = loading.PlaybackController.parse("infinity")
+    self.assertIsInstance(playback, loading.PlaybackController)
+
+  def test_parse_duration(self):
+    playback = loading.PlaybackController.parse("5s")
+    self.assertIsInstance(playback, loading.TimeoutPlaybackController)
+    assert isinstance(playback, loading.TimeoutPlaybackController)
+    self.assertEqual(playback.duration, 5)
+
+    playback = loading.PlaybackController.parse("5m")
+    self.assertIsInstance(playback, loading.TimeoutPlaybackController)
+    assert isinstance(playback, loading.TimeoutPlaybackController)
+    self.assertEqual(playback.duration, 5 * 60)
+
+    playback = loading.PlaybackController.parse("5.5m")
+    self.assertIsInstance(playback, loading.TimeoutPlaybackController)
+    assert isinstance(playback, loading.TimeoutPlaybackController)
+    self.assertEqual(playback.duration, 5.5 * 60)
+
+    playback = loading.PlaybackController.parse("5.5m")
+    self.assertIsInstance(playback, loading.TimeoutPlaybackController)
+    assert isinstance(playback, loading.TimeoutPlaybackController)
+    self.assertEqual(playback.duration, 5.5 * 60)
+
 
 class TestPageLoadBenchmark(helper.SubStoryTestCase):
 
@@ -115,6 +177,28 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
     stories = loading.PAGE_LIST
     self._test_run(stories, throw=True)
     self._assert_urls_loaded([story.url for story in stories])
+
+  def test_run_repeat(self):
+    url1 = "https://www.example.com/test1"
+    url2 = "https://www.example.com/test2"
+    stories = self.story_filter(
+        [url1, url2],
+        separate=False,
+        playback=loading.PlaybackController.repeat(3)).stories
+    self._test_run(stories, throw=True)
+    urls = [url1, url2] * 3
+    self._assert_urls_loaded(urls)
+
+  def test_run_repeat_separate(self):
+    url1 = "https://www.example.com/test1"
+    url2 = "https://www.example.com/test2"
+    stories = self.story_filter(
+        [url1, url2],
+        separate=True,
+        playback=loading.PlaybackController.repeat(3)).stories
+    self._test_run(stories, throw=True)
+    urls = [url1] * 3 + [url2] * 3
+    self._assert_urls_loaded(urls)
 
   def _test_run(self, stories, throw: bool = False):
     benchmark = self.benchmark_cls(stories)
@@ -305,12 +389,28 @@ class TestPageConfig(pyfakefs.fake_filesystem_unittest.TestCase):
 
   def test_action_invalid_duration(self):
     invalid_durations = [
-        "1.1.1", None, "", -1, "-1", "-1ms", "1msss", "1ss", "2hh", "asdfasd",
-        "---", "1.1.1", "1_123ms", "1'200h", (), [], {}
+        "1.1.1",
+        None,
+        "",
+        -1,
+        "-1",
+        "-1ms",
+        "1msss",
+        "1ss",
+        "2hh",
+        "asdfasd",
+        "---",
+        "1.1.1",
+        "1_123ms",
+        "1'200h",
+        (),
+        [],
+        {},
+        "-1h",
     ]
     for invalid_duration in invalid_durations:
       with self.subTest(duration=invalid_duration), self.assertRaises(
-          (AssertionError, ValueError)):
+          (AssertionError, ValueError, argparse.ArgumentTypeError)):
         loading.PageConfig().load_dict(
             {
                 "pages": {
