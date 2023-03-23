@@ -9,7 +9,7 @@ import pathlib
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
 if TYPE_CHECKING:
-  from crossbench.probes.base import Probe
+  from crossbench.probes.probe import Probe
 
 
 class ProbeResult:

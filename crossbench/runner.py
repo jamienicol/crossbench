@@ -24,11 +24,11 @@ from crossbench.flags import Flags, JSFlags
 from crossbench.probes.results import ProbeResult, ProbeResultDict
 from crossbench.probes.runner import (RunDurationsProbe, RunResultsSummaryProbe,
                                       RunRunnerLogProbe)
-from crossbench.probes.base import Probe
+from crossbench.probes.probe import Probe
 
 if TYPE_CHECKING:
-  from crossbench.benchmarks.base import Benchmark
-  from crossbench.browsers.base import Browser
+  from crossbench.benchmarks.benchmark import Benchmark
+  from crossbench.browsers.browser import Browser
   from crossbench.stories import Story
 
 

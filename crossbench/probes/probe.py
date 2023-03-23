@@ -19,7 +19,7 @@ from crossbench.probes.results import ProbeResult
 cb = crossbench
 
 if TYPE_CHECKING:
-  from crossbench.browsers.base import Browser
+  from crossbench.browsers.browser import Browser
   from crossbench.env import HostEnvironment
   from crossbench.runner import (BrowsersRunGroup, RepetitionsRunGroup, Run,
                                  Runner, StoriesRunGroup)
@@ -85,7 +85,6 @@ class Probe(abc.ABC):
   @classmethod
   def help_text(cls) -> str:
     return str(cls.config_parser())
-
 
   # Set to False if the Probe cannot be used with arbitrary Stories or Pages
   IS_GENERAL_PURPOSE: bool = True

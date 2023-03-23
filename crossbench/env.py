@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 from crossbench import helper
 
 if TYPE_CHECKING:
-  from crossbench.probes.base import Probe
+  from crossbench.probes.probe import Probe
   from crossbench.runner import Runner
 
 

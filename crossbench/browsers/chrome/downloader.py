@@ -14,7 +14,7 @@ import tempfile
 from typing import Final, List, Optional, Tuple, Type, Union
 
 from crossbench import helper
-from crossbench.browsers.base import BROWSERS_CACHE
+from crossbench.browsers.browser import BROWSERS_CACHE
 
 
 class ChromeDownloader(abc.ABC):

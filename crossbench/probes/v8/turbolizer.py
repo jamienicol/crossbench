@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING
 
 from crossbench import helper
 from crossbench.browsers.chromium import Chromium
-from crossbench.probes.base import Probe
+from crossbench.probes.probe import Probe
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
-  from crossbench.browsers.base import Browser
+  from crossbench.browsers.browser import Browser
   from crossbench.runner import Run
 
 

@@ -38,8 +38,8 @@ class Benchmark(abc.ABC):
     return ""
 
   @classmethod
-  def add_cli_parser(cls, subparsers,
-                     aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
+  def add_cli_parser(
+      cls, subparsers, aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         cls.NAME,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -115,8 +115,8 @@ class StoryFilter(Generic[StoryT], metaclass=abc.ABCMeta):
     assert issubclass(
         story_cls, Story), (f"Subclass of {Story} expected, found {story_cls}")
     # Using order-preserving dict instead of set
-    self._known_names: Dict[str, None] = dict.fromkeys(
-        story_cls.all_story_names())
+    self._known_names: Dict[str,
+                            None] = dict.fromkeys(story_cls.all_story_names())
     self.stories: Sequence[StoryT] = []
     self.process_all(patterns)
     self.stories = self.create_stories()
@@ -134,8 +134,8 @@ class SubStoryBenchmark(Benchmark, metaclass=abc.ABCMeta):
   STORY_FILTER_CLS: Type[StoryFilter] = StoryFilter
 
   @classmethod
-  def add_cli_parser(cls, subparsers,
-                     aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
+  def add_cli_parser(
+      cls, subparsers, aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
     parser = super().add_cli_parser(subparsers, aliases)
     parser.add_argument(
         "--stories",
@@ -317,8 +317,8 @@ class PressBenchmark(SubStoryBenchmark):
   DEFAULT_STORY_CLS: Type[PressBenchmarkStory] = PressBenchmarkStory
 
   @classmethod
-  def add_cli_parser(cls, subparsers,
-                     aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
+  def add_cli_parser(
+      cls, subparsers, aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
     parser = super().add_cli_parser(subparsers, aliases)
     benchmark_url_group = parser.add_mutually_exclusive_group()
     default_live_url = cls.DEFAULT_STORY_CLS.URL
@@ -353,7 +353,8 @@ class PressBenchmark(SubStoryBenchmark):
     data["url-local"] = cls.DEFAULT_STORY_CLS.URL_LOCAL
     return data
 
-  def __init__(self, stories: Sequence[Story],
+  def __init__(self,
+               stories: Sequence[Story],
                custom_url: Optional[str] = None):
     super().__init__(stories)
     self.custom_url = custom_url

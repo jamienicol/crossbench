@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 
 import hjson
 
-from crossbench.benchmarks.base import StoryFilter, SubStoryBenchmark
+from crossbench.benchmarks.benchmark import StoryFilter, SubStoryBenchmark
 from crossbench.cli_helper import parse_file_path
 from crossbench.exception import ExceptionAnnotator
 from crossbench.stories import Story

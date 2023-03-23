@@ -10,7 +10,7 @@ import tempfile
 from typing import TYPE_CHECKING, Optional, Tuple
 
 from crossbench import helper
-from crossbench.browsers.base import Browser
+from crossbench.browsers.browser import Browser
 from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebdriverMixin
 

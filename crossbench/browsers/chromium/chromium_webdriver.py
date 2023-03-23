@@ -25,7 +25,7 @@ from crossbench.browsers.viewport import Viewport
 from .chromium import Chromium
 
 from crossbench import exception, helper
-from crossbench.browsers.base import BROWSERS_CACHE
+from crossbench.browsers.browser import BROWSERS_CACHE
 from crossbench.browsers.webdriver import WebdriverMixin
 from crossbench.flags import Flags
 

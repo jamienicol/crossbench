@@ -13,10 +13,10 @@ import subprocess
 from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
 
 from crossbench import cli_helper, helper
-from crossbench.browsers.base import Browser
+from crossbench.browsers.browser import Browser
 from crossbench.browsers.chromium import Chromium
 from crossbench.flags import JSFlags
-from crossbench.probes.base import Probe, ProbeConfigParser
+from crossbench.probes.probe import Probe, ProbeConfigParser
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:

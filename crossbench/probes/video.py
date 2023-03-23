@@ -15,20 +15,20 @@ from typing import TYPE_CHECKING, Dict, List, Tuple
 import crossbench
 from crossbench import helper
 from crossbench.browsers.viewport import Viewport
-from crossbench.probes import base
 from crossbench.probes.results import ProbeResult
+from .probe import Probe
 
 #TODO: fix imports
 cb = crossbench
 
 if TYPE_CHECKING:
-  from crossbench.browsers.base import Viewport
+  from crossbench.browsers.browser import Viewport
   from crossbench.env import HostEnvironment
   from crossbench.runner import BrowsersRunGroup, RepetitionsRunGroup, Run
   from crossbench.stories import Story
 
 
-class VideoProbe(base.Probe):
+class VideoProbe(Probe):
   """
   General-purpose Probe that collects screen-recordings.
 
@@ -86,7 +86,7 @@ class VideoProbe(base.Probe):
             f"Viewport size for {browser} is {viewport}, "
             f"which differs from first viewport {first_viewport}. ")
 
-  class Scope(base.Probe.Scope):
+  class Scope(Probe.Scope):
     IMAGE_FORMAT = "png"
     FFMPEG_TIMELINE_TEXT = (
         "drawtext="
@@ -96,7 +96,7 @@ class VideoProbe(base.Probe):
         "y=h-line_h-5:x=5:"
         "box=1:boxborderw=15:boxcolor=white")
 
-    def __init__(self, probe: base.Probe, run: Run) -> None:
+    def __init__(self, probe: Probe, run: Run) -> None:
       super().__init__(probe, run)
       self._record_process = None
       self._recorder_log_file = None

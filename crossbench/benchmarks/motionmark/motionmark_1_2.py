@@ -8,7 +8,7 @@ import itertools
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import crossbench.probes.helper as probes_helper
-from crossbench.benchmarks.base import PressBenchmark
+from crossbench.benchmarks.benchmark import PressBenchmark
 from crossbench.probes.json import JsonResultProbe
 from crossbench.probes.results import ProbeResult
 from crossbench.stories import PressBenchmarkStory

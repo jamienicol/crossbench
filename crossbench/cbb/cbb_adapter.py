@@ -15,8 +15,8 @@ import pathlib
 from typing import List, Optional, Type
 
 import crossbench.benchmarks.all as benchmarks
-from crossbench.benchmarks.base import PressBenchmark
-import crossbench.browsers.base
+from crossbench.benchmarks.benchmark import PressBenchmark
+import crossbench.browsers.browser
 import crossbench.browsers.webdriver as cb_webdriver
 import crossbench.env
 import crossbench.runner
@@ -80,7 +80,7 @@ def create_remote_webdriver(driver: webdriver.Remote
 
 
 def get_probe_result_file(benchmark_name: str,
-                          browser: crossbench.browsers.base.Browser,
+                          browser: crossbench.browsers.browser.Browser,
                           output_dir: str,
                           probe_name: Optional[str] = None) -> Optional[str]:
   """Returns the path to the probe result file.
@@ -104,7 +104,7 @@ def get_probe_result_file(benchmark_name: str,
 
 
 def run_benchmark(output_folder: str,
-                  browser_list: List[crossbench.browsers.base.Browser],
+                  browser_list: List[crossbench.browsers.browser.Browser],
                   benchmark: PressBenchmark) -> None:
   """Runs the benchmark using crossbench runner.
 

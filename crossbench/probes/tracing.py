@@ -7,10 +7,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable
 
 from crossbench.browsers.chromium import Chromium
-from crossbench.probes.base import Probe
+from crossbench.probes.probe import Probe
 
 if TYPE_CHECKING:
-  from crossbench.browsers.base import Browser
+  from crossbench.browsers.browser import Browser
 
 
 class TracingProbe(Probe):

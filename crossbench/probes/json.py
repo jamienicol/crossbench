@@ -14,15 +14,16 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from tabulate import tabulate
 
-from crossbench.probes import base, helper
+from crossbench.probes import helper
 from crossbench.probes.results import ProbeResult
+from .probe import Probe
 
 if TYPE_CHECKING:
   from crossbench.runner import (Actions, BrowsersRunGroup, RepetitionsRunGroup,
                                  Run, RunGroup)
 
 
-class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
+class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
   """
   Abstract Probe that stores a JSON result extracted by the `to_json` method
 
@@ -53,7 +54,7 @@ class JsonResultProbe(base.Probe, metaclass=abc.ABCMeta):
   def process_json_data(self, json_data) -> Any:
     return json_data
 
-  class Scope(base.Probe.Scope):
+  class Scope(Probe.Scope):
 
     def __init__(self, probe: JsonResultProbe, run: Run):
       super().__init__(probe, run)

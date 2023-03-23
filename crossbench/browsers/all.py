@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
-from crossbench.browsers.base import (BROWSERS_CACHE, Browser,
-                                      convert_flags_to_label)
+from crossbench.browsers.browser import (BROWSERS_CACHE, Browser,
+                                         convert_flags_to_label)
 from crossbench.browsers.chrome import Chrome, ChromeWebDriver
 from crossbench.browsers.chromium import Chromium, ChromiumWebDriver
 from crossbench.browsers.edge import Edge, EdgeWebDriver

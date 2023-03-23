@@ -20,7 +20,7 @@ from crossbench.browsers.viewport import Viewport
 import crossbench.exception
 import crossbench.flags
 from crossbench import helper
-from crossbench.browsers.base import BROWSERS_CACHE
+from crossbench.browsers.browser import BROWSERS_CACHE
 from crossbench.browsers.chromium import ChromiumWebDriver
 
 if TYPE_CHECKING:

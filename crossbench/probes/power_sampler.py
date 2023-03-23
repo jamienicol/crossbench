@@ -10,11 +10,11 @@ import pathlib
 import subprocess
 from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 
-from crossbench.probes.base import Probe, ProbeConfigParser
+from crossbench.probes.probe import Probe, ProbeConfigParser
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
-  from crossbench.browsers.base import Browser
+  from crossbench.browsers.browser import Browser
   from crossbench.env import HostEnvironment
   from crossbench.runner import Run
 

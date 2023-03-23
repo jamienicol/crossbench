@@ -5,12 +5,9 @@
 import abc
 from typing import List, Sequence, Type
 
-import crossbench
-import crossbench.benchmarks
+from crossbench.benchmarks import benchmark
 from tests.mock_helper import BaseCrossbenchTestCase
 
-#TODO: fix imports
-cb = crossbench
 
 
 class BaseBenchmarkTestCase(BaseCrossbenchTestCase, metaclass=abc.ABCMeta):
@@ -27,7 +24,7 @@ class BaseBenchmarkTestCase(BaseCrossbenchTestCase, metaclass=abc.ABCMeta):
   def setUp(self):
     super().setUp()
     self.assertTrue(
-        issubclass(self.benchmark_cls, cb.benchmarks.Benchmark),
+        issubclass(self.benchmark_cls, benchmark.Benchmark),
         f"Expected Benchmark subclass, but got: BENCHMARK={self.benchmark_cls}")
 
   def test_instantiate_no_stories(self):
@@ -45,11 +42,11 @@ class BaseBenchmarkTestCase(BaseCrossbenchTestCase, metaclass=abc.ABCMeta):
 class SubStoryTestCase(BaseBenchmarkTestCase, metaclass=abc.ABCMeta):
 
   @property
-  def story_filter_cls(self) -> Type[cb.benchmarks.base.StoryFilter]:
+  def story_filter_cls(self) -> Type[benchmark.StoryFilter]:
     return self.benchmark_cls.STORY_FILTER_CLS
 
   def story_filter(self, patterns: Sequence[str],
-                   **kwargs) -> cb.benchmarks.base.StoryFilter:
+                   **kwargs) -> benchmark.StoryFilter:
     return self.story_filter_cls(  # pytype: disable=not-instantiable
         story_cls=self.story_cls,
         patterns=patterns,

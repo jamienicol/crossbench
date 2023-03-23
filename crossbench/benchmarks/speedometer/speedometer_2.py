@@ -13,7 +13,7 @@ from typing import (TYPE_CHECKING, Any, Dict, Final, List, Optional, Sequence,
 
 import crossbench.probes.helper as probes_helper
 from crossbench import helper
-from crossbench.benchmarks.base import PressBenchmark
+from crossbench.benchmarks.benchmark import PressBenchmark
 from crossbench.probes.json import JsonResultProbe
 from crossbench.probes.results import ProbeResult, ProbeResultDict
 from crossbench.stories import PressBenchmarkStory

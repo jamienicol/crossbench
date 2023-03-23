@@ -22,7 +22,7 @@ from .viewport import Viewport
 if TYPE_CHECKING:
   import datetime as dt
 
-  from crossbench.probes.base import Probe
+  from crossbench.probes.probe import Probe
   from crossbench.runner import Run, Runner
 
 # =============================================================================
@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 BROWSERS_CACHE = pathlib.Path(__file__).parent.parent / ".browsers-cache"
 
 # =============================================================================
+
 
 class Browser(abc.ABC):
 
@@ -254,11 +255,13 @@ class Browser(abc.ABC):
     self._is_running = False
 
   @abc.abstractmethod
-  def js(self,
-         runner: Runner,
-         script: str,
-         timeout: Optional[dt.timedelta] = None,
-         arguments: Sequence[object] = ()) -> Any:
+  def js(
+      self,
+      runner: Runner,
+      script: str,
+      timeout: Optional[dt.timedelta] = None,
+      arguments: Sequence[object] = ()
+  ) -> Any:
     pass
 
   @abc.abstractmethod

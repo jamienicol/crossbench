@@ -24,9 +24,9 @@ from tabulate import tabulate
 
 import crossbench.benchmarks.all as benchmarks
 from crossbench import helper
-from crossbench.benchmarks.base import Benchmark
+from crossbench.benchmarks.benchmark import Benchmark
 import crossbench.browsers.all as browsers
-from crossbench.browsers.base import convert_flags_to_label
+from crossbench.browsers.browser import convert_flags_to_label
 from crossbench.browsers.chrome import ChromeDownloader
 from crossbench.browsers.viewport import Viewport
 from crossbench.cli_helper import parse_file_path, parse_positive_float
@@ -38,8 +38,8 @@ from crossbench.probes.all import GENERAL_PURPOSE_PROBES
 from crossbench.runner import Runner, Timing
 
 if TYPE_CHECKING:
-  from crossbench.browsers.base import Browser
-  from crossbench.probes.base import Probe
+  from crossbench.browsers.browser import Browser
+  from crossbench.probes.probe import Probe
   BrowserLookupTableT = Dict[str, Tuple[Type[browsers.Browser], pathlib.Path]]
 
 

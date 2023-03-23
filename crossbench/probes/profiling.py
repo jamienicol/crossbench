@@ -14,13 +14,13 @@ import time
 from typing import TYPE_CHECKING, Iterable, List, Optional, cast
 
 from crossbench import helper
-from crossbench.probes.base import Probe, ProbeConfigParser
+from crossbench.probes.probe import Probe, ProbeConfigParser
 from crossbench.probes.results import ProbeResult
 from crossbench.probes.v8.log import V8LogProbe
 from crossbench.browsers.chromium import Chromium
 
 if TYPE_CHECKING:
-  from crossbench.browsers.base import Browser
+  from crossbench.browsers.browser import Browser
   from crossbench.env import HostEnvironment
   from crossbench.runner import Run, Runner, BrowsersRunGroup
 
