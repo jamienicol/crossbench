@@ -9,30 +9,31 @@ from dataclasses import dataclass
 from typing import Optional, Sequence, Type
 from unittest import mock
 
-from crossbench.benchmarks.speedometer.speedometer_2 import (
-    Speedometer2Benchmark, Speedometer2Probe, Speedometer2Story)
+from crossbench.benchmarks.speedometer.speedometer import (SpeedometerBenchmark,
+                                                           SpeedometerProbe,
+                                                           SpeedometerStory)
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.runner import Runner
 from tests.benchmarks import helper
 
 
-class Speedometer2BaseTestCase(
+class SpeedometerBaseTestCase(
     helper.PressBaseBenchmarkTestCase, metaclass=abc.ABCMeta):
 
   @property
   @abc.abstractmethod
-  def benchmark_cls(self) -> Type[Speedometer2Benchmark]:
+  def benchmark_cls(self) -> Type[SpeedometerBenchmark]:
     pass
 
   @property
   @abc.abstractmethod
-  def story_cls(self) -> Type[Speedometer2Story]:
+  def story_cls(self) -> Type[SpeedometerStory]:
     pass
 
   @property
   @abc.abstractmethod
-  def probe_cls(self) -> Type[Speedometer2Probe]:
+  def probe_cls(self) -> Type[SpeedometerProbe]:
     pass
 
   @property
@@ -144,22 +145,24 @@ class Speedometer2BaseTestCase(
     self._test_run()
     for browser in self.browsers:
       urls = self.filter_data_urls(browser.url_list)
-      self.assertIn(self.story_cls.URL, urls)
-      self.assertNotIn(self.story_cls.URL_LOCAL, urls)
+      self.assertIn(f"{self.story_cls.URL}?iterationCount=10", urls)
+      self.assertNotIn(f"{self.story_cls.URL_LOCAL}?iterationCount=10", urls)
 
   def test_run_custom_url(self):
     custom_url = "http://test.example.com/speedometer"
     self._test_run(custom_url)
     for browser in self.browsers:
       urls = self.filter_data_urls(browser.url_list)
-      self.assertIn(custom_url, urls)
-      self.assertNotIn(self.story_cls.URL, urls)
-      self.assertNotIn(self.story_cls.URL_LOCAL, urls)
+      self.assertIn(f"{custom_url}?iterationCount=10", urls)
+      self.assertNotIn(f"{self.story_cls.URL}?iterationCount=10", urls)
+      self.assertNotIn(f"{self.story_cls.URL_LOCAL}?iterationCount=10", urls)
 
   def _test_run(self, custom_url: Optional[str] = None, throw: bool = False):
     repetitions = 3
     iterations = 2
-    stories = self.story_cls.from_names(["VanillaJS-TodoMVC"], url=custom_url)
+    default_story_name = self.story_cls.SUBSTORIES[0]
+    self.assertTrue(default_story_name)
+    stories = self.story_cls.from_names([default_story_name], url=custom_url)
     example_story_data = {
         "tests": {
             "Adding100Items": {
@@ -195,10 +198,12 @@ class Speedometer2BaseTestCase(
     } for i in range(iterations)]
 
     for browser in self.browsers:
+      # This depends on the JS actions in SpeedometerStory:
       browser.js_side_effect = [
           True,  # Page is ready
-          None,  # filter benchmarks
-          None,  # Start running benchmark
+          None,  # _setup_substories
+          None,  # _setup_benchmark_client
+          None,  # _run_stories
           True,  # Wait until done
           speedometer_probe_results,
       ]
@@ -220,7 +225,7 @@ class Speedometer2BaseTestCase(
     for browser in self.browsers:
       urls = self.filter_data_urls(browser.url_list)
       self.assertEqual(len(urls), repetitions)
-      self.assertIn(Speedometer2Probe.JS, browser.js_list)
+      self.assertIn(SpeedometerProbe.JS, browser.js_list)
 
     with (self.out_dir /
           f"{self.probe_cls.NAME}.csv").open(encoding="utf-8") as f:
@@ -274,8 +279,9 @@ class Speedometer2BaseTestCase(
     for browser in self.browsers:
       browser.js_side_effect = [
           True,  # Page is ready
-          None,  # filter benchmarks
-          None,  # Start running benchmark
+          None,  # _setup_substories
+          None,  # _setup_benchmark_client
+          None,  # _run_stories
           True,  # Wait until done
           speedometer_probe_results,
       ]

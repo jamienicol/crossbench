@@ -214,17 +214,16 @@ class HostEnvironment:
   def validate_url(self, url: str) -> bool:
     try:
       result = urlparse(url)
-      if not all([
-          result.scheme in ["file", "http", "https"], result.netloc, result.path
-      ]):
+      if not all([result.scheme in ["file", "http", "https"], result.netloc]):
         return False
       if self._validation_mode != ValidationMode.PROMPT:
         return True
       with urllib.request.urlopen(url) as request:
         if request.getcode() == 200:
           return True
-    except urllib.error.URLError:
-      pass
+        logging.debug("Could not load URL '%s', got %s", url, request)
+    except urllib.error.URLError as e:
+      logging.debug("Could not parse URL '%s' got error: %s", url, e)
     return False
 
   def _check_system_monitoring(self) -> None:

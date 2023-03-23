@@ -8,10 +8,11 @@ import pytest
 
 from crossbench.benchmarks.speedometer import speedometer_2_0
 from crossbench.benchmarks.speedometer import speedometer_2_1
+from crossbench.benchmarks.speedometer import speedometer_3_0
 from tests.benchmarks import speedometer_helper
 
 
-class Speedometer20TestCase(speedometer_helper.Speedometer2BaseTestCase):
+class Speedometer20TestCase(speedometer_helper.SpeedometerBaseTestCase):
 
   @property
   def benchmark_cls(self):
@@ -30,7 +31,7 @@ class Speedometer20TestCase(speedometer_helper.Speedometer2BaseTestCase):
     return "speedometer_2.0"
 
 
-class Speedometer21TestCase(speedometer_helper.Speedometer2BaseTestCase):
+class Speedometer21TestCase(speedometer_helper.SpeedometerBaseTestCase):
 
   @property
   def benchmark_cls(self):
@@ -47,6 +48,39 @@ class Speedometer21TestCase(speedometer_helper.Speedometer2BaseTestCase):
   @property
   def name(self):
     return "speedometer_2.1"
+
+
+if __name__ == "__main__":
+  sys.exit(pytest.main([__file__]))
+
+
+class Speedometer30TestCase(speedometer_helper.SpeedometerBaseTestCase):
+
+  @property
+  def benchmark_cls(self):
+    return speedometer_3_0.Speedometer30Benchmark
+
+  @property
+  def story_cls(self):
+    return speedometer_3_0.Speedometer30Story
+
+  @property
+  def probe_cls(self):
+    return speedometer_3_0.Speedometer30Probe
+
+  @property
+  def name(self):
+    return "speedometer_3.0"
+
+  def test_run_combined(self):
+    self._run_story_names(["TodoMVC-JavaScript-ES5", "TodoMVC-Backbone"],
+                          separate=False,
+                          expected_num_urls=3)
+
+  def test_run_separate(self):
+    self._run_story_names(["TodoMVC-JavaScript-ES5", "TodoMVC-Backbone"],
+                          separate=True,
+                          expected_num_urls=6)
 
 
 if __name__ == "__main__":

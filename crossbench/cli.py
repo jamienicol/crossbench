@@ -625,11 +625,12 @@ BenchmarkClsT = Type[Benchmark]
 class CrossBenchCLI:
 
   BENCHMARKS: Tuple[Tuple[BenchmarkClsT, Tuple[str, ...]], ...] = (
-      (benchmarks.Speedometer20Benchmark, ()),
-      (benchmarks.Speedometer21Benchmark, ("speedometer",)),
-      (benchmarks.JetStream20Benchmark, ()),
-      (benchmarks.JetStream21Benchmark, ("jetstream",)),
-      (benchmarks.MotionMark12Benchmark, ("motionmark",)),
+      (benchmarks.Speedometer30Benchmark, ("sp30", "sp3")),
+      (benchmarks.Speedometer20Benchmark, ("sp20",)),
+      (benchmarks.Speedometer21Benchmark, ("speedometer", "sp", "sp2", "sp21")),
+      (benchmarks.JetStream20Benchmark, ("js20",)),
+      (benchmarks.JetStream21Benchmark, ("jetstream", "js21")),
+      (benchmarks.MotionMark12Benchmark, ("motionmark", "mm", "mm12")),
       (benchmarks.PageLoadBenchmark, ("load",)),
   )
 
@@ -677,6 +678,10 @@ class CrossBenchCLI:
     self.subparsers = self.parser.add_subparsers(
         title="Subcommands", dest="subcommand", required=True)
     for benchmark_cls, alias in self.BENCHMARKS:
+      assert isinstance(
+          alias,
+          (list,
+           tuple)), (f"Benchmark alias must be list or tuple, but got: {alias}")
       self._setup_benchmark_subparser(benchmark_cls, alias)
     self._setup_describe_subparser()
 

@@ -110,7 +110,7 @@ class WebdriverMixin(Browser):
          script: str,
          timeout: Optional[dt.timedelta] = None,
          arguments: Sequence[object] = ()) -> Any:
-    logging.debug("RUN SCRIPT timeout=%s, script: %s", timeout, script[:100])
+    logging.debug("RUN SCRIPT timeout=%s, script: %s", timeout, script)
     assert self._is_running
     try:
       if timeout is not None:

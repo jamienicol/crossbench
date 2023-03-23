@@ -3,26 +3,24 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+
 from typing import Final
 
-from .speedometer_2 import (Speedometer2Probe, Speedometer2Story,
-                            Speedometer2Benchmark, ProbeClsTupleT)
+from .speedometer import ProbeClsTupleT, SpeedometerBenchmark, SpeedometerProbe
+from .speedometer_2 import Speedometer2Story
 
 
-class Speedometer21Probe(Speedometer2Probe):
-  __doc__ = Speedometer2Probe.__doc__
+class Speedometer21Probe(SpeedometerProbe):
   NAME: Final[str] = "speedometer_2.1"
 
 
 class Speedometer21Story(Speedometer2Story):
-  __doc__ = Speedometer2Story.__doc__
   NAME: Final[str] = "speedometer_2.1"
+  URL: Final[str] = "https://browserbench.org/Speedometer2.1/"
   PROBES: Final[ProbeClsTupleT] = (Speedometer21Probe,)
-  URL: Final[str] = ("https://browserbench.org/Speedometer2.1/"
-                     "InteractiveRunner.html")
 
 
-class Speedometer21Benchmark(Speedometer2Benchmark):
+class Speedometer21Benchmark(SpeedometerBenchmark):
   """
   Benchmark runner for Speedometer 2.1
   """
