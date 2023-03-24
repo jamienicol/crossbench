@@ -22,7 +22,7 @@ if TYPE_CHECKING:
   from crossbench.runner import Run, Runner
 
 
-class WebdriverMixin(Browser):
+class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
   _driver: webdriver.Remote
   _driver_path: Optional[pathlib.Path]
   _driver_pid: int
@@ -156,7 +156,7 @@ class WebdriverMixin(Browser):
     return
 
 
-class RemoteWebDriver(WebdriverMixin, Browser):
+class RemoteWebDriver(WebdriverBrowser, Browser):
   """Represent a remote WebDriver that has already been started"""
 
   def __init__(self, label: str, driver: webdriver.Remote):

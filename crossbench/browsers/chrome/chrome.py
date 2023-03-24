@@ -16,7 +16,7 @@ if TYPE_CHECKING:
   from crossbench.flags import Flags
 
 
-class Chrome(Chromium):
+class ChromePathMixin:
 
   @classmethod
   def default_path(cls) -> pathlib.Path:
@@ -52,6 +52,9 @@ class Chrome(Chromium):
         "Chrome Canary",
         macos=["Google Chrome Canary.app"],
         win=["Google/Chrome SxS/Application/chrome.exe"])
+
+
+class Chrome(ChromePathMixin, Chromium):
 
   def __init__(self,
                label: str,

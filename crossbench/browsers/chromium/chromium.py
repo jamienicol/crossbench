@@ -101,10 +101,6 @@ class Chromium(Browser):
   def features(self) -> ChromeFeatures:
     return self._flags.features
 
-  def exec_apple_script(self, script: str):
-    assert self.platform.is_macos
-    return self.platform.exec_apple_script(script)
-
   def details_json(self) -> Dict[str, Any]:
     details = super().details_json()
     if self.log_file:
@@ -174,40 +170,8 @@ class Chromium(Browser):
   def get_label_from_flags(self) -> str:
     return convert_flags_to_label(*self.flags, *self.js_flags)
 
-  def start(self, run: Run) -> None:
-    # TODO: fix applescript version
-    raise NotImplementedError(
-        "Running the browser with AppleScript is currently broken.")
-
-  def _start_broken(self, run: Run) -> None:
-    runner = run.runner
-    assert self.platform.is_macos, (
-        f"Sorry, f{self.__class__} is only supported on MacOS for now")
-    assert not self._is_running
-    assert self._stdout_log_file is None
-    if self.log_file:
-      self._stdout_log_file = self.stdout_log_file.open("w", encoding="utf-8")
-    # self._pid = runner.popen(
-    #     self.path, *self._get_browser_flags(run), stdout=self._stdout_log_file)
-    runner.wait(0.5)
-    self.exec_apple_script(f"""
-tell application "{self.app_name}"
-    activate
-    set the bounds of the first window to {{50,50,1050,1050}}
-end tell
-    """)
-    self._is_running = True
-
   def quit(self, runner: Runner) -> None:
     super().quit(runner)
     if self._stdout_log_file:
       self._stdout_log_file.close()
       self._stdout_log_file = None
-
-  def show_url(self, runner: Runner, url: str) -> None:
-    self.exec_apple_script(f"""
-tell application "{self.app_name}"
-    activate
-    set URL of active tab of front window to '{url}'
-end tell
-    """)

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from crossbench import helper
 from crossbench.browsers.browser import Browser
 from crossbench.browsers.viewport import Viewport
-from crossbench.browsers.webdriver import WebdriverMixin
+from crossbench.browsers.webdriver import WebdriverBrowser
 
 if TYPE_CHECKING:
   from crossbench.flags import Flags
@@ -114,10 +114,11 @@ class Firefox(Browser):
                              Viewport.HEADLESS)
 
     if self.viewport.has_size and not self.viewport.is_default:
-      if not isinstance(self, WebdriverMixin) and self.viewport.size != (0, 0):
+      if not isinstance(self,
+                        WebdriverBrowser) and self.viewport.size != (0, 0):
         raise ValueError(f"Browser {self} cannot handle viewport position: "
                          f"{self.viewport.position}")
     else:
-      if not isinstance(self, WebdriverMixin):
+      if not isinstance(self, WebdriverBrowser):
         raise ValueError(
             f"Browser {self} cannot handle viewport mode: {self.viewport}")

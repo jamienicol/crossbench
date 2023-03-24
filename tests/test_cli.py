@@ -7,20 +7,21 @@ import json
 import pathlib
 import sys
 import unittest
-from argparse import ArgumentTypeError
+import argparse
 from typing import Dict, List, Tuple, Type
 from unittest import mock
 
 import hjson
-import pyfakefs.fake_filesystem_unittest
+from pyfakefs import fake_filesystem_unittest
 import pytest
 
 import crossbench
 from crossbench import helper
 from crossbench.browsers.chrome import Chrome, ChromeWebDriver
 from crossbench.browsers.safari import Safari
-from crossbench.cli import (BrowserConfig, ConfigFileError, CrossBenchCLI,
-                            FlagGroupConfig, ProbeConfig, ProbeConfigError)
+from crossbench.cli import (BrowserConfig, BrowserDriverType, ConfigFileError,
+                            CrossBenchCLI, FlagGroupConfig, ProbeConfig,
+                            ProbeConfigError)
 from crossbench.probes.power_sampler import PowerSamplerProbe
 from crossbench.probes.v8.log import V8LogProbe
 from crossbench.runner import Runner
@@ -34,7 +35,56 @@ class SysExitException(Exception):
     super().__init__("sys.exit")
 
 
-class TestCLI(BaseCrossbenchTestCase):
+class BrowserDriverTypeTestCase(fake_filesystem_unittest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.setUpPyfakefs(modules_to_reload=[crossbench])
+
+  def test_parse_name(self):
+    self.assertTupleEqual(
+        BrowserDriverType.parse("chrome"),
+        (BrowserDriverType.default(), "chrome"))
+    self.assertTupleEqual(
+        BrowserDriverType.parse("foo/bar"),
+        (BrowserDriverType.default(), "foo/bar"))
+    self.assertTupleEqual(
+        BrowserDriverType.parse("selenium/bar"),
+        (BrowserDriverType.default(), "selenium/bar"))
+
+  def test_parse_with_driver(self):
+    self.assertTupleEqual(
+        BrowserDriverType.parse(":chrome"),
+        (BrowserDriverType.default(), "chrome"))
+    self.assertTupleEqual(
+        BrowserDriverType.parse("selenium:chrome"),
+        (BrowserDriverType.WEB_DRIVER, "chrome"))
+    self.assertTupleEqual(
+        BrowserDriverType.parse("webdriver:chrome"),
+        (BrowserDriverType.WEB_DRIVER, "chrome"))
+    self.assertTupleEqual(
+        BrowserDriverType.parse("applescript:chrome"),
+        (BrowserDriverType.APPLE_SCRIPT, "chrome"))
+    self.assertTupleEqual(
+        BrowserDriverType.parse("osa:chrome"),
+        (BrowserDriverType.APPLE_SCRIPT, "chrome"))
+    self.assertTupleEqual(
+        BrowserDriverType.parse("android:chrome"),
+        (BrowserDriverType.ANDROID, "chrome"))
+    self.assertTupleEqual(
+        BrowserDriverType.parse("ios:chrome"),
+        (BrowserDriverType.IOS, "chrome"))
+
+  def test_parse_invalid_driver(self):
+    with self.assertRaises(argparse.ArgumentTypeError):
+      BrowserDriverType.parse("____:chrome")
+    # This has to be dealt with in users of BrowserDriverType.parse.
+    self.assertTupleEqual(
+        BrowserDriverType.parse("::chrome"),
+        (BrowserDriverType.default(), ":chrome"))
+
+
+class CliTestCase(BaseCrossbenchTestCase):
 
   def run_cli(self, *args, raises=None):
     with mock.patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
@@ -193,7 +243,7 @@ class TestCLI(BaseCrossbenchTestCase):
                    "--urls=http://test.com", "--env-validation=skip", "--throw")
 
   def test_invalid_browser_identifier(self):
-    with self.assertRaises(ArgumentTypeError):
+    with self.assertRaises(argparse.ArgumentTypeError):
       self.run_cli(
           "loading",
           "--browser=unknown_browser_identifier",
@@ -206,7 +256,7 @@ class TestCLI(BaseCrossbenchTestCase):
     browser_bin = pathlib.Path("/foo/custom/browser.bin")
     browser_bin.parent.mkdir(parents=True)
     browser_bin.touch()
-    with self.assertRaises(ArgumentTypeError):
+    with self.assertRaises(argparse.ArgumentTypeError):
       self.run_cli(
           "loading",
           f"--browser={browser_bin}",
@@ -224,11 +274,12 @@ class TestCLI(BaseCrossbenchTestCase):
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
 
     with mock.patch.object(
-        BrowserConfig, "_get_browser_cls_from_path",
+        BrowserConfig, "_get_browser_cls",
         return_value=browser_cls) as get_browser_cls:
       self.run_cli("loading", f"--browser={browser_bin}",
                    "--urls=http://test.com", "--env-validation=skip")
-    get_browser_cls.assert_called_once_with(browser_bin)
+    get_browser_cls.assert_called_once_with(browser_bin,
+                                            BrowserDriverType.WEB_DRIVER)
 
   def test_custom_chrome_browser_binary_custom_flags(self):
     browser_cls = mock_browser.MockChromeStable
@@ -239,8 +290,8 @@ class TestCLI(BaseCrossbenchTestCase):
     browser_cls.setup_bin(self.fs, browser_bin, "Chrome")
 
     with mock.patch.object(
-        BrowserConfig, "_get_browser_cls_from_path",
-        return_value=browser_cls), mock.patch.object(
+        BrowserConfig,
+        "_get_browser_cls", return_value=browser_cls), mock.patch.object(
             CrossBenchCLI, "_run_benchmark") as run_benchmark:
       self.run_cli("loading", f"--browser={browser_bin}",
                    "--urls=http://test.com", "--env-validation=skip", "--",
@@ -291,7 +342,7 @@ class TestCLI(BaseCrossbenchTestCase):
       out_dir = self.out_dir / identifier
       self.assertFalse(out_dir.exists())
       with mock.patch.object(
-          BrowserConfig, "_get_browser_cls_from_path",
+          BrowserConfig, "_get_browser_cls",
           return_value=browser_cls) as get_browser_cls:
         url = "http://test.com"
         self.run_cli("loading", f"--browser={identifier}", f"--urls={url}",
@@ -305,7 +356,7 @@ class TestCLI(BaseCrossbenchTestCase):
         self.assertIn("test.com", results["stories"])
 
   def test_browser_identifiers_duplicate(self):
-    with self.assertRaises(ArgumentTypeError):
+    with self.assertRaises(argparse.ArgumentTypeError):
       self.run_cli("loading", "--browser=chrome", "--browser=chrome",
                    "--urls=http://test.com", "--env-validation=skip", "--throw")
 
@@ -316,16 +367,17 @@ class TestCLI(BaseCrossbenchTestCase):
         mock_browser.MockChromeDev,
     ]
 
-    def mock_get_browser_cls_from_path(path):
+    def mock_get_browser_cls(path: pathlib.Path,
+                             driver_type: BrowserDriverType):
+      self.assertEqual(driver_type, BrowserDriverType.WEB_DRIVER)
       for mock_browser_cls in mock_browsers:
         if mock_browser_cls.APP_PATH == path:
           return mock_browser_cls
       raise ValueError("Unknown browser path")
 
     with mock.patch.object(
-        BrowserConfig,
-        "_get_browser_cls_from_path",
-        side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
+        BrowserConfig, "_get_browser_cls",
+        side_effect=mock_get_browser_cls) as get_browser_cls:
       url = "http://test.com"
       self.run_cli("loading", "--browser=chrome-beta",
                    "--browser=chrome-stable", "--browser=chrome-dev",
@@ -358,16 +410,17 @@ class TestCLI(BaseCrossbenchTestCase):
         MockChromeDev2,
     ]
 
-    def mock_get_browser_cls_from_path(path):
+    def mock_get_browser_cls(path: pathlib.Path,
+                             driver_type: BrowserDriverType):
+      self.assertEqual(driver_type, BrowserDriverType.WEB_DRIVER)
       for mock_browser_cls in mock_browsers:
         if mock_browser_cls.APP_PATH == path:
           return mock_browser_cls
       raise ValueError("Unknown browser path")
 
     with mock.patch.object(
-        BrowserConfig,
-        "_get_browser_cls_from_path",
-        side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
+        BrowserConfig, "_get_browser_cls",
+        side_effect=mock_get_browser_cls) as get_browser_cls:
       url = "http://test.com"
       self.run_cli("loading", "--browser=chrome-dev", "--browser=chrome-beta",
                    f"--urls={url}", "--env-validation=skip",
@@ -399,16 +452,17 @@ class TestCLI(BaseCrossbenchTestCase):
         MockChromeDev2,
     ]
 
-    def mock_get_browser_cls_from_path(path):
+    def mock_get_browser_cls(path: pathlib.Path,
+                             driver_type: BrowserDriverType):
+      self.assertEqual(driver_type, BrowserDriverType.WEB_DRIVER)
       for mock_browser_cls in mock_browsers:
         if mock_browser_cls.APP_PATH == path:
           return mock_browser_cls
       raise ValueError("Unknown browser path")
 
     with mock.patch.object(
-        BrowserConfig,
-        "_get_browser_cls_from_path",
-        side_effect=mock_get_browser_cls_from_path) as get_browser_cls:
+        BrowserConfig, "_get_browser_cls",
+        side_effect=mock_get_browser_cls) as get_browser_cls:
       url = "http://test.com"
       self.run_cli("loading", "--browser=chrome-dev", "--browser=chrome-beta",
                    f"--urls={url}", "--env-validation=skip",
@@ -426,6 +480,43 @@ class TestCLI(BaseCrossbenchTestCase):
       self.assertTrue(len(set(versions)), 1)
       for mock_browser_cls in mock_browsers:
         self.assertIn(mock_browser_cls.VERSION, versions)
+
+  def test_browser_different_drivers(self):
+
+    def mock_get_browser_cls(path: pathlib.Path,
+                             driver_type: BrowserDriverType):
+      if driver_type == BrowserDriverType.IOS:
+        self.assertEqual(path, mock_browser.MockChromeStable.APP_PATH)
+        return mock_browser.MockChromeStable
+      if driver_type == BrowserDriverType.WEB_DRIVER:
+        self.assertEqual(path, mock_browser.MockChromeBeta.APP_PATH)
+        return mock_browser.MockChromeBeta
+      self.assertEqual(driver_type, BrowserDriverType.APPLE_SCRIPT)
+      self.assertEqual(path, mock_browser.MockChromeDev.APP_PATH)
+      return mock_browser.MockChromeDev
+
+    with mock.patch.object(
+        BrowserConfig, "_get_browser_cls",
+        side_effect=mock_get_browser_cls) as get_browser_cls:
+      url = "http://test.com"
+      self.run_cli("loading", "--browser=ios:chrome-stable",
+                   "--browser=selenium:chrome-beta",
+                   "--browser=applescript:chrome-dev", f"--urls={url}",
+                   "--env-validation=skip", f"--out-dir={self.out_dir}")
+      self.assertTrue(self.out_dir.exists())
+      get_browser_cls.assert_called()
+      result_files = list(self.out_dir.glob("*/results.json"))
+      self.assertEqual(len(result_files), 3)
+      versions = []
+      for result_file in result_files:
+        with result_file.open(encoding="utf-8") as f:
+          results = json.load(f)
+        versions.append(results["browser"]["version"])
+        self.assertIn("test.com", results["stories"])
+      self.assertTrue(len(set(versions)), 1)
+      self.assertIn(mock_browser.MockChromeStable.VERSION, versions)
+      self.assertIn(mock_browser.MockChromeBeta.VERSION, versions)
+      self.assertIn(mock_browser.MockChromeDev.VERSION, versions)
 
   def test_probe_invalid_inline_json_config(self):
     with self.assertRaises(ProbeConfigError), mock.patch.object(
@@ -532,7 +623,9 @@ class TestCLI(BaseCrossbenchTestCase):
         mock_browser.MockChromeDev,
     ]
 
-    def mock_get_browser_cls_from_path(path):
+    def mock_get_browser_cls(path: pathlib.Path,
+                             driver_type: BrowserDriverType):
+      self.assertEqual(driver_type, BrowserDriverType.WEB_DRIVER)
       for mock_browser_cls in mock_browsers:
         if mock_browser_cls.APP_PATH == path:
           return mock_browser_cls
@@ -541,25 +634,19 @@ class TestCLI(BaseCrossbenchTestCase):
     for chrome_flag in ("--js-flags=--no-opt", "--enable-features=Foo",
                         "--disable-features=bar"):
       # Fail for chrome flags for non-chrome browser
-      with self.assertRaises(ArgumentTypeError), mock.patch.object(
-          BrowserConfig,
-          "_get_browser_cls_from_path",
-          side_effect=mock_get_browser_cls_from_path):
+      with self.assertRaises(argparse.ArgumentTypeError), mock.patch.object(
+          BrowserConfig, "_get_browser_cls", side_effect=mock_get_browser_cls):
         self.run_cli("loading", "--urls=http://test.com",
                      "--env-validation=skip", "--throw", "--browser=firefox",
                      chrome_flag)
       # Fail for mixed browsers and chrome flags
-      with self.assertRaises(ArgumentTypeError), mock.patch.object(
-          BrowserConfig,
-          "_get_browser_cls_from_path",
-          side_effect=mock_get_browser_cls_from_path):
+      with self.assertRaises(argparse.ArgumentTypeError), mock.patch.object(
+          BrowserConfig, "_get_browser_cls", side_effect=mock_get_browser_cls):
         self.run_cli("loading", "--urls=http://test.com",
                      "--env-validation=skip", "--throw", "--browser=chrome",
                      "--browser=firefox", chrome_flag)
-      with self.assertRaises(ArgumentTypeError), mock.patch.object(
-          BrowserConfig,
-          "_get_browser_cls_from_path",
-          side_effect=mock_get_browser_cls_from_path):
+      with self.assertRaises(argparse.ArgumentTypeError), mock.patch.object(
+          BrowserConfig, "_get_browser_cls", side_effect=mock_get_browser_cls):
         self.run_cli("loading", "--urls=http://test.com",
                      "--env-validation=skip", "--throw", "--browser=chrome",
                      "--browser=firefox", "--", chrome_flag)
@@ -593,7 +680,7 @@ class TestCLI(BaseCrossbenchTestCase):
           raises=SysExitException)
 
 
-class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
+class TestProbeConfig(fake_filesystem_unittest.TestCase):
   # pylint: disable=expression-not-assigned
 
   def setUp(self):
@@ -608,13 +695,13 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
       return ProbeConfig.load(f)
 
   def test_invalid_empty(self):
-    with self.assertRaises(ArgumentTypeError):
+    with self.assertRaises(argparse.ArgumentTypeError):
       self.parse_config({}).probes
-    with self.assertRaises(ArgumentTypeError):
+    with self.assertRaises(argparse.ArgumentTypeError):
       self.parse_config({"foo": {}}).probes
 
   def test_invalid_names(self):
-    with self.assertRaises(ArgumentTypeError):
+    with self.assertRaises(argparse.ArgumentTypeError):
       self.parse_config({"probes": {"invalid probe name": {}}}).probes
 
   def test_empty(self):
@@ -713,7 +800,7 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
         probe_config=None,
         throw=True,
         wraps=False)
-    with self.assertRaises(ArgumentTypeError) as cm:
+    with self.assertRaises(argparse.ArgumentTypeError) as cm:
       ProbeConfig.from_cli_args(args)
     self.assertIn(str(mock_dir), str(cm.exception))
 
@@ -724,7 +811,7 @@ class TestProbeConfig(pyfakefs.fake_filesystem_unittest.TestCase):
         probe_config=None,
         throw=True,
         wraps=False)
-    with self.assertRaises(ArgumentTypeError) as cm:
+    with self.assertRaises(argparse.ArgumentTypeError) as cm:
       ProbeConfig.from_cli_args(args)
     self.assertIn("does/not/exist/d8", str(cm.exception))
 
@@ -1182,7 +1269,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 
     args = mock.Mock(browser=None, browser_config=config_file)
     with mock.patch.object(
-        BrowserConfig, "_get_browser_cls_from_path", return_value=browser_cls):
+        BrowserConfig, "_get_browser_cls", return_value=browser_cls):
       config = BrowserConfig.from_cli_args(args)
     self.assertEqual(len(config.variants), 1)
     browser = config.variants[0]
@@ -1206,7 +1293,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
         js_flags=None,
         other_browser_args=[])
     with mock.patch.object(
-        BrowserConfig, "_get_browser_cls_from_path", return_value=browser_cls):
+        BrowserConfig, "_get_browser_cls", return_value=browser_cls):
       config = BrowserConfig.from_cli_args(args)
     self.assertEqual(len(config.variants), 1)
     browser = config.variants[0]

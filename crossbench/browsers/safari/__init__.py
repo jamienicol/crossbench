@@ -5,9 +5,11 @@
 from __future__ import annotations
 
 from .safari import Safari
+from .safari_applescript import SafariAppleScript
 from .safari_webdriver import SafariWebDriver
 
 __all__ = [
     "Safari",
+    "SafariAppleScript",
     "SafariWebDriver",
 ]

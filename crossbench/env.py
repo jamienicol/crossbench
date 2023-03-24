@@ -173,6 +173,10 @@ class HostEnvironment:
   def config(self) -> HostEnvironmentConfig:
     return self._config
 
+  @property
+  def validation_mode(self) -> ValidationMode:
+    return self._validation_mode
+
   def _add_min_delay(self, seconds: float) -> None:
     end_time = dt.datetime.now() + dt.timedelta(seconds=seconds)
     if end_time > self._wait_until:

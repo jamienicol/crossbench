@@ -6,4 +6,6 @@ from __future__ import annotations
 
 from .motionmark_1_2 import MotionMark12Benchmark
 
-__all__ = ["MotionMark12Benchmark"]
+__all__ = [
+    "MotionMark12Benchmark",
+]

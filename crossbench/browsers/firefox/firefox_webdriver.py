@@ -20,7 +20,7 @@ from selenium.webdriver.firefox.service import Service as FirefoxService
 from crossbench import exception, helper
 from crossbench.browsers.browser import BROWSERS_CACHE
 from crossbench.browsers.viewport import Viewport
-from crossbench.browsers.webdriver import WebdriverMixin
+from crossbench.browsers.webdriver import WebdriverBrowser
 
 from .firefox import Firefox
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
   from crossbench.runner import Run
 
 
-class FirefoxWebDriver(WebdriverMixin, Firefox):
+class FirefoxWebDriver(WebdriverBrowser, Firefox):
 
   def __init__(self,
                label: str,

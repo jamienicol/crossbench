@@ -14,7 +14,7 @@ from selenium.webdriver.safari.options import Options as SafariOptions
 
 from crossbench import helper
 from crossbench.browsers.viewport import Viewport
-from crossbench.browsers.webdriver import WebdriverMixin
+from crossbench.browsers.webdriver import WebdriverBrowser
 
 from .safari import Safari
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
   from crossbench.runner import Run, Runner
 
 
-class SafariWebDriver(WebdriverMixin, Safari):
+class SafariWebDriver(WebdriverBrowser, Safari):
 
   def __init__(self,
                label: str,
@@ -83,9 +83,6 @@ class SafariWebDriver(WebdriverMixin, Safari):
     assert str(self.major_version) in version, (
         f"safaridriver={self._driver_path} version='{version}' "
         f" doesn't match safari version={self.major_version}")
-
-  def clear_cache(self, runner: Runner) -> None:
-    pass
 
   def quit(self, runner: Runner) -> None:
     super().quit(runner)

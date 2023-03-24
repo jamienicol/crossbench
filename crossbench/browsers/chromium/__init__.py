@@ -5,9 +5,11 @@
 from __future__ import annotations
 
 from .chromium import Chromium
+from .chromium_applescript import ChromiumAppleScript
 from .chromium_webdriver import ChromiumWebDriver
 
 __all__ = [
     "Chromium",
+    "ChromiumAppleScript",
     "ChromiumWebDriver",
 ]

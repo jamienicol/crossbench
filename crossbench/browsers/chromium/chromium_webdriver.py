@@ -20,20 +20,19 @@ from selenium.webdriver.chromium.options import ChromiumOptions
 from selenium.webdriver.chromium.service import ChromiumService
 from selenium.webdriver.chromium.webdriver import ChromiumDriver
 
-from crossbench.browsers.viewport import Viewport
-
-from .chromium import Chromium
-
 from crossbench import exception, helper
 from crossbench.browsers.browser import BROWSERS_CACHE
-from crossbench.browsers.webdriver import WebdriverMixin
+from crossbench.browsers.viewport import Viewport
+from crossbench.browsers.webdriver import WebdriverBrowser
 from crossbench.flags import Flags
+
+from .chromium import Chromium
 
 if TYPE_CHECKING:
   from crossbench.runner import Run
 
 
-class ChromiumWebDriver(WebdriverMixin, Chromium, metaclass=abc.ABCMeta):
+class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
 
   WEB_DRIVER_OPTIONS: Type[ChromiumOptions] = ChromiumOptions
   WEB_DRIVER_SERVICE: Type[ChromiumService] = ChromiumService

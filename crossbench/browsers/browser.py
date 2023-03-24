@@ -12,7 +12,7 @@ import re
 import shutil
 import urllib.parse
 import urllib.request
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set, Tuple
 
 from crossbench import helper
 from crossbench.flags import Flags
@@ -197,6 +197,11 @@ class Browser(abc.ABC):
         runner.wait(run.story.duration / 2)
         self.show_url(runner, "about:blank")
         runner.wait(1)
+
+  def _get_browser_flags(self, run: Run) -> Tuple[str, ...]:
+    flags_copy = self.flags.copy()
+    flags_copy.update(run.extra_flags)
+    return tuple(flags_copy.get_list())
 
   def info_data_url(self, run: Run) -> str:
     page = ("<html><head>"

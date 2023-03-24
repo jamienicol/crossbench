@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime as dt
+from enum import Enum
 import itertools
 import json
 import logging
@@ -137,6 +138,39 @@ class FlagGroupConfig:
           for flag_value in flag_values)
 
 
+class BrowserDriverType(Enum):
+  WEB_DRIVER = "WebDriver"
+  APPLE_SCRIPT = "AppleScript"
+  # TODO: implement additional drivers
+  ANDROID = "Android"
+  IOS = "iOS"
+
+  @classmethod
+  def default(cls) -> BrowserDriverType:
+    return cls.WEB_DRIVER
+
+  @classmethod
+  def parse(cls, value: str) -> Tuple[BrowserDriverType, str]:
+    # Early bail-out for windows-paths "C:/foo/bar" or driver-less inputs.
+    if ":" not in value or pathlib.Path(value).exists():
+      return cls.default(), value
+    # Split inputs like "applescript:/out/x64.release/chrome"
+    driver_name, _, path_or_identifier = value.partition(":")
+    driver_name = driver_name.lower()
+    if driver_name == "":
+      return cls.default(), path_or_identifier
+    if driver_name in ("", "selenium", "webdriver"):
+      return cls.WEB_DRIVER, path_or_identifier
+    if driver_name in ("applescript", "osa"):
+      return cls.APPLE_SCRIPT, path_or_identifier
+    if driver_name == "android":
+      return cls.ANDROID, path_or_identifier
+    if driver_name == "ios":
+      return cls.IOS, path_or_identifier
+
+    raise argparse.ArgumentTypeError(f"Unknown driver type: {driver_name}")
+
+
 class BrowserConfig:
 
   @classmethod
@@ -244,8 +278,9 @@ class BrowserConfig:
     if path_or_identifier in self._browser_lookup_override:
       browser_cls, path = self._browser_lookup_override[path_or_identifier]
     else:
-      path = self._get_browser_path(path_or_identifier)
-      browser_cls = self._get_browser_cls_from_path(path)
+      path, driver_type = self._parse_browser_path_and_driver(
+          path_or_identifier)
+      browser_cls = self._get_browser_cls(path, driver_type)
     if not path.exists():
       raise ConfigFileError(f"browsers['{name}'].path='{path}' does not exist.")
     raw_flags = ()
@@ -335,17 +370,28 @@ class BrowserConfig:
     assert flags_variants
     return flags_variants
 
-  def _get_browser_cls_from_path(self, path: pathlib.Path) -> Type[Browser]:
+  def _get_browser_cls(self, path: pathlib.Path,
+                       driver: BrowserDriverType) -> Type[Browser]:
     path_str = str(path).lower()
     if "safari" in path_str:
-      return browsers.SafariWebDriver
+      if driver == BrowserDriverType.WEB_DRIVER:
+        return browsers.SafariWebDriver
+      if driver == BrowserDriverType.APPLE_SCRIPT:
+        return browsers.SafariAppleScript
     if "chrome" in path_str:
-      return browsers.ChromeWebDriver
+      if driver == BrowserDriverType.WEB_DRIVER:
+        return browsers.ChromeWebDriver
+      if driver == BrowserDriverType.APPLE_SCRIPT:
+        return browsers.ChromeAppleScript
     if "chromium" in path_str:
       # TODO: technically this should be ChromiumWebDriver
-      return browsers.ChromeWebDriver
+      if driver == BrowserDriverType.WEB_DRIVER:
+        return browsers.ChromeWebDriver
+      if driver == BrowserDriverType.APPLE_SCRIPT:
+        return browsers.ChromeAppleScript
     if "firefox" in path_str:
-      return browsers.FirefoxWebDriver
+      if driver == BrowserDriverType.WEB_DRIVER:
+        return browsers.FirefoxWebDriver
     if "edge" in path_str:
       return browsers.EdgeWebDriver
     raise argparse.ArgumentTypeError(f"Unsupported browser='{path}'")
@@ -397,8 +443,8 @@ class BrowserConfig:
 
   def _append_browser(self, args: argparse.Namespace, browser: str) -> None:
     assert browser, "Expected non-empty browser name"
-    path = self._get_browser_path(browser)
-    browser_cls = self._get_browser_cls_from_path(path)
+    path, driver_type = self._parse_browser_path_and_driver(browser)
+    browser_cls = self._get_browser_cls(path, driver_type)
     flags = browser_cls.default_flags()
 
     if issubclass(browser_cls, browsers.Chromium):
@@ -432,49 +478,51 @@ class BrowserConfig:
         js_flag_name, js_flag_value = Flags.split(js_flag.lstrip())
         flags.js_flags.set(js_flag_name, js_flag_value)
 
-  def _get_browser_path(self, path_or_identifier: str) -> pathlib.Path:
-    identifier = path_or_identifier.lower()
+  def _parse_browser_path_and_driver(
+      self, value: str) -> Tuple[pathlib.Path, BrowserDriverType]:
+    driver, maybe_path_or_identifier = BrowserDriverType.parse(value)
+    identifier = maybe_path_or_identifier.lower()
     # We're not using a dict-based lookup here, since not all browsers are
     # available on all platforms
     if identifier in ("chrome", "chrome-stable", "chr-stable"):
-      return browsers.Chrome.stable_path()
+      return browsers.Chrome.stable_path(), driver
     if identifier in ("chrome-beta", "chr-beta"):
-      return browsers.Chrome.beta_path()
+      return browsers.Chrome.beta_path(), driver
     if identifier in ("chrome-dev", "chr-dev"):
-      return browsers.Chrome.dev_path()
+      return browsers.Chrome.dev_path(), driver
     if identifier in ("chrome-canary", "chr-canary"):
-      return browsers.Chrome.canary_path()
+      return browsers.Chrome.canary_path(), driver
     if identifier in ("edge", "edge-stable"):
-      return browsers.Edge.stable_path()
+      return browsers.Edge.stable_path(), driver
     if identifier == "edge-beta":
-      return browsers.Edge.beta_path()
+      return browsers.Edge.beta_path(), driver
     if identifier == "edge-dev":
-      return browsers.Edge.dev_path()
+      return browsers.Edge.dev_path(), driver
     if identifier == "edge-canary":
-      return browsers.Edge.canary_path()
+      return browsers.Edge.canary_path(), driver
     if identifier in ("safari", "sf"):
-      return browsers.Safari.default_path()
+      return browsers.Safari.default_path(), driver
     if identifier in ("safari-technology-preview", "safari-tp", "sf-tp", "tp"):
-      return browsers.Safari.technology_preview_path()
+      return browsers.Safari.technology_preview_path(), driver
     if identifier in ("firefox", "ff"):
-      return browsers.Firefox.default_path()
+      return browsers.Firefox.default_path(), driver
     if identifier in ("firefox-dev", "firefox-developer-edition", "ff-dev"):
-      return browsers.Firefox.developer_edition_path()
+      return browsers.Firefox.developer_edition_path(), driver
     if identifier in ("firefox-nightly", "ff-nightly", "ff-trunk"):
-      return browsers.Firefox.nightly_path()
+      return browsers.Firefox.nightly_path(), driver
     platform = helper.platform
-    if ChromeDownloader.is_valid(path_or_identifier, platform):
-      return ChromeDownloader.load(path_or_identifier, platform)
-    path = pathlib.Path(path_or_identifier)
+    if ChromeDownloader.is_valid(value, platform):
+      return ChromeDownloader.load(value, platform), driver
+    path = pathlib.Path(maybe_path_or_identifier)
     if path.exists():
-      return path
+      return path, driver
     path = path.expanduser()
     if path.exists():
-      return path
+      return path, driver
     if len(path.parts) > 1:
       raise argparse.ArgumentTypeError(f"Browser at '{path}' does not exist.")
     raise argparse.ArgumentTypeError(
-        f"Unknown browser path or short name: '{path_or_identifier}'")
+        f"Unknown browser path or short name: '{value}'")
 
 
 class ProbeConfigError(argparse.ArgumentTypeError):

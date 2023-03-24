@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import pathlib
 from typing import TYPE_CHECKING, Optional, Tuple
 
@@ -43,56 +44,15 @@ class Safari(Browser):
         f"~/Library/Containers/com.apple.{self.bundle_name}/Data/Library/Caches"
     ).expanduser()
 
-  def _get_browser_flags(self, run: Run) -> Tuple[str, ...]:
-    flags_copy = self.flags.copy()
-    flags_copy.update(run.extra_flags)
-    return tuple(flags_copy.get_list())
+  def clear_cache(self, runner: Runner) -> None:
+    logging.info("CLEAR CACHE: %s", self)
+    self.platform.exec_apple_script(f"""
+      tell application "{self.app_path}" to activate
+      tell application "System Events"
+          keystroke "e" using {{command down, option down}}
+      end tell""")
 
   def _extract_version(self) -> str:
     assert self.path
     app_path = self.path.parents[2]
     return self.platform.app_version(app_path)
-
-  def start(self, run: Run) -> None:
-    assert self.platform.is_macos
-    assert not self._is_running
-    self.platform.exec_apple_script(f"""
-tell application "{self.app_name}"
-  activate
-end tell
-    """)
-    self.platform.sleep(1)
-    self.platform.exec_apple_script(f"""
-tell application "{self.app_name}"
-  tell application "System Events"
-      to click menu item "New Private Window"
-      of menu "File" of menu bar 1
-      of process '{self.bundle_name}'
-      if {self.viewport.is_fullscreen} then
-        keystroke "f" using {{command down, control down}}
-      end if
-  set URL of current tab of front window to ''
-  if {not self.viewport.is_fullscreen} then
-    set the bounds of the first window
-        to {{{self.viewport.x},{self.viewport.y},{self.viewport.width},{self.viewport.height}}}
-  end if
-  tell application "System Events"
-      to keystroke "e" using {{command down, option down}}
-  tell application "System Events"
-      to click menu item 1 of menu 2 of menu bar 1
-      of process '{self.bundle_name}'
-  tell application "System Events"
-      to set position of window 1
-      of process '{self.bundle_name}' to {400, 400}
-end tell
-    """)
-    self.platform.sleep(2)
-    self._is_running = True
-
-  def show_url(self, runner: Runner, url: str) -> None:
-    self.platform.exec_apple_script(f"""
-tell application "{self.app_name}"
-    activate
-    set URL of current tab of front window to '{url}'
-end tell
-    """)

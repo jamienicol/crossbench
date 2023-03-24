@@ -325,7 +325,7 @@ class Platform(abc.ABC):
       raise SubprocessError(process)
     return process
 
-  def exec_apple_script(self, script: str, quiet: bool = False):
+  def exec_apple_script(self, script: str):
     raise NotImplementedError("AppleScript is only available on MacOS")
 
   def log(self, *messages: Any, level: int = 2) -> None:
@@ -582,12 +582,12 @@ class MacOSPlatform(PosixPlatform):
         logging.debug("Could not use --version: %s", e)
     raise ValueError(f"Could not extract app version: {app_path}")
 
-  def exec_apple_script(self,
-                        script: str,
-                        quiet: bool = False) -> subprocess.CompletedProcess:
-    if not quiet:
-      logging.debug("AppleScript: %s", script)
-    return self.sh("/usr/bin/osascript", "-e", script)
+  def exec_apple_script(self, script: str, *args: str) -> str:
+    if args:
+      script = f"""on run argv
+        {script.strip()}
+      end run"""
+    return self.sh_stdout("/usr/bin/osascript", "-e", script, *args)
 
   def foreground_process(self) -> Optional[Dict[str, Any]]:
     foreground_process_info = self.sh_stdout("lsappinfo", "front").strip()
