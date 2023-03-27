@@ -94,6 +94,10 @@ class Chromium(Browser):
     return self.log_file.with_suffix(f".{self.type}.log")
 
   @property
+  def flags(self) -> ChromeFlags:
+    return self._flags
+
+  @property
   def js_flags(self) -> JSFlags:
     return self._flags.js_flags
 

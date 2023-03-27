@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import enum
 import unittest
 
 from crossbench.probes import Probe, ProbeConfigParser
@@ -175,6 +176,53 @@ class ProbeConfigTestCase(unittest.TestCase):
       config_data = {"custom": data}
       kwargs = parser.kwargs_from_config(config_data)
       self.assertIs(kwargs["custom"], data)
+
+  def test_no_type_choices(self):
+    parser = ProbeConfigParser(MockProbe)
+    with self.assertRaises(ValueError):
+      parser.add_argument("unused", type=None, choices=[1, 1, 1])
+    with self.assertRaises(AssertionError):
+      parser.add_argument("unused", type=None, choices=[])
+    parser.add_argument("choice", type=None, choices=["a", "b"])
+    with self.assertRaises(ValueError):
+      parser.kwargs_from_config({"choice": ""})
+    with self.assertRaises(ValueError):
+      parser.kwargs_from_config({"choice": "unknown"})
+    kwargs = parser.kwargs_from_config({"choice": "a"})
+    self.assertIs(kwargs["choice"], "a")
+    kwargs = parser.kwargs_from_config({"choice": "b"})
+    self.assertIs(kwargs["choice"], "b")
+
+  def test_enum_type(self):
+
+    class MyEnum(enum.Enum):
+      ONE = "one"
+      TWO = "two"
+
+    parser = ProbeConfigParser(MockProbe)
+    with self.assertRaises(AssertionError):
+      parser.add_argument("unused", type=MyEnum, choices=["ONE", "TWO"])
+    with self.assertRaises(AssertionError):
+      parser.add_argument("unused", type=MyEnum, choices=["one"])
+    parser.add_argument("my-enum-one", type=MyEnum, choices=[MyEnum.ONE])
+    with self.assertRaises(ValueError):
+      parser.kwargs_from_config({"my-enum-one": ""})
+    with self.assertRaises(ValueError):
+      parser.kwargs_from_config({"my-enum-one": "two"})
+    kwargs = parser.kwargs_from_config({"my-enum-one": "one"})
+    self.assertIs(kwargs["my-enum-one"], MyEnum.ONE)
+
+    parser.add_argument("my-enum", type=MyEnum)
+    kwargs = parser.kwargs_from_config({"my-enum": "one"})
+    self.assertIs(kwargs["my-enum"], MyEnum.ONE)
+    kwargs = parser.kwargs_from_config({"my-enum": "two"})
+    self.assertIs(kwargs["my-enum"], MyEnum.TWO)
+    with self.assertRaises(ValueError):
+      parser.kwargs_from_config({"my-enum": ""})
+    with self.assertRaises(ValueError):
+      parser.kwargs_from_config({"my-enum": "three"})
+    with self.assertRaises(ValueError):
+      parser.kwargs_from_config({"my-enum": "TWO"})
 
 
 if __name__ == "__main__":

@@ -134,7 +134,7 @@ class ProfilingProbe(Probe):
     if self.run_pprof:
       self._run_pprof = self.browser_platform.which("gcert") is not None
       if not self.run_pprof:
-        logging.warn(
+        logging.warning(
             "Disabled automatic pprof uploading for non-googler machine.")
     if self.browser_platform.is_linux:
       env.check_installed(binaries=["pprof"])
