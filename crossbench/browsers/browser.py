@@ -53,10 +53,10 @@ class Browser(abc.ABC):
     self.type: str = type
     self.label: str = label
     self._unique_name: str = ""
-    self.path: Optional[pathlib.Path] = path
     self.app_name: str = type
     self.version: str = "custom"
     self.major_version: int = 0
+    self.app_path: pathlib.Path = pathlib.Path()
     if path:
       self.path = self._resolve_binary(path)
       assert self.path.is_absolute()
@@ -64,6 +64,9 @@ class Browser(abc.ABC):
       self.major_version = int(self.version.split(".")[0])
       self.unique_name = f"{self.type}_v{self.major_version}_{self.label}"
     else:
+      # TODO: separate out remote browser (selenium) without an explicit binary
+      # path.
+      self.path: pathlib.Path = pathlib.Path()
       self.unique_name = f"{self.type}_{self.label}".lower()
     self._viewport = viewport
     self._is_running: bool = False
