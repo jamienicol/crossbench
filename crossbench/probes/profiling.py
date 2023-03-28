@@ -41,7 +41,6 @@ class ProfilingProbe(Probe):
 
   JS_FLAGS_PERF = (
       "--perf-prof",
-      "--no-write-protect-code-memory",
   )
   _INTERPRETED_FRAMES_FLAG = "--interpreted-frames-native-stack"
   IS_GENERAL_PURPOSE = True
