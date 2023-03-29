@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import abc
+import collections.abc
 import ctypes
 import datetime as dt
 import json
@@ -145,6 +146,31 @@ def get_file_size(file: pathlib.Path, digits: int = 2) -> str:
   return f"{size:.{digits}f} {SIZE_UNITS[unit_index]}"
 
 
+class Environ(collections.abc.MutableMapping, metaclass=abc.ABCMeta):
+  pass
+
+
+class LocalEnviron(Environ):
+
+  def __init__(self) -> None:
+    self._environ = os.environ
+
+  def __getitem__(self, key: str) -> str:
+    return self._environ.__getitem__(key)
+
+  def __setitem__(self, key: str, item: str) -> None:
+    self._environ.__setitem__(key, item)
+
+  def __delitem__(self, key: str) -> None:
+    self._environ.__delitem__(key)
+
+  def __iter__(self) -> Iterator[str]:
+    return self._environ.__iter__()
+
+  def __len__(self) -> int:
+    return self._environ.__len__()
+
+
 class Platform(abc.ABC):
 
   @property
@@ -187,6 +213,11 @@ class Platform(abc.ABC):
   @property
   def is_win(self) -> bool:
     return False
+
+  @property
+  def environ(self) -> Environ:
+    assert not self.is_remote, "Not implemented yet on remote"
+    return LocalEnviron()
 
   @property
   def is_battery_powered(self) -> bool:

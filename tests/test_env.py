@@ -224,10 +224,10 @@ class HostEnvironmentTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     mock_browser = mock.Mock()
     self.mock_runner.browsers = [mock_browser]
 
-    mock_browser.is_headless = False
+    mock_browser.viewport.is_headless = False
     env.validate()
 
-    mock_browser.is_headless = True
+    mock_browser.viewport.is_headless = True
     env.validate()
 
   def test_request_is_headless_true(self):
@@ -239,7 +239,7 @@ class HostEnvironmentTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     self.mock_runner.browsers = [mock_browser]
 
     self.mock_platform.has_display = True
-    mock_browser.is_headless = False
+    mock_browser.viewport.is_headless = False
     with self.assertRaises(cb.env.ValidationError) as cm:
       env.validate()
     self.assertIn("is_headless", str(cm.exception))
@@ -249,7 +249,7 @@ class HostEnvironmentTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
       env.validate()
 
     self.mock_platform.has_display = True
-    mock_browser.is_headless = True
+    mock_browser.viewport.is_headless = True
     env.validate()
 
     self.mock_platform.has_display = False
@@ -264,7 +264,7 @@ class HostEnvironmentTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
     self.mock_runner.browsers = [mock_browser]
 
     self.mock_platform.has_display = True
-    mock_browser.is_headless = False
+    mock_browser.viewport.is_headless = False
     env.validate()
 
     self.mock_platform.has_display = False
@@ -272,7 +272,7 @@ class HostEnvironmentTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
       env.validate()
 
     self.mock_platform.has_display = True
-    mock_browser.is_headless = True
+    mock_browser.viewport.is_headless = True
     with self.assertRaises(cb.env.ValidationError) as cm:
       env.validate()
     self.assertIn("is_headless", str(cm.exception))

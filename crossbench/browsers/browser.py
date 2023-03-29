@@ -251,10 +251,10 @@ class Browser(abc.ABC):
       self._pid = None
 
   def force_quit(self) -> None:
-    logging.info("QUIT")
+    logging.info("Browser.force_quit()")
     if self.platform.is_macos:
       self.platform.exec_apple_script(f"""
-  tell application "{self.app_name}"
+  tell application "{self.app_path}"
     quit
   end tell
       """)

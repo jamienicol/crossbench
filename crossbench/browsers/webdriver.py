@@ -48,9 +48,6 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
     pass
 
   def start(self, run: Run) -> None:
-    assert not self._is_running
-    assert self._driver_path
-    assert self._driver_path.is_absolute()
     self._check_driver_version()
     self._driver = self._start_driver(run, self._driver_path)
     if hasattr(self._driver, "service"):
@@ -93,7 +90,7 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
     return details
 
   def show_url(self, runner: Runner, url: str) -> None:
-    logging.debug("SHOW_URL %s", url)
+    logging.debug("WebdriverBrowser.show_url(%s)", url)
     assert self._driver.window_handles, "Browser has no more opened windows."
     self._driver.switch_to.window(self._driver.window_handles[0])
     try:
@@ -110,7 +107,8 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
          script: str,
          timeout: Optional[dt.timedelta] = None,
          arguments: Sequence[object] = ()) -> Any:
-    logging.debug("RUN SCRIPT timeout=%s, script: %s", timeout, script)
+    logging.debug("WebdriverBrowser.js() timeout=%s, script: %s", timeout,
+                  script)
     assert self._is_running
     try:
       if timeout is not None:
@@ -129,7 +127,7 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
   def force_quit(self) -> None:
     if getattr(self, "_driver", None) is None:
       return
-    logging.debug("QUIT")
+    logging.debug("WebdriverBrowser.force_quit()")
     try:
       try:
         # Close the current window.

@@ -370,6 +370,7 @@ class HostEnvironment:
                           "but got {brightness}%")
 
   def _check_headless(self) -> None:
+    # TODO: migrate to full viewport support
     requested_headless = self._config.browser_is_headless
     if requested_headless is HostEnvironmentConfig.IGNORE:
       return
@@ -380,11 +381,11 @@ class HostEnvironment:
                             "but no DISPLAY is available to run with a UI.")
     # Check that browsers are running in the requested display mode:
     for browser in self._runner.browsers:
-      if browser.is_headless != requested_headless:
+      if browser.viewport.is_headless != requested_headless:
         self.handle_warning(
             f"Requested browser_is_headless={requested_headless},"
             f"but browser {browser.unique_name} has conflicting "
-            f"headless={browser.is_headless}.")
+            f"headless={browser.viewport.is_headless}.")
 
   def _check_probes(self) -> None:
     for probe in self._runner.probes:
@@ -414,6 +415,17 @@ class HostEnvironment:
     else:
       logging.warning(message)
 
+  def _check_macos_terminal(self) -> None:
+    if not self._platform.is_macos or (
+        self._platform.environ.get("TERM_PROGRAM") != "Apple_Terminal"):
+      return
+    any_not_headless = any(
+        not browser.viewport.is_headless for browser in self._runner.browsers)
+    if any_not_headless:
+      self.handle_warning(
+          "Terminal.app does not launch apps in the foreground.\n"
+          "Please use iTerm.app for a better experience.")
+
   def setup(self) -> None:
     self.validate()
 
@@ -441,6 +453,7 @@ class HostEnvironment:
     self._wait_min_time()
     self._check_forbidden_system_process()
     self._check_screen_autobrightness()
+    self._check_macos_terminal()
 
   def check_installed(self,
                       binaries: Iterable[str],

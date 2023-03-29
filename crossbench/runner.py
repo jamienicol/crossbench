@@ -908,7 +908,7 @@ class Actions(helper.TimeScope):
     self._exception_annotation.__enter__()
     super().__enter__()
     self._is_active = True
-    logging.debug("ACTION START %s", self._message)
+    logging.debug("Action begin: %s", self._message)
     if self._verbose:
       logging.info(self._message)
     else:
@@ -919,7 +919,7 @@ class Actions(helper.TimeScope):
   def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
     self._is_active = False
     self._exception_annotation.__exit__(exc_type, exc_value, exc_traceback)
-    logging.debug("ACTION END %s", self._message)
+    logging.debug("Action end: %s", self._message)
     super().__exit__(exc_type, exc_value, exc_traceback)
 
   def _assert_is_active(self) -> None:
