@@ -124,8 +124,8 @@ class ChromeDriverFinder:
     # assume it's a local build
     self.driver_path = self.browser.app_path.parent / "chromedriver"
     if not self.driver_path.exists():
-      raise Exception(f"Driver '{self.driver_path}' does not exist. "
-                      "Please build 'chromedriver' manually for local builds.")
+      raise ValueError(f"Driver '{self.driver_path}' does not exist. "
+                       "Please build 'chromedriver' manually for local builds.")
     return self.driver_path
 
   def download(self) -> pathlib.Path:

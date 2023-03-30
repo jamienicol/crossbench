@@ -94,6 +94,7 @@ class ChromeDownloader(abc.ABC):
       cached_version = self._validate_cached()
       logging.info("CACHED BROWSER: %s %s", cached_version, self._app_path)
       return
+    self._version_check()
     self._archive_path = self._archive_dir / (
         f"{self._requested_version_str}{self.ARCHIVE_SUFFIX}")
     if not self._archive_path.exists():
@@ -108,6 +109,14 @@ class ChromeDownloader(abc.ABC):
     self._extract_archive(self._archive_path)
     if not self._requested_exact_version:
       self._archive_path.unlink()
+
+  def _version_check(self) -> None:
+    major_version: int = self._requested_version[0]
+    if self._platform.is_macos and self._platform.is_arm64 and (major_version <
+                                                                87):
+      raise ValueError(
+          "Native Mac arm64/m1 chrome version is available with M87, "
+          f"but requested M{major_version}.")
 
   def _load_from_archive(self) -> None:
     assert not self._requested_exact_version
