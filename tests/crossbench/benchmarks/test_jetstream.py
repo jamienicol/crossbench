@@ -8,7 +8,7 @@ import pytest
 
 from crossbench.benchmarks.jetstream import jetstream_2_0
 from crossbench.benchmarks.jetstream import jetstream_2_1
-from tests.benchmarks import jetstream_helper
+from tests.crossbench.benchmarks import jetstream_helper
 
 
 class JetStream20TestCase(jetstream_helper.JetStream2BaseTestCase):

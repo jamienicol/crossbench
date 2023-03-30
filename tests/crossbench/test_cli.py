@@ -25,8 +25,8 @@ from crossbench.cli import (BrowserConfig, BrowserDriverType, ConfigFileError,
 from crossbench.probes.power_sampler import PowerSamplerProbe
 from crossbench.probes.v8.log import V8LogProbe
 from crossbench.runner import Runner
-from tests import mock_browser
-from tests.mock_helper import BaseCrossbenchTestCase, MockCLI
+from tests.crossbench import mock_browser
+from tests.crossbench.mock_helper import BaseCrossbenchTestCase, MockCLI
 
 
 class SysExitException(Exception):
@@ -748,10 +748,7 @@ class TestProbeConfig(fake_filesystem_unittest.TestCase):
     mock_d8_file = pathlib.Path("out/d8")
     self.fs.create_file(mock_d8_file)
     config_data = {"d8_binary": str(mock_d8_file)}
-    args = mock.Mock(
-        probe_config=None,
-        throw=True,
-        wraps=False)
+    args = mock.Mock(probe_config=None, throw=True, wraps=False)
 
     args.probe = [
         f"v8.log{hjson.dumps(config_data)}",
@@ -844,8 +841,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
 
   def setUp(self):
     super().setUp()
-    self.browser_lookup: Dict[
-        str, Tuple[Type[mock_browser.MockBrowser], pathlib.Path]] = {
+    self.browser_lookup: Dict[str, Tuple[
+        Type[mock_browser.MockBrowser], pathlib.Path]] = {
             "chr-stable": (mock_browser.MockChromeStable,
                            mock_browser.MockChromeStable.APP_PATH),
             "chr-dev": (mock_browser.MockChromeDev,

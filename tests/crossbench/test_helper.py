@@ -332,6 +332,7 @@ class WinxPlatformUnittest(unittest.TestCase):
     self.assertTrue(self.platform.is_win)
     self.assertFalse(self.platform.is_remote)
 
+
 @unittest.skipIf(not helper.platform.is_posix, "Incompatible platform")
 class PosixPlatformUnittest(unittest.TestCase):
 

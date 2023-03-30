@@ -9,7 +9,7 @@ import pytest
 from crossbench.benchmarks.speedometer import speedometer_2_0
 from crossbench.benchmarks.speedometer import speedometer_2_1
 from crossbench.benchmarks.speedometer import speedometer_3_0
-from tests.benchmarks import speedometer_helper
+from tests.crossbench.benchmarks import speedometer_helper
 
 
 class Speedometer20TestCase(speedometer_helper.SpeedometerBaseTestCase):

@@ -10,9 +10,8 @@ Any breaking changes in the function definitions here need to be coordinated
 with corresponding changes in CBB in google3
 """
 
-import os
 import pathlib
-from typing import List, Optional, Type
+from typing import List, Optional, Type, Union
 
 import crossbench.benchmarks.all as benchmarks
 from crossbench.benchmarks.benchmark import PressBenchmark
@@ -27,6 +26,7 @@ from crossbench.stories import PressBenchmarkStory
 press_benchmarks = [
     benchmarks.Speedometer20Benchmark,
     benchmarks.Speedometer21Benchmark,
+    benchmarks.Speedometer30Benchmark,
     benchmarks.MotionMark12Benchmark,
     benchmarks.JetStream20Benchmark,
     benchmarks.JetStream21Benchmark,
@@ -74,14 +74,14 @@ def create_remote_webdriver(driver: webdriver.Remote
     driver: Remote web driver instance.
   """
 
-  browser = cb_webdriver.RemoteWebDriver('default', driver)
-  browser.version = driver.capabilities['browserVersion']
+  browser = cb_webdriver.RemoteWebDriver("default", driver)
+  browser.version = driver.capabilities["browserVersion"]
   return browser
 
 
 def get_probe_result_file(benchmark_name: str,
                           browser: crossbench.browsers.browser.Browser,
-                          output_dir: str,
+                          output_dir: Union[str, pathlib.Path],
                           probe_name: Optional[str] = None) -> Optional[str]:
   """Returns the path to the probe result file.
 
@@ -91,19 +91,19 @@ def get_probe_result_file(benchmark_name: str,
     output_dir: Path to the directory where the output of the benchmark execution was written.
     probe_name: Optional name of the probe for the result file. If not specified, the first
                 probe from the default benchmark story will be used."""
-
-  if probe_name == None:
-    if benchmark_name in press_benchmarks_dict:
-      benchmark_cls = press_benchmarks_dict[benchmark_name]
-      probe_cls = benchmark_cls.DEFAULT_STORY_CLS.PROBES[0]
-      probe_name = probe_cls.NAME
-    else:
+  output_dir_path = pathlib.Path(output_dir)
+  if probe_name is None:
+    if benchmark_name not in press_benchmarks_dict:
       return None
+    benchmark_cls = press_benchmarks_dict[benchmark_name]
+    probe_cls = benchmark_cls.DEFAULT_STORY_CLS.PROBES[0]
+    probe_name = probe_cls.NAME
 
-  return os.path.join(output_dir, browser.unique_name, f'{probe_name}.json')
+  result_file = output_dir_path / browser.unique_name / f"{probe_name}.json"
+  return str(result_file)
 
 
-def run_benchmark(output_folder: str,
+def run_benchmark(output_folder: Union[str, pathlib.Path],
                   browser_list: List[crossbench.browsers.browser.Browser],
                   benchmark: PressBenchmark) -> None:
   """Runs the benchmark using crossbench runner.

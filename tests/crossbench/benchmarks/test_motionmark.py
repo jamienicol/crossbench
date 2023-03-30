@@ -14,7 +14,7 @@ from crossbench.benchmarks.motionmark.motionmark_1_2 import (
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.runner import Runner
-from tests.benchmarks import helper
+from tests.crossbench.benchmarks import helper
 
 
 class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
@@ -28,8 +28,10 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
           "MotionMark": {
               "Multiply": {
                   "complexity": {
-                      "complexity": 1169.7666313745012,
-                      "stdev": 2.6693101402239985,
+                      "complexity":
+                          1169.7666313745012,
+                      "stdev":
+                          2.6693101402239985,
                       "bootstrap": {
                           "confidenceLow": 1154.0859381321234,
                           "confidenceHigh": 1210.464520355893,

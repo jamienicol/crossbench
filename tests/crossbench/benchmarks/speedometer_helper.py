@@ -15,7 +15,7 @@ from crossbench.benchmarks.speedometer.speedometer import (SpeedometerBenchmark,
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.runner import Runner
-from tests.benchmarks import helper
+from tests.crossbench.benchmarks import helper
 
 
 class SpeedometerBaseTestCase(

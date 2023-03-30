@@ -6,8 +6,7 @@ import abc
 from typing import List, Sequence, Type
 
 from crossbench.benchmarks import benchmark
-from tests.mock_helper import BaseCrossbenchTestCase
-
+from tests.crossbench.mock_helper import BaseCrossbenchTestCase
 
 
 class BaseBenchmarkTestCase(BaseCrossbenchTestCase, metaclass=abc.ABCMeta):

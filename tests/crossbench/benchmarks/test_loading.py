@@ -22,7 +22,7 @@ import crossbench
 import crossbench.env
 import crossbench.runner
 from crossbench.benchmarks import loading
-from tests.benchmarks import helper
+from tests.crossbench.benchmarks import helper
 
 #TODO: fix imports
 cb = crossbench
