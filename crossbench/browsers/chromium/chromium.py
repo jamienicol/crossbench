@@ -66,6 +66,7 @@ class Chromium(Browser):
     self._flags: ChromeFlags = self.default_flags(self.DEFAULT_FLAGS)
     self._flags.update(flags)
     self.js_flags.update(js_flags)
+    self._maybe_disable_gpu_compositing()
     if cache_dir is None:
       cache_dir = self._flags.get("--user-data-dir")
     if cache_dir is None:
@@ -77,6 +78,15 @@ class Chromium(Browser):
       self.cache_dir = cache_dir
       self.clear_cache_dir = False
     self._stdout_log_file = None
+
+  def _maybe_disable_gpu_compositing(self) -> None:
+    # Chrome Remote Desktop provide no GPU and older chrome versions
+    # don't handle this well.
+    if self.major_version > 92 or ("CHROME_REMOTE_DESKTOP_SESSION"
+                                   not in self.platform.environ):
+      return
+    self.flags.set("--disable-gpu-compositing")
+    self.flags.set("--no-sandbox")
 
   def _extract_version(self) -> str:
     assert self.path

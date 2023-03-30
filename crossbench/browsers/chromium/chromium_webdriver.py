@@ -14,7 +14,7 @@ import stat
 import tempfile
 import urllib.error
 import zipfile
-from typing import TYPE_CHECKING, Final, List, Optional, Type
+from typing import TYPE_CHECKING, Final, List, Optional, Tuple, Type
 
 from selenium.webdriver.chromium.options import ChromiumOptions
 from selenium.webdriver.chromium.service import ChromiumService
@@ -140,8 +140,49 @@ class ChromeDriverFinder:
     major_version = self.browser.major_version
     logging.info("CHROMEDRIVER Downloading from %s for %s v%s", self.URL,
                  self.browser.type, major_version)
-    driver_version = None
-    listing_url = None
+    listing_url, url = self._find_stable_url(major_version)
+    if not url:
+      url = self._find_canary_url()
+
+    assert url is not None, (
+        "Please manually compile/download chromedriver for "
+        f"{self.browser.type} {self.browser.version}")
+
+    logging.info("CHROMEDRIVER Downloading for version %s: %s", major_version,
+                 listing_url or url)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      if ".zip" not in url:
+        maybe_driver = pathlib.Path(tmp_dir) / "chromedriver"
+        self.platform.download_to(url, maybe_driver)
+      else:
+        zip_file = pathlib.Path(tmp_dir) / "download.zip"
+        self.platform.download_to(url, zip_file)
+        with zipfile.ZipFile(zip_file, "r") as zip_ref:
+          zip_ref.extractall(zip_file.parent)
+        zip_file.unlink()
+        maybe_driver = None
+        candidates: List[pathlib.Path] = [
+            path for path in zip_file.parent.glob("**/*")
+            if path.is_file() and "chromedriver" in path.name
+        ]
+        # Find exact match first:
+        maybe_drivers: List[pathlib.Path] = [
+            path for path in candidates if path.stem == "chromedriver"
+        ]
+        # Backup less strict matching:
+        maybe_drivers += candidates
+        if len(maybe_drivers) > 0:
+          maybe_driver = maybe_drivers[0]
+      assert maybe_driver and maybe_driver.is_file(), (
+          f"Extracted driver at {maybe_driver} does not exist.")
+      BROWSERS_CACHE.mkdir(parents=True, exist_ok=True)
+      maybe_driver.rename(self.driver_path)
+      self.driver_path.chmod(self.driver_path.stat().st_mode | stat.S_IEXEC)
+
+  def _find_stable_url(
+      self, major_version: int) -> Tuple[Optional[str], Optional[str]]:
+    driver_version: Optional[str] = None
+    listing_url: Optional[str] = None
     if major_version <= 69:
       with helper.urlopen(f"{self.URL}/2.46/notes.txt") as response:
         lines = response.read().decode("utf-8").split("\n")
@@ -164,101 +205,86 @@ class ChromeDriverFinder:
       except urllib.error.HTTPError as e:
         if e.code != 404:
           raise
-    if driver_version is not None:
-      if self.platform.is_linux:
-        arch_suffix = "linux64"
-      elif self.platform.is_macos:
-        arch_suffix = "mac64"
-        if self.platform.is_arm64:
-          # The uploaded chromedriver archives changed the naming scheme after
-          # chrome version 106.0.5249.21 for Arm64 (previously m1):
-          #   before: chromedriver_mac64_m1.zip
-          #   after:  chromedriver_mac_arm64.zip
-          last_old_naming_version = (106, 0, 5249, 21)
-          version_tuple = tuple(map(int, driver_version.split(".")))
-          if version_tuple <= last_old_naming_version:
-            arch_suffix = "mac64_m1"
-          else:
-            arch_suffix = "mac_arm64"
-      elif self.platform.is_win:
-        arch_suffix = "win32"
+    if not driver_version:
+      return listing_url, None
+
+    if self.platform.is_linux:
+      arch_suffix = "linux64"
+    elif self.platform.is_macos:
+      arch_suffix = "mac64"
+      if self.platform.is_arm64:
+        # The uploaded chromedriver archives changed the naming scheme after
+        # chrome version 106.0.5249.21 for Arm64 (previously m1):
+        #   before: chromedriver_mac64_m1.zip
+        #   after:  chromedriver_mac_arm64.zip
+        last_old_naming_version = (106, 0, 5249, 21)
+        version_tuple = tuple(map(int, driver_version.split(".")))
+        if version_tuple <= last_old_naming_version:
+          arch_suffix = "mac64_m1"
+        else:
+          arch_suffix = "mac_arm64"
+    elif self.platform.is_win:
+      arch_suffix = "win32"
+    else:
+      raise NotImplementedError("Unsupported chromedriver platform")
+    url = (f"{self.URL}/{driver_version}/" f"chromedriver_{arch_suffix}.zip")
+    return listing_url, url
+
+  def _find_canary_url(self) -> Optional[str]:
+    logging.debug("Try downloading the chromedriver canary version")
+    # Lookup the branch name
+    url = f"{self.OMAHA_PROXY_URL}?version={self.browser.version}"
+    with helper.urlopen(url) as response:
+      version_info = json.loads(response.read().decode("utf-8"))
+      assert version_info["chromium_version"] == self.browser.version
+      chromium_base_position = int(version_info["chromium_base_position"])
+    # Use prefixes to limit listing results and increase chances of finding
+    # a matching version
+    platform_name = "Linux"
+    cpu_suffix = ""
+    if self.platform.is_macos:
+      platform_name = "Mac"
+      if self.platform.is_arm64:
+        cpu_suffix = "_Arm"
+    else:
+      if self.platform.is_win:
+        platform_name = "Win"
+      if self.platform.is_x64:
+        cpu_suffix = "_x64"
       else:
         raise NotImplementedError("Unsupported chromedriver platform")
-      url = (f"{self.URL}/{driver_version}/" f"chromedriver_{arch_suffix}.zip")
-    else:
-      # Try downloading the canary version
-      # Lookup the branch name
-      url = f"{self.OMAHA_PROXY_URL}?version={self.browser.version}"
-      with helper.urlopen(url) as response:
-        version_info = json.loads(response.read().decode("utf-8"))
-        assert version_info["chromium_version"] == self.browser.version
-        chromium_base_position = int(version_info["chromium_base_position"])
-      # Use prefixes to limit listing results and increase chances of finding
-      # a matching version
-      arch_suffix = "Linux"
-      if self.platform.is_macos:
-        arch_suffix = "Mac"
-        if self.platform.is_arm64:
-          arch_suffix = "Mac_Arm"
-      elif self.platform.is_win:
-        arch_suffix = "Win"
-      base_prefix = str(chromium_base_position)[:4]
-      listing_url = (
-          self.CHROMIUM_LISTING_URL +
-          f"?prefix={arch_suffix}/{base_prefix}&maxResults=10000")
-      with helper.urlopen(listing_url) as response:
-        listing = json.loads(response.read().decode("utf-8"))
 
-      versions = []
-      for version in listing["items"]:
-        if "name" not in version:
-          continue
-        if "mediaLink" not in version:
-          continue
-        name = version["name"]
-        if "chromedriver" not in name:
-          continue
-        parts = name.split("/")
-        if len(parts) != 3:
-          continue
-        _, base, _ = parts
-        versions.append((int(base), version["mediaLink"]))
-      versions.sort()
+    base_prefix = str(chromium_base_position)[:4]
+    listing_url = (
+        self.CHROMIUM_LISTING_URL +
+        f"?prefix={platform_name}{cpu_suffix}/{base_prefix}&maxResults=10000")
+    with helper.urlopen(listing_url) as response:
+      listing = json.loads(response.read().decode("utf-8"))
 
-      url = None
-      for i in range(len(versions)):
-        base, url = versions[i]
-        if base > chromium_base_position:
-          base, url = versions[i - 1]
-          break
+    versions = []
+    for version in listing["items"]:
+      if "name" not in version:
+        continue
+      if "mediaLink" not in version:
+        continue
+      name = version["name"]
+      if "chromedriver" not in name:
+        continue
+      parts = name.split("/")
+      if "chromedriver" not in parts[-1] or len(parts) < 3:
+        continue
+      base = parts[1]
+      try:
+        int(base)
+      except ValueError:
+        # Ignore ig base is not an int
+        continue
+      versions.append((int(base), version["mediaLink"]))
+    versions.sort()
 
-      assert url is not None, (
-          "Please manually compile/download chromedriver for "
-          f"{self.browser.type} {self.browser.version}")
-
-    logging.info("CHROMEDRIVER Downloading for version %s: %s", major_version,
-                 listing_url or url)
-    with tempfile.TemporaryDirectory() as tmp_dir:
-      zip_file = pathlib.Path(tmp_dir) / "download.zip"
-      self.platform.download_to(url, zip_file)
-      with zipfile.ZipFile(zip_file, "r") as zip_ref:
-        zip_ref.extractall(zip_file.parent)
-      zip_file.unlink()
-      maybe_driver = None
-      candidates: List[pathlib.Path] = [
-          path for path in zip_file.parent.glob("**/*")
-          if path.is_file() and "chromedriver" in path.name
-      ]
-      # Find exact match first:
-      maybe_drivers: List[pathlib.Path] = [
-          path for path in candidates if path.stem == "chromedriver"
-      ]
-      # Backup less strict matching:
-      maybe_drivers += candidates
-      if len(maybe_drivers) > 0:
-        maybe_driver = maybe_drivers[0]
-      assert maybe_driver and maybe_driver.is_file(), (
-          f"Extracted driver at {maybe_driver} does not exist.")
-      BROWSERS_CACHE.mkdir(parents=True, exist_ok=True)
-      maybe_driver.rename(self.driver_path)
-      self.driver_path.chmod(self.driver_path.stat().st_mode | stat.S_IEXEC)
+    for i in range(len(versions)):
+      base, url = versions[i]
+      if base > chromium_base_position:
+        base, url = versions[i - 1]
+        return url
+    return None

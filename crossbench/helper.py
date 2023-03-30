@@ -835,9 +835,10 @@ def search_app_or_executable(name: str,
 
 def urlopen(url: str):
   try:
+    logging.debug("Opening url: %s", url)
     return urllib.request.urlopen(url)
   except urllib.error.HTTPError as e:
-    log(f"Could not load url={url}")
+    logging.info("Could not load url=%s", url)
     raise e
 
 
