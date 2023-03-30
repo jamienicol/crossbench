@@ -679,7 +679,7 @@ class CrossBenchCLI:
       (benchmarks.JetStream20Benchmark, ("js20",)),
       (benchmarks.JetStream21Benchmark, ("jetstream", "js21")),
       (benchmarks.MotionMark12Benchmark, ("motionmark", "mm", "mm12")),
-      (benchmarks.PageLoadBenchmark, ("load",)),
+      (benchmarks.PageLoadBenchmark, ("load", "page")),
   )
 
   RUNNER_CLS: Type[Runner] = Runner
