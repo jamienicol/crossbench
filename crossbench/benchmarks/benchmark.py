@@ -371,7 +371,7 @@ class PressBenchmark(SubStoryBenchmark):
     if self.custom_url:
       if runner.env.validate_url(self.custom_url):
         return
-      raise Exception(
+      raise ValueError(
           f"Could not reach custom benchmark URL: '{self.custom_url}'. "
           f"Please make sure your local web server is running.")
     first_story = cast(PressBenchmarkStory, self.stories[0])
@@ -379,5 +379,5 @@ class PressBenchmark(SubStoryBenchmark):
     if not url:
       raise ValueError("Invalid empty url")
     if not runner.env.validate_url(url):
-      raise Exception(f"Could not reach live benchmark URL: '{url}'. "
-                      f"Please make sure you're connected to the internet.")
+      raise ValueError(f"Could not reach live benchmark URL: '{url}'. "
+                       f"Please make sure you're connected to the internet.")

@@ -222,7 +222,7 @@ class HostEnvironment:
         return False
       if self._validation_mode != ValidationMode.PROMPT:
         return True
-      with urllib.request.urlopen(url) as request:
+      with urllib.request.urlopen(url, timeout=5) as request:
         if request.getcode() == 200:
           return True
         logging.debug("Could not load URL '%s', got %s", url, request)
