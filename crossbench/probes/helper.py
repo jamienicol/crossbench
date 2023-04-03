@@ -11,6 +11,9 @@ import math
 import pathlib
 from typing import (Any, Callable, Dict, Iterable, List, Optional, Sequence,
                     Set, Tuple, Union)
+from crossbench.helper import Platform
+
+from crossbench.probes.probe import Probe
 
 _KeyFnType = Callable[[Tuple[str, ...]], Optional[str]]
 
@@ -423,3 +426,42 @@ def merge_csv(csv_list: Sequence[pathlib.Path],
   if table_headers:
     return [table_headers] + table
   return table
+
+
+class V8CheckoutFinder:
+
+  def __init__(self, platform: Platform) -> None:
+    self.platform = platform
+    # A generous list of potential locations of a V8 or chromium checkout
+    self.checkout_candidates = [
+        # V8 Checkouts
+        pathlib.Path.home() / "Documents/v8/v8",
+        pathlib.Path.home() / "v8/v8",
+        pathlib.Path("C:") / "src/v8/v8",
+        # Raw V8 checkouts
+        pathlib.Path.home() / "Documents/v8",
+        pathlib.Path.home() / "v8",
+        pathlib.Path("C:") / "src/v8/",
+        # V8 in chromium checkouts
+        pathlib.Path.home() / "Documents/chromium/src/v8",
+        pathlib.Path.home() / "chromium/src/v8",
+        pathlib.Path("C:") / "src/chromium/src/v8",
+        # Chromium checkouts
+        pathlib.Path.home() / "Documents/chromium/src",
+        pathlib.Path.home() / "chromium/src",
+        pathlib.Path("C:") / "src/chromium/src",
+    ]
+    self.v8_checkout: Optional[pathlib.Path] = self._find_v8_checkout()
+
+  def _find_v8_checkout(self) -> Optional[pathlib.Path]:
+    # Try potential build location
+    for candidate_dir in self.checkout_candidates:
+      if candidate_dir.is_dir():
+        return candidate_dir
+    maybe_d8_path = self.platform.environ.get("D8_PATH")
+    if not maybe_d8_path:
+      return None
+    for candidate_dir in pathlib.Path(maybe_d8_path).parents:
+      if (candidate_dir / "include" / "v8.h").is_file():
+        return candidate_dir
+    return None
