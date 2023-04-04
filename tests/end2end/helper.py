@@ -15,7 +15,7 @@ from abc import ABCMeta
 from typing import Optional
 
 import crossbench.browsers.all as browsers
-from crossbench import cli_helper
+from crossbench import cli_helper, helper
 
 
 class End2EndTestCase(unittest.TestCase, metaclass=ABCMeta):
@@ -44,7 +44,8 @@ class End2EndTestCase(unittest.TestCase, metaclass=ABCMeta):
         type=cli_helper.parse_path)
     # Use parse_known_args to allow for other custom arguments.
     args, _ = parser.parse_known_args()
-    self.output_dir = pathlib.Path(tempfile.gettempdir()) / type(self).__name__
+    self.platform = helper.platform
+    self.output_dir = pathlib.Path(tempfile.mkdtemp(suffix=type(self).__name__))
     self.browser_path = args.test_browser_path
     if self.browser_path:
       logging.info("browser path: %s", self.browser_path)

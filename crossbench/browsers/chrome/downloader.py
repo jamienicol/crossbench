@@ -39,20 +39,24 @@ class ChromeDownloader(abc.ABC):
     return cls._get_loader_cls(platform).is_valid(path_or_identifier, platform)
 
   @classmethod
-  def load(cls, archive_path_or_version_identifier: Union[str, pathlib.Path],
-           platform: helper.Platform) -> pathlib.Path:
+  def load(cls,
+           archive_path_or_version_identifier: Union[str, pathlib.Path],
+           platform: helper.Platform,
+           cache_dir: Optional[pathlib.Path] = None) -> pathlib.Path:
     loader_cls: Type[ChromeDownloader] = cls._get_loader_cls(platform)
     loader: ChromeDownloader = loader_cls(archive_path_or_version_identifier,
-                                          "", platform)
+                                          "", platform, cache_dir)
     return loader.app_path
 
-  def __init__(self, archive_path_or_version_identifier: Union[str,
-                                                               pathlib.Path],
-               platform_name: str, platform: helper.Platform):
+  def __init__(self,
+               archive_path_or_version_identifier: Union[str, pathlib.Path],
+               platform_name: str,
+               platform: helper.Platform,
+               cache_dir: Optional[pathlib.Path] = None):
     self._platform = platform
     self._platform_name = platform_name
     self._archive_path: pathlib.Path = pathlib.Path()
-    self._out_dir = BROWSERS_CACHE
+    self._out_dir = cache_dir or BROWSERS_CACHE
     self._archive_dir = self._out_dir / "archive"
     self._archive_dir.mkdir(parents=True, exist_ok=True)
     self._app_path = self._out_dir / "chrome"
@@ -60,13 +64,15 @@ class ChromeDownloader(abc.ABC):
     self._requested_version = (0, 0, 0, 0)
     self._requested_version_str = "0.0.0.0"
     self._requested_exact_version = False
-    self._pre_check()
     if self.VERSION_RE.fullmatch(str(archive_path_or_version_identifier)):
       self._version_identifier = str(archive_path_or_version_identifier)
+      self._pre_check()
       self._load_from_version()
     else:
       self._archive_path = pathlib.Path(archive_path_or_version_identifier)
-      if not self._archive_path.exists():
+      self._pre_check()
+      if not archive_path_or_version_identifier or (
+          not self._archive_path.exists()):
         raise ValueError(f"Chrome archive does not exist: {self._archive_path}")
       self._load_from_archive()
 
@@ -154,7 +160,7 @@ class ChromeDownloader(abc.ABC):
     match = self.VERSION_RE.search(version_identifier)
     assert match, f"Invalid chrome version identifier: {version_identifier}"
     self._version_identifier = version_identifier = match["version"]
-    if version_identifier[0] == "m":
+    if version_identifier[0].upper() == "M":
       self._requested_version = (int(version_identifier[1:]), self.ANY_MARKER,
                                  self.ANY_MARKER, self.ANY_MARKER)
       self._requested_version_str = f"M{self._requested_version[0]}"
@@ -294,15 +300,18 @@ class ChromeDownloaderLinux(ChromeDownloader):
     path = pathlib.Path(path_or_identifier)
     return path.exists() and path.suffix == cls.ARCHIVE_SUFFIX
 
-  def __init__(self, version_identifier: Union[str, pathlib.Path],
-               platform_name: str, platform: helper.Platform):
+  def __init__(self,
+               version_identifier: Union[str, pathlib.Path],
+               platform_name: str,
+               platform: helper.Platform,
+               cache_dir: Optional[pathlib.Path] = None):
     assert platform.is_linux
     if platform.is_x64:
       platform_name = "linux64"
     else:
       raise ValueError("Unsupported linux architecture for downloading chrome: "
                        f"got={platform.machine} supported=x64")
-    super().__init__(version_identifier, platform_name, platform)
+    super().__init__(version_identifier, platform_name, platform, cache_dir)
 
   def _default_extracted_path(self) -> pathlib.Path:
     return self._out_dir / self._requested_version_str
@@ -345,16 +354,19 @@ class ChromeDownloaderMacOS(ChromeDownloader):
   @classmethod
   def is_valid(cls, path_or_identifier: Union[str, pathlib.Path],
                platform: helper.Platform) -> bool:
-    if cls.VERSION_RE.match(str(path_or_identifier)):
+    if cls.VERSION_RE.fullmatch(str(path_or_identifier)):
       return True
     path = pathlib.Path(path_or_identifier)
     return path.exists() and path.suffix == cls.ARCHIVE_SUFFIX
 
-  def __init__(self, version_identifier: Union[str, pathlib.Path],
-               platform_name: str, platform: helper.Platform):
+  def __init__(self,
+               version_identifier: Union[str, pathlib.Path],
+               platform_name: str,
+               platform: helper.Platform,
+               cache_dir: Optional[pathlib.Path] = None):
     assert platform.is_macos, f"{type(self)} can only be used on macOS"
     platform_name = "mac-universal"
-    super().__init__(version_identifier, platform_name, platform)
+    super().__init__(version_identifier, platform_name, platform, cache_dir)
 
   def _download_archive(self, archive_url: str) -> None:
     assert self._platform.is_macos

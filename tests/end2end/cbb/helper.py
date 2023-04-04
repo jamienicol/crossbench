@@ -48,19 +48,20 @@ class CBBTestCase(end2end.End2EndTestCase, metaclass=abc.ABCMeta):
     assert benchmark
     browser = chrome.ChromeWebDriver(
         "Chrome", self.browser_path, driver_path=self.driver_path)
+    results_dir = self.output_dir / "result"
 
-    benchmark_output = cbb_adapter.get_probe_result_file(
-        self.benchmark_name, browser, self.output_dir)
+    maybe_results_file = cbb_adapter.get_probe_result_file(
+        self.benchmark_name, browser, results_dir)
+    self.assertIsNotNone(maybe_results_file)
+    assert maybe_results_file
+    results_file = pathlib.Path(maybe_results_file)
+    self.assertFalse(results_file.exists())
+
     cbb_adapter.run_benchmark(
-        output_folder=self.output_dir,
-        browser_list=[browser],
-        benchmark=benchmark)
+        output_folder=results_dir, browser_list=[browser], benchmark=benchmark)
 
-    self.assertIsNotNone(benchmark_output)
-    assert benchmark_output
-    self.assertTrue(pathlib.Path(benchmark_output).exists())
-
-    with open(benchmark_output, encoding="utf-8") as f:
+    self.assertTrue(results_file.exists())
+    with results_file.open(encoding="utf-8") as f:
       benchmark_data = json.load(f)
 
     self.assertIsNotNone(benchmark_data)
