@@ -16,5 +16,8 @@ if repo_dir not in sys.path:
   sys.path.insert(0, str(repo_dir))
 
 if __name__ == '__main__':
-  return_code = pytest.main(["-x", str(end2end_test_dir)])
+  # Print output directly for easier debugging.
+  return_code = pytest.main(
+      ["--exitfirst", "--verbose", "--capture=tee-sys",
+       str(end2end_test_dir)])
   sys.exit(return_code)

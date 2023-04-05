@@ -484,7 +484,7 @@ class BrowserConfig:
     identifier = maybe_path_or_identifier.lower()
     # We're not using a dict-based lookup here, since not all browsers are
     # available on all platforms
-    if identifier in ("chrome", "chrome-stable", "chr-stable"):
+    if identifier in ("chrome", "chrome-stable", "chr-stable", "chr"):
       return browsers.Chrome.stable_path(), driver
     if identifier in ("chrome-beta", "chr-beta"):
       return browsers.Chrome.beta_path(), driver
@@ -777,8 +777,12 @@ class CrossBenchCLI:
     if args.json:
       if args.category in ("probe", "probes"):
         data = data["probes"]
+        if not data:
+          self.error(f"No matching probe found: '{args.filter}'")
       elif args.category in ("benchmark", "benchmarks"):
         data = data["benchmarks"]
+        if not data:
+          self.error(f"No matching benchmark found: '{args.filter}'")
       else:
         assert args.category == "all"
       print(json.dumps(data, indent=2))
@@ -798,14 +802,18 @@ class CrossBenchCLI:
               kwargs = {"maxcolwidths": 60}
               value = tabulate(value.items(), tablefmt="plain", **kwargs)
           table.append([None, name, value])
-      if len(table) > 1:
+      if len(table) <= 1:
+        self.error(f"No matching benchmark found: '{args.filter}'")
+      else:
         print(tabulate(table, tablefmt="grid"))
 
     if args.category in ("all", "probe", "probes"):
       table = [["Probe", "Help"]]
       for probe_name, probe_desc in data["probes"].items():
         table.append([probe_name, probe_desc])
-      if len(table) > 1:
+      if len(table) <= 1:
+        self.error(f"No matching probe found: '{args.filter}'")
+      else:
         print(tabulate(table, tablefmt="grid"))
 
   def _setup_benchmark_subparser(self, benchmark_cls: Type[Benchmark],

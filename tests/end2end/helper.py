@@ -52,7 +52,7 @@ class End2EndTestCase(unittest.TestCase, metaclass=ABCMeta):
       assert self.browser_path.exists()
     else:
       logging.info("Trying default browser path for local runs.")
-      self.browser_path = browsers.Chrome.default_path()
+      self.browser_path = browsers.Chrome.stable_path()
     self.driver_path: Optional[pathlib.Path] = args.test_driver_path
     if self.driver_path:
       logging.info("driver path: %s", self.driver_path)

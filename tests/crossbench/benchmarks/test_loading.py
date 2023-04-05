@@ -126,14 +126,15 @@ class TestPageLoadBenchmark(helper.SubStoryTestCase):
   def test_filter_by_name(self):
     for page in loading.PAGE_LIST:
       stories = self.story_filter([page.name]).stories
-      self.assertListEqual(stories, [page])
+      self.assertListEqual([p.url for p in stories], [page.url])
     self.assertListEqual(self.story_filter([]).stories, [])
 
   def test_filter_by_name_with_duration(self):
     pages = loading.PAGE_LIST
     filtered_pages = self.story_filter([pages[0].name, pages[1].name,
                                         "1001"]).stories
-    self.assertListEqual(filtered_pages, [pages[0], pages[1]])
+    self.assertListEqual([p.url for p in filtered_pages],
+                         [pages[0].url, pages[1].url])
     self.assertEqual(filtered_pages[0].duration, pages[0].duration)
     self.assertEqual(filtered_pages[1].duration, 1001)
 

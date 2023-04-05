@@ -106,6 +106,14 @@ class CliTestCase(BaseCrossbenchTestCase):
       self.run_cli("describe", "", raises=SysExitException)
     with mock.patch("sys.exit", side_effect=SysExitException):
       self.run_cli("describe", "--unknown", raises=SysExitException)
+    with mock.patch("sys.exit", side_effect=SysExitException):
+      self.run_cli(
+          "describe", "probe", "unknown probe", raises=SysExitException)
+    with mock.patch("sys.exit", side_effect=SysExitException):
+      self.run_cli(
+          "describe", "benchmark", "unknown benchmark", raises=SysExitException)
+    with mock.patch("sys.exit", side_effect=SysExitException):
+      self.run_cli("describe", "all", "unknown probe", raises=SysExitException)
 
   def test_describe(self):
     # Non-json output shouldn't fail

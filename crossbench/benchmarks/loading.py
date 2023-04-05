@@ -318,7 +318,13 @@ class LoadingPageFilter(StoryFilter):
     self.stories = []
     for value in name_or_url_list:
       if value in PAGES:
-        page = PAGES[value]
+        template = PAGES[value]
+        # Create copy so we can modify the playback value.
+        page = LivePage(
+            template.name,
+            template.url,
+            template.duration,
+            playback=self._playback)
       elif "://" in value or value.startswith("www."):
         name = value
         if value.startswith("www."):
