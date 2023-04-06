@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 # =============================================================================
 
-BROWSERS_CACHE = pathlib.Path(__file__).parent.parent / ".browsers-cache"
+BROWSERS_CACHE = pathlib.Path(__file__).parents[2] / ".browsers-cache"
 
 # =============================================================================
 

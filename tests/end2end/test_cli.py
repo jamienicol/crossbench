@@ -31,6 +31,9 @@ class CLIEnd2EndTestCase(End2EndTestCase):
 
   def setUp(self) -> None:
     super().setUp()
+    self.root_dir = pathlib.Path(__file__).parents[2]
+    self.cache_dir = self.output_dir / "cache"
+    self.cache_dir.mkdir()
     # Mock out chrome's stable path to be able to run on the CQ with the
     # --test-browser-path option.
     stable_path_patcher = mock.patch(
@@ -65,20 +68,22 @@ class CLIEnd2EndTestCase(End2EndTestCase):
   def test_speedometer_2_0(self) -> None:
     # - Speedometer 2.0
     # - Speedometer --iterations flag
-    # - Passing custom chrome flags
+    # - Tracing probe with inline args
+    # - --browser-config
     with self.assertRaises(SysExitException):
       self.run_cli("speedometer_2.0", "--help")
     self.run_cli("describe", "benchmark", "speedometer_2.0")
+    browser_config = self.root_dir / "config" / "browser.config.example.hjson"
+    self.assertTrue(browser_config.is_file())
     results_dir = self.output_dir / "results"
     self.assertFalse(results_dir.exists())
-    self.run_cli("sp20", "--browser=chrome", "--iterations=2",
-                 "--env-validation=skip", f"--out-dir={results_dir}", "--",
-                 "--js-flags=--log-deopt", "--no-sandbox")
+    self.run_cli("sp20", f"--browser-config={browser_config}", "--iterations=2",
+                 "--env-validation=skip", f"--out-dir={results_dir}",
+                 f"--cache-dir={self.cache_dir}",
+                 "--probe=tracing:{preset:'minimal'}")
 
     browser_dirs = self.get_browser_dirs(results_dir)
-    self.assertEqual(len(browser_dirs), 1)
-    v8_log_files = self.get_v8_log_files(results_dir)
-    self.assertTrue(len(v8_log_files) > 1)
+    self.assertTrue(len(browser_dirs) > 1)
 
   def test_speedometer_2_1(self) -> None:
     # - Speedometer 2.1
@@ -92,7 +97,7 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     self.assertFalse(results_dir.exists())
     self.run_cli("sp21", "--browser=chrome-stable", "--iterations=2",
                  "--env-validation=skip", f"--out-dir={results_dir}",
-                 "--stories=.*Vanilla.*",
+                 f"--cache-dir={self.cache_dir}", "--stories=.*Vanilla.*",
                  "--probe=v8.log:{js_flags:['--log-maps']}",
                  "--probe=v8.turbolizer")
 
@@ -108,17 +113,19 @@ class CLIEnd2EndTestCase(End2EndTestCase):
       self.skipTest("Missing required 'gsutil', skipping test.")
     results_dir = self.output_dir / "results"
     # TODO: speed up --browser=chrome-M111 and add it.
-    self.run_cli("sp21", "--browser=chrome-stable",
-                 "--browser=chrome-111.0.5563.110", "--headless",
-                 "--iterations=1", "--env-validation=skip",
-                 f"--out-dir={results_dir}", "--stories=.*Vanilla.*")
+    self.assertEqual(len(list(self.cache_dir.iterdir())), 0)
+    self.run_cli("sp21", f"--cache-dir={self.cache_dir}",
+                 "--browser=chrome-stable", "--browser=chrome-111.0.5563.110",
+                 "--headless", "--iterations=1", "--env-validation=skip",
+                 f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",
+                 "--stories=.*Vanilla.*")
 
     browser_dirs = self.get_browser_dirs(results_dir)
     self.assertEqual(len(browser_dirs), 2)
     v8_log_files = self.get_v8_log_files(results_dir)
     self.assertListEqual(v8_log_files, [])
 
-  def test_speedometer_2_1_multi_merge(self) -> None:
+  def test_speedometer_2_1_chrome_safari(self) -> None:
     # - Speedometer 3
     # - Merging stories over multiple iterations and browsers
     # - Testing safari
@@ -133,7 +140,8 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     self.assertFalse(results_dir.exists())
     self.run_cli("sp21", "--browser=chrome", "--browser=safari",
                  "--iterations=1", "--repeat=2", "--env-validation=skip",
-                 "--verbose", f"--out-dir={results_dir}", "--stories=.*React.*")
+                 "--verbose", f"--out-dir={results_dir}",
+                 f"--cache-dir={self.cache_dir}", "--stories=.*React.*")
 
     browser_dirs = self.get_browser_dirs(results_dir)
     self.assertEqual(len(browser_dirs), 2)
@@ -153,8 +161,8 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     self.assertFalse(results_dir.exists())
     self.run_cli("jetstream_2.0", "--browser=chrome-stable", "--separate",
                  "--repeat=2", "--env-validation=skip",
-                 f"--out-dir={results_dir}", "--viewport=maximised",
-                 "--stories=.*date-format.*", "--quiet",
+                 f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",
+                 "--viewport=maximised", "--stories=.*date-format.*", "--quiet",
                  "--js-flags=--log,--log-opt,--log-deopt", "--", "--no-sandbox")
 
     v8_log_files = self.get_v8_log_files(results_dir)
@@ -167,17 +175,23 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     # - custom --time-unit
     # - explicit single story
     # - custom viewport
+    # - --probe-config
     with self.assertRaises(SysExitException):
       self.run_cli("jetstream_2.1", "--help")
     self.run_cli("describe", "benchmark", "jetstream_2.1")
+    probe_config = self.root_dir / "config" / "probe.config.example.hjson"
+    self.assertTrue(probe_config.is_file())
     results_dir = self.output_dir / "results"
     self.assertFalse(results_dir.exists())
     self.run_cli("jetstream_2.1", "--browser=chr", "--env-validation=skip",
-                 f"--out-dir={results_dir}", "--viewport=900x800",
-                 "--stories=Box2D", "--time-unit=0.9")
+                 f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",
+                 "--viewport=900x800", "--stories=Box2D", "--time-unit=0.9",
+                 f"--probe-config={probe_config}")
 
     browser_dirs = self.get_browser_dirs(results_dir)
     self.assertEqual(len(browser_dirs), 1)
+    v8_log_files = self.get_v8_log_files(results_dir)
+    self.assertTrue(len(v8_log_files) > 1)
 
   def test_loading(self) -> None:
     # - loading using named pages with timeouts
@@ -190,12 +204,22 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     results_dir = self.output_dir / "results"
     self.assertFalse(results_dir.exists())
     self.run_cli("loading", "--browser=chr", "--env-validation=skip",
-                 f"--out-dir={results_dir}", "--viewport=headless",
-                 "--stories=cnn,facebook", "--cool-down-time=2.5",
-                 "--probe=performance.entries")
+                 f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",
+                 "--viewport=headless", "--stories=cnn,facebook",
+                 "--cool-down-time=2.5", "--probe=performance.entries")
 
     browser_dirs = self.get_browser_dirs(results_dir)
     self.assertEqual(len(browser_dirs), 1)
+
+  def test_loading_page_config(self) -> None:
+    # - loading with config file
+    page_config = self.root_dir / "config" / "page.config.example.hjson"
+    self.assertTrue(page_config.is_file())
+    results_dir = self.output_dir / "results"
+    self.assertFalse(results_dir.exists())
+    self.run_cli("loading", "--env-validation=skip", f"--out-dir={results_dir}",
+                 f"--cache-dir={self.cache_dir}",
+                 f"--page-config={page_config}", "--probe=performance.entries")
 
   def test_loading_playback_urls(self) -> None:
     # - loading using url
@@ -203,22 +227,43 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     results_dir = self.output_dir / "results"
     self.assertFalse(results_dir.exists())
     self.run_cli("loading", "--env-validation=skip", f"--out-dir={results_dir}",
-                 "--playback=5.3s", "--viewport=fullscreen",
+                 f"--cache-dir={self.cache_dir}", "--playback=5.3s",
+                 "--viewport=fullscreen",
                  "--stories=http://google.com,0.5,http://bing.com,0.4",
                  "--probe=performance.entries")
 
   def test_loading_playback(self) -> None:
     # - loading using named pages with timeouts
     # - separate pages and --playback controller
+    # - viewport-size via chrome flag
     results_dir = self.output_dir / "results"
     self.assertFalse(results_dir.exists())
     self.run_cli("loading", "--browser=chr", "--env-validation=skip",
-                 f"--out-dir={results_dir}", "--playback=5.3s", "--separate",
+                 f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",
+                 "--playback=5.3s", "--separate",
                  "--stories=twitter,2,facebook,0.4",
+                 "--probe=performance.entries", "--", "--window-size=900,500",
+                 "--window-position=150,150")
+
+  def test_loading_playback_firefox(self) -> None:
+    # - loading using named pages with timeouts
+    # - --playback controller
+    # - Firefox
+    try:
+      if not browsers.Firefox.default_path().exists():
+        self.skipTest("Test requires Firefox.")
+    except Exception:
+      self.skipTest("Test requires Firefox.")
+    results_dir = self.output_dir / "results"
+    self.assertFalse(results_dir.exists())
+    self.run_cli("loading", "--browser=chr", "--browser=ff",
+                 "--env-validation=skip", f"--out-dir={results_dir}",
+                 f"--cache-dir={self.cache_dir}", "--playback=2x",
+                 "--stories=twitter,1,facebook,0.4",
                  "--probe=performance.entries")
 
     browser_dirs = self.get_browser_dirs(results_dir)
-    self.assertEqual(len(browser_dirs), 1)
+    self.assertEqual(len(browser_dirs), 2)
 
 
 if __name__ == "__main__":

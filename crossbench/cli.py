@@ -192,6 +192,7 @@ class BrowserConfig:
     self.flag_groups: Dict[str, FlagGroupConfig] = {}
     self._variants: List[Browser] = []
     self._browser_lookup_override = browser_lookup_override or {}
+    self._cache_dir: pathlib.Path = browsers.BROWSERS_CACHE
     self._exceptions = ExceptionAnnotator()
     if raw_config_data:
       self.load_dict(raw_config_data)
@@ -225,6 +226,7 @@ class BrowserConfig:
       self._exceptions.append(e)
 
   def load_from_args(self, args: argparse.Namespace) -> None:
+    self._cache_dir = args.cache_dir
     browser_list = args.browser or ["chrome-stable"]
     assert isinstance(browser_list, list)
     if len(browser_list) != len(set(browser_list)):
@@ -512,7 +514,8 @@ class BrowserConfig:
       return browsers.Firefox.nightly_path(), driver
     platform = helper.platform
     if ChromeDownloader.is_valid(value, platform):
-      return ChromeDownloader.load(value, platform), driver
+      return ChromeDownloader.load(
+          value, platform, cache_dir=self._cache_dir), driver
     path = pathlib.Path(maybe_path_or_identifier)
     if path.exists():
       return path, driver
@@ -826,6 +829,12 @@ class CrossBenchCLI:
     self._subparsers[benchmark_cls] = subparser
 
     runner_group = subparser.add_argument_group("Runner Options", "")
+    runner_group.add_argument(
+        "--cache-dir",
+        type=pathlib.Path,
+        default=browsers.BROWSERS_CACHE,
+        help="Used for caching browser binaries and archives. "
+        "Defaults to .browser_cache")
     runner_group.add_argument(
         "--cool-down-time",
         type=parse_positive_float,
