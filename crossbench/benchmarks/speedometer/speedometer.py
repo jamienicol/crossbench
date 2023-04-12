@@ -134,27 +134,27 @@ class SpeedometerStory(PressBenchmarkStory, metaclass=abc.ABCMeta):
 
   def _setup_benchmark_client(self, actions: Actions) -> None:
     actions.js("""
-      globalThis.testDone = false;
-      globalThis.suiteValues = [];
-      const client = globalThis.benchmarkClient;
+      window.testDone = false;
+      window.suiteValues = [];
+      const client = window.benchmarkClient;
       const clientCopy = {
         didRunSuites: client.didRunSuites,
         didFinishLastIteration: client.didFinishLastIteration,
       };
       client.didRunSuites = function(measuredValues, ...arguments) {
           clientCopy.didRunSuites.call(this, measuredValues, ...arguments);
-          globalThis.suiteValues.push(measuredValues);
+          window.suiteValues.push(measuredValues);
       };
       client.didFinishLastIteration = function(...arguments) {
           clientCopy.didFinishLastIteration.call(this, ...arguments);
-          globalThis.testDone = true;
+          window.testDone = true;
       };""")
 
   def _run_stories(self, run: Run) -> None:
     with run.actions("Running") as actions:
       actions.js("""
-          if (globalThis.startTest) {
-            globalThis.startTest();
+          if (window.startTest) {
+            window.startTest();
           } else {
             // Interactive Runner fallback / old 3.0 fallback.
             let startButton = document.getElementById("runSuites") ||
@@ -165,7 +165,7 @@ class SpeedometerStory(PressBenchmarkStory, metaclass=abc.ABCMeta):
           """)
       actions.wait(self.fast_duration)
     with run.actions("Waiting for completion") as actions:
-      actions.wait_js_condition("return globalThis.testDone",
+      actions.wait_js_condition("return window.testDone",
                                 self.substory_duration, self.slow_duration)
 
 

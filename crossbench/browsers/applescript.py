@@ -52,7 +52,7 @@ class AppleScript:
     args_str: str = json.dumps(args)
     script = """JSON.stringify((function exceptionWrapper(){
         try {
-          return [(function(...arguments){%(script)s}).apply(globalThis, %(args_str)s), true]
+          return [(function(...arguments){%(script)s}).apply(window, %(args_str)s), true]
         } catch(e) {
           return [e + "", false]
         }
