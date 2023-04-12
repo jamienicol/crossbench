@@ -30,8 +30,8 @@ class ChromeDownloader(abc.ABC):
       return ChromeDownloaderMacOS
     if platform.is_linux:
       return ChromeDownloaderLinux
-    raise ValueError("Downloading chrome is only support on linux and macOS, "
-                     f"but not on {platform.machine}")
+    raise ValueError("Downloading chrome is only supported on linux and macOS, "
+                     f"but not on {platform.name} {platform.machine}")
 
   @classmethod
   def is_valid(cls, path_or_identifier: Union[str, pathlib.Path],

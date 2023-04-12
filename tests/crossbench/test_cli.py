@@ -274,6 +274,8 @@ class CliTestCase(BaseCrossbenchTestCase):
           raises=SysExitException)
 
   def test_custom_chrome_browser_binary(self):
+    if self.platform.is_win:
+      self.skipTest("No auto-download available on windows")
     browser_cls = mock_browser.MockChromeStable
     # TODO: migrate to with_stem once python 3.9 is available everywhere
     suffix = browser_cls.APP_PATH.suffix
@@ -290,6 +292,8 @@ class CliTestCase(BaseCrossbenchTestCase):
                                             BrowserDriverType.WEB_DRIVER)
 
   def test_custom_chrome_browser_binary_custom_flags(self):
+    if self.platform.is_win:
+      self.skipTest("No auto-download available on windows")
     browser_cls = mock_browser.MockChromeStable
     # TODO: migrate to with_stem once python 3.9 is available everywhere
     suffix = browser_cls.APP_PATH.suffix
@@ -818,7 +822,8 @@ class TestProbeConfig(fake_filesystem_unittest.TestCase):
         wraps=False)
     with self.assertRaises(argparse.ArgumentTypeError) as cm:
       ProbeConfig.from_cli_args(args)
-    self.assertIn("does/not/exist/d8", str(cm.exception))
+    expected_path = pathlib.Path("does/not/exist/d8")
+    self.assertIn(str(expected_path), str(cm.exception))
 
   def test_multiple_probes(self):
     powersampler_bin = pathlib.Path("/powersampler.bin")
@@ -1261,6 +1266,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     self.assertEqual(len(config.variants), 3 * 3 * 2)
 
   def test_from_cli_args_browser_config(self):
+    if self.platform.is_win:
+      self.skipTest("No auto-download available on windows")
     browser_cls = mock_browser.MockChromeStable
     # TODO: migrate to with_stem once python 3.9 is available everywhere
     suffix = browser_cls.APP_PATH.suffix
@@ -1282,6 +1289,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     self.assertEqual(browser.app_path, browser_bin)
 
   def test_from_cli_args_browser(self):
+    if self.platform.is_win:
+      self.skipTest("No auto-download available on windows")
     browser_cls = mock_browser.MockChromeStable
     # TODO: migrate to with_stem once python 3.9 is available everywhere
     suffix = browser_cls.APP_PATH.suffix

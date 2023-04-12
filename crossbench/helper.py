@@ -184,6 +184,7 @@ class Platform(abc.ABC):
 
   @property
   def machine(self) -> str:
+    assert not self.is_remote, "Operation not supported yet on remote platform"
     return py_platform.machine()
 
   @property
