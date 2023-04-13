@@ -16,6 +16,7 @@ from selenium.webdriver.edge.options import Options as EdgeOptions
 from selenium.webdriver.edge.service import Service as EdgeService
 
 import crossbench
+from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 import crossbench.exception
 import crossbench.flags
@@ -44,6 +45,7 @@ class EdgeWebDriver(ChromiumWebDriver):
                cache_dir: Optional[pathlib.Path] = None,
                driver_path: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
+               splash_screen: SplashScreen = SplashScreen.DEFAULT,
                platform: Optional[helper.Platform] = None):
     super().__init__(
         label,
@@ -54,6 +56,7 @@ class EdgeWebDriver(ChromiumWebDriver):
         type="edge",
         driver_path=driver_path,
         viewport=viewport,
+        splash_screen=splash_screen,
         platform=platform)
 
   def _find_driver(self) -> pathlib.Path:

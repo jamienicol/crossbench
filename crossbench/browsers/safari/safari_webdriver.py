@@ -13,6 +13,7 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.safari.options import Options as SafariOptions
 
 from crossbench import helper
+from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebdriverBrowser
 
@@ -31,8 +32,10 @@ class SafariWebDriver(WebdriverBrowser, Safari):
                flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
+               splash_screen: SplashScreen = SplashScreen.DEFAULT,
                platform: Optional[helper.MacOSPlatform] = None):
-    super().__init__(label, path, flags, cache_dir, viewport, platform)
+    super().__init__(label, path, flags, cache_dir, viewport, splash_screen,
+                     platform)
     assert self.platform.is_macos
 
   def _find_driver(self) -> pathlib.Path:

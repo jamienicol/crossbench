@@ -22,6 +22,7 @@ from selenium.webdriver.chromium.webdriver import ChromiumDriver
 
 from crossbench import exception, helper
 from crossbench.browsers.browser import BROWSERS_CACHE
+from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebdriverBrowser
 from crossbench.flags import Flags
@@ -47,9 +48,10 @@ class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
       type: str = "chromium",  # pylint: disable=redefined-builtin
       driver_path: Optional[pathlib.Path] = None,
       viewport: Viewport = Viewport.DEFAULT,
+      splash_screen: SplashScreen = SplashScreen.DEFAULT,
       platform: Optional[helper.Platform] = None):
     super().__init__(label, path, js_flags, flags, cache_dir, type, viewport,
-                     platform)
+                     splash_screen, platform)
     self._driver_path = driver_path
 
   def _find_driver(self) -> pathlib.Path:

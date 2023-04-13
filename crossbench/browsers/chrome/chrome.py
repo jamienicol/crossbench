@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Optional
 from crossbench import helper
 
 from crossbench.browsers.chromium import Chromium
+from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
@@ -63,6 +64,7 @@ class Chrome(ChromePathMixin, Chromium):
                flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
+               splash_screen: SplashScreen = SplashScreen.DEFAULT,
                platform: Optional[helper.Platform] = None):
     super().__init__(
         label,
@@ -72,4 +74,5 @@ class Chrome(ChromePathMixin, Chromium):
         cache_dir,
         type="chrome",
         viewport=viewport,
+        splash_screen=splash_screen,
         platform=platform)

@@ -13,6 +13,7 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 
 from crossbench import helper
 from crossbench.browsers.chromium import ChromiumWebDriver
+from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
@@ -34,6 +35,7 @@ class ChromeWebDriver(ChromiumWebDriver):
                cache_dir: Optional[pathlib.Path] = None,
                driver_path: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
+               splash_screen: SplashScreen = SplashScreen.DEFAULT,
                platform: Optional[helper.Platform] = None):
     super().__init__(
         label,
@@ -44,6 +46,7 @@ class ChromeWebDriver(ChromiumWebDriver):
         type="chrome",
         driver_path=driver_path,
         viewport=viewport,
+        splash_screen=splash_screen,
         platform=platform)
 
   def _create_driver(self, options, service) -> ChromiumDriver:

@@ -114,7 +114,7 @@ class SpeedometerStory(PressBenchmarkStory, metaclass=abc.ABCMeta):
 
   def run(self, run: Run) -> None:
     with run.actions("Setup") as actions:
-      actions.navigate_to(f"{self._url}?iterationCount={self.iterations}")
+      actions.show_url(f"{self._url}?iterationCount={self.iterations}")
       actions.wait_js_condition("return window.Suites !== undefined;", 0.5, 10)
       self._setup_substories(actions)
       self._setup_benchmark_client(actions)

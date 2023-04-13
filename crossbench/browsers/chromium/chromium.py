@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 from crossbench import helper
 from crossbench.browsers.browser import (Browser, convert_flags_to_label)
+from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 from crossbench.flags import ChromeFeatures, ChromeFlags, Flags, JSFlags
 
@@ -56,9 +57,15 @@ class Chromium(Browser):
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "chromium",  # pylint: disable=redefined-builtin
       viewport: Viewport = Viewport.DEFAULT,
+      splash_screen: SplashScreen = SplashScreen.DEFAULT,
       platform: Optional[helper.Platform] = None):
     super().__init__(
-        label, path, type=type, viewport=viewport, platform=platform)
+        label,
+        path,
+        type=type,
+        viewport=viewport,
+        splash_screen=splash_screen,
+        platform=platform)
     assert not isinstance(js_flags, str), (
         f"js_flags should be a list, but got: {repr(js_flags)}")
     assert not isinstance(

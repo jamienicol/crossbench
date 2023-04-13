@@ -8,6 +8,7 @@ import pathlib
 from typing import TYPE_CHECKING, Optional
 
 import crossbench
+from crossbench.browsers.splash_screen import SplashScreen
 import crossbench.exception
 import crossbench.flags
 from crossbench import helper
@@ -70,6 +71,7 @@ class Edge(Chromium):
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
+               splash_screen: SplashScreen = SplashScreen.DEFAULT,
                platform: Optional[helper.Platform] = None):
     super().__init__(
         label,
@@ -79,4 +81,5 @@ class Edge(Chromium):
         cache_dir,
         type="edge",
         viewport=viewport,
+        splash_screen=splash_screen,
         platform=platform)

@@ -6,3 +6,9 @@ from __future__ import annotations
 
 from crossbench.browsers.browser import (BROWSERS_CACHE, Browser,
                                          convert_flags_to_label)
+
+__all__ = (
+    "BROWSERS_CACHE",
+    "Browser",
+    "convert_flags_to_label",
+)

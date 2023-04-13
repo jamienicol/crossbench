@@ -956,7 +956,7 @@ class Actions(helper.TimeScope):
           f"js_code did not return a bool, but got: {result}\n"
           f"js-code: {js_code}")
 
-  def navigate_to(self, url: str) -> None:
+  def show_url(self, url: str) -> None:
     self._assert_is_active()
     self._browser.show_url(
         self._runner,  # pytype: disable=wrong-arg-types

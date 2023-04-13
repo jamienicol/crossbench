@@ -89,15 +89,17 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     # - Speedometer 2.1
     # - Story filtering with regexp
     # - V8 probes
+    # - minimal splashscreen
     # - inline probe arguments
     with self.assertRaises(SysExitException):
       self.run_cli("speedometer_2.1", "--help")
     self.run_cli("describe", "benchmark", "speedometer_2.1")
     results_dir = self.output_dir / "results"
     self.assertFalse(results_dir.exists())
-    self.run_cli("sp21", "--browser=chrome-stable", "--iterations=2",
-                 "--env-validation=skip", f"--out-dir={results_dir}",
-                 f"--cache-dir={self.cache_dir}", "--stories=.*Vanilla.*",
+    self.run_cli("sp21", "--browser=chrome-stable", "--splashscreen=minimal",
+                 "--iterations=2", "--env-validation=skip",
+                 f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",
+                 "--stories=.*Vanilla.*",
                  "--probe=v8.log:{js_flags:['--log-maps']}",
                  "--probe=v8.turbolizer")
 
@@ -130,6 +132,7 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     # - Merging stories over multiple iterations and browsers
     # - Testing safari
     # - --verbose flag
+    # - no splashscreen
     # This fails on the CQ bot, so make sure we skip it there:
     if self.driver_path:
       self.skipTest("Skipping test on CQ.")
@@ -139,9 +142,10 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     results_dir = self.output_dir / "results"
     self.assertFalse(results_dir.exists())
     self.run_cli("sp21", "--browser=chrome", "--browser=safari",
-                 "--iterations=1", "--repeat=2", "--env-validation=skip",
-                 "--verbose", f"--out-dir={results_dir}",
-                 f"--cache-dir={self.cache_dir}", "--stories=.*React.*")
+                 "--splashscreen=none", "--iterations=1", "--repeat=2",
+                 "--env-validation=skip", "--verbose",
+                 f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",
+                 "--stories=.*React.*")
 
     browser_dirs = self.get_browser_dirs(results_dir)
     self.assertEqual(len(browser_dirs), 2)
@@ -174,6 +178,7 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     # - jetstream 2.1
     # - custom --time-unit
     # - explicit single story
+    # - custom splashscreen
     # - custom viewport
     # - --probe-config
     with self.assertRaises(SysExitException):
@@ -184,8 +189,9 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     results_dir = self.output_dir / "results"
     self.assertFalse(results_dir.exists())
     self.run_cli("jetstream_2.1", "--browser=chr", "--env-validation=skip",
-                 f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",
-                 "--viewport=900x800", "--stories=Box2D", "--time-unit=0.9",
+                 "--splashscreen=http://google.com", f"--out-dir={results_dir}",
+                 f"--cache-dir={self.cache_dir}", "--viewport=900x800",
+                 "--stories=Box2D", "--time-unit=0.9",
                  f"--probe-config={probe_config}")
 
     browser_dirs = self.get_browser_dirs(results_dir)

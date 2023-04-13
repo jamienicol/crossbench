@@ -17,6 +17,7 @@ import pytest
 
 import crossbench
 from crossbench import helper
+from crossbench.browsers import splash_screen, viewport
 from crossbench.browsers.chrome import Chrome, ChromeWebDriver
 from crossbench.browsers.safari import Safari
 from crossbench.cli import (BrowserConfig, BrowserDriverType, ConfigFileError,
@@ -31,8 +32,9 @@ from tests.crossbench.mock_helper import BaseCrossbenchTestCase, MockCLI
 
 class SysExitException(Exception):
 
-  def __init__(self):
+  def __init__(self, exit_code=0):
     super().__init__("sys.exit")
+    self.exit_code = exit_code
 
 
 class BrowserDriverTypeTestCase(fake_filesystem_unittest.TestCase):
@@ -86,40 +88,46 @@ class BrowserDriverTypeTestCase(fake_filesystem_unittest.TestCase):
 
 class CliTestCase(BaseCrossbenchTestCase):
 
-  def run_cli(self, *args, raises=None):
-    with mock.patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
-      cli = MockCLI()
+  def run_cli(self, *args, raises=None) -> Tuple[MockCLI, str, str]:
+    cli = MockCLI()
+    with mock.patch(
+        "sys.stdout", new_callable=io.StringIO) as mock_stdout, mock.patch(
+            "sys.stderr", new_callable=io.StringIO) as mock_stderr, mock.patch(
+                "sys.exit", side_effect=SysExitException()):
       if raises:
         with self.assertRaises(raises):
           cli.run(args)
       else:
         cli.run(args)
-      return cli, mock_stdout.getvalue()
+    return cli, mock_stdout.getvalue(), mock_stderr.getvalue()
 
   def test_invalid(self):
-    with mock.patch("sys.exit", side_effect=SysExitException):
-      self.run_cli(
-          "unknown subcommand", "--invalid flag", raises=SysExitException)
+    with self.assertRaises(SysExitException):
+      self.run_cli("unknown subcommand", "--invalid flag")
 
   def test_describe_invalid(self):
-    with mock.patch("sys.exit", side_effect=SysExitException):
-      self.run_cli("describe", "", raises=SysExitException)
-    with mock.patch("sys.exit", side_effect=SysExitException):
-      self.run_cli("describe", "--unknown", raises=SysExitException)
-    with mock.patch("sys.exit", side_effect=SysExitException):
-      self.run_cli(
-          "describe", "probe", "unknown probe", raises=SysExitException)
-    with mock.patch("sys.exit", side_effect=SysExitException):
-      self.run_cli(
-          "describe", "benchmark", "unknown benchmark", raises=SysExitException)
-    with mock.patch("sys.exit", side_effect=SysExitException):
-      self.run_cli("describe", "all", "unknown probe", raises=SysExitException)
+    with self.assertRaises(SysExitException) as cm:
+      self.run_cli("describe", "")
+    self.assertEqual(cm.exception.exit_code, 0)
+    with self.assertRaises(SysExitException) as cm:
+      self.run_cli("describe", "--unknown")
+    self.assertEqual(cm.exception.exit_code, 0)
+    with self.assertRaises(SysExitException) as cm:
+      self.run_cli("describe", "probe", "unknown probe")
+    self.assertEqual(cm.exception.exit_code, 0)
+    with self.assertRaises(SysExitException) as cm:
+      self.run_cli("describe", "benchmark", "unknown benchmark")
+    self.assertEqual(cm.exception.exit_code, 0)
+    with self.assertRaises(SysExitException) as cm:
+      self.run_cli("describe", "all", "unknown probe")
+    self.assertEqual(cm.exception.exit_code, 0)
 
   def test_describe(self):
     # Non-json output shouldn't fail
     self.run_cli("describe")
     self.run_cli("describe", "all")
-    _, stdout = self.run_cli("describe", "--json")
+    _, stdout, stderr = self.run_cli("describe", "--json")
+    self.assertFalse(stderr)
     data = json.loads(stdout)
     self.assertIn("benchmarks", data)
     self.assertIn("probes", data)
@@ -129,7 +137,8 @@ class CliTestCase(BaseCrossbenchTestCase):
   def test_describe_benchmarks(self):
     # Non-json output shouldn't fail
     self.run_cli("describe", "benchmarks")
-    _, stdout = self.run_cli("describe", "--json", "benchmarks")
+    _, stdout, stderr = self.run_cli("describe", "--json", "benchmarks")
+    self.assertFalse(stderr)
     data = json.loads(stdout)
     self.assertNotIn("benchmarks", data)
     self.assertNotIn("probes", data)
@@ -139,7 +148,8 @@ class CliTestCase(BaseCrossbenchTestCase):
   def test_describe_probes(self):
     # Non-json output shouldn't fail
     self.run_cli("describe", "probes")
-    _, stdout = self.run_cli("describe", "--json", "probes")
+    _, stdout, stderr = self.run_cli("describe", "--json", "probes")
+    self.assertFalse(stderr)
     data = json.loads(stdout)
     self.assertNotIn("benchmarks", data)
     self.assertNotIn("probes", data)
@@ -147,22 +157,24 @@ class CliTestCase(BaseCrossbenchTestCase):
     self.assertIn("v8.log", data)
 
   def test_help(self):
-    with mock.patch("sys.exit", side_effect=SysExitException) as exit_mock:
-      _, stdout = self.run_cli("--help", raises=SysExitException)
-      self.assertTrue(exit_mock.called)
-      exit_mock.assert_called_with(0)
-      self.assertGreater(len(stdout), 0)
+    with self.assertRaises(SysExitException) as cm:
+      self.run_cli("--help")
+    self.assertEqual(cm.exception.exit_code, 0)
+    _, stdout, stderr = self.run_cli("--help", raises=SysExitException)
+    self.assertFalse(stderr)
+    self.assertGreater(len(stdout), 0)
 
   def test_help_subcommand(self):
     for benchmark_cls, aliases in CrossBenchCLI.BENCHMARKS:
       subcommands = (benchmark_cls.NAME,) + aliases
       for subcommand in subcommands:
-        with mock.patch(
-            "sys.exit", side_effect=SysExitException()) as exit_mock:
-          stdout = self.run_cli(subcommand, "--help", raises=SysExitException)
-          self.assertTrue(exit_mock.called)
-          exit_mock.assert_called_with(0)
-          self.assertGreater(len(stdout), 0)
+        with self.assertRaises(SysExitException) as cm:
+          self.run_cli(subcommand, "--help")
+        self.assertEqual(cm.exception.exit_code, 0)
+        _, stdout, stderr = self.run_cli(
+            subcommand, "--help", raises=SysExitException)
+        self.assertFalse(stderr)
+        self.assertGreater(len(stdout), 0)
 
   def test_invalid_probe(self):
     with self.assertRaises(ProbeConfigError), mock.patch.object(
@@ -252,26 +264,16 @@ class CliTestCase(BaseCrossbenchTestCase):
 
   def test_invalid_browser_identifier(self):
     with self.assertRaises(argparse.ArgumentTypeError):
-      self.run_cli(
-          "loading",
-          "--browser=unknown_browser_identifier",
-          "--urls=http://test.com",
-          "--env-validation=skip",
-          "--throw",
-          raises=SysExitException)
+      self.run_cli("loading", "--browser=unknown_browser_identifier",
+                   "--urls=http://test.com", "--env-validation=skip", "--throw")
 
   def test_unknown_browser_binary(self):
     browser_bin = pathlib.Path("/foo/custom/browser.bin")
     browser_bin.parent.mkdir(parents=True)
     browser_bin.touch()
     with self.assertRaises(argparse.ArgumentTypeError):
-      self.run_cli(
-          "loading",
-          f"--browser={browser_bin}",
-          "--urls=http://test.com",
-          "--env-validation=skip",
-          "--throw",
-          raises=SysExitException)
+      self.run_cli("loading", f"--browser={browser_bin}",
+                   "--urls=http://test.com", "--env-validation=skip", "--throw")
 
   def test_custom_chrome_browser_binary(self):
     if self.platform.is_win:
@@ -574,59 +576,35 @@ class CliTestCase(BaseCrossbenchTestCase):
                    "--urls=http://test.com", "--env-validation=skip")
 
   def test_env_config_inline_invalid(self):
-    with mock.patch("sys.exit", side_effect=SysExitException()):
-      self.run_cli(
-          "loading",
-          "--env=not a valid name",
-          "--urls=http://test.com",
-          "--env-validation=skip",
-          raises=SysExitException)
-    with mock.patch("sys.exit", side_effect=SysExitException()):
-      self.run_cli(
-          "loading",
-          "--env={not valid hjson}",
-          "--urls=http://test.com",
-          "--env-validation=skip",
-          raises=SysExitException)
-    with mock.patch("sys.exit", side_effect=SysExitException()):
-      self.run_cli(
-          "loading",
-          "--env={unknown_property:1}",
-          "--urls=http://test.com",
-          "--env-validation=skip",
-          raises=SysExitException)
+    with self.assertRaises(SysExitException):
+      self.run_cli("loading", "--env=not a valid name",
+                   "--urls=http://test.com", "--env-validation=skip")
+    with self.assertRaises(SysExitException):
+      self.run_cli("loading", "--env={not valid hjson}",
+                   "--urls=http://test.com", "--env-validation=skip")
+    with self.assertRaises(SysExitException):
+      self.run_cli("loading", "--env={unknown_property:1}",
+                   "--urls=http://test.com", "--env-validation=skip")
 
   def test_env_config_invalid_file(self):
     config = pathlib.Path("/test.config.hjson")
     # No "env" property
     with config.open("w", encoding="utf-8") as f:
       hjson.dump({}, f)
-    with mock.patch("sys.exit", side_effect=SysExitException()):
-      self.run_cli(
-          "loading",
-          f"--env-config={config}",
-          "--urls=http://test.com",
-          "--env-validation=skip",
-          raises=SysExitException)
+    with self.assertRaises(SysExitException):
+      self.run_cli("loading", f"--env-config={config}",
+                   "--urls=http://test.com", "--env-validation=skip")
     # "env" not a dict
     with config.open("w", encoding="utf-8") as f:
       hjson.dump({"env": []}, f)
-    with mock.patch("sys.exit", side_effect=SysExitException()):
-      self.run_cli(
-          "loading",
-          f"--env-config={config}",
-          "--urls=http://test.com",
-          "--env-validation=skip",
-          raises=SysExitException)
+    with self.assertRaises(SysExitException):
+      self.run_cli("loading", f"--env-config={config}",
+                   "--urls=http://test.com", "--env-validation=skip")
     with config.open("w", encoding="utf-8") as f:
       hjson.dump({"env": {"unknown_property_name": 1}}, f)
-    with mock.patch("sys.exit", side_effect=SysExitException()):
-      self.run_cli(
-          "loading",
-          f"--env-config={config}",
-          "--urls=http://test.com",
-          "--env-validation=skip",
-          raises=SysExitException)
+    with self.assertRaises(SysExitException):
+      self.run_cli("loading", f"--env-config={config}",
+                   "--urls=http://test.com", "--env-validation=skip")
 
   def test_multiple_browser_compatible_flags(self):
     mock_browsers: List[Type[mock_browser.MockBrowser]] = [
@@ -682,14 +660,100 @@ class CliTestCase(BaseCrossbenchTestCase):
     config = pathlib.Path("/test.config.hjson")
     with config.open("w", encoding="utf-8") as f:
       hjson.dump({"env": {}}, f)
-    with mock.patch("sys.exit", side_effect=SysExitException()):
-      self.run_cli(
-          "loading",
-          "--env=strict",
-          f"--env-config={config}",
-          "--urls=http://test.com",
-          "--env-validation=skip",
-          raises=SysExitException)
+    with self.assertRaises(SysExitException):
+      self.run_cli("loading", "--env=strict", f"--env-config={config}",
+                   "--urls=http://test.com", "--env-validation=skip")
+
+  def test_invalid_splashscreen(self):
+    _, stdout, stderr = self.run_cli(
+        "loading",
+        "--browser=chrome",
+        "--urls=http://test.com",
+        "--env-validation=skip",
+        "--splash-screen=unknown-value",
+        "--throw",
+        raises=SysExitException)
+    self.assertFalse(stdout)
+    self.assertIn("--splash-screen", stderr)
+    self.assertIn("unknown-value", stderr)
+
+  def test_splash_screen_none(self):
+    with mock.patch.object(
+        BrowserConfig,
+        "_get_browser_cls",
+        return_value=mock_browser.MockChromeStable):
+      url = "http://test.com"
+      cli, _, _ = self.run_cli("loading", f"--urls={url}",
+                               "--env-validation=skip", "--throw",
+                               "--splash-screen=none")
+      for browser in cli.runner.browsers:
+        assert isinstance(browser, mock_browser.MockChromeStable)
+        self.assertEqual(browser.splash_screen, splash_screen.SplashScreen.NONE)
+        self.assertListEqual([url], browser.url_list)
+        self.assertEqual(len(browser.js_flags), 0)
+
+  def test_splash_screen_minimal(self):
+    with mock.patch.object(
+        BrowserConfig,
+        "_get_browser_cls",
+        return_value=mock_browser.MockChromeStable):
+      url = "http://test.com"
+      cli, _, _ = self.run_cli("loading", f"--urls={url}",
+                               "--env-validation=skip", "--throw",
+                               "--splash-screen=minimal")
+      for browser in cli.runner.browsers:
+        assert isinstance(browser, mock_browser.MockChromeStable)
+        self.assertEqual(browser.splash_screen,
+                         splash_screen.SplashScreen.MINIMAL)
+        self.assertEqual(len(browser.url_list), 2)
+        self.assertIn(url, browser.url_list)
+        self.assertEqual(len(browser.js_flags), 0)
+
+  def test_splash_screen_url(self):
+    with mock.patch.object(
+        BrowserConfig,
+        "_get_browser_cls",
+        return_value=mock_browser.MockChromeStable):
+      splash_url = "http://splash.com"
+      url = "http://test.com"
+      cli, _, _ = self.run_cli("loading", f"--urls={url}",
+                               "--env-validation=skip", "--throw",
+                               f"--splash-screen={splash_url}")
+      for browser in cli.runner.browsers:
+        assert isinstance(browser, mock_browser.MockChromeStable)
+        self.assertIsInstance(browser.splash_screen,
+                              splash_screen.URLSplashScreen)
+        self.assertEqual(len(browser.url_list), 2)
+        self.assertEqual(splash_url, browser.url_list[0])
+        self.assertEqual(len(browser.js_flags), 0)
+
+  def test_viewport_invalid(self):
+    _, stdout, stderr = self.run_cli(
+        "loading",
+        "--browser=chrome",
+        "--urls=http://test.com",
+        "--env-validation=skip",
+        "--viewport=-123",
+        "--throw",
+        raises=SysExitException)
+    self.assertFalse(stdout)
+    self.assertIn("--viewport", stderr)
+    self.assertIn("-123", stderr)
+
+  def test_viewport_maximized(self):
+    with mock.patch.object(
+        BrowserConfig,
+        "_get_browser_cls",
+        return_value=mock_browser.MockChromeStable):
+      url = "http://test.com"
+      cli, _, _ = self.run_cli("loading", f"--urls={url}",
+                               "--env-validation=skip", "--throw",
+                               "--viewport=maximized")
+      for browser in cli.runner.browsers:
+        assert isinstance(browser, mock_browser.MockChromeStable)
+        self.assertEqual(browser.viewport, viewport.Viewport.MAXIMIZED)
+        self.assertEqual(len(browser.url_list), 2)
+        self.assertEqual(len(browser.js_flags), 0)
 
 
 class TestProbeConfig(fake_filesystem_unittest.TestCase):

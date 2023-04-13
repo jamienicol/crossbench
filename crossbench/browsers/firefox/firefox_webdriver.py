@@ -19,6 +19,7 @@ from selenium.webdriver.firefox.service import Service as FirefoxService
 
 from crossbench import exception, helper
 from crossbench.browsers.browser import BROWSERS_CACHE
+from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebdriverBrowser
 
@@ -38,8 +39,10 @@ class FirefoxWebDriver(WebdriverBrowser, Firefox):
                cache_dir: Optional[pathlib.Path] = None,
                driver_path: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
+               splash_screen: SplashScreen = SplashScreen.DEFAULT,
                platform: Optional[helper.Platform] = None):
-    super().__init__(label, path, flags, cache_dir, viewport, platform)
+    super().__init__(label, path, flags, cache_dir, viewport, splash_screen,
+                     platform)
     self._driver_path = driver_path
 
   def _find_driver(self) -> pathlib.Path:

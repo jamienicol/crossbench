@@ -12,6 +12,7 @@ from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
 
 from crossbench import helper
+from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.chromium import ChromiumAppleScript
 
@@ -37,6 +38,7 @@ class ChromeAppleScript(ChromePathMixin, ChromiumAppleScript):
                flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
+               splash_screen: SplashScreen = SplashScreen.DEFAULT,
                platform: Optional[helper.Platform] = None):
     super().__init__(
         label,
@@ -46,6 +48,7 @@ class ChromeAppleScript(ChromePathMixin, ChromiumAppleScript):
         cache_dir,
         type="chrome",
         viewport=viewport,
+        splash_screen=splash_screen,
         platform=platform)
 
   def _create_driver(self, options, service) -> ChromiumDriver:

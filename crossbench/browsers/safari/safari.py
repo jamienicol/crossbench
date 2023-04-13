@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from crossbench import helper
 from crossbench.browsers.browser import Browser
+from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
@@ -33,9 +34,16 @@ class Safari(Browser):
                flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
+               splash_screen: SplashScreen = SplashScreen.DEFAULT,
                platform: Optional[helper.MacOSPlatform] = None):
     super().__init__(
-        label, path, flags, type="safari", viewport=viewport, platform=platform)
+        label,
+        path,
+        flags,
+        type="safari",
+        viewport=viewport,
+        splash_screen=splash_screen,
+        platform=platform)
     assert self.platform.is_macos, "Safari only works on MacOS"
     assert self.path
     self.bundle_name = self.path.stem.replace(" ", "")

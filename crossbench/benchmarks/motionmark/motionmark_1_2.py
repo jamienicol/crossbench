@@ -164,7 +164,7 @@ class MotionMark12Story(PressBenchmarkStory):
 
   def run(self, run: Run) -> None:
     with run.actions("Setup") as actions:
-      actions.navigate_to(self._url)
+      actions.show_url(self._url)
       actions.wait_js_condition(
           """return document.querySelector("tree > li") !== undefined""", 0.1,
           10)

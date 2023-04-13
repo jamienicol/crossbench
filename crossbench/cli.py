@@ -30,6 +30,7 @@ import crossbench.browsers.all as browsers
 from crossbench.browsers.browser import convert_flags_to_label
 from crossbench.browsers.chrome import ChromeDownloader
 from crossbench.browsers.viewport import Viewport
+from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.cli_helper import parse_file_path, parse_positive_float
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
@@ -462,7 +463,8 @@ class BrowserConfig:
         label=label,
         path=path,
         flags=flags,
-        viewport=args.viewport)
+        viewport=args.viewport,
+        splash_screen=args.splash_screen)
     logging.info("SELECTED BROWSER: name=%s path='%s' ",
                  browser_instance.unique_name, path)
     self._variants.append(browser_instance)
@@ -910,6 +912,15 @@ class CrossBenchCLI:
         "See config/browser.config.example.hjson on how to set up a complex "
         "configuration file. "
         "Cannot be used together with --browser.")
+
+    browser_config_group = browser_group.add_argument(
+        "--splash-screen",
+        "--splashscreen",
+        type=SplashScreen.parse,
+        default=SplashScreen.DETAILED,
+        help=("Set the splashscreen shown before each run. "
+              "Choices: 'default', 'none', 'minimal', 'detailed,' or "
+              "a path or a URL."))
 
     viewport_group = browser_group.add_mutually_exclusive_group()
     viewport_group.add_argument(

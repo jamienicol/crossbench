@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from crossbench import helper
 from crossbench.browsers.browser import Browser
+from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebdriverBrowser
 
@@ -51,6 +52,7 @@ class Firefox(Browser):
                flags: Flags.InitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
+               splash_screen: SplashScreen = SplashScreen.DEFAULT,
                platform: Optional[helper.Platform] = None):
     if cache_dir is None:
       # pylint: disable=bad-option-value, consider-using-with
@@ -66,6 +68,7 @@ class Firefox(Browser):
         flags,
         type="firefox",
         viewport=viewport,
+        splash_screen=splash_screen,
         platform=platform)
 
   def _extract_version(self) -> str:

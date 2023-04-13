@@ -5,12 +5,10 @@
 from __future__ import annotations
 
 import abc
-import html
 import logging
 import pathlib
 import re
 import shutil
-import urllib.parse
 import urllib.request
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set, Tuple
 
@@ -18,6 +16,7 @@ from crossbench import helper
 from crossbench.flags import Flags
 
 from .viewport import Viewport
+from .splash_screen import SplashScreen
 
 if TYPE_CHECKING:
   import datetime as dt
@@ -46,6 +45,7 @@ class Browser(abc.ABC):
       cache_dir: Optional[pathlib.Path] = None,
       type: Optional[str] = None,  # pylint: disable=redefined-builtin
       viewport: Viewport = Viewport.DEFAULT,
+      splash_screen: SplashScreen = SplashScreen.DEFAULT,
       platform: Optional[helper.Platform] = None):
     self.platform = platform or helper.platform
     # Marked optional to make subclass constructor calls easier with pytype.
@@ -69,6 +69,7 @@ class Browser(abc.ABC):
       self.path: pathlib.Path = pathlib.Path()
       self.unique_name = f"{self.type}_{self.label}".lower()
     self._viewport = viewport
+    self._splash_screen = splash_screen
     self._is_running: bool = False
     self.cache_dir: Optional[pathlib.Path] = cache_dir
     self.clear_cache_dir: bool = True
@@ -86,6 +87,10 @@ class Browser(abc.ABC):
     assert name
     # Replace any potentially unsafe chars in the name
     self._unique_name = re.sub(r"[^\w\d\-\.]", "_", name).lower()
+
+  @property
+  def splash_screen(self) -> SplashScreen:
+    return self._splash_screen
 
   @property
   def viewport(self) -> Viewport:
@@ -174,8 +179,7 @@ class Browser(abc.ABC):
     self.start(run)
     assert self._is_running
     self._prepare_temperature(run)
-    self.show_url(runner, self.info_data_url(run))
-    runner.wait(2)
+    self.splash_screen.run(run)
 
   @abc.abstractmethod
   def _extract_version(self) -> str:
@@ -206,41 +210,6 @@ class Browser(abc.ABC):
     flags_copy.update(run.extra_flags)
     return tuple(flags_copy.get_list())
 
-  def info_data_url(self, run: Run) -> str:
-    page = ("<html><head>"
-            "<title>Browser Details</title>"
-            "<style>"
-            """
-            html { font-family: sans-serif; }
-            dl {
-              display: grid;
-              grid-template-columns: max-content auto;
-            }
-            dt { grid-column-start: 1; }
-            dd { grid-column-start: 2;  font-family: monospace; }
-            """
-            "</style>"
-            "<head><body>"
-            "<h1>"
-            f"{html.escape(self.app_name.title())} {html.escape(self.version)}"
-            "</h1>")
-    page += (
-        "<h2>Browser Details</h2>"
-        "<dl>"
-        f"<dt>UserAgent</dt><dd>{html.escape(self.user_agent(run.runner))}</dd>"
-    )
-    for property_name, value in self.details_json().items():
-      page += f"<dt>{html.escape(property_name)}</dt>"
-      page += f"<dd>{html.escape(str(value))}</dd>"
-    page += "</dl>"
-    page += "<h2>Run Details</h2><dl>"
-    for property_name, value in run.details_json().items():
-      page += f"<dt>{html.escape(property_name)}</dt>"
-      page += f"<dd>{html.escape(str(value))}</dd>"
-    page += "</dl>"
-    page += "</body></html>"
-    data_url = f"data:text/html;charset=utf-8,{urllib.parse.quote(page)}"
-    return data_url
 
   def quit(self, runner: Runner) -> None:
     del runner

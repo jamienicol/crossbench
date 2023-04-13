@@ -6,14 +6,14 @@ from __future__ import annotations
 
 import abc
 import pathlib
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, List, Sequence, Type
 from unittest import mock
 
 import psutil
 from pyfakefs import fake_filesystem_unittest
 
-from crossbench import helper
 import crossbench
+from crossbench import helper
 from crossbench.benchmarks.benchmark import SubStoryBenchmark
 from crossbench.cli import CrossBenchCLI
 from crossbench.flags import Flags
@@ -102,6 +102,9 @@ class MockCLI(CrossBenchCLI):
 
 class BaseCrossbenchTestCase(
     fake_filesystem_unittest.TestCase, metaclass=abc.ABCMeta):
+
+  def filter_data_urls(self, urls: Sequence[str]) -> List[str]:
+    return [url for url in urls if not url.startswith("data:")]
 
   def setUp(self):
     super().setUp()
