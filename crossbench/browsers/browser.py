@@ -119,7 +119,7 @@ class Browser(abc.ABC):
     info = self.platform.process_info(self.pid)
     if info is None:
       return None
-    return info["status"] == "running"
+    return info["status"] == "running" or info["status"] == "sleeping"
 
   @property
   def is_local(self) -> bool:
