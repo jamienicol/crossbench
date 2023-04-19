@@ -99,6 +99,9 @@ class JSFlags(Flags):
   """
   _NO_PREFIX = "--no"
 
+  def copy(self) -> JSFlags:
+    return self.__class__(self)
+
   def _set(self,
            flag_name: str,
            flag_value: Optional[str] = None,

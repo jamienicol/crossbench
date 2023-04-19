@@ -40,7 +40,7 @@ class SplashScreen:
       return URLSplashScreen(maybe_path.absolute().as_uri())
     raise ArgumentTypeError(f"Unknown splashscreen: {value}")
 
-  def run(self, run: Run):
+  def run(self, run: Run) -> None:
     pass
 
 
@@ -50,7 +50,7 @@ class BaseURLSplashScreen(SplashScreen, metaclass=abc.ABCMeta):
     super().__init__()
     self._timeout = timeout
 
-  def run(self, run: Run):
+  def run(self, run: Run) -> None:
     with run.actions("SplashScreen") as action:
       action.show_url(self.get_url(run))
       action.wait(self._timeout)

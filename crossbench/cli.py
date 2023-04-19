@@ -17,8 +17,8 @@ import sys
 import tempfile
 import textwrap
 import traceback
-from typing import (TYPE_CHECKING, Any, Dict, Final, Iterable, List, Optional,
-                    Sequence, TextIO, Tuple, Type, Union)
+from typing import (TYPE_CHECKING, Any, Dict, Final, Generator, Iterable, List,
+                    Optional, Sequence, TextIO, Tuple, Type, Union)
 
 import hjson
 from tabulate import tabulate
@@ -82,7 +82,7 @@ class LateArgumentError(argparse.ArgumentTypeError):
 
 
 @contextlib.contextmanager
-def late_argument_type_error_wrapper(flag: str):
+def late_argument_type_error_wrapper(flag: str) -> Generator[None, None, None]:
   """Converts raised ValueError and ArgumentTypeError to LateArgumentError
   that are associated with the given flag.
   """
@@ -139,6 +139,9 @@ class FlagGroupConfig:
           for flag_value in flag_values)
 
 
+FlagItemT = Tuple[str, Optional[str]]
+
+
 class BrowserDriverType(Enum):
   WEB_DRIVER = "WebDriver"
   APPLE_SCRIPT = "AppleScript"
@@ -188,7 +191,7 @@ class BrowserConfig:
     return browser_config
 
   def __init__(self,
-               raw_config_data: Optional[Dict] = None,
+               raw_config_data: Optional[Dict[str, Any]] = None,
                browser_lookup_override: Optional[BrowserLookupTableT] = None):
     self.flag_groups: Dict[str, FlagGroupConfig] = {}
     self._variants: List[Browser] = []
@@ -212,7 +215,7 @@ class BrowserConfig:
       with self._exceptions.info(f"Parsing config file: {f.name}"):
         self.load_dict(config)
 
-  def load_dict(self, raw_config_data: Dict) -> None:
+  def load_dict(self, raw_config_data: Dict[str, Any]) -> None:
     try:
       if "flags" in raw_config_data:
         with self._exceptions.info("Parsing config['flags']"):
@@ -286,10 +289,10 @@ class BrowserConfig:
       browser_cls = self._get_browser_cls(path, driver_type)
     if not path.exists():
       raise ConfigFileError(f"browsers['{name}'].path='{path}' does not exist.")
-    raw_flags = ()
+    raw_flags: List[Tuple[FlagItemT, ...]] = []
     with self._exceptions.info(f"Parsing browsers['{name}'].flags"):
       raw_flags = self._parse_flags(name, raw_browser_data)
-    variants_flags = ()
+    variants_flags: Tuple[Flags, ...] = ()
     with self._exceptions.info(
         f"Expand browsers['{name}'].flags into full variants"):
       variants_flags = tuple(
@@ -309,7 +312,6 @@ class BrowserConfig:
   def _flags_to_label(self, name: str, flags: Flags) -> str:
     return f"{name}_{convert_flags_to_label(*flags.get_list())}"
 
-  FlagItemT = Tuple[str, Optional[str]]
 
   def _parse_flags(self, name: str,
                    data: Dict[str, Any]) -> List[Tuple[FlagItemT, ...]]:
@@ -354,7 +356,7 @@ class BrowserConfig:
     #   (("--foo", "f1"), ("--bar", "b1")),
     #   (("--foo", "f1"), ("--bar", "b2")),
     # ]:
-    flags_variants = list(itertools.product(*flags_variants))
+    flags_variants_combinations = list(itertools.product(*flags_variants))
     # IN: [
     #   (None,            None)
     #   (None,            ("--foo", "f1")),
@@ -365,13 +367,13 @@ class BrowserConfig:
     #   (("--foo", "f1"), ("--bar", "b1")),
     # ]
     #
-    flags_variants = list(
+    flags_variants_filtered = list(
         tuple(flag_item
               for flag_item in flags_items
               if flag_item is not None)
-        for flags_items in flags_variants)
-    assert flags_variants
-    return flags_variants
+        for flags_items in flags_variants_combinations)
+    assert flags_variants_filtered
+    return flags_variants_filtered
 
   def _get_browser_cls(self, path: pathlib.Path,
                        driver: BrowserDriverType) -> Type[Browser]:

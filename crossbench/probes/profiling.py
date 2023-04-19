@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+import abc
 
 import json
 import logging
@@ -123,10 +124,9 @@ class ProfilingProbe(Probe):
       assert isinstance(browser, Chromium), (
           f"Expected Chromium-based browser, found {type(browser)}.")
     if isinstance(browser, Chromium):
-      chromium = cast(Chromium, browser)
       if not self._spare_renderer_process:
-        chromium.features.disable("SpareRendererForSitePerProcess")
-      self._attach_linux(chromium)
+        browser.features.disable("SpareRendererForSitePerProcess")
+      self._attach_linux(browser)
 
   def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)
@@ -203,14 +203,17 @@ class ProfilingProbe(Probe):
         logging.info("    %s/*.perf.data*: %d more files",
                      largest_perf_file.parent.relative_to(cwd), len(perf_files))
 
-  def get_scope(self, run: Run) -> Probe.Scope:
+  class ProfilingScope(Probe.Scope["ProfilingProbe"], metaclass=abc.ABCMeta):
+    pass
+
+  def get_scope(self, run: Run) -> ProfilingScope:
     if self.browser_platform.is_linux:
       return self.LinuxProfilingScope(self, run)
     if self.browser_platform.is_macos:
       return self.MacOSProfilingScope(self, run)
-    raise Exception("Invalid platform")
+    raise NotImplementedError("Invalid platform")
 
-  class MacOSProfilingScope(Probe.Scope):
+  class MacOSProfilingScope(ProfilingScope):
     _process: subprocess.Popen
 
     def __init__(self, probe: ProfilingProbe, run: Run) -> None:
@@ -234,7 +237,7 @@ class ProfilingProbe(Probe):
         time.sleep(1)
       return ProbeResult(file=(self.results_file,))
 
-  class LinuxProfilingScope(Probe.Scope):
+  class LinuxProfilingScope(ProfilingScope):
     PERF_DATA_PATTERN = "*.perf.data"
     TEMP_FILE_PATTERNS = (
         "*.perf.data.jitted",

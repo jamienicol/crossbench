@@ -358,8 +358,8 @@ class RunGroup(abc.ABC):
 
   def __init__(self, throw: bool = False):
     self._exceptions = exception.Annotator(throw)
-    self._path = None
-    self._merged_probe_results = None
+    self._path: Optional[pathlib.Path] = None
+    self._merged_probe_results: Optional[ProbeResultDict] = None
 
   def _set_path(self, path: pathlib.Path) -> None:
     assert self._path is None
@@ -432,8 +432,8 @@ class RepetitionsRunGroup(RunGroup):
   def __init__(self, throw: bool = False):
     super().__init__(throw)
     self._runs: List[Run] = []
-    self._story: Story = None
-    self._browser: Browser = None
+    self._story: Optional[Story] = None
+    self._browser: Optional[Browser] = None
 
   def append(self, run: Run) -> None:
     if self._path is None:
@@ -726,7 +726,7 @@ class Run:
                        ) -> exception.ExceptionAnnotationScope:
     return self._exceptions.capture(*stack_entries, exceptions=exceptions)
 
-  def get_browser_details_json(self) -> dict:
+  def get_browser_details_json(self) -> Dict[str, Any]:
     details_json = self.browser.details_json()
     details_json["js_flags"] += tuple(self.extra_js_flags.get_list())
     details_json["flags"] += tuple(self.extra_flags.get_list())

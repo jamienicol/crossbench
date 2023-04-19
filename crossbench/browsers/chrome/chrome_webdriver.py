@@ -49,6 +49,6 @@ class ChromeWebDriver(ChromiumWebDriver):
         splash_screen=splash_screen,
         platform=platform)
 
-  def _create_driver(self, options, service) -> ChromiumDriver:
+  def _create_driver(self, options, service: ChromeService) -> ChromiumDriver:
     return webdriver.Chrome(  # pytype: disable=wrong-keyword-args
         options=options, service=service)

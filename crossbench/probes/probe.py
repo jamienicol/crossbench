@@ -287,7 +287,7 @@ class Probe(abc.ABC):
       return self.probe.name
 
     @property
-    def browser_pid(self) -> str:
+    def browser_pid(self) -> int:
       maybe_pid = self.run.browser.pid
       assert maybe_pid, "Browser is not runner or does not provide a pid."
       return maybe_pid

@@ -19,6 +19,7 @@ from crossbench import helper
 if TYPE_CHECKING:
   from crossbench.probes.probe import Probe
   from crossbench.runner import Runner
+  from crossbench.browsers.browser import Browser
 
 
 def merge_bool(name: str, left: Optional[bool],
@@ -333,7 +334,7 @@ class HostEnvironment:
   def _check_running_binaries(self) -> None:
     if self._config.browser_allow_existing_process:
       return
-    browser_binaries = helper.group_by(
+    browser_binaries: Dict[str, List[Browser]] = helper.group_by(
         self._runner.browsers, key=lambda browser: str(browser.path))
     own_pid = os.getpid()
     for proc_info in self._platform.processes(["cmdline", "exe", "pid",
@@ -349,7 +350,7 @@ class HostEnvironment:
         if f"{binary} " not in cmdline and binary != exe:
           continue
         # Use the first in the group
-        browser = browsers[0]
+        browser: Browser = browsers[0]
         logging.debug("Binary=%s", binary)
         logging.debug("PS status output:")
         logging.debug("proc(pid=%s, name=%s, cmd=%s)", proc_info["pid"],

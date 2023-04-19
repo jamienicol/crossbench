@@ -143,7 +143,7 @@ class Page(Story, metaclass=abc.ABCMeta):
     self._playback = playback or PlaybackController.once()
     super().__init__(name, duration)
 
-  def set_parent(self, parent: Page):
+  def set_parent(self, parent: Page) -> None:
     # TODO: support nested playback controllers.
     self._playback = PlaybackController.once()
     del parent

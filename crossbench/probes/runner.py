@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from crossbench.probes import probe
 from crossbench.probes.json import JsonResultProbe
@@ -30,7 +30,7 @@ class RunRunnerLogProbe(probe.Probe):
 
     def __init__(self, *args, **kwargs) -> None:
       super().__init__(*args, **kwargs)
-      self._log_handler = None
+      self._log_handler: Optional[logging.Handler] = None
 
     def setup(self, run: Run) -> None:
       log_formatter = logging.Formatter(
@@ -48,6 +48,7 @@ class RunRunnerLogProbe(probe.Probe):
       pass
 
     def tear_down(self, run: Run) -> ProbeResult:
+      assert self._log_handler
       logging.getLogger().removeHandler(self._log_handler)
       self._log_handler = None
       return ProbeResult(file=(self.results_file,))

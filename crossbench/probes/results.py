@@ -55,7 +55,7 @@ class ProbeResult:
         raise ValueError(f"ProbeResult path does not exist: {path}")
 
   def to_json(self) -> Dict[str, Any]:
-    result = {}
+    result: Dict[str, Any] = {}
     if self._url_list:
       result["url"] = self._url_list
     if self._file_list:

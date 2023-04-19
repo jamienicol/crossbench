@@ -133,7 +133,7 @@ class AppleScriptBrowser(Browser, metaclass=abc.ABCMeta):
     self._exec_apple_script(self.APPLE_SCRIPT_SET_URL, url=url)
     self.platform.sleep(0.5)
 
-  def quit(self, runner: Runner):
+  def quit(self, runner: Runner) -> None:
     del runner
     self._exec_apple_script("quit")
     self._browser_process.terminate()

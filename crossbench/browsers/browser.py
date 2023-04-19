@@ -66,7 +66,7 @@ class Browser(abc.ABC):
     else:
       # TODO: separate out remote browser (selenium) without an explicit binary
       # path.
-      self.path: pathlib.Path = pathlib.Path()
+      self.path = pathlib.Path()
       self.unique_name = f"{self.type}_{self.label}".lower()
     self._viewport = viewport
     self._splash_screen = splash_screen
@@ -106,7 +106,7 @@ class Browser(abc.ABC):
     return self._flags
 
   def user_agent(self, runner: Runner) -> str:
-    return self.js(runner, "return window.navigator.userAgent")
+    return str(self.js(runner, "return window.navigator.userAgent"))
 
   @property
   def pid(self) -> Optional[int]:

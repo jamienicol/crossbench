@@ -357,7 +357,7 @@ class Platform(abc.ABC):
       raise SubprocessError(process)
     return process
 
-  def exec_apple_script(self, script: str):
+  def exec_apple_script(self, script: str) -> str:
     raise NotImplementedError("AppleScript is only available on MacOS")
 
   def log(self, *messages: Any, level: int = 2) -> None:
@@ -952,7 +952,6 @@ def wait_with_backoff(wait_range: WaitRange) -> Iterator[Tuple[float, float]]:
   assert isinstance(wait_range, WaitRange)
   start = dt.datetime.now()
   timeout = wait_range.timeout
-  duration = 0
   for sleep_for in wait_range:
     duration = dt.datetime.now() - start
     if duration > wait_range.timeout:

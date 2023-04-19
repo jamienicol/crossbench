@@ -98,7 +98,7 @@ class Values:
   """
 
   @classmethod
-  def from_json(cls, json_data: Dict[str, Any]):
+  def from_json(cls, json_data: Dict[str, Any]) -> Values:
     return cls(json_data["values"])
 
   def __init__(self, values: Optional[List] = None):
@@ -169,11 +169,13 @@ class Values:
     return json_data
 
 
-def geomean(values: Sequence) -> float:
-  product = 1
+def geomean(values: Iterable[Union[int, float]]) -> float:
+  product: float = 1
+  length = 0
   for value in values:
     product *= value
-  return product**(1 / len(values))
+    length += 1
+  return product**(1 / length)
 
 
 class ValuesMerger:
