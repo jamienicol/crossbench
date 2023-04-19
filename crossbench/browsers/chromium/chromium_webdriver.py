@@ -14,7 +14,7 @@ import stat
 import tempfile
 import urllib.error
 import zipfile
-from typing import TYPE_CHECKING, Final, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Dict, Final, List, Optional, Tuple, Type
 
 from selenium.webdriver.chromium.options import ChromiumOptions
 from selenium.webdriver.chromium.service import ChromiumService
@@ -103,9 +103,10 @@ class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
 
 class ChromeDriverFinder:
   URL: Final[str] = "http://chromedriver.storage.googleapis.com"
-  OMAHA_PROXY_URL: Final[str] = "https://omahaproxy.appspot.com/deps.json"
   CHROMIUM_LISTING_URL: Final[str] = (
       "https://www.googleapis.com/storage/v1/b/chromium-browser-snapshots/o/")
+  CHROMIUM_DASH_URL: Final[str] = (
+      "https://chromiumdash.appspot.com/fetch_releases")
 
   driver_path: pathlib.Path
 
@@ -232,34 +233,67 @@ class ChromeDriverFinder:
     url = (f"{self.URL}/{driver_version}/" f"chromedriver_{arch_suffix}.zip")
     return listing_url, url
 
+  CHROMIUM_DASH_PARAMS: Dict[Tuple[str, str], Dict] = {
+      ("linux", "x64"): {
+          "dash_platform": "linux",
+          "dash_channel": "dev",
+      },
+      ("macos", "x64"): {
+          "dash_platform": "mac",
+      },
+      ("macos", "arm64"): {
+          "dash_platform": "mac",
+      },
+      ("win", "ia32"): {
+          "dash_platform": "win",
+      },
+      ("win", "x64"): {
+          "dash_platform": "win64",
+      }
+  }
+
+  CHROMIUM_LISTING_PREFIX: Dict[Tuple[str, str], str] = {
+      ("linux", "x64"): "Linux",
+      ("macos", "x64"): "Mac",
+      ("macos", "arm64"): "Mac_Arm",
+      ("win", "ia32"): "Win",
+      ("win", "x64"): "Win_x64",
+  }
+
   def _find_canary_url(self) -> Optional[str]:
     logging.debug("Try downloading the chromedriver canary version")
-    # Lookup the branch name
-    url = f"{self.OMAHA_PROXY_URL}?version={self.browser.version}"
+    properties = self.CHROMIUM_DASH_PARAMS.get(self.platform.key)
+    if not properties:
+      raise ValueError(f"Unsupported platform: {self.platform}")
+    dash_platform = properties["dash_platform"]
+    dash_channel = properties.get("dash_channel", "canary")
+
+    url = ("{self.CHROMIUM_DASH_URL}?"
+           f"platform={dash_platform}&channel={dash_channel}")
+    chromium_base_position = 0
     with helper.urlopen(url) as response:
-      version_info = json.loads(response.read().decode("utf-8"))
-      assert version_info["chromium_version"] == self.browser.version
-      chromium_base_position = int(version_info["chromium_base_position"])
+      version_infos = list(json.loads(response.read().decode("utf-8")))
+      if not version_infos:
+        raise ValueError(
+            f"Could not find latest version info for platform={self.platform}")
+      for version_info in version_infos:
+        if version_info["version"] == self.browser.version:
+          chromium_base_position = int(
+              version_info["chromium_main_branch_position"])
+          break
+    if not chromium_base_position:
+      raise ValueError("Could not find matching canary chromedriver "
+                       f"for {self.browser.version}")
     # Use prefixes to limit listing results and increase chances of finding
     # a matching version
-    platform_name = "Linux"
-    cpu_suffix = ""
-    if self.platform.is_macos:
-      platform_name = "Mac"
-      if self.platform.is_arm64:
-        cpu_suffix = "_Arm"
-    else:
-      if self.platform.is_win:
-        platform_name = "Win"
-      if self.platform.is_x64:
-        cpu_suffix = "_x64"
-      else:
-        raise NotImplementedError("Unsupported chromedriver platform")
-
+    listing_prefix = self.CHROMIUM_LISTING_PREFIX.get(self.platform.key)
+    if not listing_prefix:
+      raise NotImplementedError(
+          f"Unsupported chromedriver platform {self.platform}")
     base_prefix = str(chromium_base_position)[:4]
     listing_url = (
         self.CHROMIUM_LISTING_URL +
-        f"?prefix={platform_name}{cpu_suffix}/{base_prefix}&maxResults=10000")
+        f"?prefix={listing_prefix}/{base_prefix}&maxResults=10000")
     with helper.urlopen(listing_url) as response:
       listing = json.loads(response.read().decode("utf-8"))
 

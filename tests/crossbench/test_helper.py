@@ -13,6 +13,39 @@ import sys
 import pytest
 
 
+class MachineArchTestCase(unittest.TestCase):
+
+  def test_is_arm(self):
+    self.assertFalse(helper.MachineArch.IA32.is_arm)
+    self.assertFalse(helper.MachineArch.X64.is_arm)
+    self.assertTrue(helper.MachineArch.ARM_32.is_arm)
+    self.assertTrue(helper.MachineArch.ARM_64.is_arm)
+
+  def test_is_intel(self):
+    self.assertTrue(helper.MachineArch.IA32.is_intel)
+    self.assertTrue(helper.MachineArch.X64.is_intel)
+    self.assertFalse(helper.MachineArch.ARM_32.is_intel)
+    self.assertFalse(helper.MachineArch.ARM_64.is_intel)
+
+  def test_is_32bit(self):
+    self.assertTrue(helper.MachineArch.IA32.is_32bit)
+    self.assertFalse(helper.MachineArch.X64.is_32bit)
+    self.assertTrue(helper.MachineArch.ARM_32.is_32bit)
+    self.assertFalse(helper.MachineArch.ARM_64.is_32bit)
+
+  def test_is_64bit(self):
+    self.assertFalse(helper.MachineArch.IA32.is_64bit)
+    self.assertTrue(helper.MachineArch.X64.is_64bit)
+    self.assertFalse(helper.MachineArch.ARM_32.is_64bit)
+    self.assertTrue(helper.MachineArch.ARM_64.is_64bit)
+
+  def test_str(self):
+    self.assertEqual(str(helper.MachineArch.IA32), "ia32")
+    self.assertEqual(str(helper.MachineArch.X64), "x64")
+    self.assertEqual(str(helper.MachineArch.ARM_32), "arm32")
+    self.assertEqual(str(helper.MachineArch.ARM_64), "arm64")
+
+
 class WaitTestCase(unittest.TestCase):
 
   def test_invalid_wait_ranges(self):

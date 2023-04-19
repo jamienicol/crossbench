@@ -8,6 +8,7 @@ import abc
 import collections.abc
 import ctypes
 import datetime as dt
+import enum
 import json
 import logging
 from math import floor, log10
@@ -171,6 +172,37 @@ class LocalEnviron(Environ):
     return self._environ.__len__()
 
 
+class MachineArch(enum.Enum):
+  IA32 = ("ia32", "intel", 32)
+  X64 = ("x64", "intel", 64)
+  ARM_32 = ("arm32", "arm", 32)
+  ARM_64 = ("arm64", "arm", 64)
+
+  def __init__(self, name, arch, bits):
+    self.identifier = name
+    self.arch = arch
+    self.bits = bits
+
+  @property
+  def is_arm(self) -> bool:
+    return self.arch == "arm"
+
+  @property
+  def is_intel(self) -> bool:
+    return self.arch == "intel"
+
+  @property
+  def is_32bit(self) -> bool:
+    return self.bits == 32
+
+  @property
+  def is_64bit(self) -> bool:
+    return self.bits == 64
+
+  def __str__(self) -> str:
+    return self.identifier
+
+
 class Platform(abc.ABC):
 
   @property
@@ -178,26 +210,42 @@ class Platform(abc.ABC):
   def name(self) -> str:
     pass
 
+  def __str__(self) -> str:
+    return ".".join(self.key) + (".remote" if self.is_remote else ".local")
+
   @property
   def is_remote(self) -> bool:
     return False
 
   @property
-  def machine(self) -> str:
+  def machine(self) -> MachineArch:
     assert not self.is_remote, "Operation not supported yet on remote platform"
-    return py_platform.machine()
+    raw = py_platform.machine()
+    if raw in ("i386", "i686", "x86", "ia32"):
+      return MachineArch.IA32
+    if raw in ("x86_64", "AMD64"):
+      return MachineArch.X64
+    if raw in ("arm64", "aarch64"):
+      return MachineArch.ARM_64
+    if raw in ("arm"):
+      return MachineArch.ARM_32
+    raise NotImplementedError(f"Unsupported machine type: {raw}")
 
   @property
   def is_ia32(self) -> bool:
-    return self.machine in ("i386", "i686", "x86")
+    return self.machine == MachineArch.IA32
 
   @property
   def is_x64(self) -> bool:
-    return self.machine in ("x86_64", "AMD64")
+    return self.machine == MachineArch.X64
 
   @property
   def is_arm64(self) -> bool:
-    return self.machine in ("arm64", "aarch64")
+    return self.machine == MachineArch.ARM_64
+
+  @property
+  def key(self) -> Tuple[str, str]:
+    return (self.name, self.machine.value)
 
   @property
   def is_macos(self) -> bool:
