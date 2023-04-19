@@ -124,9 +124,10 @@ class ProfilingProbe(Probe):
       assert isinstance(browser, Chromium), (
           f"Expected Chromium-based browser, found {type(browser)}.")
     if isinstance(browser, Chromium):
+      chromium = cast(Chromium, browser)
       if not self._spare_renderer_process:
-        browser.features.disable("SpareRendererForSitePerProcess")
-      self._attach_linux(browser)
+        chromium.features.disable("SpareRendererForSitePerProcess")
+      self._attach_linux(chromium)
 
   def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)
