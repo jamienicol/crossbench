@@ -5,13 +5,14 @@
 from __future__ import annotations
 
 import abc
+import json
 import logging
 import pathlib
 import plistlib
 import re
 import shutil
 import tempfile
-from typing import Final, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Final, List, Optional, Tuple, Type, Union
 
 from crossbench import helper
 from crossbench.browsers.browser import BROWSERS_CACHE
@@ -22,7 +23,10 @@ class ChromeDownloader(abc.ABC):
   VERSION_RE: Final = re.compile(
       r"(chrome-)?(?P<version>(m[0-9]+)|([0-9]+(\.[0-9]+){3}))", re.I)
   ANY_MARKER: Final = 9999
-  URL: Final = "gs://chrome-signed/desktop-5c0tCh/"
+  STORAGE_URL: Final = "gs://chrome-signed/desktop-5c0tCh/"
+  VERSION_URL = (
+      "https://versionhistory.googleapis.com/v1/"
+      "chrome/platforms/{platform}/channels/{channel}/versions?filter={filter}")
 
   @classmethod
   def _get_loader_cls(cls, platform: helper.Platform) -> Type[ChromeDownloader]:
@@ -196,37 +200,54 @@ class ChromeDownloader(abc.ABC):
           f"Expected: {self._requested_version} Got: {cached_version}")
     return cached_version_str
 
+  VERSION_URL_PLATFORM_LOOKUP = {
+      ("win", "ia32"): "win",
+      ("win", "x64"): "win64",
+      ("linux", "x64"): "linux",
+      ("macos", "x64"): "mac",
+      ("macos", "arm64"): "mac_arm64",
+      ("android", "arm64"): "android",
+  }
+
   def _find_archive_url(self) -> Optional[str]:
-    milestone: int = self._requested_version[0]
     # Quick probe for complete versions
     if self._requested_exact_version:
-      test_url = f"{self.URL}{self._version_identifier}/{self._platform_name}/"
-      logging.info("LIST VERSION for M%s (fast): %s", milestone, test_url)
-      maybe_archive_url = self._filter_candidates([test_url])
-      if maybe_archive_url:
-        return maybe_archive_url
-    list_url = f"{self.URL}{milestone}.*/{self._platform_name}/"
-    logging.info("LIST ALL VERSIONS for M%s (slow): %s", milestone, list_url)
-    try:
-      listing: List[str] = self._platform.sh_stdout(
-          "gsutil", "ls", "-d", list_url).strip().splitlines()
-    except helper.SubprocessError as e:
-      if "One or more URLs matched no objects" in str(e):
-        raise ValueError(
-            f"Could not find version {self._requested_version_str} "
-            f"for {self._platform.name} {self._platform.machine} ") from e
-      if "AccessDeniedException" in str(e):
-        raise ValueError(f"Could not access {list_url}.\n"
-                         "Please run `gcert` and `gcloud auth login` "
-                         "(googlers only).") from e
-      raise
-    logging.info("FILTERING %d CANDIDATES", len(listing))
-    return self._filter_candidates(listing)
+      return self._find_exact_archive_url(self._version_identifier)
+    return self._find_milestone_archive_url()
 
-  def _filter_candidates(self, listing: List[str]) -> Optional[str]:
+  def _find_milestone_archive_url(self) -> Optional[str]:
+    milestone: int = self._requested_version[0]
+    platform = self.VERSION_URL_PLATFORM_LOOKUP.get(self._platform.key)
+    if not platform:
+      raise ValueError(f"Unsupported platform {self._platform}")
+    url = self.VERSION_URL.format(
+        platform=platform,
+        channel="canary",
+        filter=f"version>={milestone},version<{milestone+1}&")
+    logging.info("LIST ALL VERSIONS for M%s (slow): %s", milestone, url)
+    try:
+      with helper.urlopen(url) as response:
+        raw_infos = json.loads(response.read().decode("utf-8"))["versions"]
+        version_urls: List[str] = [
+            f"{self.STORAGE_URL}{info['version']}/{self._platform_name}/"
+            for info in raw_infos
+        ]
+    except Exception as e:
+      raise ValueError(
+          f"Could not find version {self._requested_version_str} "
+          f"for {self._platform.name} {self._platform.machine} ") from e
+    logging.info("FILTERING %d CANDIDATES", len(version_urls))
+    return self._filter_candidate_urls(version_urls)
+
+  def _find_exact_archive_url(self, version: str) -> Optional[str]:
+    test_url = f"{self.STORAGE_URL}{version}/{self._platform_name}/"
+    logging.info("LIST VERSION for M%s (fast): %s", version, test_url)
+    return self._filter_candidate_urls([test_url])
+
+  def _filter_candidate_urls(self, versions_urls: List[str]) -> Optional[str]:
     version_items = []
-    for url in listing:
-      version_str, _ = url[len(self.URL):].split("/", maxsplit=1)
+    for url in versions_urls:
+      version_str, _ = url[len(self.STORAGE_URL):].split("/", maxsplit=1)
       version = tuple(map(int, version_str.split(".")))
       version_items.append((version, url))
     version_items.sort(reverse=True)

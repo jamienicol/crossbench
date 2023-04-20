@@ -245,7 +245,7 @@ class Platform(abc.ABC):
 
   @property
   def key(self) -> Tuple[str, str]:
-    return (self.name, self.machine.value)
+    return (self.name, str(self.machine))
 
   @property
   def is_macos(self) -> bool:
