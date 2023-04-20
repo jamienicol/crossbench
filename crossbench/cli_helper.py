@@ -3,11 +3,13 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+
 import argparse
+import contextlib
 import json
 import math
 import pathlib
-from typing import Any
+from typing import Any, Generator
 
 
 def parse_path(str_value: str) -> pathlib.Path:
@@ -56,3 +58,47 @@ def parse_positive_float(value: str) -> float:
     raise argparse.ArgumentTypeError(
         f"Expected positive value but got: {value_f}")
   return value_f
+
+
+class CrossBenchArgumentError(argparse.ArgumentError):
+  """Custom class that also prints the argument.help if available.
+  """
+
+  def __init__(self, argument: Any, message: str) -> None:
+    self.help: str = ""
+    super().__init__(argument, message)
+    if self.argument_name:
+      self.help = getattr(argument, "help", "")
+
+  def __str__(self) -> str:
+    formatted = super().__str__()
+    if not self.help:
+      return formatted
+    return (f"argument error {self.argument_name}:\n\n"
+            f"Help {self.argument_name}:\n{self.help}\n\n"
+            f"{formatted}")
+
+
+class LateArgumentError(argparse.ArgumentTypeError):
+  """Signals argument parse errors after parser.parse_args().
+  This is used to map errors back to the original argument, much like
+  argparse.ArgumentError does internally. However, since this happens after
+  the internal argument parsing we need this custom implementation to print
+  more descriptive error messages.
+  """
+
+  def __init__(self, flag: str, message: str):
+    super().__init__(message)
+    self.flag = flag
+    self.message = message
+
+
+@contextlib.contextmanager
+def late_argument_type_error_wrapper(flag: str) -> Generator[None, None, None]:
+  """Converts raised ValueError and ArgumentTypeError to LateArgumentError
+  that are associated with the given flag.
+  """
+  try:
+    yield
+  except (ValueError, argparse.ArgumentTypeError) as e:
+    raise LateArgumentError(flag, str(e)) from e

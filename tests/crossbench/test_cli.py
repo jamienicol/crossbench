@@ -2,27 +2,28 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import argparse
 import io
 import json
 import pathlib
 import sys
 import unittest
-import argparse
 from typing import Dict, List, Tuple, Type
 from unittest import mock
 
 import hjson
-from pyfakefs import fake_filesystem_unittest
 import pytest
+from pyfakefs import fake_filesystem_unittest
 
 import crossbench
 from crossbench import helper
 from crossbench.browsers import splash_screen, viewport
 from crossbench.browsers.chrome import Chrome, ChromeWebDriver
 from crossbench.browsers.safari import Safari
-from crossbench.cli import (BrowserConfig, BrowserDriverType, ConfigFileError,
-                            CrossBenchCLI, FlagGroupConfig, ProbeConfig,
-                            ProbeConfigError)
+from crossbench.cli import CrossBenchCLI
+from crossbench.cli.cli_config import (BrowserConfig, BrowserDriverType,
+                                       ConfigFileError, FlagGroupConfig,
+                                       ProbeConfig, ProbeConfigError)
 from crossbench.probes.power_sampler import PowerSamplerProbe
 from crossbench.probes.v8.log import V8LogProbe
 from crossbench.runner import Runner

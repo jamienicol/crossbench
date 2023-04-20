@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 import hjson
 
 from crossbench.benchmarks.benchmark import StoryFilter, SubStoryBenchmark
-from crossbench.cli_helper import parse_file_path
+from crossbench import cli_helper
 from crossbench.exception import ExceptionAnnotator
 from crossbench.stories import Story
 
@@ -400,7 +400,7 @@ class PageLoadBenchmark(SubStoryBenchmark):
         help="List of urls and durations to load: url,seconds,...")
     group.add_argument(
         "--page-config",
-        type=parse_file_path,
+        type=cli_helper.parse_file_path,
         help="Stories we want to perform in the benchmark run following a"
         "specified scenario. For a reference on how to build scenarios and"
         "possible actions check  pages.config.example.hjson")

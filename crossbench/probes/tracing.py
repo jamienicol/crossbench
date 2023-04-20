@@ -3,24 +3,24 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+
 import argparse
 import enum
 import logging
 import pathlib
+from typing import TYPE_CHECKING, Dict, Optional, Sequence, Set
 
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Set, cast
 from crossbench import cli_helper
-
 from crossbench.browsers.chromium import Chromium
 from crossbench.helper import Platform
+from crossbench.probes import helper as probe_helper
 from crossbench.probes.probe import Probe, ProbeConfigParser
 from crossbench.probes.results import ProbeResult
-from crossbench.probes import helper as probe_helper
 
 if TYPE_CHECKING:
+  from crossbench.browsers.browser import Browser
   from crossbench.flags import ChromeFlags
   from crossbench.runner import Run
-  from crossbench.browsers.browser import Browser
 
 MINIMAL_CONFIG = {
     "toplevel",

@@ -12,7 +12,7 @@ import re
 import subprocess
 from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
 
-from crossbench import cli_helper, helper
+from crossbench import helper, cli_helper
 from crossbench.browsers.browser import Browser
 from crossbench.browsers.chromium import Chromium
 from crossbench.flags import JSFlags

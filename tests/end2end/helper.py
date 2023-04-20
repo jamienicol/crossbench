@@ -15,7 +15,7 @@ from abc import ABCMeta
 from typing import Optional
 
 import crossbench.browsers.all as browsers
-from crossbench import cli_helper, helper
+from crossbench import helper, cli_helper
 
 
 class End2EndTestCase(unittest.TestCase, metaclass=ABCMeta):
