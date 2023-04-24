@@ -817,7 +817,7 @@ class TestProbeConfig(fake_filesystem_unittest.TestCase):
     config = ProbeConfig.from_cli_args(args)
     self.assertTrue(len(config.probes), 1)
     probe = config.probes[0]
-    self.assertTrue(isinstance(probe, V8LogProbe))
+    assert isinstance(probe, V8LogProbe)
     for flag in js_flags + ["--prof"]:
       self.assertIn(flag, probe.js_flags)
 

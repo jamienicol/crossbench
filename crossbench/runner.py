@@ -24,7 +24,7 @@ from crossbench.flags import Flags, JSFlags
 from crossbench.probes.results import ProbeResult, ProbeResultDict
 from crossbench.probes.runner import (RunDurationsProbe, RunResultsSummaryProbe,
                                       RunRunnerLogProbe)
-from crossbench.probes.probe import Probe
+from crossbench.probes.probe import Probe, ProbeScope
 
 if TYPE_CHECKING:
   from crossbench.benchmarks.benchmark import Benchmark
@@ -737,7 +737,7 @@ class Run:
     assert not file.exists(), f"Probe results file exists already. file={file}"
     return file
 
-  def setup(self, is_dry_run: bool) -> List[Probe.Scope]:
+  def setup(self, is_dry_run: bool) -> List[ProbeScope]:
     self._advance_state(self.STATE_INITIAL, self.STATE_PREPARE)
     logging.debug("PREPARE")
     logging.info("STORY: %s", self.story)
@@ -759,7 +759,7 @@ class Run:
       self._runner.wait(self._runner.timing.cool_down_time, absolute_time=True)
       self._runner.cool_down()
 
-    probe_run_scopes: List[Probe.Scope] = []
+    probe_run_scopes: List[ProbeScope] = []
     with self.measure("probes-creation"):
       probe_set = set()
       for probe in self.probes:
@@ -768,6 +768,8 @@ class Run:
         probe_set.add(probe)
         if probe.PRODUCES_DATA:
           self._probe_results[probe] = ProbeResult()
+        assert probe.is_attached, (
+            f"Probe {probe.name} is not properly attached to a browser")
         probe_run_scopes.append(probe.get_scope(self))
 
     with self.measure("probes-setup"):
@@ -800,7 +802,7 @@ class Run:
         if not is_dry_run:
           self.tear_down(probe_scopes)
 
-  def _run(self, probe_scopes: Sequence[Probe.Scope], is_dry_run: bool) -> None:
+  def _run(self, probe_scopes: Sequence[ProbeScope], is_dry_run: bool) -> None:
     probe_start_time = dt.datetime.now()
     probe_scope_manager = contextlib.ExitStack()
 
@@ -840,7 +842,7 @@ class Run:
     self._state = next_state
 
   def tear_down(self,
-                probe_scopes: List[Probe.Scope],
+                probe_scopes: List[ProbeScope],
                 is_shutdown: bool = False) -> None:
     self._advance_state(self.STATE_RUN, self.STATE_DONE)
     with self.measure("browser-tear_down"):
@@ -859,11 +861,11 @@ class Run:
       logging.debug("TEARDOWN")
       self._tear_down_probe_scopes(probe_scopes)
 
-  def _tear_down_probe_scopes(self, probe_scopes: List[Probe.Scope]) -> None:
+  def _tear_down_probe_scopes(self, probe_scopes: List[ProbeScope]) -> None:
     for probe_scope in reversed(probe_scopes):
       with self.exceptions.capture(f"Probe {probe_scope.name} teardown"):
         assert probe_scope.run == self
-        probe_results: ProbeResult = probe_scope.tear_down(self)
+        probe_results: ProbeResult = probe_scope.tear_down(self)  # pytype: disable=wrong-arg-types
         probe = probe_scope.probe
         if probe_results.is_empty:
           logging.warning("Probe did not extract any data. probe=%s run=%s",

@@ -10,7 +10,7 @@ import pathlib
 import subprocess
 from typing import TYPE_CHECKING, Optional, Sequence, Tuple
 
-from crossbench.probes.probe import Probe, ProbeConfigParser
+from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
@@ -93,93 +93,96 @@ class PowerSamplerProbe(Probe):
     # For now only supported on MacOs
     return browser.platform.is_macos
 
-  class Scope(Probe.Scope):
+  def get_scope(self, run: Run) -> PowerSamplerProbeScope:
+    return PowerSamplerProbeScope(self, run)
 
-    def __init__(self, probe: PowerSamplerProbe, run: Run):
-      super().__init__(probe, run)
-      self._bin_path = probe.bin_path
-      self._active_user_process: Optional[subprocess.Popen] = None
-      self._power_process: Optional[subprocess.Popen] = None
-      self._power_battery_process: Optional[subprocess.Popen] = None
-      self._power_output = self.results_file.with_suffix(".power.json")
-      self._power_battery_output = self.results_file.with_suffix(
-          ".power_battery.json")
 
-    def setup(self, run: Run) -> None:
-      self._active_user_process = self.browser_platform.popen(
+class PowerSamplerProbeScope(ProbeScope[PowerSamplerProbe]):
+
+  def __init__(self, probe: PowerSamplerProbe, run: Run):
+    super().__init__(probe, run)
+    self._bin_path = probe.bin_path
+    self._active_user_process: Optional[subprocess.Popen] = None
+    self._power_process: Optional[subprocess.Popen] = None
+    self._power_battery_process: Optional[subprocess.Popen] = None
+    self._power_output = self.results_file.with_suffix(".power.json")
+    self._power_battery_output = self.results_file.with_suffix(
+        ".power_battery.json")
+
+  def setup(self, run: Run) -> None:
+    self._active_user_process = self.browser_platform.popen(
+        self._bin_path,
+        "--no-samplers",
+        "--simulate-user-active",
+        stdout=subprocess.DEVNULL)
+    assert self._active_user_process is not None, (
+        "Could not start active user background sa")
+    if self.probe.wait_for_battery:
+      self._wait_for_battery_not_full(run)
+
+  def start(self, run: Run) -> None:
+    assert self._active_user_process is not None
+    if self.probe.sampling_interval > 0:
+      self._power_process = self.browser_platform.popen(
           self._bin_path,
-          "--no-samplers",
-          "--simulate-user-active",
-          stdout=subprocess.DEVNULL)
-      assert self._active_user_process is not None, (
-          "Could not start active user background sa")
-      if self.probe.wait_for_battery:
-        self._wait_for_battery_not_full(run)
-
-    def start(self, run: Run) -> None:
-      assert self._active_user_process is not None
-      if self.probe.sampling_interval > 0:
-        self._power_process = self.browser_platform.popen(
-            self._bin_path,
-            f"--sample-interval={self.probe.sampling_interval}",
-            f"--samplers={','.join(self.probe.samplers)}",
-            f"--json-output-file={self._power_output}",
-            f"--resource-coalition-pid={self.browser_pid}",
-            stdout=subprocess.DEVNULL)
-        assert self._power_process is not None, "Could not start power sampler"
-      self._power_battery_process = self.browser_platform.popen(
-          self._bin_path,
-          "--sample-on-notification",
-          f"--samplers={','.join(self.probe.samplers)+',battery'}",
-          f"--json-output-file={self._power_battery_output}",
+          f"--sample-interval={self.probe.sampling_interval}",
+          f"--samplers={','.join(self.probe.samplers)}",
+          f"--json-output-file={self._power_output}",
           f"--resource-coalition-pid={self.browser_pid}",
           stdout=subprocess.DEVNULL)
-      assert self._power_battery_process is not None, (
-          "Could not start power and battery sampler")
+      assert self._power_process is not None, "Could not start power sampler"
+    self._power_battery_process = self.browser_platform.popen(
+        self._bin_path,
+        "--sample-on-notification",
+        f"--samplers={','.join(self.probe.samplers)+',battery'}",
+        f"--json-output-file={self._power_battery_output}",
+        f"--resource-coalition-pid={self.browser_pid}",
+        stdout=subprocess.DEVNULL)
+    assert self._power_battery_process is not None, (
+        "Could not start power and battery sampler")
 
-    def stop(self, run: Run) -> None:
-      if self._power_process:
-        self._power_process.terminate()
-      if self._power_battery_process:
-        self._power_battery_process.terminate()
+  def stop(self, run: Run) -> None:
+    if self._power_process:
+      self._power_process.terminate()
+    if self._power_battery_process:
+      self._power_battery_process.terminate()
 
-    def tear_down(self, run: Run) -> ProbeResult:
-      if self._power_process:
-        self._power_process.wait()
-        self._power_process.kill()
-      if self._power_battery_process:
-        self._power_battery_process.wait()
-        self._power_battery_process.kill()
-      if self._active_user_process:
-        self._active_user_process.kill()
-      if self.probe.sampling_interval > 0:
-        return ProbeResult(
-            json=[self._power_output, self._power_battery_output])
-      return ProbeResult(json=[self._power_battery_output])
+  def tear_down(self, run: Run) -> ProbeResult:
+    if self._power_process:
+      self._power_process.wait()
+      self._power_process.kill()
+    if self._power_battery_process:
+      self._power_battery_process.wait()
+      self._power_battery_process.kill()
+    if self._active_user_process:
+      self._active_user_process.kill()
+    if self.probe.sampling_interval > 0:
+      return ProbeResult(json=[self._power_output, self._power_battery_output])
+    return ProbeResult(json=[self._power_battery_output])
 
-    def _wait_for_battery_not_full(self, run: Run) -> None:
-      """
-      Empirical evidence has shown that right after a full battery charge, the
-      current capacity stays equal to the maximum capacity for several minutes,
-      despite the fact that power is definitely consumed. To ensure that power
-      consumption estimates from battery level are meaningful, wait until the
-      battery is no longer reporting being fully charged before crossbench.
-      """
-      del run
-      logging.info("POWER SAMPLER: Waiting for non-100% battery or "
-                   "initial sample to synchronize")
-      while True:
-        assert self.browser_platform.is_battery_powered, (
-            "Cannot wait for draining if power is connected.")
+  def _wait_for_battery_not_full(self, run: Run) -> None:
+    """
+    Empirical evidence has shown that right after a full battery charge, the
+    current capacity stays equal to the maximum capacity for several minutes,
+    despite the fact that power is definitely consumed. To ensure that power
+    consumption estimates from battery level are meaningful, wait until the
+    battery is no longer reporting being fully charged before crossbench.
+    """
+    del run
+    logging.info("POWER SAMPLER: Waiting for non-100% battery or "
+                 "initial sample to synchronize")
+    while True:
+      assert self.browser_platform.is_battery_powered, (
+          "Cannot wait for draining if power is connected.")
 
-        power_sampler_output = self.browser_platform.sh_stdout(
-            self._bin_path, "--sample-on-notification", "--samplers=battery",
-            "--sample-count=1")
+      power_sampler_output = self.browser_platform.sh_stdout(
+          self._bin_path, "--sample-on-notification", "--samplers=battery",
+          "--sample-count=1")
 
-        for row in csv.DictReader(power_sampler_output.splitlines()):
-          max_capacity = float(row["battery_max_capacity(Ah)"])
-          current_capacity = float(row["battery_current_capacity(Ah)"])
-          percent = 100 * current_capacity / max_capacity
-          logging.debug("POWER SAMPLER: Battery level is %.2f%%", percent)
-          if max_capacity != current_capacity:
-            return
+      for row in csv.DictReader(power_sampler_output.splitlines()):
+        max_capacity = float(row["battery_max_capacity(Ah)"])
+        current_capacity = float(row["battery_current_capacity(Ah)"])
+        percent = 100 * current_capacity / max_capacity
+        logging.debug("POWER SAMPLER: Battery level is %.2f%%", percent)
+        if max_capacity != current_capacity:
+          return

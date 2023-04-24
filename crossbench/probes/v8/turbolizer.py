@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from crossbench import helper
 from crossbench.browsers.chromium import Chromium
-from crossbench.probes.probe import Probe
+from crossbench.probes.probe import Probe, ProbeScope
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
@@ -28,34 +28,38 @@ class V8TurbolizerProbe(Probe):
   def is_compatible(self, browser: Browser) -> bool:
     return isinstance(browser, Chromium)
 
-  def attach(self, browser: Chromium) -> None:
+  def attach(self, browser: Browser) -> None:
     super().attach(browser)
     assert isinstance(browser, Chromium)
     browser.flags.set("--no-sandbox")
     browser.js_flags.set("--trace-turbo")
 
-  class Scope(Probe.Scope):
+  def get_scope(self, run: Run) -> V8TurbolizerProbeScope:
+    return V8TurbolizerProbeScope(self, run)
 
-    @property
-    def results_dir(self) -> pathlib.Path:
-      # Put v8.turbolizer files into separate dirs in case we have
-      # multiple isolates
-      turbolizer_log_dir = super().results_file
-      turbolizer_log_dir.mkdir(exist_ok=True)
-      return turbolizer_log_dir
 
-    def setup(self, run: Run) -> None:
-      run.extra_js_flags["--trace-turbo-path"] = str(self.results_dir)
-      run.extra_js_flags["--trace-turbo-cfg-file"] = str(self.results_dir /
-                                                         "cfg.graph")
+class V8TurbolizerProbeScope(ProbeScope[V8TurbolizerProbe]):
 
-    def start(self, run: Run) -> None:
-      pass
+  @property
+  def results_dir(self) -> pathlib.Path:
+    # Put v8.turbolizer files into separate dirs in case we have
+    # multiple isolates
+    turbolizer_log_dir = super().results_file
+    turbolizer_log_dir.mkdir(exist_ok=True)
+    return turbolizer_log_dir
 
-    def stop(self, run: Run) -> None:
-      pass
+  def setup(self, run: Run) -> None:
+    run.extra_js_flags["--trace-turbo-path"] = str(self.results_dir)
+    run.extra_js_flags["--trace-turbo-cfg-file"] = str(self.results_dir /
+                                                       "cfg.graph")
 
-    def tear_down(self, run: Run) -> ProbeResult:
-      log_dir = self.results_file.parent
-      log_files = helper.sort_by_file_size(log_dir.glob("*"))
-      return ProbeResult(file=tuple(log_files))
+  def start(self, run: Run) -> None:
+    pass
+
+  def stop(self, run: Run) -> None:
+    pass
+
+  def tear_down(self, run: Run) -> ProbeResult:
+    log_dir = self.results_file.parent
+    log_files = helper.sort_by_file_size(log_dir.glob("*"))
+    return ProbeResult(file=tuple(log_files))

@@ -10,13 +10,15 @@ import json
 import logging
 import pathlib
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import (TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar,
+                    Union)
 
 from tabulate import tabulate
 
 from crossbench.probes import helper
 from crossbench.probes.results import ProbeResult
-from .probe import Probe
+
+from .probe import Probe, ProbeScope
 
 if TYPE_CHECKING:
   from crossbench.runner import (Actions, BrowsersRunGroup, RepetitionsRunGroup,
@@ -54,61 +56,8 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
   def process_json_data(self, json_data) -> Any:
     return json_data
 
-  class Scope(Probe.Scope):
-
-    def __init__(self, probe: JsonResultProbe, run: Run):
-      super().__init__(probe, run)
-      self._json_data = None
-
-    @property
-    def probe(self) -> JsonResultProbe:
-      return super().probe
-
-    def to_json(self, actions: Actions) -> Any:
-      return self.probe.to_json(actions)
-
-    def start(self, run: Run) -> None:
-      pass
-
-    def stop(self, run: Run) -> None:
-      self._json_data = self.extract_json(run)
-
-    def tear_down(self, run: Run) -> ProbeResult:
-      if self._json_data is None:
-        return ProbeResult()
-      self._json_data = self.process_json_data(self._json_data)
-      return self.write_json(run, self._json_data)
-
-    def extract_json(self, run: Run) -> Dict:
-      with run.actions(f"Extracting Probe name={self.probe.name}") as actions:
-        json_data = self.to_json(actions)
-        assert json_data is not None, (
-            "Probe name=={self.probe.name} produced no data")
-        return json_data
-
-    def write_json(self, run: Run, json_data: Any) -> ProbeResult:
-      flattened_file = None
-      with run.actions(f"Writing Probe name={self.probe.name}"):
-        assert json_data is not None, (
-            f"Probe {self.probe.name} produced no JSON data.")
-        raw_file = self.results_file
-        if self.probe.FLATTEN:
-          raw_file = raw_file.with_suffix(".json.raw")
-          flattened_file = self.results_file
-          flat_json_data = self.flatten_json_data(json_data)
-          with flattened_file.open("w", encoding="utf-8") as f:
-            json.dump(flat_json_data, f, indent=2)
-        with raw_file.open("w", encoding="utf-8") as f:
-          json.dump(json_data, f, indent=2)
-      if flattened_file:
-        return ProbeResult(json=(flattened_file,), file=(raw_file,))
-      return ProbeResult(json=(raw_file,))
-
-    def process_json_data(self, json_data: Any) -> Any:
-      return self.probe.process_json_data(json_data)
-
-    def flatten_json_data(self, json_data: Any) -> Dict[str, Any]:
-      return self.probe.flatten_json_data(json_data)
+  def get_scope(self, run: Run) -> JsonResultProbeScope:
+    return JsonResultProbeScope(self, run)
 
   def merge_repetitions(
       self,
@@ -212,6 +161,66 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
     benchmark item."""
     del metrics
     del table
+
+
+JsonResultProbeT = TypeVar("JsonResultProbeT", bound="JsonResultProbe")
+
+
+class JsonResultProbeScope(ProbeScope[JsonResultProbeT]):
+
+  def __init__(self, probe: JsonResultProbeT, run: Run):
+    super().__init__(probe, run)
+    self._json_data = None
+
+  @property
+  def probe(self) -> JsonResultProbeT:
+    return super().probe
+
+  def to_json(self, actions: Actions) -> Any:
+    return self.probe.to_json(actions)
+
+  def start(self, run: Run) -> None:
+    pass
+
+  def stop(self, run: Run) -> None:
+    self._json_data = self.extract_json(run)
+
+  def tear_down(self, run: Run) -> ProbeResult:
+    if self._json_data is None:
+      return ProbeResult()
+    self._json_data = self.process_json_data(self._json_data)
+    return self.write_json(run, self._json_data)
+
+  def extract_json(self, run: Run) -> Dict:
+    with run.actions(f"Extracting Probe name={self.probe.name}") as actions:
+      json_data = self.to_json(actions)
+      assert json_data is not None, (
+          "Probe name=={self.probe.name} produced no data")
+      return json_data
+
+  def write_json(self, run: Run, json_data: Any) -> ProbeResult:
+    flattened_file = None
+    with run.actions(f"Writing Probe name={self.probe.name}"):
+      assert json_data is not None, (
+          f"Probe {self.probe.name} produced no JSON data.")
+      raw_file = self.results_file
+      if self.probe.FLATTEN:
+        raw_file = raw_file.with_suffix(".json.raw")
+        flattened_file = self.results_file
+        flat_json_data = self.flatten_json_data(json_data)
+        with flattened_file.open("w", encoding="utf-8") as f:
+          json.dump(flat_json_data, f, indent=2)
+      with raw_file.open("w", encoding="utf-8") as f:
+        json.dump(json_data, f, indent=2)
+    if flattened_file:
+      return ProbeResult(json=(flattened_file,), file=(raw_file,))
+    return ProbeResult(json=(raw_file,))
+
+  def process_json_data(self, json_data: Any) -> Any:
+    return self.probe.process_json_data(json_data)
+
+  def flatten_json_data(self, json_data: Any) -> Dict[str, Any]:
+    return self.probe.flatten_json_data(json_data)
 
 
 def value_geomean(value):

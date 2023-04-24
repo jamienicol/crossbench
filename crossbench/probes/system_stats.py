@@ -58,24 +58,28 @@ class SystemStatsProbe(probe.Probe):
         f.write(data)
       time.sleep(interval)
 
-  class Scope(probe.Probe.Scope):
-    _event: threading.Event
-    _poller: threading.Thread
+  def get_scope(self, run: Run) -> SystemStatsProbeScope:
+    return SystemStatsProbeScope(self, run)
 
-    def setup(self, run: Run) -> None:
-      self.results_file.mkdir()
 
-    def start(self, run: Run) -> None:
-      self._event = threading.Event()
-      assert self.browser_platform == helper.platform, (
-          "Remote platforms are not supported yet")
-      self._poller = threading.Thread(
-          target=SystemStatsProbe.poll,
-          args=(self.probe.interval, self.results_file, self._event))
-      self._poller.start()
+class SystemStatsProbeScope(probe.ProbeScope[SystemStatsProbe]):
+  _event: threading.Event
+  _poller: threading.Thread
 
-    def stop(self, run: Run) -> None:
-      self._event.set()
+  def setup(self, run: Run) -> None:
+    self.results_file.mkdir()
 
-    def tear_down(self, run: Run) -> ProbeResult:
-      return ProbeResult(file=(self.results_file,))
+  def start(self, run: Run) -> None:
+    self._event = threading.Event()
+    assert self.browser_platform == helper.platform, (
+        "Remote platforms are not supported yet")
+    self._poller = threading.Thread(
+        target=SystemStatsProbe.poll,
+        args=(self.probe.interval, self.results_file, self._event))
+    self._poller.start()
+
+  def stop(self, run: Run) -> None:
+    self._event.set()
+
+  def tear_down(self, run: Run) -> ProbeResult:
+    return ProbeResult(file=(self.results_file,))

@@ -14,7 +14,7 @@ from crossbench import cli_helper
 from crossbench.browsers.chromium import Chromium
 from crossbench.helper import Platform
 from crossbench.probes import helper as probe_helper
-from crossbench.probes.probe import Probe, ProbeConfigParser
+from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
@@ -187,7 +187,8 @@ class TracingProbe(Probe):
   def is_compatible(self, browser: Browser) -> bool:
     return isinstance(browser, Chromium)
 
-  def attach(self, browser: Chromium) -> None:
+  def attach(self, browser: Browser) -> None:
+    assert isinstance(browser, Chromium)
     flags: ChromeFlags = browser.flags
     flags.update(self.CHROMIUM_FLAGS)
     # Force proto file so we can convert it to legacy json as well.
@@ -202,30 +203,34 @@ class TracingProbe(Probe):
       flags["--trace-startup"] = ",".join(self._categories)
     super().attach(browser)
 
-  class Scope(Probe.Scope):
-    _traceconv: Optional[pathlib.Path]
+  def get_scope(self, run: Run) -> TracingProbeScope:
+    return TracingProbeScope(self, run)
 
-    def setup(self, run: Run) -> None:
-      run.extra_flags["--trace-startup-file"] = str(self.results_file)
-      self._traceconv = self.probe.traceconv or TraceconvFinder(
-          self.browser_platform).traceconv
 
-    def start(self, run: Run) -> None:
-      del run
+class TracingProbeScope(ProbeScope[TracingProbe]):
+  _traceconv: Optional[pathlib.Path]
 
-    def stop(self, run: Run) -> None:
-      del run
+  def setup(self, run: Run) -> None:
+    run.extra_flags["--trace-startup-file"] = str(self.results_file)
+    self._traceconv = self.probe.traceconv or TraceconvFinder(
+        self.browser_platform).traceconv
 
-    def tear_down(self, run: Run) -> ProbeResult:
-      if not self._traceconv:
-        logging.info(
-            "No traceconv binary: skipping converting proto to legacy traces")
-        return ProbeResult(file=(self.results_file,))
-      logging.info("Converting to legacy .json trace: %s", self.results_file)
-      json_trace_file = self.results_file.with_suffix(".json")
-      self.browser_platform.sh(self._traceconv, "json", self.results_file,
-                               json_trace_file)
-      return ProbeResult(json=(json_trace_file,), file=(self.results_file,))
+  def start(self, run: Run) -> None:
+    del run
+
+  def stop(self, run: Run) -> None:
+    del run
+
+  def tear_down(self, run: Run) -> ProbeResult:
+    if not self._traceconv:
+      logging.info(
+          "No traceconv binary: skipping converting proto to legacy traces")
+      return ProbeResult(file=(self.results_file,))
+    logging.info("Converting to legacy .json trace: %s", self.results_file)
+    json_trace_file = self.results_file.with_suffix(".json")
+    self.browser_platform.sh(self._traceconv, "json", self.results_file,
+                             json_trace_file)
+    return ProbeResult(json=(json_trace_file,), file=(self.results_file,))
 
 
 class TraceconvFinder(probe_helper.V8CheckoutFinder):

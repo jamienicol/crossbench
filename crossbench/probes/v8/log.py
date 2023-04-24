@@ -16,7 +16,7 @@ from crossbench import helper, cli_helper
 from crossbench.browsers.browser import Browser
 from crossbench.browsers.chromium import Chromium
 from crossbench.flags import JSFlags
-from crossbench.probes.probe import Probe, ProbeConfigParser
+from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
 from crossbench.probes.results import ProbeResult
 from crossbench.probes import helper as probe_helper
 
@@ -103,7 +103,7 @@ class V8LogProbe(Probe):
   def is_compatible(self, browser: Browser) -> bool:
     return isinstance(browser, Chromium)
 
-  def attach(self, browser: Chromium) -> None:
+  def attach(self, browser: Browser) -> None:
     super().attach(browser)
     assert isinstance(browser, Chromium)
     browser.flags.set("--no-sandbox")
@@ -138,33 +138,8 @@ class V8LogProbe(Probe):
                        [(finder.d8_binary, finder.tick_processor, log_file)
                         for log_file in log_files]))
 
-  class Scope(Probe.Scope):
-
-    @property
-    def results_file(self) -> pathlib.Path:
-      # Put v8.log files into separate dirs in case we have multiple isolates
-      log_dir: pathlib.Path = super().results_file
-      log_dir.mkdir(exist_ok=True)
-      return log_dir / self.probe.results_file_name
-
-    def setup(self, run: Run) -> None:
-      run.extra_js_flags["--logfile"] = str(self.results_file)
-
-    def start(self, run: Run) -> None:
-      pass
-
-    def stop(self, run: Run) -> None:
-      pass
-
-    def tear_down(self, run: Run) -> ProbeResult:
-      log_dir = self.results_file.parent
-      log_files = helper.sort_by_file_size(log_dir.glob("*-v8.log"))
-      # Only convert a v8.log file with profile ticks.
-      json_list: Tuple[pathlib.Path, ...] = ()
-      if "--prof" in getattr(self.browser, "js_flags", {}):
-        with helper.Spinner():
-          json_list = self.probe.process_log_files(log_files)
-      return ProbeResult(file=tuple(log_files), json=json_list)
+  def get_scope(self, run: Run) -> V8LogProbeScope:
+    return V8LogProbeScope(self, run)
 
   def log_browsers_result(self, group: BrowsersRunGroup) -> None:
     runs: List[Run] = list(run for run in group.runs if self in run.results)
@@ -200,6 +175,35 @@ class V8LogProbe(Probe):
         logging.info("    %s/*.profview.json: %d more files",
                      largest_profview_file.parent.relative_to(cwd),
                      len(profview_files))
+
+
+class V8LogProbeScope(ProbeScope[V8LogProbe]):
+
+  @property
+  def results_file(self) -> pathlib.Path:
+    # Put v8.log files into separate dirs in case we have multiple isolates
+    log_dir: pathlib.Path = super().results_file
+    log_dir.mkdir(exist_ok=True)
+    return log_dir / self.probe.results_file_name
+
+  def setup(self, run: Run) -> None:
+    run.extra_js_flags["--logfile"] = str(self.results_file)
+
+  def start(self, run: Run) -> None:
+    pass
+
+  def stop(self, run: Run) -> None:
+    pass
+
+  def tear_down(self, run: Run) -> ProbeResult:
+    log_dir = self.results_file.parent
+    log_files = helper.sort_by_file_size(log_dir.glob("*-v8.log"))
+    # Only convert a v8.log file with profile ticks.
+    json_list: List[pathlib.Path] = []
+    if "--prof" in getattr(self.browser, "js_flags", {}):
+      with helper.Spinner():
+        json_list = self.probe.process_log_files(log_files)
+    return ProbeResult(file=tuple(log_files), json=json_list)
 
 
 def _process_profview_json(d8_binary: pathlib.Path,

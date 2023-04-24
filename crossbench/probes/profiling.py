@@ -15,7 +15,7 @@ import time
 from typing import TYPE_CHECKING, Iterable, List, Optional, cast
 
 from crossbench import helper
-from crossbench.probes.probe import Probe, ProbeConfigParser
+from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
 from crossbench.probes.results import ProbeResult
 from crossbench.probes.v8.log import V8LogProbe
 from crossbench.browsers.chromium import Chromium
@@ -204,168 +204,170 @@ class ProfilingProbe(Probe):
         logging.info("    %s/*.perf.data*: %d more files",
                      largest_perf_file.parent.relative_to(cwd), len(perf_files))
 
-  class ProfilingScope(Probe.Scope["ProfilingProbe"], metaclass=abc.ABCMeta):
-    pass
-
   def get_scope(self, run: Run) -> ProfilingScope:
     if self.browser_platform.is_linux:
-      return self.LinuxProfilingScope(self, run)
+      return LinuxProfilingScope(self, run)
     if self.browser_platform.is_macos:
-      return self.MacOSProfilingScope(self, run)
+      return MacOSProfilingScope(self, run)
     raise NotImplementedError("Invalid platform")
 
-  class MacOSProfilingScope(ProfilingScope):
-    _process: subprocess.Popen
 
-    def __init__(self, probe: ProfilingProbe, run: Run) -> None:
-      super().__init__(probe, run)
-      self._default_results_file = self.results_file.parent / "profile.trace"
+class ProfilingScope(ProbeScope[ProfilingProbe], metaclass=abc.ABCMeta):
+  pass
 
-    def start(self, run: Run) -> None:
-      self._process = self.browser_platform.popen("xctrace", "record",
-                                                  "--template", "Time Profiler",
-                                                  "--all-processes", "--output",
-                                                  self.results_file)
-      # xctrace takes some time to start up
+
+class MacOSProfilingScope(ProfilingScope):
+  _process: subprocess.Popen
+
+  def __init__(self, probe: ProfilingProbe, run: Run) -> None:
+    super().__init__(probe, run)
+    self._default_results_file = self.results_file.parent / "profile.trace"
+
+  def start(self, run: Run) -> None:
+    self._process = self.browser_platform.popen("xctrace", "record",
+                                                "--template", "Time Profiler",
+                                                "--all-processes", "--output",
+                                                self.results_file)
+    # xctrace takes some time to start up
+    time.sleep(3)
+
+  def stop(self, run: Run) -> None:
+    # Needs to be SIGINT for xctrace, terminate won't work.
+    self._process.send_signal(signal.SIGINT)
+
+  def tear_down(self, run: Run) -> ProbeResult:
+    while self._process.poll() is None:
+      time.sleep(1)
+    return ProbeResult(file=(self.results_file,))
+
+
+class LinuxProfilingScope(ProfilingScope):
+  PERF_DATA_PATTERN = "*.perf.data"
+  TEMP_FILE_PATTERNS = (
+      "*.perf.data.jitted",
+      "jitted-*.so",
+      "jit-*.dump",
+  )
+
+  def __init__(self, probe: ProfilingProbe, run: Run) -> None:
+    super().__init__(probe, run)
+    self._perf_process = None
+
+  def start(self, run: Run) -> None:
+    if not self.probe.sample_browser_process:
+      return
+    if run.browser.pid is None:
+      logging.warning("Cannot sample browser process")
+      return
+    perf_data_file = run.out_dir / "browser.perf.data"
+    # TODO: not fully working yet
+    self._perf_process = self.browser_platform.popen(
+        "perf", "record", "--call-graph=fp", "--freq=max", "--clockid=mono",
+        f"--output={perf_data_file}", f"--pid={run.browser.pid}")
+
+  def setup(self, run: Run) -> None:
+    for probe in run.probes:
+      assert not isinstance(probe, V8LogProbe), (
+          "Cannot use profiler and v8.log probe in parallel yet")
+
+  def stop(self, run: Run) -> None:
+    if self._perf_process:
+      self._perf_process.terminate()
+
+  def tear_down(self, run: Run) -> ProbeResult:
+    # Waiting for linux-perf to flush all perf data
+    if self.probe.sample_browser_process:
+      logging.debug("Waiting for browser process to stop")
       time.sleep(3)
+    if self.probe.sample_browser_process:
+      logging.info("Browser process did not stop after 3s. "
+                   "You might get partial profiles")
+    time.sleep(2)
 
-    def stop(self, run: Run) -> None:
-      # Needs to be SIGINT for xctrace, terminate won't work.
-      self._process.send_signal(signal.SIGINT)
-
-    def tear_down(self, run: Run) -> ProbeResult:
-      while self._process.poll() is None:
-        time.sleep(1)
-      return ProbeResult(file=(self.results_file,))
-
-  class LinuxProfilingScope(ProfilingScope):
-    PERF_DATA_PATTERN = "*.perf.data"
-    TEMP_FILE_PATTERNS = (
-        "*.perf.data.jitted",
-        "jitted-*.so",
-        "jit-*.dump",
-    )
-
-    def __init__(self, probe: ProfilingProbe, run: Run) -> None:
-      super().__init__(probe, run)
-      self._perf_process = None
-
-    def start(self, run: Run) -> None:
-      if not self.probe.sample_browser_process:
-        return
-      if run.browser.pid is None:
-        logging.warning("Cannot sample browser process")
-        return
-      perf_data_file = run.out_dir / "browser.perf.data"
-      # TODO: not fully working yet
-      self._perf_process = self.browser_platform.popen(
-          "perf", "record", "--call-graph=fp", "--freq=max", "--clockid=mono",
-          f"--output={perf_data_file}", f"--pid={run.browser.pid}")
-
-    def setup(self, run: Run) -> None:
-      for probe in run.probes:
-        assert not isinstance(probe, V8LogProbe), (
-            "Cannot use profiler and v8.log probe in parallel yet")
-
-    def stop(self, run: Run) -> None:
-      if self._perf_process:
-        self._perf_process.terminate()
-
-    def tear_down(self, run: Run) -> ProbeResult:
-      # Waiting for linux-perf to flush all perf data
-      if self.probe.sample_browser_process:
-        logging.debug("Waiting for browser process to stop")
-        time.sleep(3)
-      if self.probe.sample_browser_process:
-        logging.info("Browser process did not stop after 3s. "
-                     "You might get partial profiles")
-      time.sleep(2)
-
-      perf_files: List[pathlib.Path] = helper.sort_by_file_size(
-          run.out_dir.glob(self.PERF_DATA_PATTERN))
-      raw_perf_files = perf_files
-      urls: List[str] = []
-      try:
-        if self.probe.sample_js:
-          perf_files = self._inject_v8_symbols(run, perf_files)
-        if self.probe.run_pprof:
-          urls = self._export_to_pprof(run, perf_files)
-      finally:
-        self._clean_up_temp_files(run)
+    perf_files: List[pathlib.Path] = helper.sort_by_file_size(
+        run.out_dir.glob(self.PERF_DATA_PATTERN))
+    raw_perf_files = perf_files
+    urls: List[str] = []
+    try:
+      if self.probe.sample_js:
+        perf_files = self._inject_v8_symbols(run, perf_files)
       if self.probe.run_pprof:
-        logging.debug("Profiling results: %s", urls)
-        return ProbeResult(url=urls, file=raw_perf_files)
-      if self.browser_platform.which("pprof"):
-        logging.info("Run pprof over all (or single) perf data files "
-                     "for interactive analysis:")
-        logging.info("   pprof --http=localhost:1984 %s",
-                     " ".join(map(str, perf_files)))
-      return ProbeResult(file=perf_files)
+        urls = self._export_to_pprof(run, perf_files)
+    finally:
+      self._clean_up_temp_files(run)
+    if self.probe.run_pprof:
+      logging.debug("Profiling results: %s", urls)
+      return ProbeResult(url=urls, file=raw_perf_files)
+    if self.browser_platform.which("pprof"):
+      logging.info("Run pprof over all (or single) perf data files "
+                   "for interactive analysis:")
+      logging.info("   pprof --http=localhost:1984 %s",
+                   " ".join(map(str, perf_files)))
+    return ProbeResult(file=perf_files)
 
-    def _inject_v8_symbols(self, run: Run, perf_files: List[pathlib.Path]
-                          ) -> List[pathlib.Path]:
-      with run.actions(
-          f"Probe {self.probe.name}: "
-          f"Injecting V8 symbols into {len(perf_files)} profiles",
-          verbose=True), helper.Spinner():
-        # Filter out empty files
-        perf_files = [file for file in perf_files if file.stat().st_size > 0]
-        if self.browser_platform.is_remote:
-          # Use loop, as we cannot easily serialize the remote platform.
-          perf_jitted_files = [
-              linux_perf_probe_inject_v8_symbols(file, self.browser_platform)
-              for file in perf_files
+  def _inject_v8_symbols(self, run: Run,
+                         perf_files: List[pathlib.Path]) -> List[pathlib.Path]:
+    with run.actions(
+        f"Probe {self.probe.name}: "
+        f"Injecting V8 symbols into {len(perf_files)} profiles",
+        verbose=True), helper.Spinner():
+      # Filter out empty files
+      perf_files = [file for file in perf_files if file.stat().st_size > 0]
+      if self.browser_platform.is_remote:
+        # Use loop, as we cannot easily serialize the remote platform.
+        perf_jitted_files = [
+            linux_perf_probe_inject_v8_symbols(file, self.browser_platform)
+            for file in perf_files
+        ]
+      else:
+        assert self.browser_platform == helper.platform
+        with multiprocessing.Pool() as pool:
+          perf_jitted_files = list(
+              pool.imap(linux_perf_probe_inject_v8_symbols, perf_files))
+      return [file for file in perf_jitted_files if file is not None]
+
+  def _export_to_pprof(self, run: Run,
+                       perf_files: List[pathlib.Path]) -> List[str]:
+    assert self.probe.run_pprof
+    run_details_json = json.dumps(run.get_browser_details_json())
+    with run.actions(
+        f"Probe {self.probe.name}: "
+        f"exporting {len(perf_files)} profiles to pprof (slow)",
+        verbose=True), helper.Spinner():
+      self.browser_platform.sh(
+          "gcertstatus >&/dev/null || "
+          "(echo 'Authenticating with gcert:'; gcert)",
+          shell=True)
+      size = len(perf_files)
+      items = zip(perf_files, [run_details_json] * size)
+      urls: List[str] = []
+      if self.browser_platform.is_remote:
+        # Use loop, as we cannot easily serialize the remote platform.
+        for perf_data_file, run_details in items:
+          url = linux_perf_probe_pprof(perf_data_file, run_details,
+                                       self.browser_platform)
+          if url:
+            urls.append(url)
+      else:
+        assert self.browser_platform == helper.platform
+        with multiprocessing.Pool() as pool:
+          urls = [
+              url for url in pool.starmap(linux_perf_probe_pprof, items) if url
           ]
-        else:
-          assert self.browser_platform == helper.platform
-          with multiprocessing.Pool() as pool:
-            perf_jitted_files = list(
-                pool.imap(linux_perf_probe_inject_v8_symbols, perf_files))
-        return [file for file in perf_jitted_files if file is not None]
+      try:
+        if perf_files:
+          # TODO: Add "combined" profile again
+          pass
+      except Exception as e:  # pylint: disable=broad-except
+        logging.debug("Failed to run pprof: %s", e)
+      return urls
 
-    def _export_to_pprof(self, run: Run,
-                         perf_files: List[pathlib.Path]) -> List[str]:
-      assert self.probe.run_pprof
-      run_details_json = json.dumps(run.get_browser_details_json())
-      with run.actions(
-          f"Probe {self.probe.name}: "
-          f"exporting {len(perf_files)} profiles to pprof (slow)",
-          verbose=True), helper.Spinner():
-        self.browser_platform.sh(
-            "gcertstatus >&/dev/null || "
-            "(echo 'Authenticating with gcert:'; gcert)",
-            shell=True)
-        size = len(perf_files)
-        items = zip(perf_files, [run_details_json] * size)
-        urls: List[str] = []
-        if self.browser_platform.is_remote:
-          # Use loop, as we cannot easily serialize the remote platform.
-          for perf_data_file, run_details in items:
-            url = linux_perf_probe_pprof(perf_data_file, run_details,
-                                         self.browser_platform)
-            if url:
-              urls.append(url)
-        else:
-          assert self.browser_platform == helper.platform
-          with multiprocessing.Pool() as pool:
-            urls = [
-                url for url in pool.starmap(linux_perf_probe_pprof, items)
-                if url
-            ]
-        try:
-          if perf_files:
-            # TODO: Add "combined" profile again
-            pass
-        except Exception as e:  # pylint: disable=broad-except
-          logging.debug("Failed to run pprof: %s", e)
-        return urls
-
-    def _clean_up_temp_files(self, run: Run) -> None:
-      if not self.probe.run_pprof:
-        return
-      for pattern in self.TEMP_FILE_PATTERNS:
-        for file in run.out_dir.glob(pattern):
-          file.unlink()
+  def _clean_up_temp_files(self, run: Run) -> None:
+    if not self.probe.run_pprof:
+      return
+    for pattern in self.TEMP_FILE_PATTERNS:
+      for file in run.out_dir.glob(pattern):
+        file.unlink()
 
 
 def linux_perf_probe_inject_v8_symbols(

@@ -9,7 +9,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from crossbench.probes import probe
-from crossbench.probes.json import JsonResultProbe
+from crossbench.probes.json import JsonResultProbe, JsonResultProbeScope
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
@@ -26,32 +26,36 @@ class RunRunnerLogProbe(probe.Probe):
   IS_GENERAL_PURPOSE = False
   FLATTEN = False
 
-  class Scope(probe.Probe.Scope):
+  def get_scope(self, run: Run) -> RunRunnerLogProbeScope:
+    return RunRunnerLogProbeScope(self, run)
 
-    def __init__(self, *args, **kwargs) -> None:
-      super().__init__(*args, **kwargs)
-      self._log_handler: Optional[logging.Handler] = None
 
-    def setup(self, run: Run) -> None:
-      log_formatter = logging.Formatter(
-          "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s] "
-          "[%(name)s]  %(message)s")
-      self._log_handler = logging.FileHandler(self.results_file)
-      self._log_handler.setFormatter(log_formatter)
-      self._log_handler.setLevel(logging.DEBUG)
-      logging.getLogger().addHandler(self._log_handler)
+class RunRunnerLogProbeScope(probe.ProbeScope[RunRunnerLogProbe]):
 
-    def start(self, run: Run) -> None:
-      pass
+  def __init__(self, *args, **kwargs) -> None:
+    super().__init__(*args, **kwargs)
+    self._log_handler: Optional[logging.Handler] = None
 
-    def stop(self, run: Run) -> None:
-      pass
+  def setup(self, run: Run) -> None:
+    log_formatter = logging.Formatter(
+        "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s] "
+        "[%(name)s]  %(message)s")
+    self._log_handler = logging.FileHandler(self.results_file)
+    self._log_handler.setFormatter(log_formatter)
+    self._log_handler.setLevel(logging.DEBUG)
+    logging.getLogger().addHandler(self._log_handler)
 
-    def tear_down(self, run: Run) -> ProbeResult:
-      assert self._log_handler
-      logging.getLogger().removeHandler(self._log_handler)
-      self._log_handler = None
-      return ProbeResult(file=(self.results_file,))
+  def start(self, run: Run) -> None:
+    pass
+
+  def stop(self, run: Run) -> None:
+    pass
+
+  def tear_down(self, run: Run) -> ProbeResult:
+    assert self._log_handler
+    logging.getLogger().removeHandler(self._log_handler)
+    self._log_handler = None
+    return ProbeResult(file=(self.results_file,))
 
 
 class RunDurationsProbe(JsonResultProbe):
@@ -66,15 +70,19 @@ class RunDurationsProbe(JsonResultProbe):
   def to_json(self, actions: Actions) -> Any:
     return actions.run.durations.to_json()
 
-  class Scope(JsonResultProbe.Scope):
+  def get_scope(self, run: Run) -> RunDurationsProbeScope:
+    return RunDurationsProbeScope(self, run)
 
-    def stop(self, run: Run) -> None:
-      # Only extract data in the late TearDown phase.
-      pass
 
-    def tear_down(self, run: Run) -> ProbeResult:
-      json_data = self.extract_json(run)
-      return self.write_json(run, json_data)
+class RunDurationsProbeScope(JsonResultProbeScope[RunDurationsProbe]):
+
+  def stop(self, run: Run) -> None:
+    # Only extract data in the late TearDown phase.
+    pass
+
+  def tear_down(self, run: Run) -> ProbeResult:
+    json_data = self.extract_json(run)
+    return self.write_json(run, json_data)
 
 
 class RunResultsSummaryProbe(JsonResultProbe):
@@ -161,13 +169,17 @@ class RunResultsSummaryProbe(JsonResultProbe):
     }
     return self.write_group_result(group, merged_data)
 
-  class Scope(JsonResultProbe.Scope):
+  def get_scope(self, run: Run) -> RunResultsSummaryProbeScope:
+    return RunResultsSummaryProbeScope(self, run)
 
-    def stop(self, run: Run) -> None:
-      # Only extract data in the late TearDown phase.
-      pass
 
-    def tear_down(self, run: Run) -> ProbeResult:
-      # Extract JSON late, When all other probes have produced data.
-      json_data = self.extract_json(run)
-      return self.write_json(run, json_data)
+class RunResultsSummaryProbeScope(JsonResultProbeScope[RunResultsSummaryProbe]):
+
+  def stop(self, run: Run) -> None:
+    # Only extract data in the late TearDown phase.
+    pass
+
+  def tear_down(self, run: Run) -> ProbeResult:
+    # Extract JSON late, When all other probes have produced data.
+    json_data = self.extract_json(run)
+    return self.write_json(run, json_data)

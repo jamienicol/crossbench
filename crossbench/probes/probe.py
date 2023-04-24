@@ -42,7 +42,7 @@ class Probe(abc.ABC):
   / stories.
 
   Probe interface:
-  - scope(): Return a custom Probe.Scope (see below)
+  - scope(): Return a custom ProbeScope (see below)
   - is_compatible(): Use for checking whether a Probe can be used with a
     given browser
   - pre_check(): Customize to display warnings before using Probes with
@@ -53,8 +53,8 @@ class Probe(abc.ABC):
   - merged repetitions from multiple stories (same browser)
   - Probe data from all Runs
 
-  Probes use a Probe.Scope that is active during a story-Run.
-  The Probe.Scope class defines a customizable interface
+  Probes use a ProbeScope that is active during a story-Run.
+  The ProbeScope class defines a customizable interface
   - setup(): Used for high-overhead Probe initialization
   - start(): Low-overhead start-to-measure signal
   - stop():  Low-overhead stop-to-measure signal
@@ -178,10 +178,9 @@ class Probe(abc.ABC):
     del group
     return ProbeResult()
 
-  def get_scope(self: ProbeT, run: Run) -> Probe.Scope[ProbeT]:
-    assert self.is_attached, (
-        f"Probe {self.name} is not properly attached to a browser")
-    return self.Scope(self, run)  # pylint: disable=abstract-class-instantiated
+  @abc.abstractmethod
+  def get_scope(self: ProbeT, run: Run) -> ProbeScope[ProbeT]:
+    pass
 
   def log_run_result(self, run: Run) -> None:
     """
@@ -196,134 +195,135 @@ class Probe(abc.ABC):
     """
     del group
 
-  class Scope(Generic[ProbeT], metaclass=abc.ABCMeta):
+
+class ProbeScope(Generic[ProbeT], metaclass=abc.ABCMeta):
+  """
+  A scope during which a probe is actively collecting data.
+  Override in Probe subclasses to implement actual performance data
+  collection.
+  - The data should be written to self.results_file.
+  - A file / list / dict of result file Paths should be returned by the
+    override tear_down() method
+  """
+
+  def __init__(self, probe: ProbeT, run: Run):
+    self._probe: ProbeT = probe
+    self._run: Run = run
+    self._default_results_file: pathlib.Path = run.get_probe_results_file(probe)
+    self._is_active: bool = False
+    self._is_success: bool = False
+    self._start_time: Optional[dt.datetime] = None
+    self._stop_time: Optional[dt.datetime] = None
+
+  def set_start_time(self, start_datetime: dt.datetime) -> None:
+    assert self._start_time is None
+    self._start_time = start_datetime
+
+  def __enter__(self) -> ProbeScope:
+    assert not self._is_active
+    assert not self._is_success
+    with self._run.exception_handler(f"Probe {self.name} start"):
+      self._is_active = True
+      self.start(self._run)
+    return self
+
+  def __exit__(self, exc_type, exc_value, traceback) -> None:
+    assert self._is_active
+    with self._run.exception_handler(f"Probe {self.name} stop"):
+      self.stop(self._run)
+      self._is_success = True
+      assert self._stop_time is None
+    self._stop_time = dt.datetime.now()
+
+  @property
+  def probe(self) -> ProbeT:
+    return self._probe
+
+  @property
+  def run(self) -> Run:
+    return self._run
+
+  @property
+  def browser(self) -> Browser:
+    return self._run.browser
+
+  @property
+  def runner(self) -> Runner:
+    return self._run.runner
+
+  @property
+  def browser_platform(self) -> helper.Platform:
+    return self.browser.platform
+
+  @property
+  def runner_platform(self) -> helper.Platform:
+    return self.runner.platform
+
+  @property
+  def start_time(self) -> dt.datetime:
     """
-    A scope during which a probe is actively collecting data.
-    Override in Probe subclasses to implement actual performance data
-    collection.
-    - The data should be written to self.results_file.
-    - A file / list / dict of result file Paths should be returned by the
-      override tear_down() method
+    Returns a unified start time that is the same for all ProbeScopes
+    within a run. This can be used to account for startup delays caused by other
+    Probes.
+    """
+    assert self._start_time
+    return self._start_time
+
+  @property
+  def duration(self) -> dt.timedelta:
+    assert self._start_time and self._stop_time
+    return self._stop_time - self._start_time
+
+  @property
+  def is_success(self) -> bool:
+    return self._is_success
+
+  @property
+  def results_file(self) -> pathlib.Path:
+    return self._default_results_file
+
+  @property
+  def name(self) -> str:
+    return self.probe.name
+
+  @property
+  def browser_pid(self) -> int:
+    maybe_pid = self.run.browser.pid
+    assert maybe_pid, "Browser is not runner or does not provide a pid."
+    return maybe_pid
+
+  def setup(self, run: Run) -> None:
+    """
+    Called before starting the browser, typically used to set run-specific
+    browser flags.
+    """
+    del run
+
+  @abc.abstractmethod
+  def start(self, run: Run) -> None:
+    """
+    Called immediately before starting the given Run.
+    This method should have as little overhead as possible. If possible,
+    delegate heavy computation to the "SetUp" method.
     """
 
-    def __init__(self, probe: ProbeT, run: Run):
-      self._probe = probe
-      self._run = run
-      self._default_results_file = run.get_probe_results_file(probe)
-      self._is_active = False
-      self._is_success = False
-      self._start_time: Optional[dt.datetime] = None
-      self._stop_time: Optional[dt.datetime] = None
+  @abc.abstractmethod
+  def stop(self, run: Run) -> None:
+    """
+    Called immediately after finishing the given Run.
+    This method should have as little overhead as possible. If possible,
+    delegate heavy computation to the "collect" method.
+    """
+    return None
 
-    def set_start_time(self, start_datetime: dt.datetime) -> None:
-      assert self._start_time is None
-      self._start_time = start_datetime
-
-    def __enter__(self) -> Probe.Scope:
-      assert not self._is_active
-      assert not self._is_success
-      with self._run.exception_handler(f"Probe {self.name} start"):
-        self._is_active = True
-        self.start(self._run)
-      return self
-
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
-      assert self._is_active
-      with self._run.exception_handler(f"Probe {self.name} stop"):
-        self.stop(self._run)
-        self._is_success = True
-        assert self._stop_time is None
-      self._stop_time = dt.datetime.now()
-
-    @property
-    def probe(self) -> ProbeT:
-      return self._probe
-
-    @property
-    def run(self) -> Run:
-      return self._run
-
-    @property
-    def browser(self) -> Browser:
-      return self._run.browser
-
-    @property
-    def runner(self) -> Runner:
-      return self._run.runner
-
-    @property
-    def browser_platform(self) -> helper.Platform:
-      return self.browser.platform
-
-    @property
-    def runner_platform(self) -> helper.Platform:
-      return self.runner.platform
-
-    @property
-    def start_time(self) -> dt.datetime:
-      """
-      Returns a unified start time that is the same for all Probe.Scopes
-      within a run. This can be to account for startup delays caused by other
-      Probes.
-      """
-      assert self._start_time
-      return self._start_time
-
-    @property
-    def duration(self) -> dt.timedelta:
-      assert self._start_time and self._stop_time
-      return self._stop_time - self._start_time
-
-    @property
-    def is_success(self) -> bool:
-      return self._is_success
-
-    @property
-    def results_file(self) -> pathlib.Path:
-      return self._default_results_file
-
-    @property
-    def name(self) -> str:
-      return self.probe.name
-
-    @property
-    def browser_pid(self) -> int:
-      maybe_pid = self.run.browser.pid
-      assert maybe_pid, "Browser is not runner or does not provide a pid."
-      return maybe_pid
-
-    def setup(self, run: Run) -> None:
-      """
-      Called before starting the browser, typically used to set run-specific
-      browser flags.
-      """
-      del run
-
-    @abc.abstractmethod
-    def start(self, run: Run) -> None:
-      """
-      Called immediately before starting the given Run.
-      This method should have as little overhead as possible. If possible,
-      delegate heavy computation to the "SetUp" method.
-      """
-
-    @abc.abstractmethod
-    def stop(self, run: Run) -> None:
-      """
-      Called immediately after finishing the given Run.
-      This method should have as little overhead as possible. If possible,
-      delegate heavy computation to the "collect" method.
-      """
-      return None
-
-    @abc.abstractmethod
-    def tear_down(self, run: Run) -> ProbeResult:
-      """
-      Called after stopping all probes and shutting down the browser.
-      Returns
-      - None if no data was collected
-      - If Data was collected:
-        - Either a path (or list of paths) to results file
-        - Directly a primitive json-serializable object containing the data
-      """
-      return ProbeResult()
+  @abc.abstractmethod
+  def tear_down(self, run: Run) -> ProbeResult:
+    """
+    Called after stopping all probes and shutting down the browser.
+    Returns
+    - None if no data was collected
+    - If Data was collected:
+      - Either a path (or list of paths) to results file
+      - Directly a primitive json-serializable object containing the data
+    """
+    return ProbeResult()

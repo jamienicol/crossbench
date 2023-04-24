@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from crossbench.browsers.chromium import Chromium
-from crossbench.probes.probe import Probe
+from crossbench.probes.probe import Probe, ProbeScope
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
@@ -26,7 +26,7 @@ class V8RCSProbe(Probe):
   def is_compatible(self, browser: Browser) -> bool:
     return isinstance(browser, Chromium)
 
-  def attach(self, browser: Chromium) -> None:
+  def attach(self, browser: Browser) -> None:
     super().attach(browser)
     assert isinstance(browser, Chromium), "Expected Chromium-based browser."
     browser.js_flags.update(("--runtime-call-stats", "--allow-natives-syntax"))
@@ -35,28 +35,8 @@ class V8RCSProbe(Probe):
   def results_file_name(self) -> str:
     return f"{self.name}.txt"
 
-  class Scope(Probe.Scope):
-    _rcs_table: str
-
-    def setup(self, run: Run) -> None:
-      pass
-
-    def start(self, run: Run) -> None:
-      pass
-
-    def stop(self, run: Run) -> None:
-      with run.actions("Extract RCS") as actions:
-        self._rcs_table = actions.js("return %GetAndResetRuntimeCallStats();")
-
-    def tear_down(self, run: Run) -> ProbeResult:
-      if not getattr(self, "_rcs_table", None):
-        raise Exception("Chrome didn't produce any RCS data. "
-                        "Use Chrome Canary or make sure to enable the "
-                        "v8_enable_runtime_call_stats compile-time flag.")
-      rcs_file = run.get_probe_results_file(self.probe)
-      with rcs_file.open("a") as f:
-        f.write(self._rcs_table)
-      return ProbeResult(file=(rcs_file,))
+  def get_scope(self, run: Run) -> V8RCSProbeScope:
+    return V8RCSProbeScope(self, run)
 
   def merge_repetitions(self, group: RepetitionsRunGroup) -> ProbeResult:
     merged_result_path = group.get_probe_results_file(self)
@@ -74,3 +54,27 @@ class V8RCSProbe(Probe):
         with merged_iterations_file.open(encoding="utf-8") as f:
           merged_file.write(f.read())
     return ProbeResult(file=[merged_result_path])
+
+
+class V8RCSProbeScope(ProbeScope[V8RCSProbe]):
+  _rcs_table: str
+
+  def setup(self, run: Run) -> None:
+    pass
+
+  def start(self, run: Run) -> None:
+    pass
+
+  def stop(self, run: Run) -> None:
+    with run.actions("Extract RCS") as actions:
+      self._rcs_table = actions.js("return %GetAndResetRuntimeCallStats();")
+
+  def tear_down(self, run: Run) -> ProbeResult:
+    if not getattr(self, "_rcs_table", None):
+      raise Exception("Chrome didn't produce any RCS data. "
+                      "Use Chrome Canary or make sure to enable the "
+                      "v8_enable_runtime_call_stats compile-time flag.")
+    rcs_file = run.get_probe_results_file(self.probe)
+    with rcs_file.open("a") as f:
+      f.write(self._rcs_table)
+    return ProbeResult(file=(rcs_file,))
