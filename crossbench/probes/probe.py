@@ -196,7 +196,7 @@ class Probe(abc.ABC):
     del group
 
 
-class ProbeScope(Generic[ProbeT], metaclass=abc.ABCMeta):
+class ProbeScope(abc.ABC, Generic[ProbeT]):
   """
   A scope during which a probe is actively collecting data.
   Override in Probe subclasses to implement actual performance data

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from crossbench.browsers.chromium import Chromium
 from crossbench.probes.probe import Probe, ProbeScope
@@ -29,7 +29,8 @@ class V8BuiltinsPGOProbe(Probe):
     # Use inline isinstance assert to hint that we have a Chrome browser.
     assert isinstance(browser, Chromium), "Expected Chromium-based browser."
     super().attach(browser)
-    browser.js_flags.set("--allow-natives-syntax")
+    chromium = cast(Chromium, browser)
+    chromium.js_flags.set("--allow-natives-syntax")
 
   def get_scope(self, run: Run) -> V8BuiltinsPGOProbeScope:
     return V8BuiltinsPGOProbeScope(self, run)

@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from crossbench.browsers.chromium import Chromium
 from crossbench.probes.probe import Probe, ProbeScope
@@ -27,9 +27,10 @@ class V8RCSProbe(Probe):
     return isinstance(browser, Chromium)
 
   def attach(self, browser: Browser) -> None:
-    super().attach(browser)
     assert isinstance(browser, Chromium), "Expected Chromium-based browser."
-    browser.js_flags.update(("--runtime-call-stats", "--allow-natives-syntax"))
+    super().attach(browser)
+    chromium = cast(Chromium, browser)
+    chromium.js_flags.update(("--runtime-call-stats", "--allow-natives-syntax"))
 
   @property
   def results_file_name(self) -> str:

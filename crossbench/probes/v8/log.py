@@ -10,7 +10,7 @@ import os
 import pathlib
 import re
 import subprocess
-from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple, cast
 
 from crossbench import helper, cli_helper
 from crossbench.browsers.browser import Browser
@@ -106,8 +106,9 @@ class V8LogProbe(Probe):
   def attach(self, browser: Browser) -> None:
     super().attach(browser)
     assert isinstance(browser, Chromium)
-    browser.flags.set("--no-sandbox")
-    browser.js_flags.update(self._js_flags)
+    chromium = cast(Chromium, browser)
+    chromium.flags.set("--no-sandbox")
+    chromium.js_flags.update(self._js_flags)
 
   def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)

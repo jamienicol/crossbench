@@ -5,7 +5,7 @@
 from __future__ import annotations
 import pathlib
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from crossbench import helper
 from crossbench.browsers.chromium import Chromium
@@ -31,8 +31,9 @@ class V8TurbolizerProbe(Probe):
   def attach(self, browser: Browser) -> None:
     super().attach(browser)
     assert isinstance(browser, Chromium)
-    browser.flags.set("--no-sandbox")
-    browser.js_flags.set("--trace-turbo")
+    chromium = cast(Chromium, browser)
+    chromium.flags.set("--no-sandbox")
+    chromium.js_flags.set("--trace-turbo")
 
   def get_scope(self, run: Run) -> V8TurbolizerProbeScope:
     return V8TurbolizerProbeScope(self, run)

@@ -27,12 +27,12 @@ crossbench = 'scripts:crossbench'
 cb = 'scripts:crossbench'
 
 [tool.poetry.group.dev.dependencies]
-pyfakefs = "^4.6.3"
+pyfakefs = "^5.2.2"
 isort = "^5.10.1"
-pytype = "2022.12.15"
-pytest-cov = "^3.0.0"
+pytype = "^2023.4.18"
+pytest-cov = "^4.0.0"
 debugpy = "^1.6.3"
-mypy = "^0.982"
+mypy = "^1.2"
 pylint = "^2.7"
 
 [build-system]
