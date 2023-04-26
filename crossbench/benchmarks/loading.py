@@ -8,6 +8,7 @@ import argparse
 import datetime as dt
 import logging
 import math
+import pathlib
 import re
 import time
 from enum import Enum
@@ -17,7 +18,7 @@ from urllib.parse import urlparse
 import hjson
 
 from crossbench.benchmarks.benchmark import StoryFilter, SubStoryBenchmark
-from crossbench import cli_helper
+from crossbench import cli_helper, helper
 from crossbench.exception import ExceptionAnnotator
 from crossbench.stories import Story
 
@@ -40,10 +41,10 @@ class ButtonClick(str, Enum):
 
 
 class ActionType(str, Enum):
-  # CLICK = 'click'
   GET = "get"
   WAIT = "wait"
   SCROLL = "scroll"
+  CLICK = "click"
 
 
 class PlaybackController:
@@ -290,9 +291,8 @@ class LoadingPageFilter(StoryFilter):
                patterns: Sequence[str],
                separate: bool = True,
                playback: Optional[PlaybackController] = None):
-    self.separate = separate
     self._playback = playback or PlaybackController.once()
-    super().__init__(story_cls, patterns)
+    super().__init__(story_cls, patterns, separate)
 
   def process_all(self, patterns: Sequence[str]) -> None:
     name_or_url_list = patterns
@@ -349,9 +349,9 @@ class LoadingPageFilter(StoryFilter):
         continue
       self.stories.append(page)
 
-  def create_stories(self) -> Sequence[Page]:
+  def create_stories(self, separate: bool) -> Sequence[Page]:
     logging.info("SELECTED STORIES: %s", str(list(map(str, self.stories))))
-    if not self.separate and len(self.stories) > 1:
+    if not separate and len(self.stories) > 1:
       combined_name = "_".join(page.name for page in self.stories)
       self.stories = (CombinedPage(self.stories, combined_name,
                                    self._playback),)
@@ -378,32 +378,32 @@ class PageLoadBenchmark(SubStoryBenchmark):
   STORY_FILTER_CLS = LoadingPageFilter
 
   @classmethod
-  def stories_from_cli_args(cls, args: argparse.Namespace) -> Sequence[Story]:
-    if args.page_config:
-      args.page_config = PageConfig.from_cli_args(args)
-      if args.separate:
-        return args.page_config.stories
-      return (CombinedPage(args.page_config.stories,
-                           "Page Scenarios - Combined", args.playback),)
-    return super().stories_from_cli_args(args)
-
-  @classmethod
   def add_cli_parser(
       cls, subparsers: argparse.ArgumentParser, aliases: Sequence[str] = ()
   ) -> argparse.ArgumentParser:
     parser = super().add_cli_parser(subparsers, aliases)
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(
+    page_config_group = parser.add_mutually_exclusive_group()
+    # TODO: Migrate to dest="stories" using LoadingPageFilter.parse
+    # TODO: move --stories into mutually exclusive group as well
+    page_config_group.add_argument(
         "--urls",
         "--url",
         dest="stories",
         help="List of urls and durations to load: url,seconds,...")
-    group.add_argument(
+    page_config_group.add_argument(
         "--page-config",
-        type=cli_helper.parse_file_path,
+        dest="stories",
+        type=PageConfig.parse,
         help="Stories we want to perform in the benchmark run following a"
         "specified scenario. For a reference on how to build scenarios and"
         "possible actions check  pages.config.example.hjson")
+    page_config_group.add_argument(
+        "--devtools-recorder",
+        dest="stories",
+        type=DevToolsRecorderPageConfig.parse,
+        help=("Run a single story from a serialized DevTools recorder session. "
+              "See https://developer.chrome.com/docs/devtools/recorder/ "
+              "for more details."))
 
     playback_group = parser.add_mutually_exclusive_group()
     playback_group.add_argument(
@@ -424,6 +424,15 @@ class PageLoadBenchmark(SubStoryBenchmark):
         help="Equivalent to --playback=infinity")
     return parser
 
+  @classmethod
+  def stories_from_cli_args(cls, args: argparse.Namespace) -> Sequence[Story]:
+    if isinstance(args.stories, list):
+      if args.separate or len(args.stories) == 1:
+        return args.stories
+      return (CombinedPage(args.stories, "Page Scenarios - Combined",
+                           args.playback),)
+    return super().stories_from_cli_args(args)
+
   def __init__(self, stories: Sequence[Page], duration: Optional[float] = None):
     for story in stories:
       assert isinstance(story, Page)
@@ -433,15 +442,15 @@ class PageLoadBenchmark(SubStoryBenchmark):
     super().__init__(stories)
 
 
-class PageConfig:
+class AbstractPageConfig(abc.ABC):
 
   @classmethod
-  def from_cli_args(cls, args: argparse.Namespace) -> PageConfig:
-    assert args.page_config
-    with args.page_config.open(encoding="utf-8") as f:
-      config = PageConfig()
+  def parse(cls, path: str) -> List[InteractivePage]:
+    config_file = cli_helper.parse_file_path(path)
+    with config_file.open(encoding="utf-8") as f:
+      config = cls()
       config.load(f)
-      return config
+      return config.stories
 
   def __init__(self, raw_config_data: Optional[Dict] = None):
     self._exceptions = ExceptionAnnotator(throw=True)
@@ -461,6 +470,17 @@ class PageConfig:
   def load_dict(self, raw_config_data: Dict, throw: bool = False) -> None:
     assert not self.stories
     self._exceptions.throw = throw
+    self._load_dict(raw_config_data)
+    self._exceptions.assert_success()
+
+  @abc.abstractmethod
+  def _load_dict(self, raw_config_data: Dict) -> None:
+    pass
+
+
+class PageConfig(AbstractPageConfig):
+
+  def _load_dict(self, raw_config_data: Dict) -> None:
     with self._exceptions.capture("Parsing scenarios / pages"):
       if "pages" not in raw_config_data:
         raise ValueError("Config does not provide a 'pages' dict.")
@@ -468,7 +488,6 @@ class PageConfig:
         raise ValueError("Config contains empty 'pages' dict.")
       with self._exceptions.info("Parsing config 'pages'"):
         self._parse_pages(raw_config_data["pages"])
-    self._exceptions.assert_success()
 
   def _parse_pages(self, pages: Dict[str, Any]) -> None:
     """
@@ -522,7 +541,49 @@ class PageConfig:
   def _create_action(self, action_type, value, duration) -> Action:
     if action_type not in _ACTION_FACTORY:
       raise ValueError(f"Unknown action name: '{action_type}'")
-    return _ACTION_FACTORY[action_type](action_type, value, duration)
+    return _ACTION_FACTORY[action_type](value, duration)
+
+
+class DevToolsRecorderPageConfig(AbstractPageConfig):
+
+  def _load_dict(self, raw_config_data: Dict) -> None:
+    playback: PlaybackController = PlaybackController.once()
+    with self._exceptions.capture("Loading DevTools recording file"):
+      title = raw_config_data["title"]
+      assert title, "No title provided"
+      actions = self._parse_steps(raw_config_data["steps"])
+      self.stories.append(InteractivePage(actions, title, playback))
+
+  def _parse_steps(self, steps: List[Dict[str, Any]]) -> List[Action]:
+    actions: List[Action] = []
+    for step in steps:
+      maybe_actions: Optional[Action] = self._parse_step(step)
+      if maybe_actions:
+        actions.append(maybe_actions)
+        # TODO(cbruni): make this configurable
+        actions.append(WaitAction(duration=1))
+    return actions
+
+  def _parse_step(self, step: Dict[str, Any]) -> Optional[Action]:
+    step_type: str = step["type"]
+    default_timeout = 10
+    if step_type == "navigate":
+      return GetAction(
+          step["url"], default_timeout, ready_state=ReadyState.COMPLETE)
+    if step_type == "click":
+      selectors: List[List[str]] = step["selectors"]
+      xpath: Optional[str] = None
+      for selector_list in selectors:
+        for selector in selector_list:
+          if selector.startswith("xpath//"):
+            xpath = selector
+            break
+      assert xpath, "Need xpath selector for click action"
+      return ClickAction(xpath, default_timeout, scroll_into_view=True)
+    if step_type == "setViewport":
+      # Resizing is ignored for now.
+      return None
+    raise ValueError(f"Unsupported step: {step_type}")
 
 
 class _Duration:
@@ -590,18 +651,18 @@ class _Duration:
 
 
 class Action(abc.ABC):
+  TYPE: ActionType = ActionType.GET
+
   timeout: float
   _story: Story
 
   _EXCEPTION_BASE_STR = "Not valid action for scenario: "
 
   def __init__(self,
-               action_type: ActionType,
                value: Optional[str] = None,
-               duration: float = 0.0):
-    self.action_type = action_type
+               duration: Union[float, int] = 0.0):
     self.value = value
-    assert isinstance(duration, float)
+    assert isinstance(duration, (float, int))
     self.duration = duration
     assert duration >= 0 and not math.isinf(duration), (
         f"Invalid duration: {duration}")
@@ -619,12 +680,33 @@ class Action(abc.ABC):
     pass
 
 
+class ReadyState(str, Enum):
+  """See https://developer.mozilla.org/en-US/docs/Web/API/Document/readyState"""
+  ANY = "any"
+  LOADING = "loading"
+  INTERACTIVE = "interactive"
+  COMPLETE = "complete"
+
+
 class GetAction(Action):
+  TYPE: ActionType = ActionType.GET
+
+  def __init__(self,
+               value: Optional[str] = None,
+               duration: Union[float, int] = 0.0,
+               ready_state: ReadyState = ReadyState.ANY):
+    self._ready_state = ready_state
+    super().__init__(value, duration)
 
   def run(self, run: Run, story: Story) -> None:
     self._story = story
     self._validate_action()
-    run.browser.show_url(run.runner, self.value)
+    with run.actions("GetAction") as action:
+      action.show_url(self.value)
+      if self._ready_state == ReadyState.ANY:
+        return
+      action.wait_js_condition(
+          f"return document.readyState === '{self._ready_state}'", 0.5, 15)
 
   def _validate_action(self) -> None:
     if not self.value:
@@ -632,10 +714,11 @@ class GetAction(Action):
                       f"{self._story._name}. Argument 'value' is not provided")
 
   def details_json(self) -> Dict[str, Any]:
-    return {"action": self.action_type, "value": self.value}
+    return {"action": str(self.TYPE), "value": self.value}
 
 
 class WaitAction(Action):
+  TYPE: ActionType = ActionType.WAIT
 
   def run(self, run: Run, story: Story) -> None:
     self._story = story
@@ -649,10 +732,11 @@ class WaitAction(Action):
           f"{self._story._name}. Argument 'duration' is not provided")
 
   def details_json(self) -> Dict[str, Any]:
-    return {"action": self.action_type, "duration": self.duration}
+    return {"action": str(self.TYPE), "duration": self.duration}
 
 
 class ScrollAction(Action):
+  TYPE: ActionType = ActionType.SCROLL
 
   def run(self, run: Run, story: Story) -> None:
     self._story = story
@@ -680,23 +764,48 @@ class ScrollAction(Action):
 
   def details_json(self) -> Dict[str, Any]:
     return {
-        "action": self.action_type,
+        "action": str(self.TYPE),
         "value": self.value,
         "duration": self.duration
     }
 
 
-# class ClickAction(Action):
-# TODO: implement click even coming form the OS here
-#   # # method to click at coordinates x,y on the screen.
-#  Important this uses the screen size and not the browser window.
-#   # def _click(x_coordinate: int,
-#   #           y_coordinate: int,
-#   #           button: ButtonClick = ButtonClick.LEFT,
-#   #           clicks: int = 1,
-#   #           interval: float=0):
-#   #   # TODO:Implement the click action
-#   #   return
+class ClickAction(Action):
+  TYPE: ActionType = ActionType.CLICK
+
+  def __init__(self,
+               value: Optional[str] = None,
+               duration: Union[float, int] = 0.0,
+               scroll_into_view: bool = False):
+    self._scroll_into_view = scroll_into_view
+    super().__init__(value, duration)
+
+  def run(self, run: Run, story: Story) -> None:
+    # TODO: support more selector types.
+    prefix = "xpath/"
+    if self.value.startswith(prefix):
+      xpath: str = self.value[len(prefix):]
+      run.browser.js(
+          run.runner,
+          """
+       let element = document.evaluate(arguments[0], document).iterateNext();
+       if (arguments[1]) element.scrollIntoView()
+       element.click()
+       """,
+          arguments=[xpath, self._scroll_into_view])
+    else:
+      raise NotImplementedError(f"Unsupported selector: {self.value}")
+
+  def _validate_action(self) -> None:
+    pass
+
+  def details_json(self) -> Dict[str, Any]:
+    return {
+        "action": str(self.TYPE),
+        "value": self.value,
+        "duration": self.duration
+    }
+
 
 _ACTION_FACTORY = {
     ActionType.GET: GetAction,

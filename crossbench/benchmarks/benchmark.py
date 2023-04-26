@@ -110,7 +110,10 @@ class StoryFilter(Generic[StoryT], metaclass=abc.ABCMeta):
     kwargs = cls.kwargs_from_cli(args)
     return cls(story_cls, **kwargs)
 
-  def __init__(self, story_cls: Type[StoryT], patterns: Sequence[str]):
+  def __init__(self,
+               story_cls: Type[StoryT],
+               patterns: Sequence[str],
+               separate: bool = False):
     self.story_cls = story_cls
     assert issubclass(
         story_cls, Story), (f"Subclass of {Story} expected, found {story_cls}")
@@ -119,14 +122,14 @@ class StoryFilter(Generic[StoryT], metaclass=abc.ABCMeta):
                             None] = dict.fromkeys(story_cls.all_story_names())
     self.stories: Sequence[StoryT] = []
     self.process_all(patterns)
-    self.stories = self.create_stories()
+    self.stories = self.create_stories(separate)
 
   @abc.abstractmethod
   def process_all(self, patterns: Sequence[str]) -> None:
     pass
 
   @abc.abstractmethod
-  def create_stories(self) -> Sequence[StoryT]:
+  def create_stories(self, separate: bool) -> Sequence[StoryT]:
     pass
 
 
@@ -221,11 +224,10 @@ class PressBenchmarkStoryFilter(StoryFilter[PressBenchmarkStory]):
                patterns: Sequence[str],
                separate: bool = False,
                url: Optional[str] = None):
-    self.separate = separate
     self.url = url
     # Using dict instead as ordered set
     self._selected_names: Dict[str, None] = {}
-    super().__init__(story_cls, patterns)
+    super().__init__(story_cls, patterns, separate)
     assert issubclass(self.story_cls, PressBenchmarkStory)
     for name in self._known_names:
       assert name, "Invalid empty story name"
@@ -304,12 +306,11 @@ class PressBenchmarkStoryFilter(StoryFilter[PressBenchmarkStory]):
                        "previously filtered story names.")
     return substories
 
-  def create_stories(self) -> Sequence[StoryT]:
+  def create_stories(self, separate: bool) -> Sequence[StoryT]:
     logging.info("SELECTED STORIES: %s",
                  str(list(map(str, self._selected_names))))
     names = list(self._selected_names.keys())
-    return self.story_cls.from_names(
-        names, separate=self.separate, url=self.url)
+    return self.story_cls.from_names(names, separate=separate, url=self.url)
 
 
 class PressBenchmark(SubStoryBenchmark):

@@ -22,6 +22,7 @@ import crossbench
 import crossbench.env
 import crossbench.runner
 from crossbench.benchmarks import loading
+from crossbench.stories import Story
 from tests.crossbench.benchmarks import helper
 
 #TODO: fix imports
@@ -268,22 +269,21 @@ class TestPageConfig(pyfakefs.fake_filesystem_unittest.TestCase):
     }
     config = loading.PageConfig()
     config.load_dict(config_data, throw=True)
-    self.assert_single_google_story(config)
+    self.assert_single_google_story(config.stories)
     # Loading the same config from a file should result in the same actions.
     file = pathlib.Path("page.config.hjson")
     assert not file.exists()
     with file.open("w", encoding="utf-8") as f:
       hjson.dump(config_data, f)
-    args = mock.Mock(page_config=file, wraps=False)
-    config = loading.PageConfig.from_cli_args(args)
-    self.assert_single_google_story(config)
+    stories = loading.PageConfig.parse(str(file))
+    self.assert_single_google_story(stories)
 
-  def assert_single_google_story(self, config):
-    self.assertTrue(len(config.stories), 1)
-    story = config.stories[0]
+  def assert_single_google_story(self, stories: Sequence[Story]):
+    self.assertTrue(len(stories), 1)
+    story = stories[0]
     assert isinstance(story, loading.InteractivePage)
     self.assertEqual(story.name, "Google Story")
-    self.assertListEqual([action.action_type for action in story.actions],
+    self.assertListEqual([action.TYPE for action in story.actions],
                          ["get", "wait", "scroll"])
 
   def test_no_scenarios(self):
