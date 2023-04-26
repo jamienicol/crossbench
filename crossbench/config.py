@@ -127,7 +127,10 @@ class _ConfigArg:
       else:
         items.append(f"default = {self.default}")
     if self.choices:
-      items.append(f"choices = {', '.join(map(str, self.choices))}")
+      choices_values = self.choices
+      if self.is_enum:
+        choices_values = [choice.value for choice in self.choices]
+      items.append(f"choices = {', '.join(map(str, choices_values))}")
 
     return "\n".join(items)
 
@@ -172,10 +175,8 @@ class _ConfigArg:
   def parse_enum_data(self, data: Any) -> enum.Enum:
     assert self.is_enum
     assert self.choices
-    if data in self.choices:
-      return data
     for enum_instance in self.choices:
-      if data == enum_instance.value:
+      if data in (enum_instance, enum_instance.value):
         return enum_instance
     raise ValueError("Expected enum {self.type}, but got {data}")
 

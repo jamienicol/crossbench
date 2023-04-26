@@ -11,14 +11,13 @@ import math
 import pathlib
 import re
 import time
-from enum import Enum
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import hjson
 
 from crossbench.benchmarks.benchmark import StoryFilter, SubStoryBenchmark
-from crossbench import cli_helper, helper
+from crossbench import cli_helper, compat
 from crossbench.exception import ExceptionAnnotator
 from crossbench.stories import Story
 
@@ -29,18 +28,18 @@ if TYPE_CHECKING:
   from crossbench.runner import Run
 
 
-class Scroll(str, Enum):
+class Scroll(compat.StrEnum):
   UP = "up"
   DOWN = "down"
 
 
-class ButtonClick(str, Enum):
+class ButtonClick(compat.StrEnum):
   LEFT = "left"
   RIGHT = "right"
   MIDDLE = "middle"
 
 
-class ActionType(str, Enum):
+class ActionType(compat.StrEnum):
   GET = "get"
   WAIT = "wait"
   SCROLL = "scroll"
@@ -680,7 +679,7 @@ class Action(abc.ABC):
     pass
 
 
-class ReadyState(str, Enum):
+class ReadyState(compat.StrEnum):
   """See https://developer.mozilla.org/en-US/docs/Web/API/Document/readyState"""
   ANY = "any"
   LOADING = "loading"

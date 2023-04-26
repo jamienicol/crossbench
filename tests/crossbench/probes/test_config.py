@@ -4,6 +4,7 @@
 
 import enum
 import unittest
+from crossbench import compat
 
 from crossbench.probes import Probe, ProbeConfigParser
 
@@ -195,7 +196,7 @@ class ProbeConfigTestCase(unittest.TestCase):
 
   def test_enum_type(self):
 
-    class MyEnum(enum.Enum):
+    class MyEnum(compat.StrEnum):
       ONE = "one"
       TWO = "two"
 

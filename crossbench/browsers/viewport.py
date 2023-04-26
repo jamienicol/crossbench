@@ -5,11 +5,12 @@
 from __future__ import annotations
 
 from argparse import ArgumentTypeError
-from enum import Enum
 from typing import Tuple
 
+from crossbench import compat
 
-class ViewportMode(str, Enum):
+
+class ViewportMode(compat.StrEnum):
   SIZE = "size"
   MAXIMIZED = "maximized"
   FULLSCREEN = "fullscreen"

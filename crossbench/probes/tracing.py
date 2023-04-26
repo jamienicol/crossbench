@@ -5,12 +5,11 @@
 from __future__ import annotations
 
 import argparse
-import enum
 import logging
 import pathlib
 from typing import TYPE_CHECKING, Dict, Optional, Sequence, Set
 
-from crossbench import cli_helper
+from crossbench import cli_helper, compat
 from crossbench.browsers.chromium import Chromium
 from crossbench.helper import Platform
 from crossbench.probes import helper as probe_helper
@@ -90,13 +89,13 @@ TRACE_PRESETS: Dict[str, Set[str]] = {
 }
 
 
-class RecordMode(enum.Enum):
+class RecordMode(compat.StrEnum):
   CONTINUOUSLY = "record-continuously"
   UNTIL_FULL = "record-until-full"
   AS_MUCH_AS_POSSIBLE = "record-as-much-as-possible"
 
 
-class RecordFormat(enum.Enum):
+class RecordFormat(compat.StrEnum):
   JSON = "json"
   PROTO = "proto"
 
@@ -172,13 +171,13 @@ class TracingProbe(Probe):
       self._categories = set()
 
     self._startup_duration = startup_duration
-    self._record_mode = record_mode
-    self._record_format = RecordFormat.PROTO
+    self._record_mode: RecordMode = record_mode
+    self._record_format: RecordFormat = RecordFormat.PROTO
     self._traceconv = traceconv
 
   @property
   def results_file_name(self) -> str:
-    return f"trace.{self._record_format.value}"
+    return f"trace.{self._record_format.value}"  # pylint: disable=no-member
 
   @property
   def traceconv(self) -> Optional[pathlib.Path]:
@@ -192,7 +191,7 @@ class TracingProbe(Probe):
     flags: ChromeFlags = browser.flags
     flags.update(self.CHROMIUM_FLAGS)
     # Force proto file so we can convert it to legacy json as well.
-    flags["--trace-startup-format"] = self._record_format.value
+    flags["--trace-startup-format"] = self._record_format.value  # pylint: disable=no-member
     if self._trace_config:
       flags["--trace-config-file"] = str(self._trace_config)
     else:

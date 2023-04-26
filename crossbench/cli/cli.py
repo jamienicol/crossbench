@@ -236,8 +236,8 @@ class CrossBenchCLI:
         "Mutually exclusive with --env")
     env_group.add_argument(
         "--env-validation",
-        default="prompt",
-        choices=[mode.value for mode in ValidationMode],
+        default=ValidationMode.PROMPT,
+        type=ValidationMode,
         help=textwrap.dedent("""
           Set how runner env is validated (see als --env-config/--env):
             throw:  Strict mode, throw and abort on env issues,

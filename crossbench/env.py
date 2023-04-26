@@ -14,7 +14,7 @@ from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterable, List,
                     Optional, Union)
 from urllib.parse import urlparse
 
-from crossbench import helper
+from crossbench import compat, helper
 
 if TYPE_CHECKING:
   from crossbench.probes.probe import Probe
@@ -105,7 +105,7 @@ class HostEnvironmentConfig:
     return HostEnvironmentConfig(**kwargs)
 
 
-class ValidationMode(enum.Enum):
+class ValidationMode(compat.StrEnum):
   THROW = "throw"
   PROMPT = "prompt"
   WARN = "warn"
