@@ -321,7 +321,7 @@ class HostEnvironment:
 
   def _check_screen_autobrightness(self) -> None:
     auto_brightness = self._config.screen_allow_autobrightness
-    if auto_brightness is HostEnvironmentConfig.IGNORE:
+    if auto_brightness is not False:
       return
     if self._platform.check_autobrightness():
       raise Exception("Auto-brightness was found to be ON. "
