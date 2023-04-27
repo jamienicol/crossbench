@@ -162,7 +162,7 @@ class ChromeFlags(Flags):
 
   def _set(self,
            flag_name: str,
-           flag_value: Optional[str],
+           flag_value: Optional[str] = None,
            override: bool = False) -> None:
     # pylint: disable=signature-differs
     if flag_name == ChromeFeatures.ENABLE_FLAG:

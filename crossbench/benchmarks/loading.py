@@ -782,7 +782,7 @@ class ClickAction(Action):
   def run(self, run: Run, story: Story) -> None:
     # TODO: support more selector types.
     prefix = "xpath/"
-    if self.value.startswith(prefix):
+    if self.value and self.value.startswith(prefix):
       xpath: str = self.value[len(prefix):]
       run.browser.js(
           run.runner,
