@@ -10,8 +10,8 @@ import json
 import logging
 import pathlib
 from collections import defaultdict
-from typing import (TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar,
-                    Union)
+from typing import (TYPE_CHECKING, Any, Callable, Dict, Generic, List, Optional,
+                    TypeVar, Union)
 
 from tabulate import tabulate
 
@@ -166,7 +166,9 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
 JsonResultProbeT = TypeVar("JsonResultProbeT", bound="JsonResultProbe")
 
 
-class JsonResultProbeScope(ProbeScope[JsonResultProbeT]):
+# TODO: Remove Generic, once supported by pytype.
+class JsonResultProbeScope(ProbeScope[JsonResultProbeT],
+                           Generic[JsonResultProbeT]):
 
   def __init__(self, probe: JsonResultProbeT, run: Run):
     super().__init__(probe, run)
