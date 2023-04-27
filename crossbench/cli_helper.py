@@ -52,6 +52,14 @@ def parse_json_file(str_value: str) -> Any:
     return json.load(f)
 
 
+def parse_positive_int(value: str) -> int:
+  value_i = int(value)
+  if not math.isfinite(value_i) or value_i < 0:
+    raise argparse.ArgumentTypeError(
+        f"Expected positive value but got: {value_i}")
+  return value_i
+
+
 def parse_positive_float(value: str) -> float:
   value_f = float(value)
   if not math.isfinite(value_f) or value_f < 0:

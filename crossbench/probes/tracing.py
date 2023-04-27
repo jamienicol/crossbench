@@ -134,8 +134,10 @@ class TracingProbe(Probe):
         help=("Sets Chromium's --trace-config-file to the given json config."))
     parser.add_argument(
         "startup_duration",
-        type=cli_helper.parse_positive_float,
-        help="Stop recording tracing after a certain time")
+        default=0,
+        type=cli_helper.parse_positive_int,
+        help=("Stop recording tracing after a given number of seconds. "
+              "Use 0 (default) for unlimited recording time."))
     parser.add_argument(
         "record_mode",
         default=RecordMode.CONTINUOUSLY,
@@ -155,7 +157,7 @@ class TracingProbe(Probe):
                preset: Optional[str] = None,
                categories: Optional[Sequence[str]] = None,
                trace_config: Optional[pathlib.Path] = None,
-               startup_duration: float = 0,
+               startup_duration: int = 0,
                record_mode: RecordMode = RecordMode.CONTINUOUSLY,
                traceconv: Optional[pathlib.Path] = None) -> None:
     super().__init__()
@@ -170,7 +172,7 @@ class TracingProbe(Probe):
             "trace categories or a trace_config file.")
       self._categories = set()
 
-    self._startup_duration = startup_duration
+    self._startup_duration: int = startup_duration
     self._record_mode: RecordMode = record_mode
     self._record_format: RecordFormat = RecordFormat.PROTO
     self._traceconv = traceconv
@@ -192,14 +194,13 @@ class TracingProbe(Probe):
     flags.update(self.CHROMIUM_FLAGS)
     # Force proto file so we can convert it to legacy json as well.
     flags["--trace-startup-format"] = self._record_format.value  # pylint: disable=no-member
+    flags["--trace-startup-duration"] = str(self._startup_duration)
     if self._trace_config:
-      flags["--trace-config-file"] = str(self._trace_config)
+      flags["--trace-config-file"] = str(self._trace_config.absolute())
     else:
-      if self._startup_duration:
-        flags["--trace-startup-duration"] = str(self._startup_duration)
       flags["--trace-startup-record-mode"] = self._record_mode.value
       assert self._categories, "No trace categories provided."
-      flags["--trace-startup"] = ",".join(self._categories)
+      flags["--enable-tracing"] = ",".join(self._categories)
     super().attach(browser)
 
   def get_scope(self, run: Run) -> TracingProbeScope:
