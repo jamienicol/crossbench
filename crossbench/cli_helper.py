@@ -51,27 +51,28 @@ def parse_json_file(str_value: str) -> Any:
   with path.open(encoding="utf-8") as f:
     return json.load(f)
 
-
 def parse_positive_float(value: str) -> float:
   value_f = float(value)
   if not math.isfinite(value_f) or value_f < 0:
     raise argparse.ArgumentTypeError(
-        f"Expected positive value but got: {value_f}")
+        f"Expected positive value, but got: {value_f}")
   return value_f
 
 
 def parse_positive_zero_int(value: str) -> int:
   positive_int = int(value)
   if positive_int < 0:
-    raise argparse.ArgumentTypeError(f"Expected int >= 0, got: {positive_int}")
+    raise argparse.ArgumentTypeError(
+        f"Expected int >= 0, but got: {positive_int}")
   return positive_int
 
 
-def parse_positive_int(value: str) -> int:
-  positive_int = int(value)
-  if positive_int <= 0:
-    raise argparse.ArgumentTypeError(f"Expected int > 0, but got: {value}")
-  return positive_int
+def parse_positive_int(value: str, msg: str = "") -> int:
+  value_i = int(value)
+  if not math.isfinite(value_i) or value_i < 0:
+    raise argparse.ArgumentTypeError(
+        f"Expected int > 0 {msg},but got: {value_i}")
+  return value_i
 
 
 class CrossBenchArgumentError(argparse.ArgumentError):

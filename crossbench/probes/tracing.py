@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import pathlib
 from typing import TYPE_CHECKING, Dict, Optional, Sequence, Set
@@ -99,6 +100,34 @@ class RecordFormat(helper.StrEnumWithHelp):
   PROTO = ("proto", "New http://https://ui.perfetto.dev/ compatible format")
 
 
+def parse_trace_config_file_path(value: str) -> pathlib.Path:
+  data = cli_helper.parse_json_file(value)
+  if "trace_config" not in data:
+    raise argparse.ArgumentTypeError("Missing 'trace_config' property.")
+  cli_helper.parse_positive_int(
+      data.get("startup_duration", "0"), "for 'startup_duration'")
+  if "result_file" in data:
+    raise argparse.ArgumentTypeError(
+        "Explicit 'result_file' is not allowed with crossbench. "
+        "--probe=tracing sets a results location automatically.")
+  config = data["trace_config"]
+  if "included_categories" not in config and (
+      "excluded_categories" not in config) and ("memory_dump_config"
+                                                not in config):
+    raise argparse.ArgumentTypeError(
+        "Empty trace config: no trace categories or memory dumps configured.")
+  record_mode = config.get("record_mode", RecordMode.CONTINUOUSLY)
+  try:
+    RecordMode(record_mode)
+  except ValueError as e:
+    # pytype: disable=missing-parameter
+    raise argparse.ArgumentTypeError(
+        f"Invalid record_mode: '{record_mode}'. "
+        f"Choices are: {', '.join(str(e) for e in RecordMode)}") from e
+    # pytype: enable=missing-parameter
+  return pathlib.Path(value)
+
+
 class TracingProbe(Probe):
   """
   Chromium-only Probe to collect tracing / perfetto data that can be used by
@@ -129,8 +158,11 @@ class TracingProbe(Probe):
               f"See chrome's {cls.HELP_URL} for more details"))
     parser.add_argument(
         "trace_config",
-        type=cli_helper.parse_json_file_path,
-        help=("Sets Chromium's --trace-config-file to the given json config."))
+        type=parse_trace_config_file_path,
+        help=("Sets Chromium's --trace-config-file to the given json config."
+              "See https://chromium.googlesource.com/chromium/src/+"
+              "/HEAD/docs/memory-infra/memory_infra_startup_tracing.md "
+              "for more details."))
     parser.add_argument(
         "startup_duration",
         default=0,
