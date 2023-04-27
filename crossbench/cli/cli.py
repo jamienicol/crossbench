@@ -280,14 +280,23 @@ class CrossBenchCLI:
         "configuration file. "
         "Cannot be used together with --browser.")
 
-    browser_config_group = browser_group.add_argument(
+    splashscreen_group = browser_group.add_mutually_exclusive_group()
+    splashscreen_group.add_argument(
         "--splash-screen",
         "--splashscreen",
+        "--splash",
         type=SplashScreen.parse,
         default=SplashScreen.DETAILED,
         help=("Set the splashscreen shown before each run. "
               "Choices: 'default', 'none', 'minimal', 'detailed,' or "
               "a path or a URL."))
+    splashscreen_group.add_argument(
+        "--no-splash",
+        "--nosplash",
+        dest="splash_screen",
+        const=SplashScreen.NONE,
+        action="store_const",
+        help="Shortcut for --splash-screen=none")
 
     viewport_group = browser_group.add_mutually_exclusive_group()
     viewport_group.add_argument(
