@@ -30,9 +30,10 @@ class Chromium(Browser):
       "--enable-benchmarking",
       "--disable-extensions",
       "--no-first-run",
-      # limit the effects of putting the browser in the background:
-      "--disable-background-timer-throttling",
-      "--disable-renderer-backgrounding",
+  ]
+  FLAGS_FOR_DISABLING_BACKGROUND_INTERVENTIONS = [
+    "--disable-background-timer-throttling",
+    "--disable-renderer-backgrounding",
   ]
 
   @classmethod
@@ -72,6 +73,13 @@ class Chromium(Browser):
         flags, str), (f"flags should be a list, but got: {repr(flags)}")
     self._flags: ChromeFlags = self.default_flags(self.DEFAULT_FLAGS)
     self._flags.update(flags)
+
+    if "--allow-background-interventions" in self._flags.data:
+      # The --allow-background-interventions flag should have no value.
+      assert(self._flags.get("--allow-background-interventions") is None)
+    else:
+      self._flags.update(self.FLAGS_FOR_DISABLING_BACKGROUND_INTERVENTIONS)
+
     self.js_flags.update(js_flags)
     self._maybe_disable_gpu_compositing()
     if cache_dir is None:
