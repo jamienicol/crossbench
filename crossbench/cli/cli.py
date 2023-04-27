@@ -491,13 +491,28 @@ class CrossBenchCLI:
       raise
     finally:
       if not args.out_dir:
-        latest = runner.out_dir.parent / "latest"
-        if latest.is_symlink():
-          latest.unlink()
-        if not latest.exists():
-          latest.symlink_to(runner.out_dir, target_is_directory=True)
-        else:
-          logging.error("Could not create %s", latest)
+        self._update_results_symlinks(runner)
+
+  def _update_results_symlinks(self, runner: Runner) -> None:
+    latest = runner.out_dir.parent / "latest"
+    if latest.is_symlink():
+      latest.unlink()
+    if not latest.exists():
+      latest.symlink_to(runner.out_dir, target_is_directory=True)
+    else:
+      logging.error("Could not create %s", latest)
+    if not runner.runs:
+      return
+    first_run = runner.out_dir / 'first_run'
+    last_run = runner.out_dir / 'last_run'
+    if first_run.exists():
+      logging.error("Cannot create first_run symlink: %s", first_run)
+    else:
+      first_run.symlink_to(runner.runs[0].out_dir)
+    if last_run.exists():
+      logging.error("Cannot create last_run symlink: %s", last_run)
+    else:
+      last_run.symlink_to(runner.runs[-1].out_dir)
 
   def _log_results(self, args: argparse.Namespace, runner: Runner,
                    is_success: bool) -> None:
