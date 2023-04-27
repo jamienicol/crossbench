@@ -9,6 +9,7 @@ import datetime as dt
 import enum
 import logging
 import os
+import pathlib
 import urllib.request
 from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterable, List,
                     Optional, Union)
@@ -219,7 +220,9 @@ class HostEnvironment:
   def validate_url(self, url: str) -> bool:
     try:
       result = urlparse(url)
-      if not all([result.scheme in ["file", "http", "https"], result.netloc]):
+      if result.scheme == "file":
+        return pathlib.Path(result.path).exists()
+      if not all([result.scheme in ["http", "https"], result.netloc]):
         return False
       if self._validation_mode != ValidationMode.PROMPT:
         return True
