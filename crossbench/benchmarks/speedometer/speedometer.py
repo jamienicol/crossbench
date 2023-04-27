@@ -12,7 +12,7 @@ from typing import (TYPE_CHECKING, Any, Dict, Final, List, Optional, Sequence,
                     Tuple, Type)
 
 import crossbench.probes.helper as probes_helper
-from crossbench import helper
+from crossbench import cli_helper, helper
 from crossbench.benchmarks.benchmark import PressBenchmark
 from crossbench.probes.json import JsonResultProbe
 from crossbench.probes.results import ProbeResult, ProbeResultDict
@@ -184,7 +184,7 @@ class SpeedometerBenchmark(PressBenchmark, metaclass=abc.ABCMeta):
         "--iterations",
         "--iteration-count",
         default=10,
-        type=int,
+        type=cli_helper.parse_positive_int,
         help="Number of iterations each Speedometer subtest is run "
         "within the same session. \n"
         "Note: --repeat restarts the whole benchmark, --iterations runs the"

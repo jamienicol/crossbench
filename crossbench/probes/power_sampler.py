@@ -9,6 +9,7 @@ import logging
 import pathlib
 import subprocess
 from typing import TYPE_CHECKING, Optional, Sequence, Tuple
+from crossbench import helper
 
 from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
 from crossbench.probes.results import ProbeResult
@@ -17,6 +18,21 @@ if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
   from crossbench.env import HostEnvironment
   from crossbench.runner import Run
+
+
+class SamplerType(helper.StrEnumWithHelp):
+  MAIN_DISPLAY = ("main_display",
+                  "Samples the backlight level of the main display.")
+  BATTERY = ("battery", "Provides data retrieved from the IOPMPowerSource.")
+  SMC = ("smc", ("Samples power usage from various hardware components "
+                 "from the System Management Controller (SMC)"))
+  M1 = ("m1", "Samples the temperature of M1 P-Cores and E-Cores.")
+  USER_IDLE_LEVEL = (
+      "user_idle_level",
+      "Samples the machdep.user_idle_level sysctl value if it exists")
+  RESOURCE_COALITION = ("resource_coalition", (
+      "Provides resource usage data for a group of tasks that are part of a "
+      "'resource coalition', including those that have died."))
 
 
 class PowerSamplerProbe(Probe):
@@ -29,7 +45,9 @@ class PowerSamplerProbe(Probe):
 
   NAME = "powersampler"
   BATTERY_ONLY = True
-  SAMPLERS = ("smc", "user_idle_level", "main_display")
+  SAMPLERS: Tuple[SamplerType,
+                  ...] = (SamplerType.SMC, SamplerType.USER_IDLE_LEVEL,
+                          SamplerType.MAIN_DISPLAY)
 
   @classmethod
   def config_parser(cls) -> ProbeConfigParser:
@@ -37,11 +55,7 @@ class PowerSamplerProbe(Probe):
     parser.add_argument("bin_path", type=pathlib.Path)
     parser.add_argument("sampling_interval", type=int, default=10)
     parser.add_argument(
-        "samplers",
-        type=str,
-        choices=cls.SAMPLERS,
-        default=cls.SAMPLERS,
-        is_list=True)
+        "samplers", type=SamplerType, default=cls.SAMPLERS, is_list=True)
     parser.add_argument(
         "wait_for_battery",
         type=bool,
@@ -53,7 +67,7 @@ class PowerSamplerProbe(Probe):
   def __init__(self,
                bin_path: pathlib.Path,
                sampling_interval: int = 0,
-               samplers: Sequence[str] = SAMPLERS,
+               samplers: Sequence[SamplerType] = SAMPLERS,
                wait_for_battery: bool = True):
     super().__init__()
     self._bin_path = bin_path
@@ -75,7 +89,7 @@ class PowerSamplerProbe(Probe):
     return self._sampling_interval
 
   @property
-  def samplers(self) -> Tuple[str, ...]:
+  def samplers(self) -> Tuple[SamplerType, ...]:
     return self._samplers
 
   @property
@@ -126,7 +140,7 @@ class PowerSamplerProbeScope(ProbeScope[PowerSamplerProbe]):
       self._power_process = self.browser_platform.popen(
           self._bin_path,
           f"--sample-interval={self.probe.sampling_interval}",
-          f"--samplers={','.join(self.probe.samplers)}",
+          f"--samplers={','.join(map(str, self.probe.samplers))}",
           f"--json-output-file={self._power_output}",
           f"--resource-coalition-pid={self.browser_pid}",
           stdout=subprocess.DEVNULL)
@@ -134,7 +148,7 @@ class PowerSamplerProbeScope(ProbeScope[PowerSamplerProbe]):
     self._power_battery_process = self.browser_platform.popen(
         self._bin_path,
         "--sample-on-notification",
-        f"--samplers={','.join(self.probe.samplers)+',battery'}",
+        f"--samplers={','.join(map(str, self.probe.samplers))+',battery'}",
         f"--json-output-file={self._power_battery_output}",
         f"--resource-coalition-pid={self.browser_pid}",
         stdout=subprocess.DEVNULL)

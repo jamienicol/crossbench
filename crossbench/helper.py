@@ -11,7 +11,6 @@ import datetime as dt
 import enum
 import json
 import logging
-from math import floor, log10
 import os
 import pathlib
 import platform as py_platform
@@ -27,10 +26,12 @@ import traceback as tb
 import urllib
 import urllib.error
 import urllib.request
+from math import floor, log10
 from typing import (Any, Callable, Dict, Final, Iterable, Iterator, List,
                     Optional, Sequence, Tuple, TypeVar, Union)
 
 import psutil
+import tabulate
 
 if not hasattr(shlex, "join"):
   raise Exception("Please update to python v3.8 that has shlex.join")
@@ -1098,3 +1099,38 @@ class Spinner:
 
   def _sleep(self) -> None:
     time.sleep(self._sleep_time)
+
+
+class EnumWithHelp(enum.Enum):
+
+  def __new__(cls, value, help_str: str = ""):
+    del help_str
+    obj = object.__new__(cls)
+    obj._value_ = value
+    return obj
+
+  def __init__(self, value, help_str: str = ""):
+    del value
+    assert help_str, "Missing help_str"
+    self._help = help_str
+
+  @property
+  def help(self) -> str:
+    return self._help
+
+  @classmethod
+  def help_text_items(cls) -> List[Tuple[str, str]]:
+    return [(repr(instance.value), instance.help) for instance in cls]
+
+  @classmethod
+  def help_text(cls, indent: int = 0) -> str:
+    text: str = tabulate.tabulate(cls.help_text_items(), tablefmt="plain")
+    if indent:
+      return textwrap.indent(text, " " * indent)
+    return text
+
+
+class StrEnumWithHelp(EnumWithHelp):
+
+  def __str__(self) -> str:
+    return str(self.value)

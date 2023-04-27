@@ -8,8 +8,10 @@ import collections
 import enum
 import inspect
 import textwrap
-from typing import (Any, Callable, Dict, Iterable, List, Optional, Type, Union,
-                    cast)
+from typing import (Any, Callable, Dict, Iterable, List, Optional, Tuple, Type,
+                    Union, cast)
+
+import tabulate
 
 from crossbench import helper
 from crossbench.exception import ExceptionAnnotator
@@ -72,9 +74,8 @@ class _ConfigArg:
 
   def _validate_default(self) -> None:
     if self.is_enum:
-      enum_type: Type[enum.Enum] = cast(Type[enum.Enum], self.type)
-      assert isinstance(self.default, enum_type), (
-          f"Default must a {enum_type} enum, but got: {self.default}")
+      self._validate_enum_default()
+      return
     # TODO: Remove once pytype can handle self.type
     maybe_class: ArgParserType = self.type
     if self.is_list:
@@ -94,6 +95,16 @@ class _ConfigArg:
           self.type), (f"Expected default value of type={self.type}, "
                        f"but got type={type(self.default)}: {self.default}")
 
+  def _validate_enum_default(self) -> None:
+    enum_type: Type[enum.Enum] = cast(Type[enum.Enum], self.type)
+    if self.is_list:
+      default_list = self.default
+    else:
+      default_list = [self.default]
+    for default in default_list:
+      assert isinstance(default, enum_type), (
+          f"Default must be a {enum_type} enum, but got: {self.default}")
+
   @property
   def cls(self) -> Type:
     return self.parser.cls
@@ -104,35 +115,44 @@ class _ConfigArg:
 
   @property
   def help_text(self) -> str:
-    items: List[str] = []
-    if self.help:
-      items.append(self.help)
+    items: List[Tuple[str, str]] = []
     if self.type is None:
       if self.is_list:
-        items.append("type    = list")
+        items.append(("type", "list"))
     else:
       if self.is_list:
-        items.append(f"type    = List[{self.type.__qualname__}]")
+        items.append(("type", f"List[{self.type.__qualname__}]"))
       else:
-        items.append(f"type    = {self.type.__qualname__}")
+        items.append(("type", str(self.type.__qualname__)))
 
     if self.default is None:
-      items.append("default = not set")
+      items.append(("default", "not set"))
     else:
       if self.is_list:
         if not self.default:
-          items.append("default = []")
+          items.append(("default", "[]"))
         else:
-          items.append(f"default = {','.join(map(str, self.default))}")
+          items.append(("default", ','.join(map(str, self.default))))
       else:
-        items.append(f"default = {self.default}")
-    if self.choices:
-      choices_values = self.choices
-      if self.is_enum:
-        choices_values = [choice.value for choice in self.choices]
-      items.append(f"choices = {', '.join(map(str, choices_values))}")
+        items.append(("default", str(self.default)))
+    if self.is_enum:
+      items.extend(self._enum_help_text())
+    elif self.choices:
+      items.append(self._choices_help_text(self.choices))
 
-    return "\n".join(items)
+    text = tabulate.tabulate(items, tablefmt="presto")
+    if self.help:
+      return f"{self.help}\n{text}"
+    return text
+
+  def _choices_help_text(self, choices: Iterable) -> Tuple[str, str]:
+    return ("choices", ', '.join(map(str, choices)))
+
+  def _enum_help_text(self) -> List[Tuple[str, str]]:
+    if hasattr(self.type, "help_text_items"):
+      # See helper.EnumWithHelp
+      return [("choices", ""), *self.type.help_text_items()]
+    return [self._choices_help_text(choice.value for choice in self.choices)]
 
   def parse(self, config_data: Dict[str, Any]) -> Any:
     data = config_data.pop(self.name, None)
@@ -225,8 +245,9 @@ class ConfigParser:
   def __str__(self) -> str:
     parts: List[str] = []
     doc_string = self.doc
+    wdith = 80
     if doc_string:
-      parts.append("\n".join(textwrap.wrap(doc_string, width=60)))
+      parts.append("\n".join(textwrap.wrap(doc_string, width=wdith)))
       parts.append("")
     if not self._args:
       if parts:
@@ -236,6 +257,6 @@ class ConfigParser:
     parts.append("")
     for arg in self._args.values():
       parts.append(f"{arg.name}:")
-      parts.extend(helper.wrap_lines(arg.help_text, width=58, indent="  "))
+      parts.extend(helper.wrap_lines(arg.help_text, width=wdith, indent="  "))
       parts.append("")
     return "\n".join(parts)

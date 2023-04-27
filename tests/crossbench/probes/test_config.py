@@ -4,7 +4,7 @@
 
 import enum
 import unittest
-from crossbench import compat
+from crossbench import compat, helper
 
 from crossbench.probes import Probe, ProbeConfigParser
 
@@ -224,6 +224,20 @@ class ProbeConfigTestCase(unittest.TestCase):
       parser.kwargs_from_config({"my-enum": "three"})
     with self.assertRaises(ValueError):
       parser.kwargs_from_config({"my-enum": "TWO"})
+
+  def test_enum_with_help(self):
+
+    class MyEnum(helper.StrEnumWithHelp):
+      ONE = ("oneX", "the one help")
+      TWO = ("twoX", "the two help")
+
+    parser = ProbeConfigParser(MockProbe)
+    parser.add_argument("my-enum", type=MyEnum, choices=[MyEnum.ONE])
+    text = str(parser)
+    self.assertIn("the one help", text)
+    self.assertIn("the two help", text)
+    self.assertIn("oneX", text)
+    self.assertIn("twoX", text)
 
 
 if __name__ == "__main__":

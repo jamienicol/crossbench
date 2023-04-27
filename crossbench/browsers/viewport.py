@@ -27,11 +27,11 @@ class Viewport:
   def parse(cls, value: str) -> Viewport:
     if not value:
       return cls.DEFAULT
-    if value in ("m", "max", "maximised", "maximized"):
+    if value in ("m", "max", "maximised", ViewportMode.MAXIMIZED):
       return cls.MAXIMIZED
-    if value in ("f", "full", "fullscreen"):
+    if value in ("f", "full", ViewportMode.FULLSCREEN):
       return cls.FULLSCREEN
-    if value in "headless":
+    if value == ViewportMode.HEADLESS:
       return cls.HEADLESS
     size, _, position = value.partition(",")
     width, _, height = size.partition("x")

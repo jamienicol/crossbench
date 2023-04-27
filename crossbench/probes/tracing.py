@@ -9,7 +9,7 @@ import logging
 import pathlib
 from typing import TYPE_CHECKING, Dict, Optional, Sequence, Set
 
-from crossbench import cli_helper, compat
+from crossbench import cli_helper, compat, helper
 from crossbench.browsers.chromium import Chromium
 from crossbench.helper import Platform
 from crossbench.probes import helper as probe_helper
@@ -88,16 +88,15 @@ TRACE_PRESETS: Dict[str, Set[str]] = {
     "v8": V8_TRACE_CONFIG,
 }
 
-
 class RecordMode(compat.StrEnum):
   CONTINUOUSLY = "record-continuously"
   UNTIL_FULL = "record-until-full"
   AS_MUCH_AS_POSSIBLE = "record-as-much-as-possible"
 
 
-class RecordFormat(compat.StrEnum):
-  JSON = "json"
-  PROTO = "proto"
+class RecordFormat(helper.StrEnumWithHelp):
+  JSON = ("json", "Old about://tracing compatible file format.")
+  PROTO = ("proto", "New http://https://ui.perfetto.dev/ compatible format")
 
 
 class TracingProbe(Probe):
@@ -135,7 +134,7 @@ class TracingProbe(Probe):
     parser.add_argument(
         "startup_duration",
         default=0,
-        type=cli_helper.parse_positive_int,
+        type=cli_helper.parse_positive_zero_int,
         help=("Stop recording tracing after a given number of seconds. "
               "Use 0 (default) for unlimited recording time."))
     parser.add_argument(

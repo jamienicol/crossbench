@@ -17,7 +17,7 @@ import sys
 from typing import (TYPE_CHECKING, Any, Dict, Iterable, Iterator, List,
                     Optional, Sequence, Tuple, Union)
 
-from crossbench import exception, helper
+from crossbench import cli_helper, exception, helper
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.flags import Flags, JSFlags
@@ -79,7 +79,7 @@ class Runner:
     parser.add_argument(
         "--repeat",
         default=1,
-        type=int,
+        type=cli_helper.parse_positive_int,
         help="Number of times each benchmark story is "
         "repeated. Defaults to 1")
     parser.add_argument(

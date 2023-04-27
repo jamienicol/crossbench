@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import dataclasses
 import datetime as dt
-import enum
 import logging
 import os
 import pathlib
@@ -106,11 +105,11 @@ class HostEnvironmentConfig:
     return HostEnvironmentConfig(**kwargs)
 
 
-class ValidationMode(compat.StrEnum):
-  THROW = "throw"
-  PROMPT = "prompt"
-  WARN = "warn"
-  SKIP = "skip"
+class ValidationMode(helper.StrEnumWithHelp):
+  THROW = ("throw", "Strict mode, throw and abort on env issues")
+  PROMPT = ("prompt", "Prompt to accept potential env issues")
+  WARN = ("warn", "Only display a warning for env issue")
+  SKIP = ("skip", "Don't perform any env validation")
 
 
 class ValidationError(Exception):

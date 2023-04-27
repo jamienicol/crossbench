@@ -23,7 +23,7 @@ import crossbench.browsers.all as browsers
 from crossbench import helper, cli_helper
 from crossbench.benchmarks.benchmark import Benchmark
 from crossbench.browsers.splash_screen import SplashScreen
-from crossbench.browsers.viewport import Viewport
+from crossbench.browsers.viewport import Viewport, ViewportMode
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.probes.all import GENERAL_PURPOSE_PROBES
@@ -238,13 +238,9 @@ class CrossBenchCLI:
         "--env-validation",
         default=ValidationMode.PROMPT,
         type=ValidationMode,
-        help=textwrap.dedent("""
-          Set how runner env is validated (see als --env-config/--env):
-            throw:  Strict mode, throw and abort on env issues,
-            prompt: Prompt to accept potential env issues,
-            warn:   Only display a warning for env issues,
-            skip:   Don't perform any env validation".
-          """))
+        help=(
+            "Set how runner env is validated (see als --env-config/--env):\n" +
+            ValidationMode.help_text(indent=2)))
     env_group.add_argument(
         "--dry-run",
         action="store_true",
@@ -299,15 +295,17 @@ class CrossBenchCLI:
         help="Shortcut for --splash-screen=none")
 
     viewport_group = browser_group.add_mutually_exclusive_group()
+    # pytype: disable=missing-parameter
     viewport_group.add_argument(
         "--viewport",
         default=Viewport.DEFAULT,
         type=Viewport.parse,
-        help="Set the browser window position."
-        "Options: size, size and position, "
-        "'max', 'maximized', 'fullscreen', 'headless'. "
-        "Examples: --viewport=1550x300 --viewport=fullscreen. "
-        f"Default: {Viewport.DEFAULT}")
+        help=("Set the browser window position."
+              "Options: size and position, "
+              f"{', '.join(str(e.value) for e in ViewportMode)}. "
+              "Examples: --viewport=1550x300 --viewport=fullscreen. "
+              f"Default: {Viewport.DEFAULT}"))
+    # pytype: enable=missing-parameter
     viewport_group.add_argument(
         "--headless",
         dest="viewport",
@@ -556,7 +554,7 @@ class CrossBenchCLI:
       self,
       args: argparse.Namespace,
   ) -> ValidationMode:
-    return ValidationMode[args.env_validation.upper()]
+    return args.env_validation
 
   def _get_env_config(
       self,

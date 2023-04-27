@@ -433,5 +433,53 @@ class MacOSPlatformHelperTestCase(unittest.TestCase):
     self.assertEqual(prev_level, helper.platform.get_main_display_brightness())
 
 
+class EnumWithHelpTestCase(unittest.TestCase):
+
+  class TestEnum(helper.EnumWithHelp):
+    A = ("a", "help a")
+    B = ("b", "help b")
+
+  def test_lookup(self):
+    self.assertIs(self.TestEnum("a"), self.TestEnum.A)
+    self.assertIs(self.TestEnum("b"), self.TestEnum.B)
+
+  def test_value_help(self):
+    # pylint: disable=no-member
+    self.assertEqual(self.TestEnum.A.name, "A")
+    self.assertEqual(self.TestEnum.B.name, "B")
+    self.assertEqual(self.TestEnum.A.value, "a")
+    self.assertEqual(self.TestEnum.B.value, "b")
+    self.assertEqual(self.TestEnum.A.help, "help a")
+    self.assertEqual(self.TestEnum.B.help, "help b")
+
+  def test_in(self):
+    self.assertIn(self.TestEnum.A, self.TestEnum)
+    self.assertIn(self.TestEnum.B, self.TestEnum)
+
+  def test_str(self):
+    self.assertEqual(str(self.TestEnum.A), "TestEnum.A")
+    self.assertEqual(str(self.TestEnum.B), "TestEnum.B")
+
+  def test_list(self):
+    self.assertEqual(len(self.TestEnum), 2)
+    self.assertListEqual(
+        list(self.TestEnum), [self.TestEnum.A, self.TestEnum.B])
+
+  def test_help_items(self):
+    self.assertListEqual(self.TestEnum.help_text_items(), [("'a'", "help a"),
+                                                           ("'b'", "help b")])
+
+
+class StrEnumWithHelpTestCase(EnumWithHelpTestCase):
+
+  class TestEnum(helper.StrEnumWithHelp):
+    A = ("a", "help a")
+    B = ("b", "help b")
+
+  def test_str(self):
+    self.assertEqual(str(self.TestEnum.A), "a")
+    self.assertEqual(str(self.TestEnum.B), "b")
+
+
 if __name__ == "__main__":
   sys.exit(pytest.main([__file__]))
