@@ -111,17 +111,18 @@ class Runner:
         "throw": args.throw,
     }
 
-  def __init__(self,
-               out_dir: pathlib.Path,
-               browsers: Sequence[Browser],
-               benchmark: Benchmark,
-               additional_probes: Iterable[Probe] = (),
-               platform: helper.Platform = helper.platform,
-               env_config: Optional[HostEnvironmentConfig] = None,
-               env_validation_mode: ValidationMode = ValidationMode.THROW,
-               repetitions: int = 1,
-               timing: Timing = Timing(),
-               throw: bool = False):
+  def __init__(
+      self,
+      out_dir: pathlib.Path,
+      browsers: Sequence[Browser],
+      benchmark: Benchmark,
+      additional_probes: Iterable[Probe] = (),
+      platform: helper.Platform = helper.platform,
+      env_config: Optional[HostEnvironmentConfig] = None,
+      env_validation_mode: ValidationMode = ValidationMode.THROW,  # pytype: disable=annotation-type-mismatch
+      repetitions: int = 1,
+      timing: Timing = Timing(),
+      throw: bool = False):
     self.out_dir = out_dir
     assert not self.out_dir.exists(), f"out_dir={self.out_dir} exists already"
     self.out_dir.mkdir(parents=True)

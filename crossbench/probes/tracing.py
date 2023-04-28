@@ -224,12 +224,13 @@ class TracingProbe(Probe):
     flags: ChromeFlags = browser.flags
     flags.update(self.CHROMIUM_FLAGS)
     # Force proto file so we can convert it to legacy json as well.
-    flags["--trace-startup-format"] = self._record_format.value  # pylint: disable=no-member
+    flags["--trace-startup-format"] = str(self._record_format)
+    # pylint: disable=no-member
     flags["--trace-startup-duration"] = str(self._startup_duration)
     if self._trace_config:
       flags["--trace-config-file"] = str(self._trace_config.absolute())
     else:
-      flags["--trace-startup-record-mode"] = self._record_mode.value
+      flags["--trace-startup-record-mode"] = str(self._record_mode)
       assert self._categories, "No trace categories provided."
       flags["--enable-tracing"] = ",".join(self._categories)
     super().attach(browser)
