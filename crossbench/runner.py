@@ -17,6 +17,7 @@ import sys
 from typing import (TYPE_CHECKING, Any, Dict, Iterable, Iterator, List,
                     Optional, Sequence, Tuple, Union)
 
+from crossbench.platform import Platform, DEFAULT_PLATFORM
 from crossbench import cli_helper, exception, helper
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
@@ -117,7 +118,7 @@ class Runner:
       browsers: Sequence[Browser],
       benchmark: Benchmark,
       additional_probes: Iterable[Probe] = (),
-      platform: helper.Platform = helper.platform,
+      platform: Platform = DEFAULT_PLATFORM,
       env_config: Optional[HostEnvironmentConfig] = None,
       env_validation_mode: ValidationMode = ValidationMode.THROW,  # pytype: disable=annotation-type-mismatch
       repetitions: int = 1,
@@ -207,11 +208,11 @@ class Runner:
     return len(self._runs) > 0 and self._exceptions.is_success
 
   @property
-  def platform(self) -> helper.Platform:
+  def platform(self) -> Platform:
     return self._platform
 
   @property
-  def browser_platform(self) -> helper.Platform:
+  def browser_platform(self) -> Platform:
     return self._browser_platform
 
   @property
@@ -667,7 +668,7 @@ class Run:
     return self._browser
 
   @property
-  def platform(self) -> helper.Platform:
+  def platform(self) -> Platform:
     return self._browser.platform
 
   @property
@@ -904,7 +905,7 @@ class Actions(helper.TimeScope):
     return self._run
 
   @property
-  def platform(self) -> helper.Platform:
+  def platform(self) -> Platform:
     return self._run.platform
 
   def __enter__(self) -> Actions:

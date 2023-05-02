@@ -52,7 +52,7 @@ class SystemStatsProbe(probe.Probe):
            event: threading.Event) -> None:
     while not event.is_set():
       # TODO(cbruni): support remote platform
-      data = helper.platform.sh_stdout(*cls.CMD)
+      data = helper.PLATFORM.sh_stdout(*cls.CMD)
       out_file = path / f"{time.time()}.txt"
       with out_file.open("w", encoding="utf-8") as f:
         f.write(data)
@@ -71,7 +71,7 @@ class SystemStatsProbeScope(probe.ProbeScope[SystemStatsProbe]):
 
   def start(self, run: Run) -> None:
     self._event = threading.Event()
-    assert self.browser_platform == helper.platform, (
+    assert self.browser_platform == helper.PLATFORM, (
         "Remote platforms are not supported yet")
     self._poller = threading.Thread(
         target=SystemStatsProbe.poll,

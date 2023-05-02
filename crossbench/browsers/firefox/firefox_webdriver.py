@@ -28,6 +28,7 @@ from .firefox import Firefox
 if TYPE_CHECKING:
   from crossbench.flags import Flags
   from crossbench.runner import Run
+  from crossbench.platform import Platform
 
 
 class FirefoxWebDriver(WebdriverBrowser, Firefox):
@@ -40,7 +41,7 @@ class FirefoxWebDriver(WebdriverBrowser, Firefox):
                driver_path: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
                splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[helper.Platform] = None):
+               platform: Optional[Platform] = None):
     super().__init__(label, path, flags, cache_dir, viewport, splash_screen,
                      platform)
     self._driver_path = driver_path

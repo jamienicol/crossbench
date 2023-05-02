@@ -21,6 +21,7 @@ cb = crossbench
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
   from crossbench.env import HostEnvironment
+  from crossbench.platform import Platform
   from crossbench.runner import (BrowsersRunGroup, RepetitionsRunGroup, Run,
                                  Runner, StoriesRunGroup)
 
@@ -93,20 +94,20 @@ class Probe(abc.ABC):
   BATTERY_ONLY: bool = False
 
   _browsers: Set[Browser]
-  _browser_platform: helper.Platform
+  _browser_platform: Platform
 
   def __init__(self) -> None:
     assert self.name is not None, "A Probe must define a name"
     self._browsers = set()
 
   @property
-  def browser_platform(self) -> helper.Platform:
+  def browser_platform(self) -> Platform:
     return self._browser_platform
 
   @property
-  def runner_platform(self) -> helper.Platform:
+  def runner_platform(self) -> Platform:
     # TODO(cbruni): support remote platforms
-    return helper.platform
+    return helper.PLATFORM
 
   @property
   def name(self) -> str:
@@ -252,11 +253,11 @@ class ProbeScope(abc.ABC, Generic[ProbeT]):
     return self._run.runner
 
   @property
-  def browser_platform(self) -> helper.Platform:
+  def browser_platform(self) -> Platform:
     return self.browser.platform
 
   @property
-  def runner_platform(self) -> helper.Platform:
+  def runner_platform(self) -> Platform:
     return self.runner.platform
 
   @property

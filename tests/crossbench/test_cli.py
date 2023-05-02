@@ -1275,7 +1275,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
       self.assertEqual(browser.version, "101.22.333.44")
 
   def test_inline_load_safari(self):
-    if not helper.platform.is_macos:
+    if not helper.PLATFORM.is_macos:
       return
     with mock.patch.object(Safari, "_extract_version", return_value="16.0"):
       config = BrowserConfig({"browsers": {"safari": {"path": "safari",}}})

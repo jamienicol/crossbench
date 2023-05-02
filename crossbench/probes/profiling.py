@@ -15,6 +15,7 @@ import time
 from typing import TYPE_CHECKING, Iterable, List, Optional, cast
 
 from crossbench import helper
+from crossbench.platform import Platform, SubprocessError
 from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
 from crossbench.probes.results import ProbeResult
 from crossbench.probes.v8.log import V8LogProbe
@@ -23,7 +24,7 @@ from crossbench.browsers.chromium import Chromium
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
   from crossbench.env import HostEnvironment
-  from crossbench.runner import Run, Runner, BrowsersRunGroup
+  from crossbench.runner import Run, BrowsersRunGroup
 
 
 class ProfilingProbe(Probe):
@@ -146,7 +147,7 @@ class ProfilingProbe(Probe):
       try:
         self.browser_platform.sh(self.browser_platform.which("gcertstatus"))
         return
-      except helper.SubprocessError:
+      except SubprocessError:
         env.handle_warning("Please run gcert for generating pprof results")
     # Only Linux-perf results can be merged
     if self.browser_platform.is_macos and env.runner.repetitions > 1:
@@ -320,7 +321,7 @@ class LinuxProfilingScope(ProfilingScope):
             for file in perf_files
         ]
       else:
-        assert self.browser_platform == helper.platform
+        assert self.browser_platform == helper.PLATFORM
         with multiprocessing.Pool() as pool:
           perf_jitted_files = list(
               pool.imap(linux_perf_probe_inject_v8_symbols, perf_files))
@@ -349,7 +350,7 @@ class LinuxProfilingScope(ProfilingScope):
           if url:
             urls.append(url)
       else:
-        assert self.browser_platform == helper.platform
+        assert self.browser_platform == helper.PLATFORM
         with multiprocessing.Pool() as pool:
           urls = [
               url for url in pool.starmap(linux_perf_probe_pprof, items) if url
@@ -372,15 +373,15 @@ class LinuxProfilingScope(ProfilingScope):
 
 def linux_perf_probe_inject_v8_symbols(
     perf_data_file: pathlib.Path,
-    platform: Optional[helper.Platform] = None) -> Optional[pathlib.Path]:
+    platform: Optional[Platform] = None) -> Optional[pathlib.Path]:
   assert perf_data_file.is_file()
   output_file = perf_data_file.with_suffix(".data.jitted")
   assert not output_file.exists()
-  platform = platform or helper.platform
+  platform = platform or helper.PLATFORM
   try:
     platform.sh("perf", "inject", "--jit", f"--input={perf_data_file}",
                 f"--output={output_file}")
-  except helper.SubprocessError as e:
+  except SubprocessError as e:
     KB = 1024
     if perf_data_file.stat().st_size > 200 * KB:
       logging.warning("Failed processing: %s\n%s", perf_data_file, e)
@@ -396,9 +397,9 @@ def linux_perf_probe_inject_v8_symbols(
 def linux_perf_probe_pprof(
     perf_data_file: pathlib.Path,
     run_details: str,
-    platform: Optional[helper.Platform] = None) -> Optional[str]:
+    platform: Optional[Platform] = None) -> Optional[str]:
   size = helper.get_file_size(perf_data_file)
-  platform = platform or helper.platform
+  platform = platform or helper.PLATFORM
   url = ""
   try:
     url = platform.sh_stdout(
@@ -407,7 +408,7 @@ def linux_perf_probe_pprof(
         f"-add_comment={run_details}",
         perf_data_file,
     ).strip()
-  except helper.SubprocessError as e:
+  except SubprocessError as e:
     # Occasionally small .jitted files fail, likely due perf inject silently
     # failing?
     raw_perf_data_file = perf_data_file.with_suffix("")
@@ -424,7 +425,7 @@ def linux_perf_probe_pprof(
             f"-add_comment={run_details}",
             raw_perf_data_file,
         ).strip()
-      except helper.SubprocessError:
+      except SubprocessError:
         pass
     if not url:
       logging.warning("Failed processing: %s\n%s", perf_data_file, e)

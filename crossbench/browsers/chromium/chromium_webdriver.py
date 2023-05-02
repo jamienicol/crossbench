@@ -31,6 +31,7 @@ from .chromium import Chromium
 
 if TYPE_CHECKING:
   from crossbench.runner import Run
+  from crossbench.platform import Platform
 
 
 class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
@@ -49,7 +50,7 @@ class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
       driver_path: Optional[pathlib.Path] = None,
       viewport: Viewport = Viewport.DEFAULT,
       splash_screen: SplashScreen = SplashScreen.DEFAULT,
-      platform: Optional[helper.Platform] = None):
+      platform: Optional[Platform] = None):
     super().__init__(label, path, js_flags, flags, cache_dir, type, viewport,
                      splash_screen, platform)
     self._driver_path = driver_path

@@ -10,19 +10,20 @@ import os
 import pathlib
 import re
 import subprocess
-from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Iterable, List, Optional, cast
 
-from crossbench import helper, cli_helper
+from crossbench import cli_helper, helper
 from crossbench.browsers.browser import Browser
 from crossbench.browsers.chromium import Chromium
 from crossbench.flags import JSFlags
+from crossbench.probes import helper as probe_helper
 from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
 from crossbench.probes.results import ProbeResult
-from crossbench.probes import helper as probe_helper
 
 if TYPE_CHECKING:
   from crossbench.env import HostEnvironment
-  from crossbench.runner import Run, BrowsersRunGroup
+  from crossbench.platform import Platform
+  from crossbench.runner import BrowsersRunGroup, Run
 
 
 class V8LogProbe(Probe):
@@ -132,7 +133,7 @@ class V8LogProbe(Probe):
           _process_profview_json(finder.d8_binary, finder.tick_processor,
                                  log_file) for log_file in log_files
       ]
-    assert self.browser_platform == helper.platform
+    assert self.browser_platform == helper.PLATFORM
     with multiprocessing.Pool(processes=4) as pool:
       return list(
           pool.starmap(_process_profview_json,
@@ -215,7 +216,7 @@ def _process_profview_json(d8_binary: pathlib.Path,
   env["D8_PATH"] = str(d8_binary.parent.resolve())
   result_json = log_file.with_suffix(".profview.json")
   with result_json.open("w", encoding="utf-8") as f:
-    helper.platform.sh(
+    helper.PLATFORM.sh(
         tick_processor,
         "--preprocess",
         log_file,
@@ -230,8 +231,7 @@ class V8ToolsFinder(probe_helper.V8CheckoutFinder):
   If no explicit d8 and checkout path are given, $D8_PATH and common v8 and
   chromium installation directories are checked."""
 
-  def __init__(self, platform: helper.Platform,
-               d8_binary: Optional[pathlib.Path],
+  def __init__(self, platform: Platform, d8_binary: Optional[pathlib.Path],
                v8_checkout: Optional[pathlib.Path]) -> None:
     super().__init__(platform)
     self.d8_binary: Optional[pathlib.Path] = d8_binary

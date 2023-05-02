@@ -17,6 +17,7 @@ from crossbench.browsers.webdriver import WebdriverBrowser
 
 if TYPE_CHECKING:
   from crossbench.flags import Flags
+  from crossbench.platform import Platform
   from crossbench.runner import Run
 
 
@@ -53,7 +54,7 @@ class Firefox(Browser):
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
                splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[helper.Platform] = None):
+               platform: Optional[Platform] = None):
     if cache_dir is None:
       # pylint: disable=bad-option-value, consider-using-with
       self.cache_dir = pathlib.Path(

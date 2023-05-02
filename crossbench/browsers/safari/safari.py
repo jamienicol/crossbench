@@ -6,16 +6,16 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Optional
 
-from crossbench import helper
 from crossbench.browsers.browser import Browser
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
+  from crossbench.platform.macos import MacOSPlatform
   from crossbench.flags import Flags
-  from crossbench.runner import Run, Runner
+  from crossbench.runner import Runner
 
 
 class Safari(Browser):
@@ -35,7 +35,7 @@ class Safari(Browser):
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
                splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[helper.MacOSPlatform] = None):
+               platform: Optional[MacOSPlatform] = None):
     super().__init__(
         label,
         path,

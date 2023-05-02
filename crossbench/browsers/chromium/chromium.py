@@ -11,13 +11,14 @@ import tempfile
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 from crossbench import helper
-from crossbench.browsers.browser import (Browser, convert_flags_to_label)
+from crossbench.browsers.browser import Browser, convert_flags_to_label
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 from crossbench.flags import ChromeFeatures, ChromeFlags, Flags, JSFlags
 
 if TYPE_CHECKING:
   from crossbench.runner import Run, Runner
+  from crossbench.platform import Platform
 
 
 class Chromium(Browser):
@@ -59,7 +60,7 @@ class Chromium(Browser):
       type: str = "chromium",  # pylint: disable=redefined-builtin
       viewport: Viewport = Viewport.DEFAULT,
       splash_screen: SplashScreen = SplashScreen.DEFAULT,
-      platform: Optional[helper.Platform] = None):
+      platform: Optional[Platform] = None):
     super().__init__(
         label,
         path,

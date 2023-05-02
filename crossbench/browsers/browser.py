@@ -9,14 +9,13 @@ import logging
 import pathlib
 import re
 import shutil
-import urllib.request
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set, Tuple
 
-from crossbench import helper
 from crossbench.flags import Flags
+from crossbench.platform import Platform, DEFAULT_PLATFORM
 
-from .viewport import Viewport
 from .splash_screen import SplashScreen
+from .viewport import Viewport
 
 if TYPE_CHECKING:
   import datetime as dt
@@ -46,8 +45,8 @@ class Browser(abc.ABC):
       type: Optional[str] = None,  # pylint: disable=redefined-builtin
       viewport: Viewport = Viewport.DEFAULT,
       splash_screen: SplashScreen = SplashScreen.DEFAULT,
-      platform: Optional[helper.Platform] = None):
-    self.platform = platform or helper.platform
+      platform: Optional[Platform] = None):
+    self.platform = platform or DEFAULT_PLATFORM
     # Marked optional to make subclass constructor calls easier with pytype.
     assert type
     self.type: str = type

@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Dict, Optional, Sequence, Set
 
 from crossbench import cli_helper, compat, helper
 from crossbench.browsers.chromium import Chromium
-from crossbench.helper import Platform
 from crossbench.probes import helper as probe_helper
 from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
 from crossbench.probes.results import ProbeResult
@@ -20,6 +19,7 @@ from crossbench.probes.results import ProbeResult
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
   from crossbench.flags import ChromeFlags
+  from crossbench.platform import Platform
   from crossbench.runner import Run
 
 MINIMAL_CONFIG = {

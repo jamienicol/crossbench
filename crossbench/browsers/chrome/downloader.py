@@ -12,9 +12,10 @@ import plistlib
 import re
 import shutil
 import tempfile
-from typing import Any, Dict, Final, List, Optional, Tuple, Type, Union
-
+from typing import Final, List, Optional, Tuple, Type, Union
 from crossbench import helper
+
+from crossbench.platform import Platform, SubprocessError
 from crossbench.browsers.browser import BROWSERS_CACHE
 
 
@@ -29,7 +30,7 @@ class ChromeDownloader(abc.ABC):
       "chrome/platforms/{platform}/channels/{channel}/versions?filter={filter}")
 
   @classmethod
-  def _get_loader_cls(cls, platform: helper.Platform) -> Type[ChromeDownloader]:
+  def _get_loader_cls(cls, platform: Platform) -> Type[ChromeDownloader]:
     if platform.is_macos:
       return ChromeDownloaderMacOS
     if platform.is_linux:
@@ -39,13 +40,13 @@ class ChromeDownloader(abc.ABC):
 
   @classmethod
   def is_valid(cls, path_or_identifier: Union[str, pathlib.Path],
-               platform: helper.Platform) -> bool:
+               platform: Platform) -> bool:
     return cls._get_loader_cls(platform).is_valid(path_or_identifier, platform)
 
   @classmethod
   def load(cls,
            archive_path_or_version_identifier: Union[str, pathlib.Path],
-           platform: helper.Platform,
+           platform: Platform,
            cache_dir: Optional[pathlib.Path] = None) -> pathlib.Path:
     loader_cls: Type[ChromeDownloader] = cls._get_loader_cls(platform)
     loader: ChromeDownloader = loader_cls(archive_path_or_version_identifier,
@@ -55,7 +56,7 @@ class ChromeDownloader(abc.ABC):
   def __init__(self,
                archive_path_or_version_identifier: Union[str, pathlib.Path],
                platform_name: str,
-               platform: helper.Platform,
+               platform: Platform,
                cache_dir: Optional[pathlib.Path] = None):
     self._platform = platform
     self._platform_name = platform_name
@@ -261,7 +262,7 @@ class ChromeDownloader(abc.ABC):
       archive_url = self._archive_url(url, version_str)
       try:
         result = self._platform.sh_stdout("gsutil", "ls", archive_url)
-      except helper.SubprocessError:
+      except SubprocessError:
         continue
       if result:
         return archive_url
@@ -315,7 +316,7 @@ class ChromeDownloaderLinux(ChromeDownloader):
 
   @classmethod
   def is_valid(cls, path_or_identifier: Union[str, pathlib.Path],
-               platform: helper.Platform) -> bool:
+               platform: Platform) -> bool:
     if cls.VERSION_RE.fullmatch(str(path_or_identifier)):
       return True
     path = pathlib.Path(path_or_identifier)
@@ -324,7 +325,7 @@ class ChromeDownloaderLinux(ChromeDownloader):
   def __init__(self,
                version_identifier: Union[str, pathlib.Path],
                platform_name: str,
-               platform: helper.Platform,
+               platform: Platform,
                cache_dir: Optional[pathlib.Path] = None):
     assert platform.is_linux
     if platform.is_x64:
@@ -374,7 +375,7 @@ class ChromeDownloaderMacOS(ChromeDownloader):
 
   @classmethod
   def is_valid(cls, path_or_identifier: Union[str, pathlib.Path],
-               platform: helper.Platform) -> bool:
+               platform: Platform) -> bool:
     if cls.VERSION_RE.fullmatch(str(path_or_identifier)):
       return True
     path = pathlib.Path(path_or_identifier)
@@ -383,7 +384,7 @@ class ChromeDownloaderMacOS(ChromeDownloader):
   def __init__(self,
                version_identifier: Union[str, pathlib.Path],
                platform_name: str,
-               platform: helper.Platform,
+               platform: Platform,
                cache_dir: Optional[pathlib.Path] = None):
     assert platform.is_macos, f"{type(self)} can only be used on macOS"
     platform_name = "mac-universal"

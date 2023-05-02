@@ -44,7 +44,7 @@ class End2EndTestCase(unittest.TestCase, metaclass=ABCMeta):
         type=cli_helper.parse_path)
     # Use parse_known_args to allow for other custom arguments.
     args, _ = parser.parse_known_args()
-    self.platform = helper.platform
+    self.platform = helper.PLATFORM
     self.output_dir = pathlib.Path(tempfile.mkdtemp(suffix=type(self).__name__))
     self.browser_path = args.test_browser_path
     if self.browser_path:

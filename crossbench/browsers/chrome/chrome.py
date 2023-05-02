@@ -8,13 +8,13 @@ import pathlib
 from typing import TYPE_CHECKING, Optional
 
 from crossbench import helper
-
 from crossbench.browsers.chromium import Chromium
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
   from crossbench.flags import Flags
+  from crossbench.platform import Platform
 
 
 class ChromePathMixin:
@@ -65,7 +65,7 @@ class Chrome(ChromePathMixin, Chromium):
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
                splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[helper.Platform] = None):
+               platform: Optional[Platform] = None):
     super().__init__(
         label,
         path,

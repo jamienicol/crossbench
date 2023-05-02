@@ -12,7 +12,6 @@ from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.safari.options import Options as SafariOptions
 
-from crossbench import helper
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebdriverBrowser
@@ -20,6 +19,7 @@ from crossbench.browsers.webdriver import WebdriverBrowser
 from .safari import Safari
 
 if TYPE_CHECKING:
+  from crossbench.platform.macos import MacOSPlatform
   from crossbench.flags import Flags
   from crossbench.runner import Run, Runner
 
@@ -33,7 +33,7 @@ class SafariWebDriver(WebdriverBrowser, Safari):
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
                splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[helper.MacOSPlatform] = None):
+               platform: Optional[MacOSPlatform] = None):
     super().__init__(label, path, flags, cache_dir, viewport, splash_screen,
                      platform)
     assert self.platform.is_macos

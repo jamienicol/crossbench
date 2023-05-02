@@ -451,7 +451,7 @@ class BrowserConfig:
       return browsers.Firefox.developer_edition_path(), driver
     if identifier in ("firefox-nightly", "ff-nightly", "ff-trunk"):
       return browsers.Firefox.nightly_path(), driver
-    platform = helper.platform
+    platform = helper.PLATFORM
     if ChromeDownloader.is_valid(value, platform):
       return ChromeDownloader.load(
           value, platform, cache_dir=self._cache_dir), driver

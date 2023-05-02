@@ -14,12 +14,12 @@ from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterable, List,
                     Optional, Union)
 from urllib.parse import urlparse
 
-from crossbench import compat, helper
+from crossbench import helper, platform
 
 if TYPE_CHECKING:
+  from crossbench.browsers.browser import Browser
   from crossbench.probes.probe import Probe
   from crossbench.runner import Runner
-  from crossbench.browsers.browser import Browser
 
 
 def merge_bool(name: str, left: Optional[bool],
@@ -250,7 +250,7 @@ class HostEnvironment:
       if force_disable:
         # Add cool-down period, crowdstrike caused CPU usage spikes
         self._add_min_delay(5)
-    except helper.SubprocessError as e:
+    except platform.SubprocessError as e:
       self.handle_warning(
           "Could not disable go/crowdstrike-falcon monitor which can cause"
           f" high background CPU usage: {e}")
@@ -472,5 +472,5 @@ class HostEnvironment:
     assert args, "Missing sh arguments"
     try:
       assert self._platform.sh_stdout(*args, quiet=True)
-    except helper.SubprocessError as e:
+    except platform.SubprocessError as e:
       self.handle_warning(message.format(e))

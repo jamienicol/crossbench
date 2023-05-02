@@ -13,10 +13,9 @@ import psutil
 from pyfakefs import fake_filesystem_unittest
 
 import crossbench
-from crossbench import helper
+from crossbench import platform
 from crossbench.benchmarks.benchmark import SubStoryBenchmark
 from crossbench.cli import CrossBenchCLI
-from crossbench.flags import Flags
 from crossbench.stories import Story
 
 if TYPE_CHECKING:
@@ -26,7 +25,7 @@ from . import mock_browser
 
 GIB = 1014**3
 
-ActivePlatformClass: Type[helper.Platform] = type(helper.platform)
+ActivePlatformClass: Type[platform.Platform] = type(platform.DEFAULT)
 
 
 class MockPlatform(ActivePlatformClass):

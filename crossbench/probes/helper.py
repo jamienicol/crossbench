@@ -12,7 +12,7 @@ import pathlib
 from typing import (Any, Callable, Dict, Iterable, List, Optional, Sequence,
                     Set, Tuple, Union)
 
-from crossbench.helper import Platform
+from crossbench.platform import Platform
 
 _KeyFnType = Callable[[Tuple[str, ...]], Optional[str]]
 

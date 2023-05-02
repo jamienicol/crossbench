@@ -11,10 +11,9 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
 
-from crossbench import helper
+from crossbench.browsers.chromium import ChromiumAppleScript
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
-from crossbench.browsers.chromium import ChromiumAppleScript
 
 from .chrome import ChromePathMixin
 
@@ -24,6 +23,7 @@ if TYPE_CHECKING:
   from selenium.webdriver.chromium.webdriver import ChromiumDriver
 
   from crossbench.flags import Flags
+  from crossbench.platform import Platform
 
 
 class ChromeAppleScript(ChromePathMixin, ChromiumAppleScript):
@@ -39,7 +39,7 @@ class ChromeAppleScript(ChromePathMixin, ChromiumAppleScript):
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
                splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[helper.Platform] = None):
+               platform: Optional[Platform] = None):
     super().__init__(
         label,
         path,

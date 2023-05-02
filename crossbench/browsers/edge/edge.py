@@ -8,15 +8,16 @@ import pathlib
 from typing import TYPE_CHECKING, Optional
 
 import crossbench
-from crossbench.browsers.splash_screen import SplashScreen
 import crossbench.exception
 import crossbench.flags
 from crossbench import helper
-from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.chromium import Chromium
+from crossbench.browsers.splash_screen import SplashScreen
+from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
   import crossbench.runner
+  from crossbench.platform import Platform
 
 FlagsInitialDataType = crossbench.flags.Flags.InitialDataType
 
@@ -72,7 +73,7 @@ class Edge(Chromium):
                cache_dir: Optional[pathlib.Path] = None,
                viewport: Viewport = Viewport.DEFAULT,
                splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[helper.Platform] = None):
+               platform: Optional[Platform] = None):
     super().__init__(
         label,
         path,
