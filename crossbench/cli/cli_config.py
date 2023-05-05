@@ -124,7 +124,7 @@ class BrowserConfig:
       with cli_helper.late_argument_type_error_wrapper("--browser-config"):
         path = args.browser_config.expanduser()
         with path.open(encoding="utf-8") as f:
-          browser_config.load(f)
+          browser_config.load(f, args)
     else:
       with cli_helper.late_argument_type_error_wrapper("--browser"):
         browser_config.load_from_args(args)
@@ -132,14 +132,16 @@ class BrowserConfig:
 
   def __init__(self,
                raw_config_data: Optional[Dict[str, Any]] = None,
-               browser_lookup_override: Optional[BrowserLookupTableT] = None):
+               browser_lookup_override: Optional[BrowserLookupTableT] = None,
+               args: Optional[argparse.Namespace] = None):
     self.flag_groups: Dict[str, FlagGroupConfig] = {}
     self._variants: List[Browser] = []
     self._browser_lookup_override = browser_lookup_override or {}
     self._cache_dir: pathlib.Path = browsers.BROWSERS_CACHE
     self._exceptions = ExceptionAnnotator()
     if raw_config_data:
-      self.load_dict(raw_config_data)
+      assert args, "args object needed when loading from dict."
+      self.load_dict(raw_config_data, args)
 
   @property
   def variants(self) -> List[Browser]:
@@ -147,15 +149,16 @@ class BrowserConfig:
         "Could not create variants from config files: {}", ConfigFileError)
     return self._variants
 
-  def load(self, f: TextIO) -> None:
+  def load(self, f: TextIO, args: argparse.Namespace) -> None:
     with self._exceptions.capture(f"Loading browser config file: {f.name}"):
       config = {}
       with self._exceptions.info(f"Parsing {hjson.__name__}"):
         config = hjson.load(f)
       with self._exceptions.info(f"Parsing config file: {f.name}"):
-        self.load_dict(config)
+        self.load_dict(config, args)
 
-  def load_dict(self, raw_config_data: Dict[str, Any]) -> None:
+  def load_dict(self, raw_config_data: Dict[str, Any],
+                args: argparse.Namespace) -> None:
     try:
       if "flags" in raw_config_data:
         with self._exceptions.info("Parsing config['flags']"):
@@ -165,7 +168,7 @@ class BrowserConfig:
       if not raw_config_data["browsers"]:
         raise ConfigFileError("Config contains empty 'browsers' dict.")
       with self._exceptions.info("Parsing config['browsers']"):
-        self._parse_browsers(raw_config_data["browsers"])
+        self._parse_browsers(raw_config_data["browsers"], args)
     except Exception as e:  # pylint: disable=broad-except
       self._exceptions.append(e)
 
@@ -213,14 +216,17 @@ class BrowserConfig:
         flag_values.append(value)
     self.flag_groups[name] = FlagGroupConfig(name, variants)
 
-  def _parse_browsers(self, data: Dict[str, Any]) -> None:
+  def _parse_browsers(self, data: Dict[str, Any],
+                      args: argparse.Namespace) -> None:
     for name, browser_config in data.items():
       with self._exceptions.info(f"Parsing browsers['{name}']"):
-        self._parse_browser(name, browser_config)
+        self._parse_browser(name, browser_config, args)
     self._ensure_unique_browser_names()
 
-  def _parse_browser(self, name: str, raw_browser_data: Dict[str, Any]) -> None:
+  def _parse_browser(self, name: str, raw_browser_data: Dict[str, Any],
+                     args: argparse.Namespace) -> None:
     path_or_identifier: str = raw_browser_data["path"]
+    browser_cls: Type[Browser]
     if path_or_identifier in self._browser_lookup_override:
       browser_cls, path, driver_type = self._browser_lookup_override[
           path_or_identifier]
@@ -252,6 +258,9 @@ class BrowserConfig:
           label=self._flags_to_label(name, flags),
           path=path,
           flags=flags,
+          # TODO: support all args in the browser.config file
+          viewport=args.viewport,
+          splash_screen=args.splash_screen,
           platform=browser_platform)
       # pytype: enable=not-instantiable
       self._variants.append(browser_instance)
@@ -400,7 +409,7 @@ class BrowserConfig:
   def _append_browser(self, args: argparse.Namespace, browser: str) -> None:
     assert browser, "Expected non-empty browser name"
     path, driver_type = self._parse_browser_path_and_driver(browser)
-    browser_cls = self._get_browser_cls(path, driver_type)
+    browser_cls: Type[Browser] = self._get_browser_cls(path, driver_type)
     flags = browser_cls.default_flags()
     if driver_type != BrowserDriverType.ANDROID and not path.exists():
       raise argparse.ArgumentTypeError(f"Browser binary does not exist: {path}")

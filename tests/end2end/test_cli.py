@@ -231,6 +231,7 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     # - loading using url
     # - combined pages and --playback controller
     results_dir = self.output_dir / "results"
+
     self.assertFalse(results_dir.exists())
     self.run_cli("loading", "--env-validation=skip", f"--out-dir={results_dir}",
                  f"--cache-dir={self.cache_dir}", "--playback=5.3s",

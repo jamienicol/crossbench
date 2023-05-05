@@ -936,6 +936,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
         }
     for _, (_, browser_path, _) in self.browser_lookup.items():
       self.assertTrue(browser_path.exists())
+    self.mock_args = mock.Mock()
 
   @unittest.skipIf(hjson.__name__ != "hjson", "hjson not available")
   def test_load_browser_config_template(self):
@@ -945,7 +946,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     self.fs.add_real_file(self.EXAMPLE_CONFIG_PATH)
     with self.EXAMPLE_CONFIG_PATH.open(encoding="utf-8") as f:
       config = BrowserConfig(browser_lookup_override=self.browser_lookup)
-      config.load(f)
+      config.load(f, args=self.mock_args)
     self.assertIn("flag-group-1", config.flag_groups)
     self.assertGreaterEqual(len(config.flag_groups), 1)
     self.assertGreaterEqual(len(config.variants), 1)
@@ -966,7 +967,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                   }
               }
           },
-          browser_lookup_override=self.browser_lookup).variants
+          browser_lookup_override=self.browser_lookup,
+          args=self.mock_args).variants
     self.assertIn("group1", str(cm.exception))
     self.assertIn("invalid-flag-name", str(cm.exception))
 
@@ -986,7 +988,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                   }
               }
           },
-          browser_lookup_override=self.browser_lookup).variants
+          browser_lookup_override=self.browser_lookup,
+          args=self.mock_args).variants
     self.assertIn("None", str(cm.exception))
 
   def test_flag_combination_duplicate(self):
@@ -1008,40 +1011,45 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                   }
               }
           },
-          browser_lookup_override=self.browser_lookup).variants
+          browser_lookup_override=self.browser_lookup,
+          args=self.mock_args).variants
     self.assertIn("--duplicate-flag", str(cm.exception))
 
   def test_empty(self):
     with self.assertRaises(ConfigFileError):
-      BrowserConfig({"other": {}}).variants
+      BrowserConfig({"other": {}}, args=self.mock_args).variants
     with self.assertRaises(ConfigFileError):
-      BrowserConfig({"browsers": {}}).variants
+      BrowserConfig({"browsers": {}}, args=self.mock_args).variants
 
   def test_unknown_group(self):
     with self.assertRaises(ConfigFileError) as cm:
-      BrowserConfig({
-          "browsers": {
-              "chrome-stable": {
-                  "path": "chrome-stable",
-                  "flags": ["unknown-flag-group"]
+      BrowserConfig(
+          {
+              "browsers": {
+                  "chrome-stable": {
+                      "path": "chrome-stable",
+                      "flags": ["unknown-flag-group"]
+                  }
               }
-          }
-      }).variants
+          },
+          args=self.mock_args).variants
     self.assertIn("unknown-flag-group", str(cm.exception))
 
   def test_duplicate_group(self):
     with self.assertRaises(ConfigFileError):
-      BrowserConfig({
-          "flags": {
-              "group1": {}
-          },
-          "browsers": {
-              "chrome-stable": {
-                  "path": "chrome-stable",
-                  "flags": ["group1", "group1"]
+      BrowserConfig(
+          {
+              "flags": {
+                  "group1": {}
+              },
+              "browsers": {
+                  "chrome-stable": {
+                      "path": "chrome-stable",
+                      "flags": ["group1", "group1"]
+                  }
               }
-          }
-      }).variants
+          },
+          args=self.mock_args).variants
 
   def test_non_list_group(self):
     BrowserConfig(
@@ -1056,7 +1064,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             }
         },
-        browser_lookup_override=self.browser_lookup).variants
+        browser_lookup_override=self.browser_lookup,
+        args=self.mock_args).variants
     with self.assertRaises(ConfigFileError) as cm:
       BrowserConfig(
           {
@@ -1070,7 +1079,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                   }
               }
           },
-          browser_lookup_override=self.browser_lookup).variants
+          browser_lookup_override=self.browser_lookup,
+          args=self.mock_args).variants
     self.assertIn("chrome-stable", str(cm.exception))
     self.assertIn("flags", str(cm.exception))
 
@@ -1089,37 +1099,42 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                   }
               }
           },
-          browser_lookup_override=self.browser_lookup).variants
+          browser_lookup_override=self.browser_lookup,
+          args=self.mock_args).variants
     self.assertIn("chrome-stable", str(cm.exception))
     self.assertIn("flags", str(cm.exception))
 
   def test_duplicate_flag_variant_value(self):
     with self.assertRaises(ConfigFileError) as cm:
-      BrowserConfig({
-          "flags": {
-              "group1": {
-                  "--flag": ["repeated", "repeated"]
+      BrowserConfig(
+          {
+              "flags": {
+                  "group1": {
+                      "--flag": ["repeated", "repeated"]
+                  }
+              },
+              "browsers": {
+                  "chrome-stable": {
+                      "path": "chrome-stable",
+                      "flags": "group1",
+                  }
               }
           },
-          "browsers": {
-              "chrome-stable": {
-                  "path": "chrome-stable",
-                  "flags": "group1",
-              }
-          }
-      }).variants
+          args=self.mock_args).variants
     self.assertIn("group1", str(cm.exception))
     self.assertIn("--flag", str(cm.exception))
 
   def test_unknown_path(self):
     with self.assertRaises(Exception):
-      BrowserConfig({
-          "browsers": {
-              "chrome-stable": {
-                  "path": "path/does/not/exist",
+      BrowserConfig(
+          {
+              "browsers": {
+                  "chrome-stable": {
+                      "path": "path/does/not/exist",
+                  }
               }
-          }
-      }).variants
+          },
+          args=self.mock_args).variants
     with self.assertRaises(Exception):
       BrowserConfig({
           "browsers": {
@@ -1127,7 +1142,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                   "path": "chrome-unknown",
               }
           }
-      }).variants
+      },
+                    args=self.mock_args).variants
 
   def test_flag_combination_simple(self):
     config = BrowserConfig(
@@ -1144,7 +1160,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             }
         },
-        browser_lookup_override=self.browser_lookup)
+        browser_lookup_override=self.browser_lookup,
+        args=self.mock_args)
     browsers = config.variants
     self.assertEqual(len(browsers), 3)
     for browser in browsers:
@@ -1170,7 +1187,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             }
         },
-        browser_lookup_override=self.browser_lookup)
+        browser_lookup_override=self.browser_lookup,
+        args=self.mock_args)
     self.assertEqual(len(config.variants), 3 * 3)
 
   def test_flag_combination_mixed_inline(self):
@@ -1188,7 +1206,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             }
         },
-        browser_lookup_override=self.browser_lookup)
+        browser_lookup_override=self.browser_lookup,
+        args=self.mock_args)
     browsers = config.variants
     self.assertEqual(len(browsers), 2)
     self.assertListEqual(["--no-sandbox"], list(browsers[0].flags.get_list()))
@@ -1206,7 +1225,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             }
         },
-        browser_lookup_override=self.browser_lookup)
+        browser_lookup_override=self.browser_lookup,
+        args=self.mock_args)
     browsers = config.variants
     self.assertEqual(len(browsers), 1)
     self.assertListEqual(["--no-sandbox"], list(browsers[0].flags.get_list()))
@@ -1227,7 +1247,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             }
         },
-        browser_lookup_override=self.browser_lookup)
+        browser_lookup_override=self.browser_lookup,
+        args=self.mock_args)
     browsers = config.variants
     self.assertEqual(len(browsers), 2)
     self.assertListEqual(["--no-sandbox"], list(browsers[0].flags.get_list()))
@@ -1247,7 +1268,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             }
         },
-        browser_lookup_override=self.browser_lookup)
+        browser_lookup_override=self.browser_lookup,
+        args=self.mock_args)
     self.assertEqual(len(config.variants), 2)
     browser_0 = config.variants[0]
     assert isinstance(browser_0, mock_browser.MockChromeStable)
@@ -1264,14 +1286,16 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
             "stable_path",
             return_value=mock_browser.MockChromeStable.APP_PATH):
 
-      config = BrowserConfig({
-          "browsers": {
-              "stable": {
-                  "path": "chrome-stable",
-                  "flags": ["--foo=bar"]
+      config = BrowserConfig(
+          {
+              "browsers": {
+                  "stable": {
+                      "path": "chrome-stable",
+                      "flags": ["--foo=bar"]
+                  }
               }
-          }
-      })
+          },
+          args=self.mock_args)
       self.assertEqual(len(config.variants), 1)
       browser = config.variants[0]
       # TODO: Fix once app lookup is cleaned up
@@ -1282,7 +1306,12 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     if not helper.PLATFORM.is_macos:
       return
     with mock.patch.object(Safari, "_extract_version", return_value="16.0"):
-      config = BrowserConfig({"browsers": {"safari": {"path": "safari",}}})
+      config = BrowserConfig({"browsers": {
+          "safari": {
+              "path": "safari",
+          }
+      }},
+                             args=self.mock_args)
       self.assertEqual(len(config.variants), 1)
 
   def test_flag_combination_with_fixed(self):
@@ -1304,7 +1333,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             }
         },
-        browser_lookup_override=self.browser_lookup)
+        browser_lookup_override=self.browser_lookup,
+        args=self.mock_args)
     self.assertEqual(len(config.variants), 3 * 3)
     for browser in config.variants:
       assert isinstance(browser, mock_browser.MockChromeStable)
@@ -1331,7 +1361,8 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
                 }
             }
         },
-        browser_lookup_override=self.browser_lookup)
+        browser_lookup_override=self.browser_lookup,
+        args=self.mock_args)
     self.assertEqual(len(config.variants), 3 * 3 * 2)
 
   def test_from_cli_args_browser_config(self):
