@@ -83,7 +83,7 @@ class AppleScriptBrowser(Browser, metaclass=abc.ABCMeta):
   def start(self, run: Run) -> None:
     assert not self._is_running
     # Start process directly
-    startup_flags = self._get_browser_flags(run)
+    startup_flags = self._get_browser_flags_for_run(run)
     self._browser_process = self.platform.popen(
         self.path, *startup_flags, shell=False)
     self._pid = self._browser_process.pid

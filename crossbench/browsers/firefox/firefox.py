@@ -78,7 +78,7 @@ class Firefox(Browser):
     # "Firefox 107.0" => "107.0"
     return str(re.findall(r"[\d\.]+", version_string)[0])
 
-  def _get_browser_flags(self, run: Run) -> Tuple[str, ...]:
+  def _get_browser_flags_for_run(self, run: Run) -> Tuple[str, ...]:
     flags_copy = self.flags.copy()
     flags_copy.update(run.extra_flags)
     self._handle_viewport_flags(flags_copy)

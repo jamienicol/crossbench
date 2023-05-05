@@ -35,6 +35,9 @@ class ProbeConfigParser(ConfigParser):
     self._probe_cls = probe_cls
 
 
+ProbeT = TypeVar("ProbeT", bound="Probe")
+
+
 class Probe(abc.ABC):
   """
   Abstract Probe class.
@@ -73,7 +76,9 @@ class Probe(abc.ABC):
     return ProbeConfigParser(cls)
 
   @classmethod
-  def from_config(cls, config_data: Dict, throw: bool = False) -> Probe:
+  def from_config(cls: Type[ProbeT],
+                  config_data: Dict,
+                  throw: bool = False) -> ProbeT:
     config_parser = cls.config_parser()
     kwargs: Dict[str, Any] = config_parser.kwargs_from_config(
         config_data, throw=throw)

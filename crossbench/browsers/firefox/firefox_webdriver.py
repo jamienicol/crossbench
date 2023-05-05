@@ -58,7 +58,7 @@ class FirefoxWebDriver(WebdriverBrowser, Firefox):
     options.set_capability("browserVersion", str(self.major_version))
     # Don't wait for document-ready.
     options.set_capability("pageLoadStrategy", "eager")
-    args = self._get_browser_flags(run)
+    args = self._get_browser_flags_for_run(run)
     for arg in args:
       options.add_argument(arg)
     options.binary_location = str(self.path)

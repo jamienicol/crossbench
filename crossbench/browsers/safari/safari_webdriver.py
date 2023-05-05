@@ -52,7 +52,7 @@ class SafariWebDriver(WebdriverBrowser, Safari):
     logging.info("STARTING BROWSER: browser: %s driver: %s", self.path,
                  driver_path)
     options = SafariOptions()
-    args = self._get_browser_flags(run)
+    args = self._get_browser_flags_for_run(run)
     for arg in args:
       options.add_argument(arg)
     options.binary_location = str(self.path)

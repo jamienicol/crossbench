@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 import pathlib
 import re
@@ -17,25 +18,37 @@ from crossbench.browsers.viewport import Viewport
 from crossbench.flags import ChromeFeatures, ChromeFlags, Flags, JSFlags
 
 if TYPE_CHECKING:
-  from crossbench.runner import Run, Runner
   from crossbench.platform import Platform
+  from crossbench.runner import Run, Runner
 
 
 class Chromium(Browser):
   MIN_HEADLESS_NEW_VERSION = 112
-  DEFAULT_FLAGS = [
+  DEFAULT_FLAGS = (
       "--no-default-browser-check",
       "--disable-component-update",
       "--disable-sync",
-      "--no-experiments",
-      "--enable-benchmarking",
       "--disable-extensions",
       "--no-first-run",
-  ]
-  FLAGS_FOR_DISABLING_BACKGROUND_INTERVENTIONS = [
-    "--disable-background-timer-throttling",
-    "--disable-renderer-backgrounding",
-  ]
+  )
+  FLAGS_FOR_DISABLING_BACKGROUND_INTERVENTIONS = (
+      "--disable-background-timer-throttling",
+      "--disable-renderer-backgrounding",
+  )
+  # All flags that might affect how finch / field-trials are loaded.
+  FIELD_TRIAL_FLAGS = (
+      "--force-fieldtrials",
+      "--variations-server-url",
+      "--variations-insecure-server-url",
+      "--variations-test-seed-path",
+      "--enable-field-trial-config",
+      "--disable-variations-safe-mode",
+  )
+  NO_EXPERIMENTS_FLAGS = (
+      "--no-experiments",
+      "--enable-benchmarking",
+      "--disable-field-trial-config",
+  )
 
   @classmethod
   def default_path(cls) -> pathlib.Path:
@@ -68,6 +81,21 @@ class Chromium(Browser):
         viewport=viewport,
         splash_screen=splash_screen,
         platform=platform)
+    self._flags: ChromeFlags = self._create_flags(flags, js_flags)
+    if cache_dir is None:
+      cache_dir = self._flags.get("--user-data-dir")
+    if cache_dir is None:
+      # pylint: disable=bad-option-value, consider-using-with
+      self.cache_dir = pathlib.Path(
+          tempfile.TemporaryDirectory(prefix=type).name)
+      self.clear_cache_dir = True
+    else:
+      self.cache_dir = cache_dir
+      self.clear_cache_dir = False
+    self._stdout_log_file = None
+
+  def _create_flags(self, flags: Flags.InitialDataType,
+                    js_flags: Flags.InitialDataType) -> ChromeFlags:
     assert not isinstance(js_flags, str), (
         f"js_flags should be a list, but got: {repr(js_flags)}")
     assert not isinstance(
@@ -81,19 +109,31 @@ class Chromium(Browser):
     else:
       self._flags.update(self.FLAGS_FOR_DISABLING_BACKGROUND_INTERVENTIONS)
 
+    # Explicitly disable field-trials by default on all chrome flavours:
+    # By default field-trials are enabled on non-Chrome branded builds, but
+    # are auto-enabled on everything else. This gives very confusing results
+    # when comparing local builds to official binaries.
+    field_trial_flags = [
+        flag for flag in self.FIELD_TRIAL_FLAGS if flag in self._flags
+    ]
+    if not field_trial_flags:
+      logging.info("Disabling experiments/finch/field-trials for %s", self)
+      for flag in self.NO_EXPERIMENTS_FLAGS:
+        self._flags.set(flag)
+    else:
+      logging.warning("Running with field-trials or finch experiments.")
+      no_finch_flags = [
+          flag for flag in self.NO_EXPERIMENTS_FLAGS if flag in self._flags
+      ]
+      if no_finch_flags:
+        raise argparse.ArgumentTypeError(
+            "Conflicting flag groups set: "
+            f"{field_trial_flags} vs {no_finch_flags}.\n"
+            "Cannot enable and disable finch / field-trials at the same time.")
+
     self.js_flags.update(js_flags)
     self._maybe_disable_gpu_compositing()
-    if cache_dir is None:
-      cache_dir = self._flags.get("--user-data-dir")
-    if cache_dir is None:
-      # pylint: disable=bad-option-value, consider-using-with
-      self.cache_dir = pathlib.Path(
-          tempfile.TemporaryDirectory(prefix=type).name)
-      self.clear_cache_dir = True
-    else:
-      self.cache_dir = cache_dir
-      self.clear_cache_dir = False
-    self._stdout_log_file = None
+    return self._flags
 
   def _maybe_disable_gpu_compositing(self) -> None:
     # Chrome Remote Desktop provide no GPU and older chrome versions
@@ -139,7 +179,7 @@ class Chromium(Browser):
     details["js_flags"] = tuple(self.js_flags.get_list())
     return details
 
-  def _get_browser_flags(self, run: Run) -> Tuple[str, ...]:
+  def _get_browser_flags_for_run(self, run: Run) -> Tuple[str, ...]:
     js_flags_copy = self.js_flags.copy()
     js_flags_copy.update(run.extra_js_flags)
 

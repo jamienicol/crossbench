@@ -41,7 +41,7 @@ class TestV8LogProbe(unittest.TestCase):
       V8LogProbe.from_config({"js_flags": ["--log-all", True]})
 
   def test_parse_config(self):
-    probe = V8LogProbe.from_config({})
+    probe: V8LogProbe = V8LogProbe.from_config({})
     self.assertSetEqual({"--log-all"}, set(probe.js_flags.keys()))
 
     probe = V8LogProbe.from_config({"prof": False})

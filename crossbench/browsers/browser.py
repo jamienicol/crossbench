@@ -210,7 +210,7 @@ class Browser(abc.ABC):
         self.show_url(runner, "about:blank")
         runner.wait(1)
 
-  def _get_browser_flags(self, run: Run) -> Tuple[str, ...]:
+  def _get_browser_flags_for_run(self, run: Run) -> Tuple[str, ...]:
     flags_copy = self.flags.copy()
     flags_copy.update(run.extra_flags)
     return tuple(flags_copy.get_list())

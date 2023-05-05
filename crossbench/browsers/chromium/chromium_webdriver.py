@@ -26,7 +26,7 @@ from crossbench.browsers.browser import BROWSERS_CACHE
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebdriverBrowser
-from crossbench.flags import Flags
+from crossbench.flags import ChromeFlags, Flags
 from crossbench.platform.android_adb import AndroidAdbPlatform
 
 from .chromium import Chromium
@@ -70,7 +70,7 @@ class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
                     driver_path: pathlib.Path) -> ChromiumDriver:
     assert not self._is_running
     assert self.log_file
-    args = self._get_browser_flags(run)
+    args = self._get_browser_flags_for_run(run)
     options = self._create_options(args)
     logging.info("STARTING BROWSER: %s", self.path)
     logging.info("STARTING BROWSER: driver: %s", driver_path)
@@ -121,19 +121,25 @@ class ChromiumWebDriverAndroid(ChromiumWebDriver):
   def _resolve_binary(self, path: pathlib.Path) -> pathlib.Path:
     return path
 
+  # TODO: implement setting a clean profile on android
+  _UNSUPPORTED_FLAGS = (
+      "--user-data-dir",
+      "--disable-sync",
+  )
+
+  def _create_flags(self, flags: Flags.InitialDataType,
+                    js_flags: Flags.InitialDataType) -> ChromeFlags:
+    chrome_flags: ChromeFlags = super()._create_flags(flags, js_flags)
+    for flag in self._UNSUPPORTED_FLAGS:
+      if flag not in chrome_flags:
+        continue
+      flag_value = chrome_flags.pop(flag, None)
+      logging.debug("Chrome Android: Removed unsupported flag: %s=%s", flag,
+                    flag_value)
+    return chrome_flags
+
   def _create_options(self, args: Sequence[str]) -> ChromiumOptions:
-    # TODO: properly separate options for android
-    filtered_args = []
-    for arg in args:
-      if arg.startswith("--user-data-dir"):
-        continue
-      if arg.startswith("--disable-background-timer-throttling"):
-        continue
-      if arg.startswith("--disable-sync"):
-        continue
-      filtered_args.append(arg)
-    logging.debug("Filtered browser args: %s", filtered_args)
-    options: ChromiumOptions = super()._create_options(filtered_args)
+    options: ChromiumOptions = super()._create_options(args)
     options.binary_location = ""
     package = self.platform.app_path_to_package(self.path)
     options.add_experimental_option('androidPackage', package)
