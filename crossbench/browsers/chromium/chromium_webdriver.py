@@ -14,7 +14,8 @@ import stat
 import tempfile
 import urllib.error
 import zipfile
-from typing import TYPE_CHECKING, Dict, Final, List, Optional, Tuple, Type
+from typing import (TYPE_CHECKING, Dict, Final, List, Optional, Sequence, Tuple,
+                    Type, cast)
 
 from selenium.webdriver.chromium.options import ChromiumOptions
 from selenium.webdriver.chromium.service import ChromiumService
@@ -26,12 +27,13 @@ from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebdriverBrowser
 from crossbench.flags import Flags
+from crossbench.platform.android_adb import AndroidAdbPlatform
 
 from .chromium import Chromium
 
 if TYPE_CHECKING:
-  from crossbench.runner import Run
   from crossbench.platform import Platform
+  from crossbench.runner import Run
 
 
 class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
@@ -68,14 +70,8 @@ class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
                     driver_path: pathlib.Path) -> ChromiumDriver:
     assert not self._is_running
     assert self.log_file
-    options = self.WEB_DRIVER_OPTIONS()
-    options.set_capability("browserVersion", str(self.major_version))
-    # Don't wait for document-ready.
-    options.set_capability("pageLoadStrategy", "eager")
     args = self._get_browser_flags(run)
-    for arg in args:
-      options.add_argument(arg)
-    options.binary_location = str(self.path)
+    options = self._create_options(args)
     logging.info("STARTING BROWSER: %s", self.path)
     logging.info("STARTING BROWSER: driver: %s", driver_path)
     logging.info("STARTING BROWSER: args: %s", shlex.join(args))
@@ -92,6 +88,17 @@ class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
     driver.execute_cdp_cmd("Runtime.setMaxCallStackSizeToCapture", {"size": 0})
     return driver
 
+  def _create_options(self, args: Sequence[str]) -> ChromiumOptions:
+    assert not self._is_running
+    options: ChromiumOptions = self.WEB_DRIVER_OPTIONS()
+    options.set_capability("browserVersion", str(self.major_version))
+    # Don't wait for document-ready.
+    options.set_capability("pageLoadStrategy", "eager")
+    for arg in args:
+      options.add_argument(arg)
+    options.binary_location = str(self.path)
+    return options
+
   @abc.abstractmethod
   def _create_driver(self, options, service) -> ChromiumDriver:
     pass
@@ -100,6 +107,39 @@ class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
     # TODO
     # version = self.platform.sh_stdout(self._driver_path, "--version")
     pass
+
+
+class ChromiumWebDriverAndroid(ChromiumWebDriver):
+
+  @property
+  def platform(self) -> AndroidAdbPlatform:
+    assert isinstance(
+        self._platform,
+        AndroidAdbPlatform), (f"Invalid platform: {self._platform}")
+    return cast(AndroidAdbPlatform, self._platform)
+
+  def _resolve_binary(self, path: pathlib.Path) -> pathlib.Path:
+    return path
+
+  def _create_options(self, args: Sequence[str]) -> ChromiumOptions:
+    # TODO: properly separate options for android
+    filtered_args = []
+    for arg in args:
+      if arg.startswith("--user-data-dir"):
+        continue
+      if arg.startswith("--disable-background-timer-throttling"):
+        continue
+      if arg.startswith("--disable-sync"):
+        continue
+      filtered_args.append(arg)
+    logging.debug("Filtered browser args: %s", filtered_args)
+    options: ChromiumOptions = super()._create_options(filtered_args)
+    options.binary_location = ""
+    package = self.platform.app_path_to_package(self.path)
+    options.add_experimental_option('androidPackage', package)
+    options.add_experimental_option("androidDeviceSerial",
+                                    self.platform.adb.serial_id)
+    return options
 
 
 class ChromeDriverFinder:
@@ -114,10 +154,11 @@ class ChromeDriverFinder:
   def __init__(self, browser: ChromiumWebDriver):
     self.browser = browser
     self.platform = browser.platform
+    self.host_platform = browser.platform.host_platform
     assert self.browser.is_local, (
         "Cannot download chromedriver for remote browser yet")
     extension = ""
-    if self.platform.is_win:
+    if self.host_platform.is_win:
       extension = ".exe"
     self.driver_path = (
         BROWSERS_CACHE /
@@ -157,10 +198,10 @@ class ChromeDriverFinder:
     with tempfile.TemporaryDirectory() as tmp_dir:
       if ".zip" not in url:
         maybe_driver = pathlib.Path(tmp_dir) / "chromedriver"
-        self.platform.download_to(url, maybe_driver)
+        self.host_platform.download_to(url, maybe_driver)
       else:
         zip_file = pathlib.Path(tmp_dir) / "download.zip"
-        self.platform.download_to(url, zip_file)
+        self.host_platform.download_to(url, zip_file)
         with zipfile.ZipFile(zip_file, "r") as zip_ref:
           zip_ref.extractall(zip_file.parent)
         zip_file.unlink()
@@ -212,11 +253,11 @@ class ChromeDriverFinder:
     if not driver_version:
       return listing_url, None
 
-    if self.platform.is_linux:
+    if self.host_platform.is_linux:
       arch_suffix = "linux64"
-    elif self.platform.is_macos:
+    elif self.host_platform.is_macos:
       arch_suffix = "mac64"
-      if self.platform.is_arm64:
+      if self.host_platform.is_arm64:
         # The uploaded chromedriver archives changed the naming scheme after
         # chrome version 106.0.5249.21 for Arm64 (previously m1):
         #   before: chromedriver_mac64_m1.zip
@@ -227,7 +268,7 @@ class ChromeDriverFinder:
           arch_suffix = "mac64_m1"
         else:
           arch_suffix = "mac_arm64"
-    elif self.platform.is_win:
+    elif self.host_platform.is_win:
       arch_suffix = "win32"
     else:
       raise NotImplementedError("Unsupported chromedriver platform")
@@ -250,7 +291,7 @@ class ChromeDriverFinder:
       },
       ("win", "x64"): {
           "dash_platform": "win64",
-      }
+      },
   }
 
   CHROMIUM_LISTING_PREFIX: Dict[Tuple[str, str], str] = {
@@ -263,34 +304,46 @@ class ChromeDriverFinder:
 
   def _find_canary_url(self) -> Optional[str]:
     logging.debug("Try downloading the chromedriver canary version")
-    properties = self.CHROMIUM_DASH_PARAMS.get(self.platform.key)
+    properties = self.CHROMIUM_DASH_PARAMS.get(self.host_platform.key)
     if not properties:
-      raise ValueError(f"Unsupported platform: {self.platform}")
+      raise ValueError(
+          f"Unsupported platform={self.platform}, key={self.host_platform.key}")
     dash_platform = properties["dash_platform"]
     dash_channel = properties.get("dash_channel", "canary")
 
-    url = ("{self.CHROMIUM_DASH_URL}?"
+    url = (f"{self.CHROMIUM_DASH_URL}?"
            f"platform={dash_platform}&channel={dash_channel}")
     chromium_base_position = 0
     with helper.urlopen(url) as response:
       version_infos = list(json.loads(response.read().decode("utf-8")))
       if not version_infos:
-        raise ValueError(
-            f"Could not find latest version info for platform={self.platform}")
+        raise ValueError("Could not find latest version info for "
+                         f"platform={self.host_platform}")
       for version_info in version_infos:
         if version_info["version"] == self.browser.version:
           chromium_base_position = int(
               version_info["chromium_main_branch_position"])
           break
+
+    if not chromium_base_position and version_infos:
+      # Android has a slightly different release cycle than the desktop
+      # versions. Assume that the latest canary version is good enough
+      first_version_info = version_infos[0]
+      chromium_base_position = int(
+          first_version_info["chromium_main_branch_position"])
+      logging.warning(
+          "Falling back to latest (not precisely matching) "
+          "canary chromedriver %s", first_version_info["version"])
+
     if not chromium_base_position:
       raise ValueError("Could not find matching canary chromedriver "
                        f"for {self.browser.version}")
     # Use prefixes to limit listing results and increase chances of finding
     # a matching version
-    listing_prefix = self.CHROMIUM_LISTING_PREFIX.get(self.platform.key)
+    listing_prefix = self.CHROMIUM_LISTING_PREFIX.get(self.host_platform.key)
     if not listing_prefix:
       raise NotImplementedError(
-          f"Unsupported chromedriver platform {self.platform}")
+          f"Unsupported chromedriver platform {self.host_platform}")
     base_prefix = str(chromium_base_position)[:4]
     listing_url = (
         self.CHROMIUM_LISTING_URL +
@@ -299,6 +352,7 @@ class ChromeDriverFinder:
       listing = json.loads(response.read().decode("utf-8"))
 
     versions = []
+    logging.debug("Filtering %s candidate URLs.", len(listing["items"]))
     for version in listing["items"]:
       if "name" not in version:
         continue

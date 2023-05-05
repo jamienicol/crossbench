@@ -23,12 +23,12 @@ from crossbench.env import HostEnvironment, HostEnvironmentConfig
 from crossbench.exception import ExceptionAnnotator
 from crossbench.flags import ChromeFlags, Flags
 from crossbench.probes.all import GENERAL_PURPOSE_PROBES
+from crossbench.platform.android_adb import AndroidAdbPlatform
 
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
   from crossbench.probes.probe import Probe
   FlagGroupItemT = Optional[Tuple[str, Optional[str]]]
-  BrowserLookupTableT = Dict[str, Tuple[Type[browsers.Browser], pathlib.Path]]
 
 
 def _map_flag_group_item(flag_name: str,
@@ -109,6 +109,10 @@ class BrowserDriverType(Enum):
       return cls.IOS, path_or_identifier
 
     raise argparse.ArgumentTypeError(f"Unknown driver type: {driver_name}")
+
+
+BrowserLookupTableT = Dict[str, Tuple[Type[browsers.Browser], pathlib.Path,
+                                      BrowserDriverType]]
 
 
 class BrowserConfig:
@@ -218,12 +222,13 @@ class BrowserConfig:
   def _parse_browser(self, name: str, raw_browser_data: Dict[str, Any]) -> None:
     path_or_identifier: str = raw_browser_data["path"]
     if path_or_identifier in self._browser_lookup_override:
-      browser_cls, path = self._browser_lookup_override[path_or_identifier]
+      browser_cls, path, driver_type = self._browser_lookup_override[
+          path_or_identifier]
     else:
       path, driver_type = self._parse_browser_path_and_driver(
           path_or_identifier)
       browser_cls = self._get_browser_cls(path, driver_type)
-    if not path.exists():
+    if driver_type != BrowserDriverType.ANDROID and not path.exists():
       raise ConfigFileError(f"browsers['{name}'].path='{path}' does not exist.")
     raw_flags: List[Tuple[FlagItemT, ...]] = []
     with self._exceptions.info(f"Parsing browsers['{name}'].flags"):
@@ -237,13 +242,19 @@ class BrowserConfig:
                  len(variants_flags))
     for i in range(len(variants_flags)):
       logging.info("   %s: %s", i, variants_flags[i])
-    # pytype: disable=not-instantiable
-    self._variants += [
-        browser_cls(
-            label=self._flags_to_label(name, flags), path=path, flags=flags)
-        for flags in variants_flags
-    ]
-    # pytype: enable=not-instantiable
+    browser_platform = helper.PLATFORM
+    # TODO: support more custom platform properties (serial-id...)
+    if driver_type == BrowserDriverType.ANDROID:
+      browser_platform = AndroidAdbPlatform(helper.PLATFORM)
+    for flags in variants_flags:
+      # pytype: disable=not-instantiable
+      browser_instance = browser_cls(
+          label=self._flags_to_label(name, flags),
+          path=path,
+          flags=flags,
+          platform=browser_platform)
+      # pytype: enable=not-instantiable
+      self._variants.append(browser_instance)
 
   def _flags_to_label(self, name: str, flags: Flags) -> str:
     return f"{name}_{convert_flags_to_label(*flags.get_list())}"
@@ -276,7 +287,8 @@ class BrowserConfig:
         flag_group = self.flag_groups.get(flag_group_name, None)
         if flag_group is None:
           raise ConfigFileError(f"group='{flag_group_name}' "
-                                f"for browser='{name}' does not exist.")
+                                f"for browser='{name}' does not exist.\n"
+                                f"Choices are: {list(self.flag_groups.keys())}")
       flags_variants += flag_group.get_variant_items()
     if len(flags_variants) == 0:
       # use empty default
@@ -323,12 +335,16 @@ class BrowserConfig:
         return browsers.ChromeWebDriver
       if driver == BrowserDriverType.APPLE_SCRIPT:
         return browsers.ChromeAppleScript
+      if driver == BrowserDriverType.ANDROID:
+        return browsers.ChromeWebDriverAndroid
     if "chromium" in path_str:
       # TODO: technically this should be ChromiumWebDriver
       if driver == BrowserDriverType.WEB_DRIVER:
         return browsers.ChromeWebDriver
       if driver == BrowserDriverType.APPLE_SCRIPT:
         return browsers.ChromeAppleScript
+      if driver == BrowserDriverType.ANDROID:
+        return browsers.ChromiumWebDriverAndroid
     if "firefox" in path_str:
       if driver == BrowserDriverType.WEB_DRIVER:
         return browsers.FirefoxWebDriver
@@ -386,6 +402,8 @@ class BrowserConfig:
     path, driver_type = self._parse_browser_path_and_driver(browser)
     browser_cls = self._get_browser_cls(path, driver_type)
     flags = browser_cls.default_flags()
+    if driver_type != BrowserDriverType.ANDROID and not path.exists():
+      raise argparse.ArgumentTypeError(f"Browser binary does not exist: {path}")
 
     if issubclass(browser_cls, browsers.Chromium):
       assert isinstance(flags, ChromeFlags)
@@ -396,12 +414,18 @@ class BrowserConfig:
       flags.set(flag_name, flag_value)
 
     label = convert_flags_to_label(*flags.get_list())
+    # TODO: clean up this hack and add complex browser config settings so we
+    # can specify ADB device ids.
+    browser_platform = helper.PLATFORM
+    if driver_type == BrowserDriverType.ANDROID:
+      browser_platform = AndroidAdbPlatform(helper.PLATFORM)
     browser_instance = browser_cls(  # pytype: disable=not-instantiable
         label=label,
         path=path,
         flags=flags,
         viewport=args.viewport,
-        splash_screen=args.splash_screen)
+        splash_screen=args.splash_screen,
+        platform=browser_platform)
     logging.info("SELECTED BROWSER: name=%s path='%s' ",
                  browser_instance.unique_name, path)
     self._variants.append(browser_instance)
@@ -426,12 +450,20 @@ class BrowserConfig:
     # We're not using a dict-based lookup here, since not all browsers are
     # available on all platforms
     if identifier in ("chrome", "chrome-stable", "chr-stable", "chr"):
+      if driver == BrowserDriverType.ANDROID:
+        return pathlib.Path("com.android.chrome"), driver
       return browsers.Chrome.stable_path(), driver
     if identifier in ("chrome-beta", "chr-beta"):
+      if driver == BrowserDriverType.ANDROID:
+        return pathlib.Path("com.chrome.beta"), driver
       return browsers.Chrome.beta_path(), driver
     if identifier in ("chrome-dev", "chr-dev"):
+      if driver == BrowserDriverType.ANDROID:
+        return pathlib.Path("com.chrome.dev"), driver
       return browsers.Chrome.dev_path(), driver
     if identifier in ("chrome-canary", "chr-canary"):
+      if driver == BrowserDriverType.ANDROID:
+        return pathlib.Path("com.chrome.canary"), driver
       return browsers.Chrome.canary_path(), driver
     if identifier in ("edge", "edge-stable"):
       return browsers.Edge.stable_path(), driver

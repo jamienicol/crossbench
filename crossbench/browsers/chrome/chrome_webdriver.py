@@ -11,7 +11,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
 
-from crossbench.browsers.chromium import ChromiumWebDriver
+from crossbench.browsers.chromium import (ChromiumWebDriver,
+                                          ChromiumWebDriverAndroid)
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
 
@@ -52,3 +53,7 @@ class ChromeWebDriver(ChromiumWebDriver):
   def _create_driver(self, options, service: ChromeService) -> ChromiumDriver:
     return webdriver.Chrome(  # pytype: disable=wrong-keyword-args
         options=options, service=service)
+
+
+class ChromeWebDriverAndroid(ChromiumWebDriverAndroid, ChromeWebDriver):
+  pass

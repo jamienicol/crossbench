@@ -28,6 +28,21 @@ class WinPlatform(Platform):
   def name(self) -> str:
     return "win"
 
+  @property
+  def device(self) -> str:
+    # TODO: implement
+    return ""
+
+  @property
+  def version(self) -> str:
+    # TODO: implement
+    return ""
+
+  @property
+  def cpu(self) -> str:
+    # TODO: implement
+    return ""
+
   def search_binary(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
     if app_path.suffix != ".exe":
       raise ValueError("Expected executable path with '.exe' suffix, "

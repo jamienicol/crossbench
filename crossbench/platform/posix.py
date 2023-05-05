@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import abc
+from functools import lru_cache
 import pathlib
 
 from .platform import Platform
@@ -15,3 +16,8 @@ class PosixPlatform(Platform, metaclass=abc.ABCMeta):
   def app_version(self, app_path: pathlib.Path) -> str:
     assert app_path.exists(), f"Binary {app_path} does not exist."
     return self.sh_stdout(app_path, "--version")
+
+  @property
+  @lru_cache
+  def version(self) -> str:
+    return self.sh_stdout("uname", "-r").strip()

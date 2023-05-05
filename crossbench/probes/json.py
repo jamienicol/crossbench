@@ -146,7 +146,7 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
   def _log_result_metrics(self, data: Dict) -> None:
     table: Dict[str, List[str]] = defaultdict(list)
     for browser_result in data.values():
-      for info_key in ("label", "browser", "version"):
+      for info_key in ("label", "browser", "version", "os", "device", "cpu"):
         table[info_key].append(browser_result["info"][info_key])
       data = browser_result["data"]
       self._extract_result_metrics_table(data, table)

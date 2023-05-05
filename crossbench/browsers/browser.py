@@ -46,7 +46,7 @@ class Browser(abc.ABC):
       viewport: Viewport = Viewport.DEFAULT,
       splash_screen: SplashScreen = SplashScreen.DEFAULT,
       platform: Optional[Platform] = None):
-    self.platform = platform or DEFAULT_PLATFORM
+    self._platform = platform or DEFAULT_PLATFORM
     # Marked optional to make subclass constructor calls easier with pytype.
     assert type
     self.type: str = type
@@ -58,7 +58,9 @@ class Browser(abc.ABC):
     self.app_path: pathlib.Path = pathlib.Path()
     if path:
       self.path = self._resolve_binary(path)
-      assert self.path.is_absolute()
+      # TODO clean up
+      if not self.platform.is_android:
+        assert self.path.is_absolute()
       self.version = self._extract_version()
       self.major_version = int(self.version.split(".")[0])
       self.unique_name = f"{self.type}_v{self.major_version}_{self.label}"
@@ -76,6 +78,10 @@ class Browser(abc.ABC):
     self._probes: Set[Probe] = set()
     self._flags: Flags = self.default_flags(flags)
     self.log_file: Optional[pathlib.Path] = None
+
+  @property
+  def platform(self) -> Platform:
+    return self._platform
 
   @property
   def unique_name(self) -> str:

@@ -7,9 +7,10 @@ from __future__ import annotations
 from crossbench.browsers.browser import (BROWSERS_CACHE, Browser,
                                          convert_flags_to_label)
 from crossbench.browsers.chrome import (Chrome, ChromeAppleScript,
-                                        ChromeWebDriver)
+                                        ChromeWebDriver, ChromeWebDriverAndroid)
 from crossbench.browsers.chromium import (Chromium, ChromiumAppleScript,
-                                          ChromiumWebDriver)
+                                          ChromiumWebDriver,
+                                          ChromiumWebDriverAndroid)
 from crossbench.browsers.edge import Edge, EdgeWebDriver
 from crossbench.browsers.firefox import Firefox, FirefoxWebDriver
 from crossbench.browsers.safari import (Safari, SafariAppleScript,
@@ -22,9 +23,11 @@ __all__ = [
     "Chrome",
     "ChromeAppleScript",
     "ChromeWebDriver",
+    "ChromeWebDriverAndroid",
     "Chromium",
     "ChromiumAppleScript",
     "ChromiumWebDriver",
+    "ChromiumWebDriverAndroid",
     "Edge",
     "EdgeWebDriver",
     "Firefox",

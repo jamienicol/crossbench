@@ -130,7 +130,11 @@ class Runner:
     self._timing = timing
     self.browsers = browsers
     self._validate_browsers()
-    self._browser_platform = browsers[0].platform
+    if len(set(b.platform for b in browsers)) == 1:
+      self._browser_platform = browsers[0].platform
+    else:
+      # TODO: cleanup and limit access to cached browser_platform
+      self._browser_platform = None
     self._benchmark = benchmark
     self.stories = benchmark.stories
     self.repetitions = repetitions
@@ -160,10 +164,6 @@ class Runner:
     browser_unique_names = [browser.unique_name for browser in self.browsers]
     assert len(browser_unique_names) == len(set(browser_unique_names)), (
         f"Duplicated browser names in {browser_unique_names}")
-    browser_platforms = set(browser.platform for browser in self.browsers)
-    assert len(browser_platforms) == 1, (
-        "Browsers running on multiple platforms are not supported: "
-        f"platforms={browser_platforms} browsers={self.browsers}")
 
   def _attach_default_probes(self, probe_list: Iterable[Probe]) -> None:
     assert len(self._probes) == 0
@@ -213,6 +213,7 @@ class Runner:
 
   @property
   def browser_platform(self) -> Platform:
+    assert self._browser_platform
     return self._browser_platform
 
   @property
@@ -526,6 +527,9 @@ class StoriesRunGroup(RunGroup):
         "label": self.browser.label,
         "browser": self.browser.app_name.title(),
         "version": self.browser.version,
+        "os": self.browser.platform.full_version,
+        "device": self.browser.platform.device,
+        "cpu": self.browser.platform.cpu,
         "binary": str(self.browser.path),
         "flags": str(self.browser.flags)
     }

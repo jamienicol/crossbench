@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+from functools import lru_cache
 
 import os
 import pathlib
@@ -33,6 +34,32 @@ class LinuxPlatform(PosixPlatform):
 
   def check_system_monitoring(self, disable: bool = False) -> bool:
     return True
+
+  @property
+  @lru_cache
+  def device(self) -> str:
+    vendor = self.sh_stdout("cat",
+                            "/sys/devices/virtual/dmi/id/sys_vendor").strip()
+    product = self.sh_stdout(
+        "cat", "/sys/devices/virtual/dmi/id/product_name").strip()
+    return f"{vendor} {product}"
+
+  @property
+  @lru_cache
+  def cpu(self) -> str:
+    model = ""
+    for line in self.sh_stdout("cat", "/proc/cpuinfo").split("\n"):
+      if line.startswith("model name"):
+        _, model = line.split(":", maxsplit=2)
+        break
+    try:
+      _, max_core = self.sh_stdout(
+          "cat", "/sys/devices/system/cpu/possible").strip().split(
+              "-", maxsplit=1)
+      cores = int(max_core) + 1
+      return f"{model} {cores} cores"
+    except Exception:
+      return model
 
   @property
   def has_display(self) -> bool:

@@ -12,6 +12,7 @@ from .platform import MachineArch, Platform, SubprocessError
 from .linux import LinuxPlatform
 from .macos import MacOSPlatform
 from .win import WinPlatform
+from .android_adb import AndroidAdbPlatform, Adb
 
 
 def _get_default() -> Platform:
@@ -32,4 +33,6 @@ __all__ = (
     "Platform",
     "MachineArch",
     "SubprocessError",
+    "AndroidAdbPlatform",
+    "Adb",
 )

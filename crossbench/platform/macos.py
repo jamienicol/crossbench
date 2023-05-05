@@ -11,6 +11,7 @@ import pathlib
 import plistlib
 import traceback as tb
 from subprocess import SubprocessError
+from functools import lru_cache
 from typing import Any, Dict, Optional, Tuple
 
 import psutil
@@ -32,6 +33,23 @@ class MacOSPlatform(PosixPlatform):
   @property
   def name(self) -> str:
     return "macos"
+
+  @property
+  @lru_cache
+  def version(self) -> str:
+    return self.sh_stdout("sw_vers", "-productVersion").strip()
+
+  @property
+  @lru_cache
+  def device(self) -> str:
+    return self.sh_stdout("sysctl", "hw.model").strip().split(maxsplit=1)[1]
+
+  @property
+  @lru_cache
+  def cpu(self) -> str:
+    brand = self.sh_stdout("sysctl", "-n", "machdep.cpu.brand_string").strip()
+    cores = self.sh_stdout("sysctl", "-n", "machdep.cpu.core_count").strip()
+    return f"{brand} {cores} cores"
 
   def _find_app_binary_path(self, app_path: pathlib.Path) -> pathlib.Path:
     assert app_path.suffix == ".app"

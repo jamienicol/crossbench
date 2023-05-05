@@ -94,7 +94,7 @@ class Probe(abc.ABC):
   BATTERY_ONLY: bool = False
 
   _browsers: Set[Browser]
-  _browser_platform: Platform
+  _browser_platform: Optional[Platform]
 
   def __init__(self) -> None:
     assert self.name is not None, "A Probe must define a name"
@@ -102,6 +102,7 @@ class Probe(abc.ABC):
 
   @property
   def browser_platform(self) -> Platform:
+    assert self._browser_platform
     return self._browser_platform
 
   @property
@@ -137,9 +138,9 @@ class Probe(abc.ABC):
     if not self._browsers:
       self._browser_platform = browser.platform
     else:
-      assert self._browser_platform == browser.platform, (
-          "All browsers must run on the same platform"
-          f"existing={self._browser_platform }, new={browser.platform}")
+      # TODO: clean up _browser_platform acesses and either use the host
+      # platform or rely on the run's browser platform directly.
+      self._browser_platform = None
     self._browsers.add(browser)
 
   def pre_check(self, env: HostEnvironment) -> None:

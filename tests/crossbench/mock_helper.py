@@ -34,6 +34,18 @@ class MockPlatform(ActivePlatformClass):
     self._is_battery_powered = is_battery_powered
 
   @property
+  def version(self) -> str:
+    return "1.2.3.4.5"
+
+  @property
+  def device(self) -> str:
+    return "TestBook Pro"
+
+  @property
+  def cpu(self) -> str:
+    return "Mega CPU @ 3.00GHz"
+
+  @property
   def is_battery_powered(self):
     return self._is_battery_powered
 

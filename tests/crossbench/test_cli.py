@@ -920,17 +920,21 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
   def setUp(self):
     super().setUp()
     self.browser_lookup: Dict[str, Tuple[
-        Type[mock_browser.MockBrowser], pathlib.Path]] = {
+        Type[mock_browser.MockBrowser], pathlib.Path, BrowserDriverType]] = {
             "chr-stable": (mock_browser.MockChromeStable,
-                           mock_browser.MockChromeStable.APP_PATH),
+                           mock_browser.MockChromeStable.APP_PATH,
+                           BrowserDriverType.WEB_DRIVER),
             "chr-dev": (mock_browser.MockChromeDev,
-                        mock_browser.MockChromeDev.APP_PATH),
+                        mock_browser.MockChromeDev.APP_PATH,
+                        BrowserDriverType.WEB_DRIVER),
             "chrome-stable": (mock_browser.MockChromeStable,
-                              mock_browser.MockChromeStable.APP_PATH),
+                              mock_browser.MockChromeStable.APP_PATH,
+                              BrowserDriverType.WEB_DRIVER),
             "chrome-dev": (mock_browser.MockChromeDev,
-                           mock_browser.MockChromeDev.APP_PATH),
+                           mock_browser.MockChromeDev.APP_PATH,
+                           BrowserDriverType.WEB_DRIVER),
         }
-    for _, (_, browser_path) in self.browser_lookup.items():
+    for _, (_, browser_path, _) in self.browser_lookup.items():
       self.assertTrue(browser_path.exists())
 
   @unittest.skipIf(hjson.__name__ != "hjson", "hjson not available")

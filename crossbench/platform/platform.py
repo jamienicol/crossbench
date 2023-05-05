@@ -102,6 +102,25 @@ class Platform(abc.ABC):
   def name(self) -> str:
     pass
 
+  @property
+  @abc.abstractmethod
+  def version(self) -> str:
+    pass
+
+  @property
+  @abc.abstractmethod
+  def device(self) -> str:
+    pass
+
+  @property
+  @abc.abstractmethod
+  def cpu(self) -> str:
+    pass
+
+  @property
+  def full_version(self) -> str:
+    return f"{self.name} {self.version} {self.machine}"
+
   def __str__(self) -> str:
     return ".".join(self.key) + (".remote" if self.is_remote else ".local")
 
@@ -110,8 +129,13 @@ class Platform(abc.ABC):
     return False
 
   @property
+  def host_platform(self) -> Platform:
+    return self
+
+  @property
   def machine(self) -> MachineArch:
-    assert not self.is_remote, "Operation not supported yet on remote platform"
+    assert not self.is_remote, (
+        f"Operation not supported yet on remote platform: {self.name}")
     raw = py_platform.machine()
     if raw in ("i386", "i686", "x86", "ia32"):
       return MachineArch.IA32
@@ -148,8 +172,12 @@ class Platform(abc.ABC):
     return False
 
   @property
+  def is_android(self) -> bool:
+    return False
+
+  @property
   def is_posix(self) -> bool:
-    return self.is_macos or self.is_linux
+    return self.is_macos or self.is_linux or self.is_android
 
   @property
   def is_win(self) -> bool:
