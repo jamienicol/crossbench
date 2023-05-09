@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, cast
 
 from crossbench.browsers.chromium import Chromium
@@ -12,7 +13,8 @@ from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
-  from crossbench.runner import RepetitionsRunGroup, Run, StoriesRunGroup
+  from crossbench.runner import (BrowsersRunGroup, RepetitionsRunGroup, Run,
+                                 StoriesRunGroup)
 
 
 class V8RCSProbe(Probe):
@@ -51,10 +53,32 @@ class V8RCSProbe(Probe):
     with merged_result_path.open("w", encoding="utf-8") as merged_file:
       for repetition_group in group.repetitions_groups:
         merged_iterations_file = repetition_group.results[self].file
+        if not merged_iterations_file.exists():
+          logging.info("Probe %s: skipping non-existing results file: %s",
+                       self.NAME, merged_iterations_file)
+          continue
         merged_file.write(f"\n== Page: {repetition_group.story.name}\n")
         with merged_iterations_file.open(encoding="utf-8") as f:
           merged_file.write(f.read())
     return ProbeResult(file=[merged_result_path])
+
+  def merge_browsers(self, group: BrowsersRunGroup) -> ProbeResult:
+    # We put all the fils by in a toplevel v8.rcs folder
+    merged_result_path = group.get_probe_results_file(self).with_suffix("")
+    merged_result_path.mkdir()
+    files = []
+    for story_group in group.story_groups:
+      story_group_file = story_group.results[self].file
+      # Be permissive and skip failed probes
+      if not story_group_file.exists():
+        logging.info("Probe %s: skipping non-existing results file: %s",
+                     self.NAME, story_group_file)
+      dest_file = merged_result_path / f"{story_group.path.name}.rcs.txt"
+      files.append(dest_file)
+      with story_group_file.open(encoding="utf-8") as input_f:
+        with dest_file.open("w", encoding="utf-8") as dest_f:
+          dest_f.write(input_f.read())
+    return ProbeResult(file=files)
 
 
 class V8RCSProbeScope(ProbeScope[V8RCSProbe]):
