@@ -35,9 +35,6 @@ class ProbeConfigParser(ConfigParser):
     self._probe_cls = probe_cls
 
 
-ProbeT = TypeVar("ProbeT", bound="Probe")
-
-
 class Probe(abc.ABC):
   """
   Abstract Probe class.

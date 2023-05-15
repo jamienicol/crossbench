@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-import abc
 
+import abc
 import json
 import logging
 import multiprocessing
@@ -12,19 +12,19 @@ import pathlib
 import signal
 import subprocess
 import time
-from typing import TYPE_CHECKING, Iterable, List, Optional, cast
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, cast
 
 from crossbench import helper
+from crossbench.browsers.chromium import Chromium
 from crossbench.platform import Platform, SubprocessError
 from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
 from crossbench.probes.results import ProbeResult
 from crossbench.probes.v8.log import V8LogProbe
-from crossbench.browsers.chromium import Chromium
 
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
   from crossbench.env import HostEnvironment
-  from crossbench.runner import Run, BrowsersRunGroup
+  from crossbench.runner import BrowsersRunGroup, Run
 
 
 class ProfilingProbe(Probe):
@@ -371,6 +371,13 @@ class LinuxProfilingScope(ProfilingScope):
         file.unlink()
 
 
+def prepare_linux_perf_env(platform: Platform,
+                           cwd: pathlib.Path) -> Dict[str, str]:
+  env: Dict[str, str] = dict(platform.environ)
+  env["JITDUMPDIR"] = str(cwd.absolute())
+  return env
+
+
 def linux_perf_probe_inject_v8_symbols(
     perf_data_file: pathlib.Path,
     platform: Optional[Platform] = None) -> Optional[pathlib.Path]:
@@ -378,9 +385,15 @@ def linux_perf_probe_inject_v8_symbols(
   output_file = perf_data_file.with_suffix(".data.jitted")
   assert not output_file.exists()
   platform = platform or helper.PLATFORM
+  env = prepare_linux_perf_env(platform, perf_data_file.parent)
   try:
-    platform.sh("perf", "inject", "--jit", f"--input={perf_data_file}",
-                f"--output={output_file}")
+    platform.sh(
+        "perf",
+        "inject",
+        "--jit",
+        f"--input={perf_data_file}",
+        f"--output={output_file}",
+        env=env)
   except SubprocessError as e:
     KB = 1024
     if perf_data_file.stat().st_size > 200 * KB:
@@ -400,6 +413,7 @@ def linux_perf_probe_pprof(
     platform: Optional[Platform] = None) -> Optional[str]:
   size = helper.get_file_size(perf_data_file)
   platform = platform or helper.PLATFORM
+  env = prepare_linux_perf_env(platform, perf_data_file.parent)
   url = ""
   try:
     url = platform.sh_stdout(
@@ -407,6 +421,7 @@ def linux_perf_probe_pprof(
         "-flame",
         f"-add_comment={run_details}",
         perf_data_file,
+        env=env,
     ).strip()
   except SubprocessError as e:
     # Occasionally small .jitted files fail, likely due perf inject silently

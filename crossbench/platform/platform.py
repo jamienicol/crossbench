@@ -20,7 +20,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import (Any, Dict, Iterable, Iterator, List, Mapping, Optional,
+                    Tuple, Union)
 
 import psutil
 
@@ -277,9 +278,10 @@ class Platform(abc.ABC):
                 *args,
                 shell: bool = False,
                 quiet: bool = False,
-                encoding: str = "utf-8") -> str:
+                encoding: str = "utf-8",
+                env: Optional[Mapping[str, str]] = None) -> str:
     completed_process = self.sh(
-        *args, shell=shell, capture_output=True, quiet=quiet)
+        *args, shell=shell, capture_output=True, quiet=quiet, env=env)
     return completed_process.stdout.decode(encoding)
 
   def popen(self,
@@ -288,7 +290,7 @@ class Platform(abc.ABC):
             stdout=None,
             stderr=None,
             stdin=None,
-            env=None,
+            env: Optional[Mapping[str, str]] = None,
             quiet: bool = False) -> subprocess.Popen:
     if not quiet:
       logging.debug("SHELL: %s", shlex.join(map(str, args)))
@@ -308,8 +310,8 @@ class Platform(abc.ABC):
          stdout=None,
          stderr=None,
          stdin=None,
-         env=None,
-         quiet=False) -> subprocess.CompletedProcess:
+         env: Optional[Mapping[str, str]] = None,
+         quiet: bool = False) -> subprocess.CompletedProcess:
     if not quiet:
       logging.debug("SHELL: %s", shlex.join(map(str, args)))
       logging.debug("CWD: %s", os.getcwd())
