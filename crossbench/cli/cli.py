@@ -11,7 +11,6 @@ import logging
 import pathlib
 import sys
 import tempfile
-import textwrap
 import traceback
 from typing import (TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple,
                     Type)
@@ -20,7 +19,7 @@ from tabulate import tabulate
 
 import crossbench.benchmarks.all as benchmarks
 import crossbench.browsers.all as browsers
-from crossbench import helper, cli_helper
+from crossbench import cli_helper, helper
 from crossbench.benchmarks.benchmark import Benchmark
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport, ViewportMode
@@ -30,6 +29,7 @@ from crossbench.probes.all import GENERAL_PURPOSE_PROBES
 from crossbench.runner import Runner, Timing
 
 from . import cli_config
+from .devtools_recorder_proxy import CrossbenchDevToolsRecorderProxy
 
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
@@ -58,6 +58,7 @@ class CrossBenchCLI:
     self._subparsers: Dict[BenchmarkClsT, argparse.ArgumentParser] = {}
     self.parser = argparse.ArgumentParser()
     self.describe_parser = argparse.ArgumentParser()
+    self.recorder_parser = argparse.ArgumentParser()
     # TODO: use self.args instead of passing it along as parameter.
     self.args = argparse.Namespace()
     self._setup_parser()
@@ -101,7 +102,13 @@ class CrossBenchCLI:
           (list,
            tuple)), (f"Benchmark alias must be list or tuple, but got: {alias}")
       self._setup_benchmark_subparser(benchmark_cls, alias)
+    self._setup_recorder_subparser()
     self._setup_describe_subparser()
+
+  def _setup_recorder_subparser(self) -> None:
+    self.recorder_parser = CrossbenchDevToolsRecorderProxy.add_subcommand(
+        self.subparsers)
+    self._add_verbosity_argument(self.recorder_parser)
 
   def _setup_describe_subparser(self) -> None:
     self.describe_parser = self.subparsers.add_parser(

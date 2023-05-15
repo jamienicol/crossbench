@@ -87,7 +87,6 @@ class ExceptionAnnotationScope:
     # False => exception not handled
     return False
 
-
 class ExceptionAnnotator:
   """Collects exceptions with full backtraces and user-provided info stacks.
 
@@ -154,6 +153,8 @@ class ExceptionAnnotator:
 
   def _extend_with_prepended_stack_info(self,
                                         annotator: ExceptionAnnotator) -> None:
+    if annotator == self:
+      return
     for entry in annotator.exceptions:
       merged_info_stack = self.info_stack + entry.info_stack
       merged_entry = Entry(entry.traceback, entry.exception, merged_info_stack)
