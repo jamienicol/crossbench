@@ -8,7 +8,7 @@ import argparse
 import json
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Dict, Optional, Sequence, Set
+from typing import TYPE_CHECKING, Dict, Optional, Sequence, Set, Any
 
 from crossbench import cli_helper, compat, helper
 from crossbench.browsers.chromium import Chromium
@@ -125,6 +125,15 @@ def parse_trace_config_file_path(value: str) -> pathlib.Path:
         f"Invalid record_mode: '{record_mode}'. "
         f"Choices are: {', '.join(str(e) for e in RecordMode)}") from e
     # pytype: enable=missing-parameter
+  record_format = config.get("record_format", RecordFormat.PROTO)
+  try:
+    RecordFormat(record_format)
+  except ValueError as e:
+    # pytype: disable=missing-parameter
+    raise argparse.ArgumentTypeError(
+        f"Invalid record_format: '{record_format}'. "
+        f"Choices are: {', '.join(str(e) for e in RecordFormat)}") from e
+    # pytype: enable=missing-parameter
   return pathlib.Path(value)
 
 
@@ -165,18 +174,18 @@ class TracingProbe(Probe):
               "for more details."))
     parser.add_argument(
         "startup_duration",
-        default=0,
+        default=None,
         type=cli_helper.parse_positive_zero_int,
         help=("Stop recording tracing after a given number of seconds. "
               "Use 0 (default) for unlimited recording time."))
     parser.add_argument(
         "record_mode",
-        default=RecordMode.CONTINUOUSLY,
+        default=None,
         type=RecordMode,
-        help="")
+        help=f"Default is {RecordMode.CONTINUOUSLY}")
     parser.add_argument(
         "record_format",
-        default=RecordFormat.PROTO,
+        default=None,
         type=RecordFormat,
         help=(
             "Choose between 'json' or the default 'proto' format. "
@@ -196,9 +205,9 @@ class TracingProbe(Probe):
                preset: Optional[str] = None,
                categories: Optional[Sequence[str]] = None,
                trace_config: Optional[pathlib.Path] = None,
-               startup_duration: int = 0,
-               record_mode: RecordMode = RecordMode.CONTINUOUSLY,
-               record_format: RecordFormat = RecordFormat.PROTO,
+               startup_duration: Optional[int] = 0,
+               record_mode: Optional[RecordMode] = None,
+               record_format: Optional[RecordFormat] = None,
                traceconv: Optional[pathlib.Path] = None) -> None:
     super().__init__()
     self._trace_config = trace_config
@@ -206,16 +215,42 @@ class TracingProbe(Probe):
     if preset:
       self._categories.update(TRACE_PRESETS[preset])
     if self._trace_config:
+      with self._trace_config.open(encoding="utf-8") as f:
+        trace_config_data = json.load(f)
+      record_mode = self._extract_trace_config_value(
+          "record_mode", trace_config_data["trace_config"], record_mode,
+          RecordMode)
+      record_format = self._extract_trace_config_value("record_format",
+                                                       trace_config_data,
+                                                       record_format,
+                                                       RecordFormat)
+      startup_duration = self._extract_trace_config_value(
+          "startup_duration", trace_config_data, startup_duration,
+          cli_helper.parse_positive_int)
       if self._categories != set(MINIMAL_CONFIG):
         raise argparse.ArgumentTypeError(
             "TracingProbe requires either a list of "
             "trace categories or a trace_config file.")
       self._categories = set()
 
-    self._startup_duration: int = startup_duration
-    self._record_mode: RecordMode = record_mode
-    self._record_format: RecordFormat = record_format
+    self._startup_duration: int = startup_duration or 0
+    self._record_mode: RecordMode = record_mode or RecordMode.CONTINUOUSLY
+    self._record_format: RecordFormat = record_format or RecordFormat.PROTO
     self._traceconv = traceconv
+
+  def _extract_trace_config_value(self, name: str, container: Dict[str, Any],
+                                  probe_value, parser):
+    trace_config_value = container.get(name)
+    if trace_config_value:
+      trace_config_value = parser(trace_config_value)
+    if probe_value is None:
+      return trace_config_value
+    if probe_value != trace_config_value:
+      raise argparse.ArgumentTypeError(
+          f"trace_config {self._trace_config} contains conflicting "
+          f"{name}: '{trace_config_value}' (trace config file) vs. "
+          f"'{probe_value}' (probe config)")
+    return trace_config_value
 
   @property
   def results_file_name(self) -> str:
