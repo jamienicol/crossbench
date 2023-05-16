@@ -126,15 +126,25 @@ class Adb:
     cmd = ["dumpsys", *args]
     return self.shell(*cmd, quiet=quiet, encoding=encoding)
 
-  def services(self) -> List[str]:
-    lines = list(self.cmd("-l").strip().split("\n"))
+  def getprop(self,
+              *args: str,
+              quiet: bool = False,
+              encoding: str = "utf-8") -> str:
+    cmd = ["getprop", *args]
+    return self.shell(*cmd, quiet=quiet, encoding=encoding).strip()
+
+  def services(self, quiet: bool = False, encoding: str = "utf-8") -> List[str]:
+    lines = list(
+        self.cmd("-l", quiet=quiet, encoding=encoding).strip().split("\n"))
     lines = lines[1:]
     lines.sort()
     return [line.strip() for line in lines]
 
-  def packages(self) -> List[str]:
+  def packages(self, quiet: bool = False, encoding: str = "utf-8") -> List[str]:
     # adb shell cmd package list packages
-    raw_list = self.cmd("package", "list", "packages").strip().split("\n")
+    raw_list = self.cmd(
+        "package", "list", "packages", quiet=quiet,
+        encoding=encoding).strip().split("\n")
     packages = [package.split(":", maxsplit=2)[1] for package in raw_list]
     packages.sort()
     return packages
@@ -170,23 +180,22 @@ class AndroidAdbPlatform(PosixPlatform):
   @property
   @lru_cache
   def version(self) -> str:
-    return self.adb.shell("getprop", "ro.build.version.release").strip()
+    return self.adb.getprop("ro.build.version.release")
 
   @property
   @lru_cache
   def device(self) -> str:
-    return self.adb.shell("getprop", "ro.product.model").strip()
+    return self.adb.getprop("ro.product.model")
 
   @property
   @lru_cache
   def cpu(self) -> str:
-    variant = self.adb.shell("getprop", "dalvik.vm.isa.arm.variant").strip()
-    platform = self.adb.shell("getprop", "ro.board.platform").strip()
+    variant = self.adb.getprop("dalvik.vm.isa.arm.variant")
+    platform = self.adb.getprop("ro.board.platform")
     try:
       # TODO: add file_contents helper on platform
-      _, max_core = self.sh_stdout(
-          "cat", "/sys/devices/system/cpu/possible").strip().split(
-              "-", maxsplit=1)
+      _, max_core = self.cat("/sys/devices/system/cpu/possible").strip().split(
+          "-", maxsplit=1)
       cores = int(max_core) + 1
       return f"{variant} {platform} {cores} cores"
     except Exception:
@@ -206,7 +215,7 @@ class AndroidAdbPlatform(PosixPlatform):
   @property
   @lru_cache
   def machine(self) -> MachineArch:
-    cpu_abi = self.adb.shell("getprop", "ro.product.cpu.abi").strip()
+    cpu_abi = self.adb.getprop("ro.product.cpu.abi")
     arch = self._MACHINE_ARCH_LOOKUP.get(cpu_abi, None)
     if arch is None:
       raise ValueError("Unknown android CPU ABI: {cpu_abi}")

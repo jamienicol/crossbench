@@ -274,6 +274,10 @@ class Platform(abc.ABC):
       proc.terminate()
     process.terminate()
 
+  @abc.abstractmethod
+  def cat(self, file: Union[str, pathlib.Path], encoding: str = "utf-8") -> str:
+    """Meow! I return the file contents as a str."""
+
   def sh_stdout(self,
                 *args,
                 shell: bool = False,

@@ -38,24 +38,21 @@ class LinuxPlatform(PosixPlatform):
   @property
   @lru_cache
   def device(self) -> str:
-    vendor = self.sh_stdout("cat",
-                            "/sys/devices/virtual/dmi/id/sys_vendor").strip()
-    product = self.sh_stdout(
-        "cat", "/sys/devices/virtual/dmi/id/product_name").strip()
+    vendor = self.cat("/sys/devices/virtual/dmi/id/sys_vendor").strip()
+    product = self.cat("/sys/devices/virtual/dmi/id/product_name").strip()
     return f"{vendor} {product}"
 
   @property
   @lru_cache
   def cpu(self) -> str:
     model = ""
-    for line in self.sh_stdout("cat", "/proc/cpuinfo").split("\n"):
+    for line in self.cat("/proc/cpuinfo").split("\n"):
       if line.startswith("model name"):
         _, model = line.split(":", maxsplit=2)
         break
     try:
-      _, max_core = self.sh_stdout(
-          "cat", "/sys/devices/system/cpu/possible").strip().split(
-              "-", maxsplit=1)
+      _, max_core = self.cat("/sys/devices/system/cpu/possible").strip().split(
+          "-", maxsplit=1)
       cores = int(max_core) + 1
       return f"{model} {cores} cores"
     except Exception:
