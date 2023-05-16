@@ -74,10 +74,8 @@ class V8RCSProbe(Probe):
         logging.info("Probe %s: skipping non-existing results file: %s",
                      self.NAME, story_group_file)
       dest_file = merged_result_path / f"{story_group.path.name}.rcs.txt"
+      dest_file.symlink_to(story_group_file)
       files.append(dest_file)
-      with story_group_file.open(encoding="utf-8") as input_f:
-        with dest_file.open("w", encoding="utf-8") as dest_f:
-          dest_f.write(input_f.read())
     return ProbeResult(file=files)
 
 
