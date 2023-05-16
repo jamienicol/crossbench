@@ -19,8 +19,8 @@ from crossbench.browsers.webdriver import WebdriverBrowser
 from .safari import Safari
 
 if TYPE_CHECKING:
-  from crossbench.platform.macos import MacOSPlatform
   from crossbench.flags import Flags
+  from crossbench.platform.macos import MacOSPlatform
   from crossbench.runner import Run, Runner
 
 
@@ -64,6 +64,7 @@ class SafariWebDriver(WebdriverBrowser, Safari):
     capabilities["safari:diagnose"] = "true"
     if "Technology Preview" in self.app_name:
       capabilities["browserName"] = "Safari Technology Preview"
+      options.use_technology_preview = True
     driver = webdriver.Safari(  # pytype: disable=wrong-keyword-args
         executable_path=str(driver_path),
         desired_capabilities=capabilities,
