@@ -175,6 +175,14 @@ class TracingProbe(Probe):
         type=RecordMode,
         help="")
     parser.add_argument(
+        "record_format",
+        default=RecordFormat.PROTO,
+        type=RecordFormat,
+        help=(
+            "Choose between 'json' or the default 'proto' format. "
+            "Perfetto proto output is converted automatically to the legacy json "
+            "format."))
+    parser.add_argument(
         "traceconv",
         default=None,
         type=cli_helper.parse_file_path,
@@ -190,6 +198,7 @@ class TracingProbe(Probe):
                trace_config: Optional[pathlib.Path] = None,
                startup_duration: int = 0,
                record_mode: RecordMode = RecordMode.CONTINUOUSLY,
+               record_format: RecordFormat = RecordFormat.PROTO,
                traceconv: Optional[pathlib.Path] = None) -> None:
     super().__init__()
     self._trace_config = trace_config
@@ -205,7 +214,7 @@ class TracingProbe(Probe):
 
     self._startup_duration: int = startup_duration
     self._record_mode: RecordMode = record_mode
-    self._record_format: RecordFormat = RecordFormat.PROTO
+    self._record_format: RecordFormat = record_format
     self._traceconv = traceconv
 
   @property
@@ -215,6 +224,10 @@ class TracingProbe(Probe):
   @property
   def traceconv(self) -> Optional[pathlib.Path]:
     return self._traceconv
+
+  @property
+  def record_format(self) -> RecordFormat:
+    return self._record_format
 
   def is_compatible(self, browser: Browser) -> bool:
     return isinstance(browser, Chromium)
@@ -241,11 +254,16 @@ class TracingProbe(Probe):
 
 class TracingProbeScope(ProbeScope[TracingProbe]):
   _traceconv: Optional[pathlib.Path]
+  _record_format: RecordFormat
 
   def setup(self, run: Run) -> None:
     run.extra_flags["--trace-startup-file"] = str(self.results_file)
-    self._traceconv = self.probe.traceconv or TraceconvFinder(
-        self.browser_platform).traceconv
+    self._record_format = self.probe.record_format
+    if self._record_format == RecordFormat.PROTO:
+      self._traceconv = self.probe.traceconv or TraceconvFinder(
+          self.browser_platform).traceconv
+    else:
+      self._traceconv = None
 
   def start(self, run: Run) -> None:
     del run
@@ -254,6 +272,8 @@ class TracingProbeScope(ProbeScope[TracingProbe]):
     del run
 
   def tear_down(self, run: Run) -> ProbeResult:
+    if self._record_format == RecordFormat.JSON:
+      return ProbeResult(json=(self.results_file,))
     if not self._traceconv:
       logging.info(
           "No traceconv binary: skipping converting proto to legacy traces")
