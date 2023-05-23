@@ -20,6 +20,7 @@ from typing import (TYPE_CHECKING, Dict, Final, List, Optional, Sequence, Tuple,
 from selenium.webdriver.chromium.options import ChromiumOptions
 from selenium.webdriver.chromium.service import ChromiumService
 from selenium.webdriver.chromium.webdriver import ChromiumDriver
+import selenium.common.exceptions
 
 from crossbench import exception, helper
 from crossbench.browsers.browser import BROWSERS_CACHE
@@ -125,11 +126,13 @@ class ChromiumWebDriverAndroid(ChromiumWebDriver):
   _UNSUPPORTED_FLAGS = (
       "--user-data-dir",
       "--disable-sync",
+      "--window-size",
+      "--window-position",
   )
 
-  def _create_flags(self, flags: Flags.InitialDataType,
-                    js_flags: Flags.InitialDataType) -> ChromeFlags:
-    chrome_flags: ChromeFlags = super()._create_flags(flags, js_flags)
+  def _filter_flags_for_run(self, flags: Flags) -> Flags:
+    assert isinstance(flags, ChromeFlags)
+    chrome_flags = cast(ChromeFlags, flags)
     for flag in self._UNSUPPORTED_FLAGS:
       if flag not in chrome_flags:
         continue

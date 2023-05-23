@@ -22,6 +22,22 @@ if TYPE_CHECKING:
   from crossbench.runner import Run, Runner
 
 
+class WebdriverException(RuntimeError):
+  """Wrapper for more readable error messages than the default
+  Webdriver exceptions."""
+
+  def __init__(self, msg: str, browser: Optional[Browser] = None):
+    self._browser = browser
+    self._msg = msg
+    super().__init__(msg)
+
+  def __str__(self) -> str:
+    browser_prefix = ""
+    if self._browser:
+      browser_prefix = f"browser={self._browser}: "
+    return f"{browser_prefix}{self._msg}"
+
+
 class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
   _driver: webdriver.Remote
   _driver_path: Optional[pathlib.Path]
@@ -49,7 +65,10 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
 
   def start(self, run: Run) -> None:
     self._check_driver_version()
-    self._driver = self._start_driver(run, self._driver_path)
+    try:
+      self._driver = self._start_driver(run, self._driver_path)
+    except selenium.common.exceptions.SessionNotCreatedException as e:
+      raise WebdriverException(e.msg, self) from e
     if hasattr(self._driver, "service"):
       self._driver_pid = self._driver.service.process.pid
       candidates: List[int] = []
@@ -98,8 +117,9 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
     except selenium.common.exceptions.WebDriverException as e:
       if e.msg and "net::ERR_CONNECTION_REFUSED" in e.msg:
         # pylint: disable=raise-missing-from
-        raise Exception(f"Browser failed to load URL={url}. "
-                        "The URL is likely unreachable.")
+        raise WebdriverException(
+            f"Browser failed to load URL={url}. The URL is likely unreachable.",
+            self)
       raise
 
   def js(self,

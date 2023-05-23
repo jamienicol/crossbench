@@ -199,6 +199,8 @@ class Chromium(Browser):
       flags_copy.set("--enable-logging")
       flags_copy["--log-file"] = str(self.chrome_log_file)
 
+    flags_copy = self._filter_flags_for_run(flags_copy)
+
     return tuple(flags_copy.get_list())
 
   def _handle_viewport_flags(self, flags: Flags) -> None:

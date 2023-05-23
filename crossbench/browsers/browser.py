@@ -211,10 +211,13 @@ class Browser(abc.ABC):
         runner.wait(1)
 
   def _get_browser_flags_for_run(self, run: Run) -> Tuple[str, ...]:
-    flags_copy = self.flags.copy()
+    flags_copy: Flags = self.flags.copy()
     flags_copy.update(run.extra_flags)
+    flags_copy = self._filter_flags_for_run(flags_copy)
     return tuple(flags_copy.get_list())
 
+  def _filter_flags_for_run(self, flags: Flags) -> Flags:
+    return flags
 
   def quit(self, runner: Runner) -> None:
     del runner
@@ -263,7 +266,10 @@ class Browser(abc.ABC):
             f"{flag} conflicts with requested --viewport={self.viewport}")
 
   def __str__(self) -> str:
-    return f"{self.type.capitalize()}:{self.label}"
+    platform_prefix = ""
+    if self.platform.is_remote:
+      platform_prefix = str(self.platform)
+    return f"{platform_prefix}{self.type.capitalize()}:{self.label}"
 
 
 _FLAG_TO_PATH_RE = re.compile(r"[-/\\:\.]")
