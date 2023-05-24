@@ -380,5 +380,12 @@ class PressBenchmark(SubStoryBenchmark):
     if not url:
       raise ValueError("Invalid empty url")
     if not runner.env.validate_url(url):
-      raise ValueError(f"Could not reach live benchmark URL: '{url}'. "
-                       f"Please make sure you're connected to the internet.")
+      msg = [
+          f"Could not reach live benchmark URL: '{url}'."
+          f"Please make sure you're connected to the internet."
+      ]
+      local_url = first_story.URL_LOCAL
+      if local_url:
+        msg.append(
+            f"Alternatively use --local for the default local URL: {local_url}")
+      raise ValueError("\n".join(msg))
