@@ -4,9 +4,11 @@
 
 from __future__ import annotations
 
+import logging
 import pathlib
 from typing import TYPE_CHECKING, Optional
 
+import selenium.common.exceptions
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -15,6 +17,7 @@ from crossbench.browsers.chromium import (ChromiumWebDriver,
                                           ChromiumWebDriverAndroid)
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
+from crossbench.browsers.webdriver import WebdriverException
 
 if TYPE_CHECKING:
   from selenium.webdriver.chromium.webdriver import ChromiumDriver
@@ -51,8 +54,19 @@ class ChromeWebDriver(ChromiumWebDriver):
         platform=platform)
 
   def _create_driver(self, options, service: ChromeService) -> ChromiumDriver:
-    return webdriver.Chrome(  # pytype: disable=wrong-keyword-args
-        options=options, service=service)
+    try:
+      return webdriver.Chrome(  # pytype: disable=wrong-keyword-args
+          options=options,
+          service=service)
+    except selenium.common.exceptions.WebDriverException as e:
+      msg = "Could not start webdriver."
+      if self.platform.is_android:
+        msg += ("\nPossibly missing chrome settings on {self.platform}.\n"
+                "Please make sure to allow chrome-flags on "
+                "non-rooted android devices: \n"
+                "chrome://flags#enable-command-line-on-non-rooted-devices")
+      logging.error(msg)
+      raise WebdriverException(msg) from e
 
 
 class ChromeWebDriverAndroid(ChromiumWebDriverAndroid, ChromeWebDriver):
