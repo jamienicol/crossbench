@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Dict, List, Tuple
 import crossbench
 from crossbench import helper
 from crossbench.browsers.viewport import Viewport
-from crossbench.probes.results import ProbeResult
-from .probe import Probe, ProbeScope
+from crossbench.probes.results import (EmptyProbeResult, LocalProbeResult,
+                                       ProbeResult)
+
+from .probe import Probe, ProbeScope, ResultLocation
 
 #TODO: fix imports
 cb = crossbench
@@ -36,6 +38,7 @@ class VideoProbe(Probe):
   for visually comparing various browsers / variants / cb.stories
   """
   NAME = "video"
+  RESULT_LOCATION = ResultLocation.BROWSER
   VIDEO_QUALITY = ["-vcodec", "libx264", "-crf", "20"]
   IMAGE_FORMAT = "png"
   TIMESTRIP_FILE_SUFFIX = f".timestrip.{IMAGE_FORMAT}"
@@ -45,7 +48,7 @@ class VideoProbe(Probe):
     self._duration = None
 
   @property
-  def results_file_name(self) -> str:
+  def result_path_name(self) -> str:
     return f"{self.name}.mp4"
 
   def pre_check(self, env: HostEnvironment) -> None:
@@ -90,7 +93,7 @@ class VideoProbe(Probe):
     return VideoProbeScope(self, run)
 
   def merge_repetitions(self, group: RepetitionsRunGroup) -> ProbeResult:
-    result_file = group.get_probe_results_file(self)
+    result_file = group.get_local_probe_result_path(self)
     timeline_strip_file = result_file.with_suffix(self.TIMESTRIP_FILE_SUFFIX)
     runs = tuple(group.runs)
     if len(runs) == 1:
@@ -99,7 +102,7 @@ class VideoProbe(Probe):
       # TODO migrate to platform
       shutil.copy(run_result_file, result_file)
       shutil.copy(run_timeline_strip_file, timeline_strip_file)
-      return ProbeResult(file=(result_file, timeline_strip_file))
+      return LocalProbeResult(file=(result_file, timeline_strip_file))
     logging.info("TIMESTRIP merge page iterations")
     timeline_strips = (run.results[self].file_list[1] for run in runs)
     self.runner_platform.sh("montage", *timeline_strips, "-tile", "1x",
@@ -121,20 +124,20 @@ class VideoProbe(Probe):
         f"hstack=inputs={len(runs)},"
         f"drawtext={draw_text},"
         "scale=3000:-2", *self.VIDEO_QUALITY, result_file)
-    return ProbeResult(file=(result_file, timeline_strip_file))
+    return LocalProbeResult(file=(result_file, timeline_strip_file))
 
   def merge_browsers(self, group: BrowsersRunGroup) -> ProbeResult:
     """Merge story videos from multiple browser/configurations"""
     groups = list(group.repetitions_groups)
     if len(groups) <= 1:
-      return ProbeResult()
+      return EmptyProbeResult()
     grouped: Dict[Story, List[RepetitionsRunGroup]] = helper.group_by(
         groups, key=lambda repetitions_group: repetitions_group.story)
 
-    result_dir = group.get_probe_results_file(self)
+    result_dir = group.get_local_probe_result_path(self)
     result_dir = result_dir / result_dir.stem
     result_dir.mkdir(parents=True)
-    return ProbeResult(
+    return LocalProbeResult(
         file=(self._merge_stories_for_browser(result_dir, story,
                                               repetitions_groups)
               for story, repetitions_groups in grouped.items()))
@@ -181,7 +184,7 @@ class VideoProbeScope(ProbeScope[VideoProbe]):
   def start(self, run: Run) -> None:
     browser = run.browser
     cmd = self._record_cmd(browser.viewport)
-    self._recorder_log_file = self.results_file.with_suffix(
+    self._recorder_log_file = self.result_path.with_suffix(
         ".recorder.log").open(
             "w", encoding="utf-8")
     self._record_process = self.browser_platform.popen(
@@ -198,13 +201,12 @@ class VideoProbeScope(ProbeScope[VideoProbe]):
       env_display = os.environ.get("DISPLAY", ":0.0")
       return ("ffmpeg", "-hide_banner", "-video_size",
               f"{viewport.width}x{viewport.height}", "-f", "x11grab",
-              "-framerate", "60",
-              "-i", f"{env_display}+{viewport.x},{viewport.y}",
-              str(self.results_file))
+              "-framerate", "60", "-i",
+              f"{env_display}+{viewport.x},{viewport.y}", str(self.result_path))
     if self.browser_platform.is_macos:
       return ("/usr/sbin/screencapture", "-v",
               f"-R{viewport.x},{viewport.y},{viewport.width},{viewport.height}",
-              str(self.results_file))
+              str(self.result_path))
     raise Exception("Invalid platform")
 
   def stop(self, run: Run) -> None:
@@ -224,11 +226,11 @@ class VideoProbeScope(ProbeScope[VideoProbe]):
     self._recorder_log_file.close()
     if self._record_process.poll() is not None:
       self._record_process.wait(timeout=5)
-    assert self.results_file.exists(), (
-        f"No screen recording video found at: {self.results_file}")
+    assert self.result_path.exists(), (
+        f"No screen recording video found at: {self.result_path}")
     with tempfile.TemporaryDirectory() as tmp_dir:
       timestrip_file = self._create_time_strip(pathlib.Path(tmp_dir))
-    return ProbeResult(file=(self.results_file, timestrip_file))
+    return LocalProbeResult(file=(self.result_path, timestrip_file))
 
   def _create_time_strip(self, tmpdir: pathlib.Path) -> pathlib.Path:
     logging.info("TIMESTRIP")
@@ -238,7 +240,7 @@ class VideoProbeScope(ProbeScope[VideoProbe]):
     timeline_dir.mkdir(exist_ok=True)
     # Try detect scene changes / steps
     self.runner_platform.sh(
-        "ffmpeg", "-hide_banner", "-i", self.results_file, \
+        "ffmpeg", "-hide_banner", "-i", self.result_path, \
           "-filter_complex", "scale=1000:-2,"
         "select='gt(scene\\,0.011)'," + self.FFMPEG_TIMELINE_TEXT, \
         "-fps_mode", "vfr", \
@@ -249,13 +251,13 @@ class VideoProbeScope(ProbeScope[VideoProbe]):
     safe_duration = 10
     safe_duration = 2
     self.runner_platform.sh(
-        "ffmpeg", "-hide_banner", "-i", self.results_file, "-filter_complex",
+        "ffmpeg", "-hide_banner", "-i", self.result_path, "-filter_complex",
         f"trim=duration={safe_duration},"
         "scale=1000:-2,"
         f"select=not(mod(n\\,{every_nth_frame}))," + self.FFMPEG_TIMELINE_TEXT,
         "-vsync", "vfr", f"{timeline_dir}/%02d.{self.IMAGE_FORMAT}")
 
-    timeline_strip_file = self.results_file.with_suffix(
+    timeline_strip_file = self.result_path.with_suffix(
         self.probe.TIMESTRIP_FILE_SUFFIX)
     self.runner.platform.sh("montage", f"{timeline_dir}/*.{self.IMAGE_FORMAT}",
                             "-tile", "x1", "-gravity", "NorthWest", "-geometry",

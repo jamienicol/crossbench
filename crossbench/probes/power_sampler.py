@@ -9,9 +9,10 @@ import logging
 import pathlib
 import subprocess
 from typing import TYPE_CHECKING, Optional, Sequence, Tuple
-from crossbench import helper
 
-from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
+from crossbench import helper
+from crossbench.probes.probe import (Probe, ProbeConfigParser, ProbeScope,
+                                     ResultLocation)
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
@@ -44,6 +45,7 @@ class PowerSamplerProbe(Probe):
   """
 
   NAME = "powersampler"
+  RESULT_LOCATION = ResultLocation.BROWSER
   BATTERY_ONLY = True
   SAMPLERS: Tuple[SamplerType,
                   ...] = (SamplerType.SMC, SamplerType.USER_IDLE_LEVEL,
@@ -98,8 +100,10 @@ class PowerSamplerProbe(Probe):
 
   def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)
-    if not self.browser_platform.is_battery_powered:
-      env.handle_warning("Power Sampler only works on battery power!")
+    for browser in self._browsers:
+      if not browser.platform.is_battery_powered:
+        env.handle_warning("Power Sampler only works on battery power, "
+                           f"but Browser {browser} is connected to power.")
     # TODO() warn when external monitors are connected
     # TODO() warn about open terminals
 
@@ -119,8 +123,8 @@ class PowerSamplerProbeScope(ProbeScope[PowerSamplerProbe]):
     self._active_user_process: Optional[subprocess.Popen] = None
     self._power_process: Optional[subprocess.Popen] = None
     self._power_battery_process: Optional[subprocess.Popen] = None
-    self._power_output = self.results_file.with_suffix(".power.json")
-    self._power_battery_output = self.results_file.with_suffix(
+    self._power_output = self.result_path.with_suffix(".power.json")
+    self._power_battery_output = self.result_path.with_suffix(
         ".power_battery.json")
 
   def setup(self, run: Run) -> None:
@@ -171,8 +175,9 @@ class PowerSamplerProbeScope(ProbeScope[PowerSamplerProbe]):
     if self._active_user_process:
       self._active_user_process.kill()
     if self.probe.sampling_interval > 0:
-      return ProbeResult(json=[self._power_output, self._power_battery_output])
-    return ProbeResult(json=[self._power_battery_output])
+      return self.browser_result(
+          json=[self._power_output, self._power_battery_output])
+    return self.browser_result(json=[self._power_battery_output])
 
   def _wait_for_battery_not_full(self, run: Run) -> None:
     """

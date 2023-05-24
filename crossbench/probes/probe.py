@@ -7,16 +7,13 @@ from __future__ import annotations
 import abc
 import datetime as dt
 import pathlib
-from typing import (TYPE_CHECKING, Any, Dict, Generic, Optional, Set, Type,
-                    TypeVar)
+from typing import (TYPE_CHECKING, Any, Dict, Generic, Iterable, Optional, Set,
+                    Type, TypeVar)
 
-import crossbench
 from crossbench import helper
 from crossbench.config import ConfigParser
-from crossbench.probes.results import ProbeResult
-
-#TODO: fix imports
-cb = crossbench
+from crossbench.probes.results import (BrowserProbeResult, EmptyProbeResult,
+                                       ProbeResult)
 
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
@@ -33,6 +30,15 @@ class ProbeConfigParser(ConfigParser):
   def __init__(self, probe_cls: Type[Probe]):
     super().__init__("Probe", probe_cls)
     self._probe_cls = probe_cls
+
+
+class ResultLocation(helper.EnumWithHelp):
+  LOCAL = ("local",
+           "Probe always produces results on the runner's local platform.")
+  BROWSER = ("browser",
+             ("Probe produces results on the browser's platform. "
+              "This can be either remote (for instance android browser) "
+              "or local (default system browser)."))
 
 
 class Probe(abc.ABC):
@@ -92,20 +98,17 @@ class Probe(abc.ABC):
   # Set to False if the Probe cannot be used with arbitrary Stories or Pages
   IS_GENERAL_PURPOSE: bool = True
   PRODUCES_DATA: bool = True
+  # Set the default probe result location, used to figure out whether result
+  # files need to be transferred from a remote machine.
+  RESULT_LOCATION: ResultLocation = ResultLocation.LOCAL
   # Set to True if the probe only works on battery power
   BATTERY_ONLY: bool = False
 
   _browsers: Set[Browser]
-  _browser_platform: Optional[Platform]
 
   def __init__(self) -> None:
     assert self.name is not None, "A Probe must define a name"
     self._browsers = set()
-
-  @property
-  def browser_platform(self) -> Platform:
-    assert self._browser_platform
-    return self._browser_platform
 
   @property
   def runner_platform(self) -> Platform:
@@ -117,7 +120,7 @@ class Probe(abc.ABC):
     return self.NAME
 
   @property
-  def results_file_name(self) -> str:
+  def result_path_name(self) -> str:
     return self.name
 
   def is_compatible(self, browser: Browser) -> bool:
@@ -137,12 +140,6 @@ class Probe(abc.ABC):
         f"Probe {self.name} is not compatible with browser {browser.type}")
     assert browser not in self._browsers, (
         f"Probe={self.name} is attached multiple times to the same browser")
-    if not self._browsers:
-      self._browser_platform = browser.platform
-    else:
-      # TODO: clean up _browser_platform acesses and either use the host
-      # platform or rely on the run's browser platform directly.
-      self._browser_platform = None
     self._browsers.add(browser)
 
   def pre_check(self, env: HostEnvironment) -> None:
@@ -164,7 +161,7 @@ class Probe(abc.ABC):
     Return None, a result file Path (or a list of Paths)
     """
     del group
-    return ProbeResult()
+    return EmptyProbeResult()
 
   def merge_stories(self, group: StoriesRunGroup) -> ProbeResult:
     """
@@ -172,7 +169,7 @@ class Probe(abc.ABC):
     Return None, a result file Path (or a list of Paths)
     """
     del group
-    return ProbeResult()
+    return EmptyProbeResult()
 
   def merge_browsers(self, group: BrowsersRunGroup) -> ProbeResult:
     """
@@ -180,7 +177,7 @@ class Probe(abc.ABC):
     Return None, a result file Path (or a list of Paths)
     """
     del group
-    return ProbeResult()
+    return EmptyProbeResult()
 
   @abc.abstractmethod
   def get_scope(self: ProbeT, run: Run) -> ProbeScope[ProbeT]:
@@ -205,7 +202,7 @@ class ProbeScope(abc.ABC, Generic[ProbeT]):
   A scope during which a probe is actively collecting data.
   Override in Probe subclasses to implement actual performance data
   collection.
-  - The data should be written to self.results_file.
+  - The data should be written to self.result_path.
   - A file / list / dict of result file Paths should be returned by the
     override tear_down() method
   """
@@ -213,11 +210,14 @@ class ProbeScope(abc.ABC, Generic[ProbeT]):
   def __init__(self, probe: ProbeT, run: Run):
     self._probe: ProbeT = probe
     self._run: Run = run
-    self._default_results_file: pathlib.Path = run.get_probe_results_file(probe)
+    self._default_result_path: pathlib.Path = self._get_default_result_path()
     self._is_active: bool = False
     self._is_success: bool = False
     self._start_time: Optional[dt.datetime] = None
     self._stop_time: Optional[dt.datetime] = None
+
+  def _get_default_result_path(self) -> pathlib.Path:
+    return self._run.get_default_probe_result_path(self._probe)
 
   def set_start_time(self, start_datetime: dt.datetime) -> None:
     assert self._start_time is None
@@ -263,6 +263,16 @@ class ProbeScope(abc.ABC, Generic[ProbeT]):
   def runner_platform(self) -> Platform:
     return self.runner.platform
 
+  def browser_result(
+      self,
+      url: Optional[Iterable[str]] = None,
+      file: Optional[Iterable[pathlib.Path]] = None,
+      json: Optional[Iterable[pathlib.Path]] = None,
+      csv: Optional[Iterable[pathlib.Path]] = None) -> BrowserProbeResult:
+    """Helper to create BrowserProbeResult that might be stored on a remote
+    browser/device and need to be copied over to the local machine."""
+    return BrowserProbeResult(self.run, url, file, json, csv)
+
   @property
   def start_time(self) -> dt.datetime:
     """
@@ -283,8 +293,8 @@ class ProbeScope(abc.ABC, Generic[ProbeT]):
     return self._is_success
 
   @property
-  def results_file(self) -> pathlib.Path:
-    return self._default_results_file
+  def result_path(self) -> pathlib.Path:
+    return self._default_result_path
 
   @property
   def name(self) -> str:
@@ -330,4 +340,4 @@ class ProbeScope(abc.ABC, Generic[ProbeT]):
       - Either a path (or list of paths) to results file
       - Directly a primitive json-serializable object containing the data
     """
-    return ProbeResult()
+    return EmptyProbeResult()

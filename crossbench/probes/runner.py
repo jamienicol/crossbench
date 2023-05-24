@@ -40,7 +40,7 @@ class RunRunnerLogProbeScope(probe.ProbeScope[RunRunnerLogProbe]):
     log_formatter = logging.Formatter(
         "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s] "
         "[%(name)s]  %(message)s")
-    self._log_handler = logging.FileHandler(self.results_file)
+    self._log_handler = logging.FileHandler(self.result_path)
     self._log_handler.setFormatter(log_formatter)
     self._log_handler.setLevel(logging.DEBUG)
     logging.getLogger().addHandler(self._log_handler)
@@ -55,7 +55,7 @@ class RunRunnerLogProbeScope(probe.ProbeScope[RunRunnerLogProbe]):
     assert self._log_handler
     logging.getLogger().removeHandler(self._log_handler)
     self._log_handler = None
-    return ProbeResult(file=(self.results_file,))
+    return self.browser_result(file=(self.result_path,))
 
 
 class RunDurationsProbe(JsonResultProbe):

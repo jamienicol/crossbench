@@ -5,11 +5,11 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Optional, cast
 
 from crossbench.browsers.chromium import Chromium
 from crossbench.probes.probe import Probe, ProbeScope
-from crossbench.probes.results import ProbeResult
+from crossbench.probes.results import LocalProbeResult, ProbeResult
 
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
@@ -35,21 +35,21 @@ class V8RCSProbe(Probe):
     chromium.js_flags.update(("--runtime-call-stats", "--allow-natives-syntax"))
 
   @property
-  def results_file_name(self) -> str:
+  def result_path_name(self) -> str:
     return f"{self.name}.txt"
 
   def get_scope(self, run: Run) -> V8RCSProbeScope:
     return V8RCSProbeScope(self, run)
 
   def merge_repetitions(self, group: RepetitionsRunGroup) -> ProbeResult:
-    merged_result_path = group.get_probe_results_file(self)
+    merged_result_path = group.get_local_probe_result_path(self)
     result_files = (run.results[self].file for run in group.runs)
     result_file = self.runner_platform.concat_files(
         inputs=result_files, output=merged_result_path)
-    return ProbeResult(file=[result_file])
+    return LocalProbeResult(file=[result_file])
 
   def merge_stories(self, group: StoriesRunGroup) -> ProbeResult:
-    merged_result_path = group.get_probe_results_file(self)
+    merged_result_path = group.get_local_probe_result_path(self)
     with merged_result_path.open("w", encoding="utf-8") as merged_file:
       for repetition_group in group.repetitions_groups:
         merged_iterations_file = repetition_group.results[self].file
@@ -60,11 +60,11 @@ class V8RCSProbe(Probe):
         merged_file.write(f"\n== Page: {repetition_group.story.name}\n")
         with merged_iterations_file.open(encoding="utf-8") as f:
           merged_file.write(f.read())
-    return ProbeResult(file=[merged_result_path])
+    return LocalProbeResult(file=[merged_result_path])
 
   def merge_browsers(self, group: BrowsersRunGroup) -> ProbeResult:
     # We put all the fils by in a toplevel v8.rcs folder
-    merged_result_path = group.get_probe_results_file(self).with_suffix("")
+    merged_result_path = group.get_local_probe_result_path(self).with_suffix("")
     merged_result_path.mkdir()
     files = []
     for story_group in group.story_groups:
@@ -76,11 +76,11 @@ class V8RCSProbe(Probe):
       dest_file = merged_result_path / f"{story_group.path.name}.rcs.txt"
       dest_file.symlink_to(story_group_file)
       files.append(dest_file)
-    return ProbeResult(file=files)
+    return LocalProbeResult(file=files)
 
 
 class V8RCSProbeScope(ProbeScope[V8RCSProbe]):
-  _rcs_table: str
+  _rcs_table: Optional[str] = None
 
   def setup(self, run: Run) -> None:
     pass
@@ -93,11 +93,11 @@ class V8RCSProbeScope(ProbeScope[V8RCSProbe]):
       self._rcs_table = actions.js("return %GetAndResetRuntimeCallStats();")
 
   def tear_down(self, run: Run) -> ProbeResult:
-    if not getattr(self, "_rcs_table", None):
+    if not self._rcs_table:
       raise Exception("Chrome didn't produce any RCS data. "
                       "Use Chrome Canary or make sure to enable the "
                       "v8_enable_runtime_call_stats compile-time flag.")
-    rcs_file = run.get_probe_results_file(self.probe)
+    rcs_file = self.result_path
     with rcs_file.open("a") as f:
       f.write(self._rcs_table)
-    return ProbeResult(file=(rcs_file,))
+    return LocalProbeResult(file=(rcs_file,))

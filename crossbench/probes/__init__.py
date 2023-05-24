@@ -4,13 +4,15 @@
 
 from __future__ import annotations
 
-from crossbench.probes.probe import Probe, ProbeScope, ProbeConfigParser
-from crossbench.probes.results import ProbeResult, ProbeResultDict
+from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
+from crossbench.probes.results import (BrowserProbeResult, ProbeResult,
+                                       ProbeResultDict)
 
 __all__ = [
     "Probe",
     "ProbeConfigParser",
     "ProbeResult",
+    "BrowserProbeResult",
     "ProbeResultDict",
     "ProbeScope",
 ]

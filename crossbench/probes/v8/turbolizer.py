@@ -3,14 +3,14 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-import pathlib
 
+import pathlib
 from typing import TYPE_CHECKING, cast
 
 from crossbench import helper
 from crossbench.browsers.chromium import Chromium
-from crossbench.probes.probe import Probe, ProbeScope
-from crossbench.probes.results import ProbeResult
+from crossbench.probes.probe import Probe, ProbeScope, ResultLocation
+from crossbench.probes.results import LocalProbeResult, ProbeResult
 
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
@@ -24,6 +24,7 @@ class V8TurbolizerProbe(Probe):
   Tool: https://v8.github.io/tools/head/turbolizer/index.html
   """
   NAME = "v8.turbolizer"
+  RESULT_LOCATION = ResultLocation.BROWSER
 
   def is_compatible(self, browser: Browser) -> bool:
     return isinstance(browser, Chromium)
@@ -45,7 +46,7 @@ class V8TurbolizerProbeScope(ProbeScope[V8TurbolizerProbe]):
   def results_dir(self) -> pathlib.Path:
     # Put v8.turbolizer files into separate dirs in case we have
     # multiple isolates
-    turbolizer_log_dir = super().results_file
+    turbolizer_log_dir = super().result_path
     turbolizer_log_dir.mkdir(exist_ok=True)
     return turbolizer_log_dir
 
@@ -61,6 +62,7 @@ class V8TurbolizerProbeScope(ProbeScope[V8TurbolizerProbe]):
     pass
 
   def tear_down(self, run: Run) -> ProbeResult:
-    log_dir = self.results_file.parent
+    # TODO: support remote files.
+    log_dir = self.result_path.parent
     log_files = helper.sort_by_file_size(log_dir.glob("*"))
-    return ProbeResult(file=tuple(log_files))
+    return LocalProbeResult(file=tuple(log_files))

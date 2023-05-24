@@ -8,12 +8,13 @@ import argparse
 import json
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Dict, Optional, Sequence, Set, Any
+from typing import TYPE_CHECKING, Dict, Optional, Sequence, Set
 
 from crossbench import cli_helper, compat, helper
 from crossbench.browsers.chromium import Chromium
 from crossbench.probes import helper as probe_helper
-from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
+from crossbench.probes.probe import (Probe, ProbeConfigParser, ProbeScope,
+                                     ResultLocation)
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
@@ -125,15 +126,6 @@ def parse_trace_config_file_path(value: str) -> pathlib.Path:
         f"Invalid record_mode: '{record_mode}'. "
         f"Choices are: {', '.join(str(e) for e in RecordMode)}") from e
     # pytype: enable=missing-parameter
-  record_format = config.get("record_format", RecordFormat.PROTO)
-  try:
-    RecordFormat(record_format)
-  except ValueError as e:
-    # pytype: disable=missing-parameter
-    raise argparse.ArgumentTypeError(
-        f"Invalid record_format: '{record_format}'. "
-        f"Choices are: {', '.join(str(e) for e in RecordFormat)}") from e
-    # pytype: enable=missing-parameter
   return pathlib.Path(value)
 
 
@@ -145,6 +137,7 @@ class TracingProbe(Probe):
   Currently WIP
   """
   NAME = "tracing"
+  RESULT_LOCATION = ResultLocation.BROWSER
   CHROMIUM_FLAGS = ("--enable-perfetto",)
 
   HELP_URL = "https://www.chromium.org/developers/how-tos/trace-event-profiling-tool/"
@@ -174,18 +167,18 @@ class TracingProbe(Probe):
               "for more details."))
     parser.add_argument(
         "startup_duration",
-        default=None,
+        default=0,
         type=cli_helper.parse_positive_zero_int,
         help=("Stop recording tracing after a given number of seconds. "
               "Use 0 (default) for unlimited recording time."))
     parser.add_argument(
         "record_mode",
-        default=None,
+        default=RecordMode.CONTINUOUSLY,
         type=RecordMode,
-        help=f"Default is {RecordMode.CONTINUOUSLY}")
+        help="")
     parser.add_argument(
         "record_format",
-        default=None,
+        default=RecordFormat.PROTO,
         type=RecordFormat,
         help=(
             "Choose between 'json' or the default 'proto' format. "
@@ -205,9 +198,9 @@ class TracingProbe(Probe):
                preset: Optional[str] = None,
                categories: Optional[Sequence[str]] = None,
                trace_config: Optional[pathlib.Path] = None,
-               startup_duration: Optional[int] = 0,
-               record_mode: Optional[RecordMode] = None,
-               record_format: Optional[RecordFormat] = None,
+               startup_duration: int = 0,
+               record_mode: RecordMode = RecordMode.CONTINUOUSLY,
+               record_format: RecordFormat = RecordFormat.PROTO,
                traceconv: Optional[pathlib.Path] = None) -> None:
     super().__init__()
     self._trace_config = trace_config
@@ -215,45 +208,19 @@ class TracingProbe(Probe):
     if preset:
       self._categories.update(TRACE_PRESETS[preset])
     if self._trace_config:
-      with self._trace_config.open(encoding="utf-8") as f:
-        trace_config_data = json.load(f)
-      record_mode = self._extract_trace_config_value(
-          "record_mode", trace_config_data["trace_config"], record_mode,
-          RecordMode)
-      record_format = self._extract_trace_config_value("record_format",
-                                                       trace_config_data,
-                                                       record_format,
-                                                       RecordFormat)
-      startup_duration = self._extract_trace_config_value(
-          "startup_duration", trace_config_data, startup_duration,
-          cli_helper.parse_positive_int)
       if self._categories != set(MINIMAL_CONFIG):
         raise argparse.ArgumentTypeError(
             "TracingProbe requires either a list of "
             "trace categories or a trace_config file.")
       self._categories = set()
 
-    self._startup_duration: int = startup_duration or 0
-    self._record_mode: RecordMode = record_mode or RecordMode.CONTINUOUSLY
-    self._record_format: RecordFormat = record_format or RecordFormat.PROTO
+    self._startup_duration: int = startup_duration
+    self._record_mode: RecordMode = record_mode
+    self._record_format: RecordFormat = record_format
     self._traceconv = traceconv
 
-  def _extract_trace_config_value(self, name: str, container: Dict[str, Any],
-                                  probe_value, parser):
-    trace_config_value = container.get(name)
-    if trace_config_value:
-      trace_config_value = parser(trace_config_value)
-    if probe_value is None:
-      return trace_config_value
-    if probe_value != trace_config_value:
-      raise argparse.ArgumentTypeError(
-          f"trace_config {self._trace_config} contains conflicting "
-          f"{name}: '{trace_config_value}' (trace config file) vs. "
-          f"'{probe_value}' (probe config)")
-    return trace_config_value
-
   @property
-  def results_file_name(self) -> str:
+  def result_path_name(self) -> str:
     return f"trace.{self._record_format.value}"  # pylint: disable=no-member
 
   @property
@@ -292,7 +259,7 @@ class TracingProbeScope(ProbeScope[TracingProbe]):
   _record_format: RecordFormat
 
   def setup(self, run: Run) -> None:
-    run.extra_flags["--trace-startup-file"] = str(self.results_file)
+    run.extra_flags["--trace-startup-file"] = str(self.result_path)
     self._record_format = self.probe.record_format
     if self._record_format == RecordFormat.PROTO:
       self._traceconv = self.probe.traceconv or TraceconvFinder(
@@ -308,16 +275,17 @@ class TracingProbeScope(ProbeScope[TracingProbe]):
 
   def tear_down(self, run: Run) -> ProbeResult:
     if self._record_format == RecordFormat.JSON:
-      return ProbeResult(json=(self.results_file,))
+      return self.browser_result(json=(self.result_path,))
     if not self._traceconv:
       logging.info(
           "No traceconv binary: skipping converting proto to legacy traces")
-      return ProbeResult(file=(self.results_file,))
-    logging.info("Converting to legacy .json trace: %s", self.results_file)
-    json_trace_file = self.results_file.with_suffix(".json")
-    self.browser_platform.sh(self._traceconv, "json", self.results_file,
+      return self.browser_result(file=(self.result_path,))
+    logging.info("Converting to legacy .json trace: %s", self.result_path)
+    json_trace_file = self.result_path.with_suffix(".json")
+    self.browser_platform.sh(self._traceconv, "json", self.result_path,
                              json_trace_file)
-    return ProbeResult(json=(json_trace_file,), file=(self.results_file,))
+    return self.browser_result(
+        json=(json_trace_file,), file=(self.result_path,))
 
 
 class TraceconvFinder(probe_helper.V8CheckoutFinder):

@@ -17,7 +17,8 @@ from crossbench.browsers.browser import Browser
 from crossbench.browsers.chromium import Chromium
 from crossbench.flags import JSFlags
 from crossbench.probes import helper as probe_helper
-from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
+from crossbench.probes.probe import (Probe, ProbeConfigParser, ProbeScope,
+                                     ResultLocation)
 from crossbench.probes.results import ProbeResult
 
 if TYPE_CHECKING:
@@ -36,6 +37,7 @@ class V8LogProbe(Probe):
   config-properties for more details.
   """
   NAME = "v8.log"
+  RESULT_LOCATION = ResultLocation.BROWSER
 
   _FLAG_RE = re.compile("^--(prof|log-.*|no-log-.*|)$")
 
@@ -119,21 +121,22 @@ class V8LogProbe(Probe):
 
   def process_log_files(self,
                         log_files: List[pathlib.Path]) -> List[pathlib.Path]:
-    finder = V8ToolsFinder(self.browser_platform, self._d8_binary,
-                           self._v8_checkout)
+    platform = self.runner_platform
+    finder = V8ToolsFinder(platform, self._d8_binary, self._v8_checkout)
     if not finder.d8_binary or not finder.tick_processor or not log_files:
       logging.info("Did not find $D8_PATH for profview processing.")
       return []
     logging.info(
         "PROBE v8.log: generating profview json data "
         "for %d v8.log files.", len(log_files))
-    if self.browser_platform.is_remote:
+    if platform.is_remote:
+      # TODO: fix, currently unused
       # Use loop, as we cannot easily serialize the remote platform.
       return [
           _process_profview_json(finder.d8_binary, finder.tick_processor,
                                  log_file) for log_file in log_files
       ]
-    assert self.browser_platform == helper.PLATFORM
+    assert platform == helper.PLATFORM
     with multiprocessing.Pool(processes=4) as pool:
       return list(
           pool.starmap(_process_profview_json,
@@ -181,15 +184,13 @@ class V8LogProbe(Probe):
 
 class V8LogProbeScope(ProbeScope[V8LogProbe]):
 
-  @property
-  def results_file(self) -> pathlib.Path:
-    # Put v8.log files into separate dirs in case we have multiple isolates
-    log_dir: pathlib.Path = super().results_file
-    log_dir.mkdir(exist_ok=True)
-    return log_dir / self.probe.results_file_name
+  def _get_default_result_path(self) -> pathlib.Path:
+    log_dir = super()._get_default_result_path()
+    self.browser_platform.mkdir(log_dir)
+    return log_dir / self.probe.result_path_name
 
   def setup(self, run: Run) -> None:
-    run.extra_js_flags["--logfile"] = str(self.results_file)
+    run.extra_js_flags["--logfile"] = str(self.result_path)
 
   def start(self, run: Run) -> None:
     pass
@@ -198,14 +199,14 @@ class V8LogProbeScope(ProbeScope[V8LogProbe]):
     pass
 
   def tear_down(self, run: Run) -> ProbeResult:
-    log_dir = self.results_file.parent
+    log_dir = self.result_path.parent
     log_files = helper.sort_by_file_size(log_dir.glob("*-v8.log"))
     # Only convert a v8.log file with profile ticks.
     json_list: List[pathlib.Path] = []
     if "--prof" in getattr(self.browser, "js_flags", {}):
       with helper.Spinner():
         json_list = self.probe.process_log_files(log_files)
-    return ProbeResult(file=tuple(log_files), json=json_list)
+    return self.browser_result(file=tuple(log_files), json=json_list)
 
 
 def _process_profview_json(d8_binary: pathlib.Path,

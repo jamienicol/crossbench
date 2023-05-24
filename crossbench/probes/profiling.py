@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, cast
 from crossbench import helper
 from crossbench.browsers.chromium import Chromium
 from crossbench.platform import Platform, SubprocessError
-from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope
+from crossbench.probes.probe import Probe, ProbeConfigParser, ProbeScope, ResultLocation
 from crossbench.probes.results import ProbeResult
 from crossbench.probes.v8.log import V8LogProbe
 
@@ -40,6 +40,7 @@ class ProfilingProbe(Probe):
   pprof.
   """
   NAME = "profiling"
+  RESULT_LOCATION = ResultLocation.BROWSER
 
   JS_FLAGS_PERF = (
       "--perf-prof",
@@ -121,7 +122,7 @@ class ProfilingProbe(Probe):
 
   def attach(self, browser: Browser) -> None:
     super().attach(browser)
-    if self.browser_platform.is_linux:
+    if browser.platform.is_linux:
       assert isinstance(browser, Chromium), (
           f"Expected Chromium-based browser, found {type(browser)}.")
     if isinstance(browser, Chromium):
@@ -132,25 +133,30 @@ class ProfilingProbe(Probe):
 
   def pre_check(self, env: HostEnvironment) -> None:
     super().pre_check(env)
+    for browser in self._browsers:
+      self._pre_check_browser(browser, env)
+
+  def _pre_check_browser(self, browser: Browser, env: HostEnvironment):
+    browser_platform = browser.platform
     if self.run_pprof:
-      self._run_pprof = self.browser_platform.which("gcert") is not None
+      self._run_pprof = browser_platform.which("gcert") is not None
       if not self.run_pprof:
         logging.warning(
             "Disabled automatic pprof uploading for non-googler machine.")
-    if self.browser_platform.is_linux:
+    if browser_platform.is_linux:
       env.check_installed(binaries=["pprof"])
-      assert self.browser_platform.which("perf"), "Please install linux-perf"
-    elif self.browser_platform.is_macos:
-      assert self.browser_platform.which("xctrace"), (
+      assert browser_platform.which("perf"), "Please install linux-perf"
+    elif browser_platform.is_macos:
+      assert browser_platform.which("xctrace"), (
           "Please install Xcode to use xctrace")
     if self.run_pprof:
       try:
-        self.browser_platform.sh(self.browser_platform.which("gcertstatus"))
+        browser_platform.sh(browser_platform.which("gcertstatus"))
         return
       except SubprocessError:
         env.handle_warning("Please run gcert for generating pprof results")
     # Only Linux-perf results can be merged
-    if self.browser_platform.is_macos and env.runner.repetitions > 1:
+    if browser_platform.is_macos and env.runner.repetitions > 1:
       env.handle_warning(f"Probe={self.NAME} cannot merge data over multiple "
                          f"repetitions={env.runner.repetitions}.")
 
@@ -160,7 +166,7 @@ class ProfilingProbe(Probe):
       if self._expose_v8_interpreted_frames:
         browser.js_flags.set(self._INTERPRETED_FRAMES_FLAG)
     cmd = pathlib.Path(__file__).parent / "linux-perf-chrome-renderer-cmd.sh"
-    assert not self.browser_platform.is_remote, (
+    assert not browser.platform.is_remote, (
         "Copying renderer command prefix to remote platform is "
         "not implemented yet")
     assert cmd.is_file(), f"Didn't find {cmd}"
@@ -206,9 +212,9 @@ class ProfilingProbe(Probe):
                      largest_perf_file.parent.relative_to(cwd), len(perf_files))
 
   def get_scope(self, run: Run) -> ProfilingScope:
-    if self.browser_platform.is_linux:
+    if run.platform.is_linux:
       return LinuxProfilingScope(self, run)
-    if self.browser_platform.is_macos:
+    if run.platform.is_macos:
       return MacOSProfilingScope(self, run)
     raise NotImplementedError("Invalid platform")
 
@@ -220,15 +226,14 @@ class ProfilingScope(ProbeScope[ProfilingProbe], metaclass=abc.ABCMeta):
 class MacOSProfilingScope(ProfilingScope):
   _process: subprocess.Popen
 
-  def __init__(self, probe: ProfilingProbe, run: Run) -> None:
-    super().__init__(probe, run)
-    self._default_results_file = self.results_file.parent / "profile.trace"
+  def _get_default_result_path(self) -> pathlib.Path:
+    return super()._get_default_result_path().parent / "profile.trace"
 
   def start(self, run: Run) -> None:
     self._process = self.browser_platform.popen("xctrace", "record",
                                                 "--template", "Time Profiler",
                                                 "--all-processes", "--output",
-                                                self.results_file)
+                                                self.result_path)
     # xctrace takes some time to start up
     time.sleep(3)
 
@@ -239,7 +244,7 @@ class MacOSProfilingScope(ProfilingScope):
   def tear_down(self, run: Run) -> ProbeResult:
     while self._process.poll() is None:
       time.sleep(1)
-    return ProbeResult(file=(self.results_file,))
+    return self.browser_result(file=(self.result_path,))
 
 
 class LinuxProfilingScope(ProfilingScope):
@@ -298,13 +303,13 @@ class LinuxProfilingScope(ProfilingScope):
       self._clean_up_temp_files(run)
     if self.probe.run_pprof:
       logging.debug("Profiling results: %s", urls)
-      return ProbeResult(url=urls, file=raw_perf_files)
+      return self.browser_result(url=urls, file=raw_perf_files)
     if self.browser_platform.which("pprof"):
       logging.info("Run pprof over all (or single) perf data files "
                    "for interactive analysis:")
       logging.info("   pprof --http=localhost:1984 %s",
                    " ".join(map(str, perf_files)))
-    return ProbeResult(file=perf_files)
+    return self.browser_result(file=perf_files)
 
   def _inject_v8_symbols(self, run: Run,
                          perf_files: List[pathlib.Path]) -> List[pathlib.Path]:

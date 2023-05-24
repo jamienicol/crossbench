@@ -9,9 +9,9 @@ from crossbench.probes import helper as probes_helper
 from crossbench.probes.json import JsonResultProbe
 
 if TYPE_CHECKING:
-  from crossbench.probes.results import ProbeResult
   from crossbench.browsers.browser import Browser
-  from crossbench.runner import (Actions, BrowsersRunGroup, StoriesRunGroup)
+  from crossbench.probes.results import ProbeResult
+  from crossbench.runner import Actions, BrowsersRunGroup, StoriesRunGroup
 
 
 class PerformanceEntriesProbe(JsonResultProbe):

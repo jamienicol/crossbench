@@ -17,15 +17,16 @@ import sys
 from typing import (TYPE_CHECKING, Any, Dict, Iterable, Iterator, List,
                     Optional, Sequence, Tuple, Union)
 
-from crossbench.platform import Platform, DEFAULT_PLATFORM
 from crossbench import cli_helper, exception, helper
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.flags import Flags, JSFlags
-from crossbench.probes.results import ProbeResult, ProbeResultDict
+from crossbench.platform import DEFAULT_PLATFORM, Platform
+from crossbench.probes.probe import Probe, ProbeScope, ResultLocation
+from crossbench.probes.results import (EmptyProbeResult, ProbeResult,
+                                       ProbeResultDict)
 from crossbench.probes.runner import (RunDurationsProbe, RunResultsSummaryProbe,
                                       RunRunnerLogProbe)
-from crossbench.probes.probe import Probe, ProbeScope
 
 if TYPE_CHECKING:
   from crossbench.benchmarks.benchmark import Benchmark
@@ -130,11 +131,6 @@ class Runner:
     self._timing = timing
     self.browsers = browsers
     self._validate_browsers()
-    if len(set(b.platform for b in browsers)) == 1:
-      self._browser_platform = browsers[0].platform
-    else:
-      # TODO: cleanup and limit access to cached browser_platform
-      self._browser_platform = None
     self._benchmark = benchmark
     self.stories = benchmark.stories
     self.repetitions = repetitions
@@ -210,11 +206,6 @@ class Runner:
   @property
   def platform(self) -> Platform:
     return self._platform
-
-  @property
-  def browser_platform(self) -> Platform:
-    assert self._browser_platform
-    return self._browser_platform
 
   @property
   def env(self) -> HostEnvironment:
@@ -393,9 +384,10 @@ class RunGroup(abc.ABC):
   def info(self) -> Dict[str, str]:
     pass
 
-  def get_probe_results_file(self, probe: Probe,
-                             exists_ok: bool = False) -> pathlib.Path:
-    new_file = self.path / probe.results_file_name
+  def get_local_probe_result_path(self,
+                                  probe: Probe,
+                                  exists_ok: bool = False) -> pathlib.Path:
+    new_file = self.path / probe.result_path_name
     if not exists_ok:
       assert not new_file.exists(), (
           f"Merged file {new_file} for {self.__class__} exists already.")
@@ -614,6 +606,7 @@ class Run:
     self._durations = helper.Durations()
     self._temperature = temperature
     self._exceptions = exception.Annotator(throw)
+    self._browser_tmp_dir: Optional[pathlib.Path] = None
 
   def get_out_dir(self, root_dir: pathlib.Path) -> pathlib.Path:
     return root_dir / self.browser.unique_name / self.story.name / str(
@@ -673,7 +666,38 @@ class Run:
 
   @property
   def platform(self) -> Platform:
+    return self.browser_platform
+
+  @property
+  def browser_platform(self) -> Platform:
     return self._browser.platform
+
+  @property
+  def runner_platform(self) -> Platform:
+    return self.runner.platform
+
+  @property
+  def is_remote(self) -> bool:
+    return self.browser_platform.is_remote
+
+  @property
+  def out_dir(self) -> pathlib.Path:
+    """A local directory where all result files are gathered.
+    Results from browsers on remote platforms are transferred to this dir
+    as well."""
+    return self._out_dir
+
+  @property
+  def browser_tmp_dir(self) -> pathlib.Path:
+    """Returns a path to a tmp dir on the browser platform."""
+    if not self._browser_tmp_dir:
+      prefix = "cb_run_results"
+      self._browser_tmp_dir = self.browser_platform.mkdtemp(prefix)
+    return self._browser_tmp_dir
+
+  @property
+  def results(self) -> ProbeResultDict:
+    return self._probe_results
 
   @property
   def story(self) -> Story:
@@ -688,20 +712,12 @@ class Run:
     return self._extra_js_flags
 
   @property
-  def out_dir(self) -> pathlib.Path:
-    return self._out_dir
-
-  @property
   def extra_flags(self) -> Flags:
     return self._extra_flags
 
   @property
   def probes(self) -> Iterable[Probe]:
     return self._runner.probes
-
-  @property
-  def results(self) -> ProbeResultDict:
-    return self._probe_results
 
   @property
   def exceptions(self) -> exception.Annotator:
@@ -738,10 +754,31 @@ class Run:
     details_json["flags"] += tuple(self.extra_flags.get_list())
     return details_json
 
-  def get_probe_results_file(self, probe: Probe) -> pathlib.Path:
-    file = self._out_dir / probe.results_file_name
+  def get_default_probe_result_path(self, probe: Probe) -> pathlib.Path:
+    """Return a local or remote/browser-based result path depending on the
+    Probe default RESULT_LOCATION."""
+    if probe.RESULT_LOCATION == ResultLocation.BROWSER:
+      return self.get_browser_probe_result_path(probe)
+    if probe.RESULT_LOCATION == ResultLocation.LOCAL:
+      return self.get_local_probe_result_path(probe)
+    raise ValueError(f"Invalid probe.RESULT_LOCATION {probe.RESULT_LOCATION} "
+                     f"for probe {probe}")
+
+  def get_local_probe_result_path(self, probe: Probe) -> pathlib.Path:
+    file = self._out_dir / probe.result_path_name
     assert not file.exists(), f"Probe results file exists already. file={file}"
     return file
+
+  def get_browser_probe_result_path(self, probe: Probe) -> pathlib.Path:
+    """Returns a temporary path on the remote browser or the same as 
+    get_local_probe_result_path() on a local browser."""
+    if not self.is_remote:
+      return self.get_local_probe_result_path(probe)
+    path = self.browser_tmp_dir / probe.result_path_name
+    self.browser_platform.mkdir(path.parent)
+    logging.debug("Creating remote result dir=%s on platform=%s", path.parent,
+                  self.browser_platform)
+    return path
 
   def setup(self, is_dry_run: bool) -> List[ProbeScope]:
     self._advance_state(self.STATE_INITIAL, self.STATE_PREPARE)
@@ -773,7 +810,7 @@ class Run:
             f"Got duplicate probe name={probe.name}")
         probe_set.add(probe)
         if probe.PRODUCES_DATA:
-          self._probe_results[probe] = ProbeResult()
+          self._probe_results[probe] = EmptyProbeResult()
         assert probe.is_attached, (
             f"Probe {probe.name} is not properly attached to a browser")
         probe_run_scopes.append(probe.get_scope(self))
@@ -866,6 +903,7 @@ class Run:
     with self.measure("probes-tear_down"):
       logging.debug("TEARDOWN")
       self._tear_down_probe_scopes(probe_scopes)
+    self._rm_browser_tmp_dir()
 
   def _tear_down_probe_scopes(self, probe_scopes: List[ProbeScope]) -> None:
     for probe_scope in reversed(probe_scopes):
@@ -877,6 +915,11 @@ class Run:
           logging.warning("Probe did not extract any data. probe=%s run=%s",
                           probe, self)
         self._probe_results[probe] = probe_results
+
+  def _rm_browser_tmp_dir(self) -> None:
+    if not self._browser_tmp_dir:
+      return
+    self.browser_platform.rm(self._browser_tmp_dir, dir=True)
 
   def log_results(self) -> None:
     for probe in self.probes:

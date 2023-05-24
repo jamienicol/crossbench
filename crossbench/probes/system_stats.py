@@ -67,7 +67,7 @@ class SystemStatsProbeScope(probe.ProbeScope[SystemStatsProbe]):
   _poller: threading.Thread
 
   def setup(self, run: Run) -> None:
-    self.results_file.mkdir()
+    self.result_path.mkdir()
 
   def start(self, run: Run) -> None:
     self._event = threading.Event()
@@ -75,11 +75,11 @@ class SystemStatsProbeScope(probe.ProbeScope[SystemStatsProbe]):
         "Remote platforms are not supported yet")
     self._poller = threading.Thread(
         target=SystemStatsProbe.poll,
-        args=(self.probe.interval, self.results_file, self._event))
+        args=(self.probe.interval, self.result_path, self._event))
     self._poller.start()
 
   def stop(self, run: Run) -> None:
     self._event.set()
 
   def tear_down(self, run: Run) -> ProbeResult:
-    return ProbeResult(file=(self.results_file,))
+    return self.browser_result(file=(self.result_path,))

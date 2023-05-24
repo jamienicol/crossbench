@@ -4,15 +4,17 @@
 
 from __future__ import annotations
 
+import abc
 import logging
 import pathlib
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
 if TYPE_CHECKING:
   from crossbench.probes.probe import Probe
+  from crossbench.runner import Run
 
 
-class ProbeResult:
+class ProbeResult(abc.ABC):
 
   def __init__(self,
                url: Optional[Iterable[str]] = None,
@@ -34,7 +36,11 @@ class ProbeResult:
         (self._url_list, self._file_list, self._json_list, self._csv_list))
 
   def merge(self, other: ProbeResult) -> ProbeResult:
-    return ProbeResult(
+    if self.is_empty:
+      return other
+    if other.is_empty:
+      return self
+    return LocalProbeResult(
         url=self.url_list + other.url_list,
         file=self.file_list + other.file_list,
         json=self.json_list + other.json_list,
@@ -106,6 +112,58 @@ class ProbeResult:
   @property
   def csv_list(self) -> List[pathlib.Path]:
     return list(self._csv_list)
+
+
+class EmptyProbeResult(ProbeResult):
+
+  def __init__(self):
+    super().__init__()
+
+
+class LocalProbeResult(ProbeResult):
+  """LocalProbeResult can be used for files that are always available on the
+  runner/local machine."""
+
+
+class BrowserProbeResult(ProbeResult):
+  """BrowserProbeResult are stored on the device where the browser runs.
+  Result files will be automatically transferred to the local run's results
+  folder.
+  """
+
+  def __init__(self,
+               run: Run,
+               url: Optional[Iterable[str]] = None,
+               file: Optional[Iterable[pathlib.Path]] = None,
+               json: Optional[Iterable[pathlib.Path]] = None,
+               csv: Optional[Iterable[pathlib.Path]] = None):
+    self._browser_file = file
+    self._browser_json = json
+    self._browser_csv = csv
+
+    file = self._copy_files(run, file)
+    json = self._copy_files(run, json)
+    csv = self._copy_files(run, csv)
+
+    super().__init__(url, file, json, csv)
+
+  def _copy_files(
+      self, run: Run, paths: Optional[Iterable[pathlib.Path]]
+  ) -> Optional[Iterable[pathlib.Path]]:
+    if not paths or not run.is_remote:
+      return paths
+    # Copy result files from remote tmp dir to local results dir
+    browser_platform = run.browser_platform
+    remote_tmp_dir = run.browser_tmp_dir
+    out_dir = run.out_dir
+    result_paths: List[pathlib.Path] = []
+    for remote_path in paths:
+      relative_path = remote_path.relative_to(remote_tmp_dir)
+      result_path = out_dir / relative_path
+      browser_platform.copy_to(remote_path, result_path)
+      assert result_path.exists(), "Failed to copy result file."
+      result_paths.append(result_path)
+    return result_paths
 
 
 class ProbeResultDict:

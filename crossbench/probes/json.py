@@ -16,7 +16,8 @@ from typing import (TYPE_CHECKING, Any, Callable, Dict, Generic, List, Optional,
 from tabulate import tabulate
 
 from crossbench.probes import helper
-from crossbench.probes.results import ProbeResult
+from crossbench.probes.results import (EmptyProbeResult, LocalProbeResult,
+                                       ProbeResult)
 
 from .probe import Probe, ProbeScope
 
@@ -39,7 +40,7 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
   FLATTEN = True
 
   @property
-  def results_file_name(self) -> str:
+  def result_path_name(self) -> str:
     return f"{self.name}.json"
 
   @abc.abstractmethod
@@ -86,12 +87,12 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
       )
       with browser_json_path.open(encoding="utf-8") as f:
         browser_result["data"] = json.load(f)
-    merged_json_path = group.get_probe_results_file(self)
+    merged_json_path = group.get_local_probe_result_path(self)
     assert not merged_json_path.exists(), (
         f"Cannot override existing JSON result: {merged_json_path}")
     with merged_json_path.open("w", encoding="utf-8") as f:
       json.dump(merged_json, f, indent=2)
-    return ProbeResult(json=(merged_json_path,))
+    return LocalProbeResult(json=(merged_json_path,))
 
   def merge_browsers_csv_list(self, group: BrowsersRunGroup) -> ProbeResult:
     csv_list: List[pathlib.Path] = []
@@ -100,13 +101,13 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
       csv_list.append(story_group.results[self].csv)
       headers.append(story_group.browser.unique_name)
     merged_table = helper.merge_csv(csv_list)
-    merged_json_path = group.get_probe_results_file(self, exists_ok=True)
+    merged_json_path = group.get_local_probe_result_path(self, exists_ok=True)
     merged_csv_path = merged_json_path.with_suffix(".csv")
     assert not merged_csv_path.exists(), (
         f"Cannot override existing CSV result: {merged_csv_path}")
     with merged_csv_path.open("w", newline="", encoding="utf-8") as f:
       csv.writer(f, delimiter="\t").writerows(merged_table)
-    return ProbeResult(csv=(merged_csv_path,))
+    return LocalProbeResult(csv=(merged_csv_path,))
 
   def write_group_result(self,
                          group: RunGroup,
@@ -114,14 +115,14 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
                          write_csv: bool = False,
                          value_fn: Optional[Callable[[Any], Any]] = None
                         ) -> ProbeResult:
-    merged_json_path = group.get_probe_results_file(self)
+    merged_json_path = group.get_local_probe_result_path(self)
     with merged_json_path.open("w", encoding="utf-8") as f:
       if isinstance(merged_data, dict):
         json.dump(merged_data, f, indent=2)
       else:
         json.dump(merged_data.to_json(), f, indent=2)
     if not write_csv:
-      return ProbeResult(json=(merged_json_path,))
+      return LocalProbeResult(json=(merged_json_path,))
     if not isinstance(merged_data, helper.ValuesMerger):
       raise ValueError("write_csv is only supported for ValuesMerger, "
                        f"but found {type(merged_data)}'.")
@@ -141,7 +142,7 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
       writer = csv.writer(f, delimiter="\t")
       csv_data = merged_data.to_csv(value_fn, list(group.info.items()))
       writer.writerows(csv_data)
-    return ProbeResult(json=(merged_json_path,), csv=(merged_csv_path,))
+    return LocalProbeResult(json=(merged_json_path,), csv=(merged_csv_path,))
 
   def _log_result_metrics(self, data: Dict) -> None:
     table: Dict[str, List[str]] = defaultdict(list)
@@ -189,7 +190,7 @@ class JsonResultProbeScope(ProbeScope[JsonResultProbeT],
 
   def tear_down(self, run: Run) -> ProbeResult:
     if self._json_data is None:
-      return ProbeResult()
+      return EmptyProbeResult()
     self._json_data = self.process_json_data(self._json_data)
     return self.write_json(run, self._json_data)
 
@@ -205,18 +206,18 @@ class JsonResultProbeScope(ProbeScope[JsonResultProbeT],
     with run.actions(f"Writing Probe name={self.probe.name}"):
       assert json_data is not None, (
           f"Probe {self.probe.name} produced no JSON data.")
-      raw_file = self.results_file
+      raw_file = self.result_path
       if self.probe.FLATTEN:
         raw_file = raw_file.with_suffix(".json.raw")
-        flattened_file = self.results_file
+        flattened_file = self.result_path
         flat_json_data = self.flatten_json_data(json_data)
         with flattened_file.open("w", encoding="utf-8") as f:
           json.dump(flat_json_data, f, indent=2)
       with raw_file.open("w", encoding="utf-8") as f:
         json.dump(json_data, f, indent=2)
     if flattened_file:
-      return ProbeResult(json=(flattened_file,), file=(raw_file,))
-    return ProbeResult(json=(raw_file,))
+      return LocalProbeResult(json=(flattened_file,), file=(raw_file,))
+    return LocalProbeResult(json=(raw_file,))
 
   def process_json_data(self, json_data: Any) -> Any:
     return self.probe.process_json_data(json_data)
