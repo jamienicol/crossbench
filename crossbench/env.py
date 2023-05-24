@@ -341,13 +341,15 @@ class HostEnvironment:
     own_pid = os.getpid()
     for proc_info in self._platform.processes(["cmdline", "exe", "pid",
                                                "name"]):
+      if not browser_binaries:
+        return
       # Skip over this python script which might have the binary path as
       # part of the command line invocation.
       if proc_info["pid"] == own_pid:
         continue
       cmdline = " ".join(proc_info["cmdline"] or "")
       exe = proc_info["exe"]
-      for binary, browsers in browser_binaries.items():
+      for binary, browsers in list(browser_binaries.items()):
         # Add a white-space to get less false-positives
         if f"{binary} " not in cmdline and binary != exe:
           continue
@@ -360,6 +362,8 @@ class HostEnvironment:
         self.handle_warning(
             f"{browser.app_name} {browser.version} seems to be already running."
         )
+        # Avoid re-checking the same binary once we've allowed it to be running.
+        del browser_binaries[binary]
 
   def _check_screen_brightness(self) -> None:
     brightness = self._config.screen_brightness_percent
