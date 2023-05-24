@@ -59,8 +59,3 @@ class WinPlatform(Platform):
     return self.sh_stdout(
         "powershell", "-command",
         f"(Get-Item '{app_path}').VersionInfo.ProductVersion")
-
-  def cat(self, file: Union[str, pathlib.Path], encoding: str = "utf-8") -> str:
-    assert not self.is_remote, "Unsupported command on remote platform"
-    with pathlib.Path(file).open(encoding=encoding) as f:
-      return f.read()

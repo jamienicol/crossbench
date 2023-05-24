@@ -16,6 +16,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -85,7 +86,8 @@ class MachineArch(enum.Enum):
 class SubprocessError(subprocess.CalledProcessError):
   """ Custom version that also prints stderr for debugging"""
 
-  def __init__(self, process) -> None:
+  def __init__(self, platform: Platform, process) -> None:
+    self.platform = platform
     super().__init__(process.returncode, shlex.join(map(str, process.args)),
                      process.stdout, process.stderr)
 
@@ -93,10 +95,11 @@ class SubprocessError(subprocess.CalledProcessError):
     super_str = super().__str__()
     if not self.stderr:
       return super_str
-    return f"{super_str}\nstderr:{self.stderr.decode()}"
+    return f"{self.platform}: {super_str}\nstderr:{self.stderr.decode()}"
 
 
 class Platform(abc.ABC):
+  # pylint: disable=locally-disabled, redefined-builtin
 
   @property
   @abc.abstractmethod
@@ -135,8 +138,7 @@ class Platform(abc.ABC):
 
   @property
   def machine(self) -> MachineArch:
-    assert not self.is_remote, (
-        f"Operation not supported yet on remote platform: {self.name}")
+    assert not self.is_remote, "Unsupported operation on remote platform"
     raw = py_platform.machine()
     if raw in ("i386", "i686", "x86", "ia32"):
       return MachineArch.IA32
@@ -186,11 +188,12 @@ class Platform(abc.ABC):
 
   @property
   def environ(self) -> Environ:
-    assert not self.is_remote, "Not implemented yet on remote"
+    assert not self.is_remote, "Unsupported operation on remote platform"
     return LocalEnviron()
 
   @property
   def is_battery_powered(self) -> bool:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     if not psutil.sensors_battery:
       return False
     status = psutil.sensors_battery()
@@ -222,6 +225,7 @@ class Platform(abc.ABC):
     time.sleep(seconds)
 
   def which(self, binary_name: str) -> Optional[pathlib.Path]:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     # TODO(cbruni): support remote platforms
     result = shutil.which(binary_name)
     if not result:
@@ -238,6 +242,7 @@ class Platform(abc.ABC):
     ]
 
   def process_running(self, process_name_list: List[str]) -> Optional[str]:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     # TODO(cbruni): support remote platforms
     for proc in psutil.process_iter():
       try:
@@ -250,6 +255,7 @@ class Platform(abc.ABC):
   def process_children(self,
                        parent_pid: int,
                        recursive: bool = False) -> List[Dict[str, Any]]:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     # TODO(cbruni): support remote platforms
     try:
       process = psutil.Process(parent_pid)
@@ -258,6 +264,7 @@ class Platform(abc.ABC):
     return [p.as_dict() for p in process.children(recursive=recursive)]
 
   def process_info(self, pid: int) -> Optional[Dict[str, Any]]:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     # TODO(cbruni): support remote platforms
     try:
       return psutil.Process(pid).as_dict()
@@ -268,15 +275,56 @@ class Platform(abc.ABC):
     return None
 
   def terminate(self, proc_pid: int) -> None:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     # TODO(cbruni): support remote platforms
     process = psutil.Process(proc_pid)
     for proc in process.children(recursive=True):
       proc.terminate()
     process.terminate()
 
-  @abc.abstractmethod
+  @property
+  def default_tmp_dir(self) -> pathlib.Path:
+    assert not self.is_remote, "Unsupported operation on remote platform"
+    return pathlib.Path(tempfile.gettempdir())
+
   def cat(self, file: Union[str, pathlib.Path], encoding: str = "utf-8") -> str:
     """Meow! I return the file contents as a str."""
+    assert not self.is_remote, "Unsupported operation on remote platform"
+    with pathlib.Path(file).open(encoding=encoding) as f:
+      return f.read()
+
+  def copy_to(self, from_path: pathlib.Path,
+              to_path: pathlib.Path) -> pathlib.Path:
+    assert not self.is_remote, "Unsupported operation on remote platform"
+    to_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(from_path, to_path)
+    return to_path
+
+  def rm(self, path: Union[str, pathlib.Path], dir: bool = False) -> None:
+    """Remove a single file on this platform."""
+    assert not self.is_remote, "Unsupported operation on remote platform"
+    if dir:
+      shutil.rmtree(path)
+    else:
+      pathlib.Path(path).unlink()
+
+  def mkdir(self, path: Union[str, pathlib.Path]) -> None:
+    assert not self.is_remote, "Unsupported operation on remote platform"
+    pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+
+  def mkdtemp(self,
+              prefix: Optional[str] = None,
+              dir: Optional[Union[str, pathlib.Path]] = None) -> pathlib.Path:
+    assert not self.is_remote, "Unsupported operation on remote platform"
+    return pathlib.Path(tempfile.mkdtemp(prefix=prefix, dir=dir))
+
+  def mktemp(self,
+             prefix: Optional[str] = None,
+             dir: Optional[Union[str, pathlib.Path]] = None) -> pathlib.Path:
+    assert not self.is_remote, "Unsupported operation on remote platform"
+    fd, name = tempfile.mkstemp(prefix=prefix, dir=dir)
+    os.close(fd)
+    return pathlib.Path(name)
 
   def sh_stdout(self,
                 *args,
@@ -296,6 +344,7 @@ class Platform(abc.ABC):
             stdin=None,
             env: Optional[Mapping[str, str]] = None,
             quiet: bool = False) -> subprocess.Popen:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     if not quiet:
       logging.debug("SHELL: %s", shlex.join(map(str, args)))
       logging.debug("CWD: %s", os.getcwd())
@@ -316,6 +365,7 @@ class Platform(abc.ABC):
          stdin=None,
          env: Optional[Mapping[str, str]] = None,
          quiet: bool = False) -> subprocess.CompletedProcess:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     if not quiet:
       logging.debug("SHELL: %s", shlex.join(map(str, args)))
       logging.debug("CWD: %s", os.getcwd())
@@ -329,7 +379,7 @@ class Platform(abc.ABC):
         capture_output=capture_output,
         check=False)
     if process.returncode != 0:
-      raise SubprocessError(process)
+      raise SubprocessError(self, process)
     return process
 
   def exec_apple_script(self, script: str) -> str:
@@ -360,12 +410,15 @@ class Platform(abc.ABC):
     return self.get_relative_cpu_speed() < 1
 
   def disk_usage(self, path: pathlib.Path) -> psutil._common.sdiskusage:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     return psutil.disk_usage(str(path))
 
   def cpu_usage(self) -> float:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     return 1 - psutil.cpu_times_percent().idle / 100
 
   def cpu_details(self) -> Dict[str, Any]:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     details = {
         "physical cores":
             psutil.cpu_count(logical=False),
@@ -392,6 +445,7 @@ class Platform(abc.ABC):
     return details
 
   def system_details(self) -> Dict[str, Any]:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     return {
         "machine": py_platform.machine(),
         "os": {
@@ -408,6 +462,7 @@ class Platform(abc.ABC):
     }
 
   def download_to(self, url: str, path: pathlib.Path) -> pathlib.Path:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     logging.debug("DOWNLOAD: %s\n       TO: %s", url, path)
     assert not path.exists(), f"Download destination {path} exists already."
     try:
@@ -420,6 +475,7 @@ class Platform(abc.ABC):
 
   def concat_files(self, inputs: Iterable[pathlib.Path],
                    output: pathlib.Path) -> pathlib.Path:
+    assert not self.is_remote, "Unsupported operation on remote platform"
     with output.open("w", encoding="utf-8") as output_f:
       for input_file in inputs:
         assert input_file.is_file()

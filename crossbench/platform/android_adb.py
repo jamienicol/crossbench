@@ -8,7 +8,8 @@ import logging
 import pathlib
 import re
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+import subprocess
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from .platform import MachineArch, Platform
 from .posix import PosixPlatform
@@ -69,11 +70,11 @@ class Adb:
   def device_info(self) -> str:
     return self._device_info
 
-  def _adb(self,
-           *args: str,
-           quiet: bool = False,
-           encoding: str = "utf-8",
-           use_serial_id: bool = True) -> str:
+  def _adb_stdout(self,
+                  *args: str,
+                  quiet: bool = False,
+                  encoding: str = "utf-8",
+                  use_serial_id: bool = True) -> str:
     if use_serial_id:
       adb_cmd = ["adb", "-s", self._serial_id]
     else:
@@ -83,28 +84,49 @@ class Adb:
     return self._host_platform.sh_stdout(
         *adb_cmd, quiet=quiet, encoding=encoding)
 
-  def shell(self,
-            *args: str,
-            quiet: bool = False,
-            encoding: str = "utf-8") -> str:
+  def shell_stdout(self,
+                   *args: str,
+                   quiet: bool = False,
+                   encoding: str = "utf-8") -> str:
     # -e: choose escape character, or "none"; default '~'
     # -n: don't read from stdin
     # -T: disable pty allocation
     # -t: allocate a pty if on a tty (-tt: force pty allocation)
     # -x: disable remote exit codes and stdout/stderr separation
-    return self._adb("shell", *args, quiet=quiet, encoding=encoding)
+    return self._adb_stdout("shell", *args, quiet=quiet, encoding=encoding)
+
+  def shell(self,
+            *args,
+            shell: bool = False,
+            capture_output: bool = False,
+            stdout=None,
+            stderr=None,
+            stdin=None,
+            env: Optional[Mapping[str, str]] = None,
+            quiet: bool = False) -> subprocess.CompletedProcess:
+    # See shell_stdout for more `adb shell` options.
+    adb_cmd = ["adb", "-s", self._serial_id, "shell", *args]
+    return self._host_platform.sh(
+        *adb_cmd,
+        shell=shell,
+        capture_output=capture_output,
+        stdout=stdout,
+        stderr=stderr,
+        stdin=stdin,
+        env=env,
+        quiet=quiet)
 
   def start_server(self) -> None:
-    self._adb("start-server", use_serial_id=False)
+    self._adb_stdout("start-server", use_serial_id=False)
 
   def stop_server(self) -> None:
     self.kill_server()
 
   def kill_server(self) -> None:
-    self._adb("kill-server", use_serial_id=False)
+    self._adb_stdout("kill-server", use_serial_id=False)
 
   def devices(self) -> Dict[str, str]:
-    raw_lines = self._adb(
+    raw_lines = self._adb_stdout(
         "devices", "-l", use_serial_id=False).strip().split("\n")[1:]
     result = {}
     for line in raw_lines:
@@ -117,21 +139,21 @@ class Adb:
           quiet: bool = False,
           encoding: str = "utf-8") -> str:
     cmd = ["cmd", *args]
-    return self.shell(*cmd, quiet=quiet, encoding=encoding)
+    return self.shell_stdout(*cmd, quiet=quiet, encoding=encoding)
 
   def dumpsys(self,
               *args: str,
               quiet: bool = False,
               encoding: str = "utf-8") -> str:
     cmd = ["dumpsys", *args]
-    return self.shell(*cmd, quiet=quiet, encoding=encoding)
+    return self.shell_stdout(*cmd, quiet=quiet, encoding=encoding)
 
   def getprop(self,
               *args: str,
               quiet: bool = False,
               encoding: str = "utf-8") -> str:
     cmd = ["getprop", *args]
-    return self.shell(*cmd, quiet=quiet, encoding=encoding).strip()
+    return self.shell_stdout(*cmd, quiet=quiet, encoding=encoding).strip()
 
   def services(self, quiet: bool = False, encoding: str = "utf-8") -> List[str]:
     lines = list(
@@ -262,7 +284,7 @@ class AndroidAdbPlatform(PosixPlatform):
   def system_details(self) -> Dict[str, Any]:
     details = super().system_details()
     properties: Dict[str, str] = {}
-    for line in self.adb.shell("getprop").strip().split("\n"):
+    for line in self.adb.shell_stdout("getprop").strip().split("\n"):
       result = self._GETPROP_RE.fullmatch(line)
       if result:
         properties[result.group("key")] = result.group("value")
@@ -278,3 +300,26 @@ class AndroidAdbPlatform(PosixPlatform):
     # adb shell dumpsys display
     # TODO: implement.
     return 1
+
+  @property
+  def default_tmp_dir(self) -> pathlib.Path:
+    return pathlib.Path("/data/local/tmp/")
+
+  def sh(self,
+         *args,
+         shell: bool = False,
+         capture_output: bool = False,
+         stdout=None,
+         stderr=None,
+         stdin=None,
+         env: Optional[Mapping[str, str]] = None,
+         quiet: bool = False) -> subprocess.CompletedProcess:
+    return self.adb.shell(
+        *args,
+        shell=shell,
+        capture_output=capture_output,
+        stdout=stdout,
+        stderr=stderr,
+        stdin=stdin,
+        env=env,
+        quiet=quiet)
