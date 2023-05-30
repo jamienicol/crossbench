@@ -270,6 +270,12 @@ class AndroidAdbPlatform(PosixPlatform):
           f"Could not find version for '{package}': {package_info}")
     return match_result.group('version')
 
+  def process_children(self,
+                       parent_pid: int,
+                       recursive: bool = False) -> List[Dict[str, Any]]:
+    # TODO: implement
+    return []
+
   def foreground_process(self) -> Optional[Dict[str, Any]]:
     # adb shell dumpsys activity activities
     # TODO: implement
