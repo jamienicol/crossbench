@@ -15,7 +15,7 @@ import logging
 import pathlib
 import sys
 from typing import (TYPE_CHECKING, Any, Dict, Iterable, Iterator, List,
-                    Optional, Sequence, Tuple, Union)
+                    Optional, Sequence, Tuple, Type, Union)
 
 from crossbench import cli_helper, exception, helper
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
@@ -76,26 +76,33 @@ class Runner:
             f"{dt.datetime.now().strftime('%Y-%m-%d_%H%M%S')}{suffix}")
 
   @classmethod
-  def add_cli_parser(cls, parser: argparse.ArgumentParser
-                    ) -> argparse.ArgumentParser:
+  def add_cli_parser(
+      cls, benchmark_cls: Type[Benchmark],
+      parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument(
         "--repeat",
+        "-r",
         default=1,
         type=cli_helper.parse_positive_int,
         help="Number of times each benchmark story is "
         "repeated. Defaults to 1")
-    parser.add_argument(
+
+    out_dir_group = parser.add_argument_group("Output Directory Options")
+    out_dir_xor_group = out_dir_group.add_mutually_exclusive_group()
+    out_dir_xor_group.add_argument(
         "--out-dir",
+        "--output-directory",
+        "-o",
         type=pathlib.Path,
         help="Results will be stored in this directory. "
-        "Defaults to result/$DATE")
-    parser.add_argument(
-        "--throw",
-        action="store_true",
-        default=False,
-        help="Directly throw exceptions")
-    parser.add_argument("--label", type=str, help="Custom output label")
-
+        "Defaults to result/${DATE}_${LABEL}")
+    out_dir_xor_group.add_argument(
+        "--label",
+        "--name",
+        type=str,
+        default=benchmark_cls.NAME,
+        help=("Add a name to the default output directory. "
+              "Defaults to the benchmark name"))
     return parser
 
   @classmethod
@@ -103,7 +110,8 @@ class Runner:
     if args.out_dir:
       out_dir = args.out_dir
     else:
-      label = args.label or args.benchmark_cls.NAME
+      label = args.label
+      assert label
       cli_dir = pathlib.Path(__file__).parent.parent
       out_dir = cls.get_out_dir(cli_dir, label)
     return {

@@ -76,7 +76,9 @@ class CrossBenchCLI:
         help="Disable colored output")
 
   def _add_verbosity_argument(self, parser: argparse.ArgumentParser) -> None:
-    verbosity_group = parser.add_mutually_exclusive_group()
+    debug_output_group = parser.add_argument_group(
+        "Verbosity / Debugging Options")
+    verbosity_group = debug_output_group.add_mutually_exclusive_group()
     verbosity_group.add_argument(
         "--quiet",
         "-q",
@@ -91,7 +93,13 @@ class CrossBenchCLI:
         dest="verbosity",
         action="count",
         default=0,
-        help="Increase output verbosity (0..2)")
+        help=("Increase output verbosity. "
+              "Repeat for more verbose output (0..2)."))
+    debug_output_group.add_argument(
+        "--throw",
+        action="store_true",
+        default=False,
+        help="Directly throw exceptions")
 
   def _setup_subparser(self) -> None:
     self.subparsers = self.parser.add_subparsers(
@@ -198,7 +206,7 @@ class CrossBenchCLI:
   def _setup_benchmark_subparser(self, benchmark_cls: Type[Benchmark],
                                  aliases: Sequence[str]) -> None:
     subparser = benchmark_cls.add_cli_parser(self.subparsers, aliases)
-    self.RUNNER_CLS.add_cli_parser(subparser)
+    self.RUNNER_CLS.add_cli_parser(benchmark_cls, subparser)
     assert isinstance(subparser, argparse.ArgumentParser), (
         f"Benchmark class {benchmark_cls}.add_cli_parser did not return "
         f"an ArgumentParser: {subparser}")
@@ -260,6 +268,7 @@ class CrossBenchCLI:
     browser_config_group = browser_group.add_mutually_exclusive_group()
     browser_config_group.add_argument(
         "--browser",
+        "-b",
         action="append",
         default=[],
         help="Browser binary. Use this to test a simple browser variant. "
