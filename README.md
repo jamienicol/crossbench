@@ -3,9 +3,10 @@
 Crossbench is a cross-browser/cross-benchmark runner to extract performance
 numbers.
 
-Supported Browsers: Chrome/Chromium, Firefox, Safari and Edge.
+Mailing list: <crossbench@chromium.org>
 
-Supported OS: macOS, linux and windows.
+Supported Browsers: Chrome/Chromium, Firefox, Safari and Edge.
+Supported OS: macOS, Android, linux and windows.
 
 ## Basic usage:
 ### Chromium Devs (with a full chromium checkout)
