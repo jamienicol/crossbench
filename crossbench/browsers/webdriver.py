@@ -22,9 +22,9 @@ if TYPE_CHECKING:
   from crossbench.runner import Run, Runner
 
 
-class WebdriverException(RuntimeError):
+class DriverException(RuntimeError):
   """Wrapper for more readable error messages than the default
-  Webdriver exceptions."""
+  WebDriver exceptions."""
 
   def __init__(self, msg: str, browser: Optional[Browser] = None):
     self._browser = browser
@@ -38,7 +38,7 @@ class WebdriverException(RuntimeError):
     return f"{browser_prefix}{self._msg}"
 
 
-class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
+class WebDriverBrowser(Browser, metaclass=abc.ABCMeta):
   _driver: webdriver.Remote
   _driver_path: Optional[pathlib.Path]
   _driver_pid: int
@@ -68,7 +68,8 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
     try:
       self._driver = self._start_driver(run, self._driver_path)
     except selenium.common.exceptions.SessionNotCreatedException as e:
-      raise WebdriverException(e.msg, self) from e
+      msg = e.msg or "Could not create Webdriver session."
+      raise DriverException(msg, self) from e
     if hasattr(self._driver, "service"):
       self._driver_pid = self._driver.service.process.pid
       candidates: List[int] = []
@@ -109,7 +110,7 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
     return details
 
   def show_url(self, runner: Runner, url: str) -> None:
-    logging.debug("WebdriverBrowser.show_url(%s)", url)
+    logging.debug("WebDriverBrowser.show_url(%s)", url)
     assert self._driver.window_handles, "Browser has no more opened windows."
     self._driver.switch_to.window(self._driver.window_handles[0])
     try:
@@ -117,7 +118,7 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
     except selenium.common.exceptions.WebDriverException as e:
       if e.msg and "net::ERR_CONNECTION_REFUSED" in e.msg:
         # pylint: disable=raise-missing-from
-        raise WebdriverException(
+        raise DriverException(
             f"Browser failed to load URL={url}. The URL is likely unreachable.",
             self)
       raise
@@ -127,7 +128,7 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
          script: str,
          timeout: Optional[dt.timedelta] = None,
          arguments: Sequence[object] = ()) -> Any:
-    logging.debug("WebdriverBrowser.js() timeout=%s, script: %s", timeout,
+    logging.debug("WebDriverBrowser.js() timeout=%s, script: %s", timeout,
                   script)
     assert self._is_running
     try:
@@ -147,7 +148,7 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
   def force_quit(self) -> None:
     if getattr(self, "_driver", None) is None:
       return
-    logging.debug("WebdriverBrowser.force_quit()")
+    logging.debug("WebDriverBrowser.force_quit()")
     try:
       try:
         # Close the current window.
@@ -174,7 +175,7 @@ class WebdriverBrowser(Browser, metaclass=abc.ABCMeta):
     return
 
 
-class RemoteWebDriver(WebdriverBrowser, Browser):
+class RemoteWebDriver(WebDriverBrowser, Browser):
   """Represent a remote WebDriver that has already been started"""
 
   def __init__(self, label: str, driver: webdriver.Remote):

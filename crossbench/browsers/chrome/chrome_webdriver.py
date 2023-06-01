@@ -17,7 +17,7 @@ from crossbench.browsers.chromium import (ChromiumWebDriver,
                                           ChromiumWebDriverAndroid)
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
-from crossbench.browsers.webdriver import WebdriverException
+from crossbench.browsers.webdriver import DriverException
 
 if TYPE_CHECKING:
   from selenium.webdriver.chromium.webdriver import ChromiumDriver
@@ -59,14 +59,14 @@ class ChromeWebDriver(ChromiumWebDriver):
           options=options,
           service=service)
     except selenium.common.exceptions.WebDriverException as e:
-      msg = "Could not start webdriver."
+      msg = f"Could not start WebDriver: {e.msg}"
       if self.platform.is_android:
         msg += ("\nPossibly missing chrome settings on {self.platform}.\n"
                 "Please make sure to allow chrome-flags on "
                 "non-rooted android devices: \n"
                 "chrome://flags#enable-command-line-on-non-rooted-devices")
       logging.error(msg)
-      raise WebdriverException(msg) from e
+      raise DriverException(msg) from e
 
 
 class ChromeWebDriverAndroid(ChromiumWebDriverAndroid, ChromeWebDriver):

@@ -26,7 +26,7 @@ from crossbench import exception, helper
 from crossbench.browsers.browser import BROWSERS_CACHE
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
-from crossbench.browsers.webdriver import WebdriverBrowser
+from crossbench.browsers.webdriver import WebDriverBrowser
 from crossbench.flags import ChromeFlags, Flags
 from crossbench.platform.android_adb import AndroidAdbPlatform
 
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
   from crossbench.runner import Run
 
 
-class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
+class ChromiumWebDriver(WebDriverBrowser, Chromium, metaclass=abc.ABCMeta):
 
   WEB_DRIVER_OPTIONS: Type[ChromiumOptions] = ChromiumOptions
   WEB_DRIVER_SERVICE: Type[ChromiumService] = ChromiumService
@@ -58,14 +58,30 @@ class ChromiumWebDriver(WebdriverBrowser, Chromium, metaclass=abc.ABCMeta):
                      splash_screen, platform)
     self._driver_path = driver_path
 
+  def _use_local_chromedriver(self) -> bool:
+    return self.major_version == 0 or (self.app_path.parent /
+                                       "args.gn").exists()
+
   def _find_driver(self) -> pathlib.Path:
     if self._driver_path:
       return self._driver_path
     finder = ChromeDriverFinder(self)
     assert self.app_path
-    if self.major_version == 0 or (self.app_path.parent / "args.gn").exists():
+    if self._use_local_chromedriver():
       return finder.find_local_build()
-    return finder.download()
+    try:
+      return finder.download()
+    except DriverNotFoundError as original_download_error:
+      logging.debug(
+          "Could not download chromedriver, "
+          "falling back to finding local build: %s", original_download_error)
+      try:
+        return finder.find_local_build()
+      except DriverNotFoundError as e:
+        logging.debug("Could not find fallback chromedriver: %s", e)
+        raise original_download_error from e
+      # to make an old pytype version happy
+      return pathlib.Path()
 
   def _start_driver(self, run: Run,
                     driver_path: pathlib.Path) -> ChromiumDriver:
@@ -151,6 +167,10 @@ class ChromiumWebDriverAndroid(ChromiumWebDriver):
     return options
 
 
+class DriverNotFoundError(ValueError):
+  pass
+
+
 class ChromeDriverFinder:
   URL: Final[str] = "http://chromedriver.storage.googleapis.com"
   CHROMIUM_LISTING_URL: Final[str] = (
@@ -178,8 +198,9 @@ class ChromeDriverFinder:
     # assume it's a local build
     self.driver_path = self.browser.app_path.parent / "chromedriver"
     if not self.driver_path.exists():
-      raise ValueError(f"Driver '{self.driver_path}' does not exist. "
-                       "Please build 'chromedriver' manually for local builds.")
+      raise DriverNotFoundError(
+          f"Driver '{self.driver_path}' does not exist. "
+          "Please build 'chromedriver' manually for local builds.")
     return self.driver_path
 
   def download(self) -> pathlib.Path:
@@ -198,9 +219,10 @@ class ChromeDriverFinder:
     if not url:
       url = self._find_canary_url()
 
-    assert url is not None, (
-        "Please manually compile/download chromedriver for "
-        f"{self.browser.type} {self.browser.version}")
+    if not url:
+      raise DriverNotFoundError(
+          "Please manually compile/download chromedriver for "
+          f"{self.browser.type} {self.browser.version}")
 
     logging.info("CHROMEDRIVER Downloading for version %s: %s", major_version,
                  listing_url or url)
@@ -227,8 +249,9 @@ class ChromeDriverFinder:
         maybe_drivers += candidates
         if len(maybe_drivers) > 0:
           maybe_driver = maybe_drivers[0]
-      assert maybe_driver and maybe_driver.is_file(), (
-          f"Extracted driver at {maybe_driver} does not exist.")
+      if not maybe_driver or not maybe_driver.is_file():
+        raise DriverNotFoundError(
+            f"Extracted driver at {maybe_driver} does not exist.")
       BROWSERS_CACHE.mkdir(parents=True, exist_ok=True)
       maybe_driver.rename(self.driver_path)
       self.driver_path.chmod(self.driver_path.stat().st_mode | stat.S_IEXEC)
@@ -247,7 +270,9 @@ class ChromeDriverFinder:
                                            re.findall(r"\d+", lines[i + 1]))
           if min_version <= major_version <= max_version:
             match = re.search(r"\d\.\d+", line)
-            assert match, "Could not parse version number"
+            if not match:
+              raise DriverNotFoundError(
+                  f"Could not parse version number: {line}")
             driver_version = match.group(0)
             break
     else:
@@ -258,7 +283,7 @@ class ChromeDriverFinder:
         listing_url = f"{self.URL}/index.html?path={driver_version}/"
       except urllib.error.HTTPError as e:
         if e.code != 404:
-          raise
+          raise DriverNotFoundError(f"Could not query {url}") from e
     if not driver_version:
       return listing_url, None
 
@@ -280,7 +305,7 @@ class ChromeDriverFinder:
     elif self.host_platform.is_win:
       arch_suffix = "win32"
     else:
-      raise NotImplementedError("Unsupported chromedriver platform")
+      raise DriverNotFoundError("Unsupported chromedriver platform")
     url = (f"{self.URL}/{driver_version}/" f"chromedriver_{arch_suffix}.zip")
     return listing_url, url
 
@@ -304,7 +329,7 @@ class ChromeDriverFinder:
   }
 
   CHROMIUM_LISTING_PREFIX: Dict[Tuple[str, str], str] = {
-      ("linux", "x64"): "Linux",
+      ("linux", "x64"): "Linux_x64",
       ("macos", "x64"): "Mac",
       ("macos", "arm64"): "Mac_Arm",
       ("win", "ia32"): "Win",
@@ -315,7 +340,7 @@ class ChromeDriverFinder:
     logging.debug("Try downloading the chromedriver canary version")
     properties = self.CHROMIUM_DASH_PARAMS.get(self.host_platform.key)
     if not properties:
-      raise ValueError(
+      raise DriverNotFoundError(
           f"Unsupported platform={self.platform}, key={self.host_platform.key}")
     dash_platform = properties["dash_platform"]
     dash_channel = properties.get("dash_channel", "canary")
@@ -326,8 +351,8 @@ class ChromeDriverFinder:
     with helper.urlopen(url) as response:
       version_infos = list(json.loads(response.read().decode("utf-8")))
       if not version_infos:
-        raise ValueError("Could not find latest version info for "
-                         f"platform={self.host_platform}")
+        raise DriverNotFoundError("Could not find latest version info for "
+                                  f"platform={self.host_platform}")
       for version_info in version_infos:
         if version_info["version"] == self.browser.version:
           chromium_base_position = int(
@@ -345,8 +370,8 @@ class ChromeDriverFinder:
           "canary chromedriver %s", first_version_info["version"])
 
     if not chromium_base_position:
-      raise ValueError("Could not find matching canary chromedriver "
-                       f"for {self.browser.version}")
+      raise DriverNotFoundError("Could not find matching canary chromedriver "
+                                f"for {self.browser.version}")
     # Use prefixes to limit listing results and increase chances of finding
     # a matching version
     listing_prefix = self.CHROMIUM_LISTING_PREFIX.get(self.host_platform.key)
@@ -381,6 +406,8 @@ class ChromeDriverFinder:
         continue
       versions.append((int(base), version["mediaLink"]))
     versions.sort()
+    logging.debug("Found candidates: %s", versions)
+    logging.debug("chromium_base_position=%s", chromium_base_position)
 
     for i in range(len(versions)):
       base, url = versions[i]

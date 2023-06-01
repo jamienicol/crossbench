@@ -202,12 +202,13 @@ class ChromeDownloader(abc.ABC):
     return cached_version_str
 
   VERSION_URL_PLATFORM_LOOKUP = {
-      ("win", "ia32"): "win",
-      ("win", "x64"): "win64",
-      ("linux", "x64"): "linux",
-      ("macos", "x64"): "mac",
-      ("macos", "arm64"): "mac_arm64",
-      ("android", "arm64"): "android",
+      ("win", "ia32"): ("win", "canary"),
+      ("win", "x64"): ("win64", "canary"),
+      # Linux doesn't have canary versions.
+      ("linux", "x64"): ("linux", "dev"),
+      ("macos", "x64"): ("mac", "canary"),
+      ("macos", "arm64"): ("mac_arm64", "canary"),
+      ("android", "arm64"): ("android", "canary"),
   }
 
   def _find_archive_url(self) -> Optional[str]:
@@ -218,12 +219,13 @@ class ChromeDownloader(abc.ABC):
 
   def _find_milestone_archive_url(self) -> Optional[str]:
     milestone: int = self._requested_version[0]
-    platform = self.VERSION_URL_PLATFORM_LOOKUP.get(self._platform.key)
+    platform, channel = self.VERSION_URL_PLATFORM_LOOKUP.get(
+        self._platform.key, (None, None))
     if not platform:
       raise ValueError(f"Unsupported platform {self._platform}")
     url = self.VERSION_URL.format(
         platform=platform,
-        channel="canary",
+        channel=channel,
         filter=f"version>={milestone},version<{milestone+1}&")
     logging.info("LIST ALL VERSIONS for M%s (slow): %s", milestone, url)
     try:

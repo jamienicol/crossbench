@@ -826,7 +826,7 @@ class Run:
     with self.measure("probes-setup"):
       for probe_scope in probe_run_scopes:
         with self.exception_info(f"Probe {probe_scope.name} setup"):
-          probe_scope.setup(self)
+          probe_scope.setup(self)  # pytype: disable=wrong-arg-types
 
     with self.measure("browser-setup"):
       try:

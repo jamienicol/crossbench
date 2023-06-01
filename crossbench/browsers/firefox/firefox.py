@@ -13,7 +13,7 @@ from crossbench import helper
 from crossbench.browsers.browser import Browser
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
-from crossbench.browsers.webdriver import WebdriverBrowser
+from crossbench.browsers.webdriver import WebDriverBrowser
 
 if TYPE_CHECKING:
   from crossbench.flags import Flags
@@ -119,10 +119,10 @@ class Firefox(Browser):
 
     if self.viewport.has_size and not self.viewport.is_default:
       if not isinstance(self,
-                        WebdriverBrowser) and self.viewport.size != (0, 0):
+                        WebDriverBrowser) and self.viewport.size != (0, 0):
         raise ValueError(f"Browser {self} cannot handle viewport position: "
                          f"{self.viewport.position}")
     else:
-      if not isinstance(self, WebdriverBrowser):
+      if not isinstance(self, WebDriverBrowser):
         raise ValueError(
             f"Browser {self} cannot handle viewport mode: {self.viewport}")

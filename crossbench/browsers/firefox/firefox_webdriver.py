@@ -21,7 +21,7 @@ from crossbench import exception, helper
 from crossbench.browsers.browser import BROWSERS_CACHE
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
-from crossbench.browsers.webdriver import WebdriverBrowser
+from crossbench.browsers.webdriver import WebDriverBrowser
 
 from .firefox import Firefox
 
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
   from crossbench.platform import Platform
 
 
-class FirefoxWebDriver(WebdriverBrowser, Firefox):
+class FirefoxWebDriver(WebDriverBrowser, Firefox):
 
   def __init__(self,
                label: str,

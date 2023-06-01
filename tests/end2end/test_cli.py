@@ -8,8 +8,10 @@ import pathlib
 import sys
 from typing import List, Tuple
 from unittest import mock
+import unittest
 
 import pytest
+from crossbench import platform
 
 import crossbench.browsers.all as browsers
 from crossbench.cli import CrossBenchCLI
@@ -100,7 +102,7 @@ class CLIEnd2EndTestCase(End2EndTestCase):
                  "--iterations=2", "--env-validation=skip",
                  f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",
                  "--stories=.*Vanilla.*",
-                 "--probe=v8.log:{js_flags:['--log-maps']}",
+                 "--probe=v8.log:{log_all:false,js_flags:['--log-maps']}",
                  "--probe=v8.turbolizer")
 
     browser_dirs = self.get_browser_dirs(results_dir)
@@ -174,6 +176,7 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     browser_dirs = self.get_browser_dirs(results_dir)
     self.assertEqual(len(browser_dirs), 1)
 
+  @unittest.skipIf(platform.DEFAULT.is_linux, "Chrome linux crashes on v8.log")
   def test_jetstream_2_1(self) -> None:
     # - jetstream 2.1
     # - custom --time-unit
@@ -188,7 +191,8 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     self.assertTrue(probe_config.is_file())
     results_dir = self.output_dir / "results"
     self.assertFalse(results_dir.exists())
-    self.run_cli("jetstream_2.1", "--browser=chr", "--env-validation=skip",
+    chrome_version = "--browser=chrome"
+    self.run_cli("jetstream_2.1", chrome_version, "--env-validation=skip",
                  "--splashscreen=http://google.com", f"--out-dir={results_dir}",
                  f"--cache-dir={self.cache_dir}", "--viewport=900x800",
                  "--stories=Box2D", "--time-unit=0.9",

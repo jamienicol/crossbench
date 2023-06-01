@@ -14,7 +14,7 @@ from selenium.webdriver.safari.options import Options as SafariOptions
 
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
-from crossbench.browsers.webdriver import WebdriverBrowser
+from crossbench.browsers.webdriver import WebDriverBrowser
 
 from .safari import Safari
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
   from crossbench.runner import Run, Runner
 
 
-class SafariWebDriver(WebdriverBrowser, Safari):
+class SafariWebDriver(WebDriverBrowser, Safari):
 
   def __init__(self,
                label: str,
