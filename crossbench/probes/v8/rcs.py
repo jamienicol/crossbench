@@ -21,7 +21,7 @@ class V8RCSProbe(Probe):
   """
   Chromium-only Probe to extract runtime-call-stats data that can be used
   to analyze precise counters and time spent in various VM components in V8:
-  https://v8.github.io/tools/head/callstats.html
+  https://v8.dev/tools/head/callstats.html
   """
   NAME = "v8.rcs"
 

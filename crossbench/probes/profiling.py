@@ -66,8 +66,8 @@ class ProfilingProbe(Probe):
         "spare_renderer_process",
         type=bool,
         default=False,
-        help=("Chrome-only: Enable/Disable spare renderer processes via "
-              "--enable-/--disable-features=SpareRendererForSitePerProcess. "
+        help=("Chrome-only: Enable/Disable spare renderer processes via \n"
+              "--enable-/--disable-features=SpareRendererForSitePerProcess.\n"
               "Spare renderers are disabled by default when profiling "
               "for fewer uninteresting processes."))
     parser.add_argument(

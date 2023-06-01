@@ -21,7 +21,7 @@ class V8TurbolizerProbe(Probe):
   """
   Chromium-only Probe for extracting detailed turbofan graphs.
   Note: This probe can have significant overhead.
-  Tool: https://v8.github.io/tools/head/turbolizer/index.html
+  Tool: https://v8.dev/tools/head/turbolizer
   """
   NAME = "v8.turbolizer"
   RESULT_LOCATION = ResultLocation.BROWSER

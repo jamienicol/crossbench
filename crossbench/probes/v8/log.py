@@ -31,9 +31,9 @@ class V8LogProbe(Probe):
   """
   Chromium-only probe that produces a v8.log file with detailed internal V8
   performance and logging information.
-  This file can be used by tools hosted on <http://v8.dev/tools>.
+  This file can be used by tools hosted on http://v8.dev/tools.
   If prof == true, this probe will try to generate profview.json files for
-  <http://v8.dev/tools/head/profview>. See de d8_binary and v8_checkout
+  http://v8.dev/tools/head/profview. See de d8_binary and v8_checkout
   config-properties for more details.
   """
   NAME = "v8.log"

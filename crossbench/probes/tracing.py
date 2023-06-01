@@ -98,7 +98,7 @@ class RecordMode(compat.StrEnum):
 
 class RecordFormat(helper.StrEnumWithHelp):
   JSON = ("json", "Old about://tracing compatible file format.")
-  PROTO = ("proto", "New http://https://ui.perfetto.dev/ compatible format")
+  PROTO = ("proto", "New https://ui.perfetto.dev/ compatible format")
 
 
 def parse_trace_config_file_path(value: str) -> pathlib.Path:
@@ -140,7 +140,7 @@ class TracingProbe(Probe):
   RESULT_LOCATION = ResultLocation.BROWSER
   CHROMIUM_FLAGS = ("--enable-perfetto",)
 
-  HELP_URL = "https://www.chromium.org/developers/how-tos/trace-event-profiling-tool/"
+  HELP_URL = "https://bit.ly/chrome-about-tracing"
 
   @classmethod
   def config_parser(cls) -> ProbeConfigParser:
@@ -156,15 +156,12 @@ class TracingProbe(Probe):
         is_list=True,
         default=[],
         type=str,
-        help=("A list of trace categories to enable. "
-              f"See chrome's {cls.HELP_URL} for more details"))
+        help=f"A list of trace categories to enable.\n{cls.HELP_URL}")
     parser.add_argument(
         "trace_config",
         type=parse_trace_config_file_path,
-        help=("Sets Chromium's --trace-config-file to the given json config."
-              "See https://chromium.googlesource.com/chromium/src/+"
-              "/HEAD/docs/memory-infra/memory_infra_startup_tracing.md "
-              "for more details."))
+        help=("Sets Chromium's --trace-config-file to the given json config.\n"
+              "https://bit.ly/chromium-memory-startup-tracing "))
     parser.add_argument(
         "startup_duration",
         default=0,
