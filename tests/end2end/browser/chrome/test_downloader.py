@@ -21,28 +21,36 @@ class ChromeDownloaderTestCase(End2EndTestCase):
     self.archive_dir = self.output_dir / "archive"
     self.assertFalse(self.archive_dir.exists())
 
-  def load_and_check_version(self, version_or_archive: Union[str, pathlib.Path],
-                             version_str: str) -> pathlib.Path:
+  def load_and_check_version(self,
+                             version_or_archive: Union[str, pathlib.Path],
+                             version_str: str,
+                             expect_archive: bool = True) -> pathlib.Path:
     app_path = ChromeDownloader.load(version_or_archive, self.platform,
                                      self.output_dir)
     self.assertSetEqual(
         set(self.output_dir.iterdir()), {app_path, self.archive_dir})
     self.assertIn(version_str, self.platform.app_version(app_path))
     archives = list(self.archive_dir.iterdir())
-    self.assertEqual(len(archives), 1)
+    if expect_archive:
+      self.assertEqual(len(archives), 1)
+    else:
+      self.assertListEqual(archives, [])
     return app_path
 
   def test_download_major_version(self) -> None:
     self.assertListEqual(list(self.output_dir.iterdir()), [])
-    self.load_and_check_version("chrome-M111", "111")
+    self.load_and_check_version("chrome-M111", "111", expect_archive=False)
 
     # Re-downloading should reuse the extracted app.
-    app_path = self.load_and_check_version("chrome-M111", "111")
+    app_path = self.load_and_check_version(
+        "chrome-M111", "111", expect_archive=False)
 
-    # Delete the extracted app and reload, should reuse the cached archive.
+    # Delete the extracted app and reload, can't reuse the cached archive since
+    # we're requesting only a milestone that could have been updated
+    # in the meantime.
     shutil.rmtree(app_path)
     self.assertFalse(app_path.exists())
-    self.load_and_check_version("chrome-M111", "111")
+    self.load_and_check_version("chrome-M111", "111", expect_archive=False)
 
   def test_download_specific_version(self) -> None:
     self.assertListEqual(list(self.output_dir.iterdir()), [])
