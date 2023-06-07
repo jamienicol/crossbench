@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import collections
+import logging
 from typing import (Dict, Final, Generator, Iterable, Optional, Set, Tuple,
                     Union)
 
@@ -184,7 +185,19 @@ class ChromeFlags(Flags):
         new_js_flags.set(js_flag_name, js_flag_value, override=override)
       self._js_flags.update(new_js_flags)
     else:
+      self._verify_flag(flag_name, flag_value)
       super()._set(flag_name, flag_value, override)
+
+  def _verify_flag(self, name: str, value: Optional[str]) -> None:
+    if name == "--enable-feature":
+      logging.error(
+          "Potentially misspelled flag: '%s'. "
+          "Did you mean to use --enable-features, with an 's'?", name)
+    elif name == "--disable-feature":
+      logging.error(
+          "Potentially misspelled flag:  '%s'. "
+          "Did you mean to use --disable-features, with an 's'?", name)
+    del value
 
   @property
   def features(self) -> ChromeFeatures:
