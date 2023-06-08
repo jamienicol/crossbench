@@ -217,6 +217,9 @@ class HostEnvironment:
         f"Runner/Host environment requests cannot be fulfilled: {message}")
 
   def validate_url(self, url: str) -> bool:
+    if self._validation_mode == ValidationMode.SKIP:
+      # TODO: validate file-urls on remote browser platforms.
+      return True
     try:
       result = urlparse(url)
       if result.scheme == "file":
