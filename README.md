@@ -5,7 +5,10 @@ numbers.
 
 Mailing list: <crossbench@chromium.org>
 
+Issues/Bugs: [Tests > CrossBench](https://bugs.chromium.org/p/chromium/issues/list?q=component%3ATest%3ECrossBench)
+
 Supported Browsers: Chrome/Chromium, Firefox, Safari and Edge.
+
 Supported OS: macOS, Android, linux and windows.
 
 ## Basic usage:
