@@ -55,7 +55,7 @@ class RunRunnerLogProbeScope(probe.ProbeScope[RunRunnerLogProbe]):
     assert self._log_handler
     logging.getLogger().removeHandler(self._log_handler)
     self._log_handler = None
-    return self.browser_result(file=(self.result_path,))
+    return ProbeResult(file=(self.result_path,))
 
 
 class RunDurationsProbe(JsonResultProbe):

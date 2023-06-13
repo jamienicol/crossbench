@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import abc
 import argparse
+from collections.abc import Callable, Iterable, Mapping
 import contextlib
 import dataclasses
 import datetime as dt
@@ -14,6 +15,7 @@ import json
 import logging
 import pathlib
 import sys
+import threading
 from typing import (TYPE_CHECKING, Any, Dict, Iterable, Iterator, List,
                     Optional, Sequence, Tuple, Type, Union)
 
@@ -63,6 +65,36 @@ class Timing:
     return time_unit * self.unit
 
 
+class ThreadMode(helper.StrEnumWithHelp):
+  NONE = ("none", (
+      "Execute all Runs sequentially, default. "
+      "Low interference risk, use for worry-free time-critical measurements."))
+  PLATFORM = ("platform",
+              ("Execute runs from each platform in parallel threads. "
+               "Might cause some interference with probes that do heavy "
+               "post-processing."))
+  BROWSER = ("browser", (
+      "Execute runs from each browser in parallel thread. "
+      "High interference risk, don't use for time-critical measurements."))
+  RUN = ("run",
+         ("Execute each Run in a parallel thread. "
+          "High interference risk, don't use for time-critical measurements."))
+
+  def group(self, runs: List[Run]) -> List[RunThreadGroup]:
+    if self == ThreadMode.NONE:
+      return [RunThreadGroup(runs)]
+    if self == ThreadMode.RUN:
+      return [RunThreadGroup([run]) for run in runs]
+    groups: Dict[Any, List[Run]] = {}
+    if self == ThreadMode.PLATFORM:
+      groups = helper.group_by(runs, lambda run: run.platform)
+    elif self == ThreadMode.BROWSER:
+      groups = helper.group_by(runs, lambda run: run.browser)
+    else:
+      raise ValueError(f"Unexpected thread mode: {self}")
+    return [RunThreadGroup(runs) for runs in groups.values()]
+
+
 class Runner:
 
   @classmethod
@@ -86,6 +118,13 @@ class Runner:
         type=cli_helper.parse_positive_int,
         help="Number of times each benchmark story is "
         "repeated. Defaults to 1")
+
+    parser.add_argument(
+        "--parallel",
+        default=ThreadMode.NONE,
+        type=ThreadMode,
+        help=("Change how Runs are executed.\n" +
+              ThreadMode.help_text(indent=2)))
 
     out_dir_group = parser.add_argument_group("Output Directory Options")
     out_dir_xor_group = out_dir_group.add_mutually_exclusive_group()
@@ -118,6 +157,7 @@ class Runner:
         "out_dir": out_dir,
         "browsers": args.browser,
         "repetitions": args.repeat,
+        "thread_mode": args.parallel,
         "throw": args.throw,
     }
 
@@ -132,6 +172,7 @@ class Runner:
       env_validation_mode: ValidationMode = ValidationMode.THROW,  # pytype: disable=annotation-type-mismatch
       repetitions: int = 1,
       timing: Timing = Timing(),
+      thread_mode: ThreadMode = ThreadMode.NONE,
       throw: bool = False):
     self.out_dir = out_dir
     assert not self.out_dir.exists(), f"out_dir={self.out_dir} exists already"
@@ -145,6 +186,7 @@ class Runner:
     assert self.repetitions > 0, f"Invalid repetitions={self.repetitions}"
     self._probes: List[Probe] = []
     self._runs: List[Run] = []
+    self._thread_mode = thread_mode
     self._exceptions = exception.Annotator(throw)
     self._platform = platform
     self._env = HostEnvironment(
@@ -283,6 +325,7 @@ class Runner:
     self._exceptions.assert_success()
 
   def get_runs(self) -> Iterable[Run]:
+    index = 0
     for iteration in range(self.repetitions):
       for story in self.stories:
         for browser in self.browsers:
@@ -291,32 +334,33 @@ class Runner:
               browser,
               story,
               iteration,
+              index,
               self.out_dir,
               name=f"{story.name}[{iteration}]",
               throw=self._exceptions.throw)
+          index += 1
 
   def run(self, is_dry_run: bool = False) -> None:
     with helper.SystemSleepPreventer():
+      self._setup()
       self._run(is_dry_run)
-
-  def _run(self, is_dry_run: bool = False) -> None:
-    self._setup()
-    failed: List[Run] = []
-    run_count = len(self._runs)
-    for i, run in enumerate(self._runs):
-      logging.info("=" * 80)
-      logging.info("RUN %s/%s", i + 1, run_count)
-      logging.info("=" * 80)
-      run.run(is_dry_run)
-      if run.is_success:
-        run.log_results()
-      else:
-        self._exceptions.extend(run.exceptions)
-        failed.append(run)
     if not is_dry_run:
       self._tear_down()
+    failed_runs = list(run for run in self.runs if not run.is_success)
     self._exceptions.assert_success(
-        f"Runs Failed: {len(failed)}/{run_count} runs failed.", RunnerException)
+        f"Runs Failed: {len(failed_runs)}/{len(self.runs)} runs failed.",
+        RunnerException)
+
+  def _get_thread_groups(self) -> List[RunThreadGroup]:
+    return self._thread_mode.group(self._runs)
+
+  def _run(self, is_dry_run: bool = False) -> None:
+    thread_groups: List[RunThreadGroup] = self._get_thread_groups()
+    for thread_group in thread_groups:
+      thread_group.is_dry_run = is_dry_run
+      thread_group.start()
+    for thread_group in thread_groups:
+      thread_group.join()
 
   def _tear_down(self) -> None:
     logging.info("=" * 80)
@@ -354,6 +398,29 @@ class Runner:
         break
       logging.info("COOLDOWN: still hot, waiting some more")
 
+
+class RunThreadGroup(threading.Thread):
+
+  def __init__(self, runs: List[Run]):
+    super().__init__()
+    assert len(runs), "Got unexpected empty runs list"
+    self._runner: Runner = runs[0].runner
+    self._runs = runs
+    self.is_dry_run: bool = False
+
+  def start(self) -> None:
+    return super().start()
+
+  def run(self) -> None:
+    for run in self._runs:
+      logging.info("=" * 80)
+      logging.info("RUN %s/%s", run.index + 1, len(self._runner.runs))
+      logging.info("=" * 80)
+      run.run(self.is_dry_run)
+      if run.is_success:
+        run.log_results()
+      else:
+        self._runner.exceptions.extend(run.exceptions)
 
 
 class RunGroup(abc.ABC):
@@ -595,6 +662,7 @@ class Run:
                browser: Browser,
                story: Story,
                iteration: int,
+               index: int,
                root_dir: pathlib.Path,
                name: Optional[str] = None,
                temperature: Optional[int] = None,
@@ -606,6 +674,8 @@ class Run:
     self._story = story
     assert iteration >= 0
     self._iteration = iteration
+    assert index >= 0
+    self._index = index
     self._name = name
     self._out_dir = self.get_out_dir(root_dir).absolute()
     self._probe_results = ProbeResultDict(self._out_dir)
@@ -659,6 +729,10 @@ class Run:
   @property
   def iteration(self) -> int:
     return self._iteration
+
+  @property
+  def index(self) -> int:
+    return self._index
 
   @property
   def runner(self) -> Runner:
