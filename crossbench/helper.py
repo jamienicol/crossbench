@@ -17,6 +17,7 @@ import time
 import urllib
 import urllib.error
 import urllib.request
+import urllib.parse as urlparse
 from math import floor, log10
 from typing import (Any, Callable, Dict, Final, Iterable, Iterator, List,
                     Optional, Sequence, Tuple, TypeVar, Union)
@@ -420,3 +421,11 @@ class StrEnumWithHelp(EnumWithHelp):
 
   def __str__(self) -> str:
     return str(self.value)
+
+
+def update_url_query(url: str, query_params: Dict[str, str]) -> str:
+  parsed_url = urlparse.urlparse(url)
+  query = urlparse.parse_qs(parsed_url.query)
+  query.update(query_params)
+  parsed_url = parsed_url._replace(query=urlparse.urlencode(query, doseq=True))
+  return parsed_url.geturl()

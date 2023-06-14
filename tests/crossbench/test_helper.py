@@ -316,5 +316,40 @@ class StrEnumWithHelpTestCase(EnumWithHelpTestCase):
     self.assertEqual(str(self.TestEnum.B), "b")
 
 
+class UpdateUrlQueryTestCase(unittest.TestCase):
+
+  def test_empty(self):
+    self.assertEqual("http://test.com",
+                     helper.update_url_query("http://test.com", {}))
+    self.assertEqual("https://test.com",
+                     helper.update_url_query("https://test.com", {}))
+    self.assertEqual("https://test.com?foo=bar",
+                     helper.update_url_query("https://test.com?foo=bar", {}))
+
+  def test_empty_add(self):
+    self.assertEqual("http://test.com?foo=bar",
+                     helper.update_url_query("http://test.com", {"foo": "bar"}))
+    self.assertEqual(
+        "http://test.com?foo=bar#status",
+        helper.update_url_query("http://test.com#status", {"foo": "bar"}))
+    self.assertEqual(
+        "http://test.com?xyz=10&foo=bar#status",
+        helper.update_url_query("http://test.com?xyz=10#status",
+                                {"foo": "bar"}))
+
+  def test_override(self):
+    self.assertEqual(
+        "http://test.com?foo=bar",
+        helper.update_url_query("http://test.com?foo=BAR", {"foo": "bar"}))
+    self.assertEqual(
+        "http://test.com?foo=bar#status",
+        helper.update_url_query("http://test.com?foo=BAR#status",
+                                {"foo": "bar"}))
+    self.assertEqual(
+        "http://test.com?foo=bar&xyz=10#status",
+        helper.update_url_query("http://test.com?foo=BAR&xyz=10#status",
+                                {"foo": "bar"}))
+
+
 if __name__ == "__main__":
   sys.exit(pytest.main([__file__]))

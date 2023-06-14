@@ -8,6 +8,7 @@ import abc
 import json
 import logging
 import pathlib
+import urllib.parse as urlparse
 from typing import (TYPE_CHECKING, Any, Dict, Final, List, Optional, Sequence,
                     Tuple, Type)
 
@@ -113,8 +114,11 @@ class SpeedometerStory(PressBenchmarkStory, metaclass=abc.ABCMeta):
     return self.iterations * 0.4
 
   def run(self, run: Run) -> None:
+    updated_url = helper.update_url_query(
+        self.url, {"iterationCount": str(self.iterations)})
+
     with run.actions("Setup") as actions:
-      actions.show_url(f"{self._url}?iterationCount={self.iterations}")
+      actions.show_url(updated_url)
       actions.wait_js_condition("return window.Suites !== undefined;", 0.5, 10)
       self._setup_substories(actions)
       self._setup_benchmark_client(actions)
