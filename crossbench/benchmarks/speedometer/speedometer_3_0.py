@@ -30,6 +30,7 @@ class Speedometer30Story(SpeedometerStory):
       "TodoMVC-JavaScript-ES6-Webpack",
       "TodoMVC-React",
       "TodoMVC-React-Redux",
+      "TodoMVC-React-Complex-DOM",
       "TodoMVC-Backbone",
       "TodoMVC-Angular",
       "TodoMVC-Vue",
@@ -37,11 +38,13 @@ class Speedometer30Story(SpeedometerStory):
       "TodoMVC-Preact",
       "TodoMVC-Svelte",
       "NewsSite-Next",
+      "NewsSite-Nuxt",
       "Editor-CodeMirror",
       "Editor-TipTap",
       "Charts-observable-plot",
-      "React-Stockcharts",
+      "Charts-chartjs",
       "React-Stockcharts-SVG",
+      "Perf-Dashboard",
   )
 
 
