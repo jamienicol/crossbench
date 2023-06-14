@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Dict, List, Tuple
 
 import crossbench
 from crossbench import helper
-from crossbench.browsers.viewport import Viewport
 from crossbench.probes.results import (EmptyProbeResult, LocalProbeResult,
                                        ProbeResult)
 

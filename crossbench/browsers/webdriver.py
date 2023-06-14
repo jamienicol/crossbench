@@ -19,6 +19,10 @@ from .browser import Browser
 if TYPE_CHECKING:
   import datetime as dt
 
+  from crossbench.browsers.splash_screen import SplashScreen
+  from crossbench.browsers.viewport import Viewport
+  from crossbench.flags import Flags
+  from crossbench.platform.platform import Platform
   from crossbench.runner import Run, Runner
 
 
@@ -43,6 +47,22 @@ class WebDriverBrowser(Browser, metaclass=abc.ABCMeta):
   _driver_path: Optional[pathlib.Path]
   _driver_pid: int
   log_file: Optional[pathlib.Path]
+
+  def __init__(
+      self,
+      label: str,
+      path: Optional[pathlib.Path] = None,
+      flags: Flags.InitialDataType = None,
+      js_flags: Flags.InitialDataType = None,
+      cache_dir: Optional[pathlib.Path] = None,
+      type: str = "webdriver",  # pylint: disable=redefined-builtin
+      driver_path: Optional[pathlib.Path] = None,
+      viewport: Optional[Viewport] = None,
+      splash_screen: Optional[SplashScreen] = None,
+      platform: Optional[Platform] = None):
+    super().__init__(label, path, flags, js_flags, cache_dir, type, viewport,
+                     splash_screen, platform)
+    self._driver_path = driver_path
 
   @property
   def driver_log_file(self) -> pathlib.Path:

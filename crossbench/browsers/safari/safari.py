@@ -9,12 +9,12 @@ import pathlib
 from typing import TYPE_CHECKING, Optional
 
 from crossbench.browsers.browser import Browser
-from crossbench.browsers.splash_screen import SplashScreen
-from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
-  from crossbench.platform.macos import MacOSPlatform
+  from crossbench.browsers.splash_screen import SplashScreen
+  from crossbench.browsers.viewport import Viewport
   from crossbench.flags import Flags
+  from crossbench.platform.macos import MacOSPlatform
   from crossbench.runner import Runner
 
 
@@ -28,22 +28,27 @@ class Safari(Browser):
   def technology_preview_path(cls) -> pathlib.Path:
     return pathlib.Path("/Applications/Safari Technology Preview.app")
 
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               flags: Flags.InitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               viewport: Viewport = Viewport.DEFAULT,
-               splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[MacOSPlatform] = None):
+  def __init__(
+      self,
+      label: str,
+      path: pathlib.Path,
+      flags: Flags.InitialDataType = None,
+      js_flags: Flags.InitialDataType = None,
+      cache_dir: Optional[pathlib.Path] = None,
+      type: str = "safari",  # pylint: disable=redefined-builtin
+      viewport: Optional[Viewport] = None,
+      splash_screen: Optional[SplashScreen] = None,
+      platform: Optional[MacOSPlatform] = None):
     super().__init__(
         label,
         path,
         flags,
-        type="safari",
+        js_flags=None,
+        type=type,
         viewport=viewport,
         splash_screen=splash_screen,
         platform=platform)
+    assert not js_flags, "Safari doesn't support custom js_flags"
     assert self.platform.is_macos, "Safari only works on MacOS"
     assert self.path
     self.bundle_name = self.path.stem.replace(" ", "")

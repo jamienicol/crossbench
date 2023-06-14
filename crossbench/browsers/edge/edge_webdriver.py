@@ -37,23 +37,25 @@ class EdgeWebDriver(ChromiumWebDriver):
   WEB_DRIVER_OPTIONS = EdgeOptions
   WEB_DRIVER_SERVICE = EdgeService
 
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               js_flags: FlagsInitialDataType = None,
-               flags: FlagsInitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               driver_path: Optional[pathlib.Path] = None,
-               viewport: Viewport = Viewport.DEFAULT,
-               splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[Platform] = None):
+  def __init__(
+      self,
+      label: str,
+      path: pathlib.Path,
+      flags: FlagsInitialDataType = None,
+      js_flags: FlagsInitialDataType = None,
+      cache_dir: Optional[pathlib.Path] = None,
+      type: str = "edge",  # pylint: disable=redefined-builtin
+      driver_path: Optional[pathlib.Path] = None,
+      viewport: Optional[Viewport] = None,
+      splash_screen: Optional[SplashScreen] = None,
+      platform: Optional[Platform] = None):
     super().__init__(
         label,
         path,
-        js_flags,
         flags,
+        js_flags,
         cache_dir,
-        type="edge",
+        type=type,
         driver_path=driver_path,
         viewport=viewport,
         splash_screen=splash_screen,

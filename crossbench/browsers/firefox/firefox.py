@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from crossbench import helper
 from crossbench.browsers.browser import Browser
-from crossbench.browsers.splash_screen import SplashScreen
-from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebDriverBrowser
 
 if TYPE_CHECKING:
+  from crossbench.browsers.splash_screen import SplashScreen
+  from crossbench.browsers.viewport import Viewport
   from crossbench.flags import Flags
   from crossbench.platform import Platform
   from crossbench.runner import Run
@@ -47,30 +47,34 @@ class Firefox(Browser):
         linux=["firefox-nightly", "firefox-trunk"],
         win=["Firefox Nightly/firefox.exe"])
 
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               flags: Flags.InitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               viewport: Viewport = Viewport.DEFAULT,
-               splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[Platform] = None):
+  def __init__(
+      self,
+      label: str,
+      path: pathlib.Path,
+      flags: Flags.InitialDataType = None,
+      js_flags: Flags.InitialDataType = None,
+      cache_dir: Optional[pathlib.Path] = None,
+      type: str = "firefox",  # pylint: disable=redefined-builtin
+      viewport: Optional[Viewport] = None,
+      splash_screen: Optional[SplashScreen] = None,
+      platform: Optional[Platform] = None):
     if cache_dir is None:
       # pylint: disable=bad-option-value, consider-using-with
       self.cache_dir = pathlib.Path(
           tempfile.TemporaryDirectory(prefix="firefox").name)
       self.clear_cache_dir = True
-    else:
       self.cache_dir = cache_dir
       self.clear_cache_dir = False
     super().__init__(
         label,
         path,
         flags,
-        type="firefox",
+        js_flags=None,
+        type=type,
         viewport=viewport,
         splash_screen=splash_screen,
         platform=platform)
+    assert not js_flags, "Firefox doesn't support custom js_flags"
 
   def _extract_version(self) -> str:
     assert self.path

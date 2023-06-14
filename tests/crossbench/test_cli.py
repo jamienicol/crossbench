@@ -936,7 +936,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
         }
     for _, (_, browser_path, _) in self.browser_lookup.items():
       self.assertTrue(browser_path.exists())
-    self.mock_args = mock.Mock()
+    self.mock_args = mock.Mock(driver_path=None)
 
   @unittest.skipIf(hjson.__name__ != "hjson", "hjson not available")
   def test_load_browser_config_template(self):
@@ -1379,7 +1379,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
     with config_file.open("w", encoding="utf-8") as f:
       hjson.dump(config_data, f)
 
-    args = mock.Mock(browser=None, browser_config=config_file)
+    args = mock.Mock(browser=None, browser_config=config_file, driver_path=None)
     with mock.patch.object(
         BrowserConfig, "_get_browser_cls", return_value=browser_cls):
       config = BrowserConfig.from_cli_args(args)
@@ -1404,6 +1404,7 @@ class TestBrowserConfig(BaseCrossbenchTestCase):
         browser_config=None,
         enable_features=None,
         disable_features=None,
+        driver_path=None,
         js_flags=None,
         other_browser_args=[])
     with mock.patch.object(

@@ -15,13 +15,13 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 
 from crossbench.browsers.chromium import (ChromiumWebDriver,
                                           ChromiumWebDriverAndroid)
-from crossbench.browsers.splash_screen import SplashScreen
-from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import DriverException
 
 if TYPE_CHECKING:
   from selenium.webdriver.chromium.webdriver import ChromiumDriver
 
+  from crossbench.browsers.splash_screen import SplashScreen
+  from crossbench.browsers.viewport import Viewport
   from crossbench.flags import Flags
   from crossbench.platform import Platform
 
@@ -31,23 +31,25 @@ class ChromeWebDriver(ChromiumWebDriver):
   WEB_DRIVER_OPTIONS = ChromeOptions
   WEB_DRIVER_SERVICE = ChromeService
 
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               js_flags: Flags.InitialDataType = None,
-               flags: Flags.InitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               driver_path: Optional[pathlib.Path] = None,
-               viewport: Viewport = Viewport.DEFAULT,
-               splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[Platform] = None):
+  def __init__(
+      self,
+      label: str,
+      path: pathlib.Path,
+      flags: Flags.InitialDataType = None,
+      js_flags: Flags.InitialDataType = None,
+      cache_dir: Optional[pathlib.Path] = None,
+      type: str = "chrome",  # pylint: disable=redefined-builtin
+      driver_path: Optional[pathlib.Path] = None,
+      viewport: Optional[Viewport] = None,
+      splash_screen: Optional[SplashScreen] = None,
+      platform: Optional[Platform] = None):
     super().__init__(
         label,
         path,
-        js_flags,
         flags,
+        js_flags,
         cache_dir,
-        type="chrome",
+        type=type,
         driver_path=driver_path,
         viewport=viewport,
         splash_screen=splash_screen,

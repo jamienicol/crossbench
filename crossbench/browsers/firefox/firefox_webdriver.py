@@ -19,32 +19,34 @@ from selenium.webdriver.firefox.service import Service as FirefoxService
 
 from crossbench import exception, helper
 from crossbench.browsers.browser import BROWSERS_CACHE
-from crossbench.browsers.splash_screen import SplashScreen
-from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebDriverBrowser
 
 from .firefox import Firefox
 
 if TYPE_CHECKING:
+  from crossbench.browsers.splash_screen import SplashScreen
+  from crossbench.browsers.viewport import Viewport
   from crossbench.flags import Flags
-  from crossbench.runner import Run
   from crossbench.platform import Platform
+  from crossbench.runner import Run
 
 
 class FirefoxWebDriver(WebDriverBrowser, Firefox):
 
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               flags: Flags.InitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               driver_path: Optional[pathlib.Path] = None,
-               viewport: Viewport = Viewport.DEFAULT,
-               splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[Platform] = None):
-    super().__init__(label, path, flags, cache_dir, viewport, splash_screen,
-                     platform)
-    self._driver_path = driver_path
+  def __init__(
+      self,
+      label: str,
+      path: pathlib.Path,
+      flags: Flags.InitialDataType = None,
+      js_flags: Flags.InitialDataType = None,
+      cache_dir: Optional[pathlib.Path] = None,
+      type: str = "firefox",  # pylint: disable=redefined-builtin
+      driver_path: Optional[pathlib.Path] = None,
+      viewport: Optional[Viewport] = None,
+      splash_screen: Optional[SplashScreen] = None,
+      platform: Optional[Platform] = None):
+    super().__init__(label, path, flags, js_flags, cache_dir, type, driver_path,
+                     viewport, splash_screen, platform)
 
   def _find_driver(self) -> pathlib.Path:
     finder = FirefoxDriverFinder(self)

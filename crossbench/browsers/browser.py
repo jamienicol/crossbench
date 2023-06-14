@@ -39,16 +39,19 @@ class Browser(abc.ABC):
   def __init__(
       self,
       label: str,
-      path: Optional[pathlib.Path],
+      path: Optional[pathlib.Path] = None,
       flags: Flags.InitialDataType = None,
+      js_flags: Flags.InitialDataType = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: Optional[str] = None,  # pylint: disable=redefined-builtin
-      viewport: Viewport = Viewport.DEFAULT,
-      splash_screen: SplashScreen = SplashScreen.DEFAULT,
+      driver_path: Optional[pathlib.Path] = None,
+      viewport: Optional[Viewport] = None,
+      splash_screen: Optional[SplashScreen] = None,
       platform: Optional[Platform] = None):
     self._platform = platform or DEFAULT_PLATFORM
     # Marked optional to make subclass constructor calls easier with pytype.
     assert type
+    assert not driver_path, "driver_path not supported by base Browser"
     self.type: str = type
     self.label: str = label
     self._unique_name: str = ""
@@ -69,14 +72,15 @@ class Browser(abc.ABC):
       # path.
       self.path = pathlib.Path()
       self.unique_name = f"{self.type}_{self.label}".lower()
-    self._viewport = viewport
-    self._splash_screen = splash_screen
+    self._viewport = viewport or Viewport.DEFAULT
+    self._splash_screen = splash_screen or SplashScreen.DEFAULT
     self._is_running: bool = False
     self.cache_dir: Optional[pathlib.Path] = cache_dir
     self.clear_cache_dir: bool = True
     self._pid: Optional[int] = None
     self._probes: Set[Probe] = set()
     self._flags: Flags = self.default_flags(flags)
+    assert not js_flags, "Base Browser doesn't support js_flags directly"
     self.log_file: Optional[pathlib.Path] = None
 
   @property

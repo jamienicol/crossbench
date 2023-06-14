@@ -55,6 +55,9 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
     path = path or pathlib.Path(self.APP_PATH)
     self.app_path = path
     kwargs["type"] = browser_name
+    maybe_driver = kwargs.pop("driver_path", None)
+    if maybe_driver:
+      assert isinstance(maybe_driver, pathlib.Path) and maybe_driver.exists()
     super().__init__(label, path, *args, **kwargs)
     self.url_list: List[str] = []
     self.js_list: List[str] = []

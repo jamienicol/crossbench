@@ -12,11 +12,11 @@ import crossbench.exception
 import crossbench.flags
 from crossbench import helper
 from crossbench.browsers.chromium import Chromium
-from crossbench.browsers.splash_screen import SplashScreen
-from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
   import crossbench.runner
+  from crossbench.browsers.splash_screen import SplashScreen
+  from crossbench.browsers.viewport import Viewport
   from crossbench.platform import Platform
 
 FlagsInitialDataType = crossbench.flags.Flags.InitialDataType
@@ -71,8 +71,8 @@ class Edge(Chromium):
                js_flags: FlagsInitialDataType = None,
                flags: FlagsInitialDataType = None,
                cache_dir: Optional[pathlib.Path] = None,
-               viewport: Viewport = Viewport.DEFAULT,
-               splash_screen: SplashScreen = SplashScreen.DEFAULT,
+               viewport: Optional[Viewport] = None,
+               splash_screen: Optional[SplashScreen] = None,
                platform: Optional[Platform] = None):
     super().__init__(
         label,

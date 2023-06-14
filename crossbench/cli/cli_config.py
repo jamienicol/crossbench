@@ -258,6 +258,7 @@ class BrowserConfig:
           label=self._flags_to_label(name, flags),
           path=path,
           flags=flags,
+          driver_path=args.driver_path,
           # TODO: support all args in the browser.config file
           viewport=args.viewport,
           splash_screen=args.splash_screen,
@@ -396,10 +397,14 @@ class BrowserConfig:
               f"Used chrome/chromium-specific flags {flag_name} "
               f"for non-chrome {browser.unique_name}.\n"
               "Use --browser-config for complex variants.")
-    if not args.other_browser_args:
-      return
     browser_types = set(browser.type for browser in self._variants)
-    if len(browser_types) > 1:
+    if len(browser_types) == 1:
+      return
+    if args.driver_path:
+      raise argparse.ArgumentTypeError(
+          f"Cannot use custom driver path '{args.driver_path}' "
+          f"for multiple browser {browser_types}.")
+    if args.other_browser_args:
       raise argparse.ArgumentTypeError(
           f"Multiple browser types {browser_types} "
           "cannot be used with common extra browser flags: "
@@ -432,6 +437,7 @@ class BrowserConfig:
         label=label,
         path=path,
         flags=flags,
+        driver_path=args.driver_path,
         viewport=args.viewport,
         splash_screen=args.splash_screen,
         platform=browser_platform)

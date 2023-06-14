@@ -17,15 +17,13 @@ import zipfile
 from typing import (TYPE_CHECKING, Dict, Final, List, Optional, Sequence, Tuple,
                     Type, cast)
 
+import selenium.common.exceptions
 from selenium.webdriver.chromium.options import ChromiumOptions
 from selenium.webdriver.chromium.service import ChromiumService
 from selenium.webdriver.chromium.webdriver import ChromiumDriver
-import selenium.common.exceptions
 
 from crossbench import exception, helper
 from crossbench.browsers.browser import BROWSERS_CACHE
-from crossbench.browsers.splash_screen import SplashScreen
-from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebDriverBrowser
 from crossbench.flags import ChromeFlags, Flags
 from crossbench.platform.android_adb import AndroidAdbPlatform
@@ -33,6 +31,8 @@ from crossbench.platform.android_adb import AndroidAdbPlatform
 from .chromium import Chromium
 
 if TYPE_CHECKING:
+  from crossbench.browsers.splash_screen import SplashScreen
+  from crossbench.browsers.viewport import Viewport
   from crossbench.platform import Platform
   from crossbench.runner import Run
 
@@ -45,18 +45,17 @@ class ChromiumWebDriver(WebDriverBrowser, Chromium, metaclass=abc.ABCMeta):
   def __init__(
       self,
       label: str,
-      path: pathlib.Path,
-      js_flags: Flags.InitialDataType = None,
+      path: Optional[pathlib.Path] = None,
       flags: Flags.InitialDataType = None,
+      js_flags: Flags.InitialDataType = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "chromium",  # pylint: disable=redefined-builtin
       driver_path: Optional[pathlib.Path] = None,
-      viewport: Viewport = Viewport.DEFAULT,
-      splash_screen: SplashScreen = SplashScreen.DEFAULT,
+      viewport: Optional[Viewport] = None,
+      splash_screen: Optional[SplashScreen] = None,
       platform: Optional[Platform] = None):
-    super().__init__(label, path, js_flags, flags, cache_dir, type, viewport,
-                     splash_screen, platform)
-    self._driver_path = driver_path
+    super().__init__(label, path, flags, js_flags, cache_dir, type, driver_path,
+                     viewport, splash_screen, platform)
 
   def _use_local_chromedriver(self) -> bool:
     return self.major_version == 0 or (self.app_path.parent /

@@ -9,10 +9,10 @@ from typing import TYPE_CHECKING, Optional
 
 from crossbench import helper
 from crossbench.browsers.chromium import Chromium
-from crossbench.browsers.splash_screen import SplashScreen
-from crossbench.browsers.viewport import Viewport
 
 if TYPE_CHECKING:
+  from crossbench.browsers.splash_screen import SplashScreen
+  from crossbench.browsers.viewport import Viewport
   from crossbench.flags import Flags
   from crossbench.platform import Platform
 
@@ -57,22 +57,24 @@ class ChromePathMixin:
 
 class Chrome(ChromePathMixin, Chromium):
 
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               js_flags: Flags.InitialDataType = None,
-               flags: Flags.InitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               viewport: Viewport = Viewport.DEFAULT,
-               splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[Platform] = None):
+  def __init__(
+      self,
+      label: str,
+      path: pathlib.Path,
+      flags: Flags.InitialDataType = None,
+      js_flags: Flags.InitialDataType = None,
+      cache_dir: Optional[pathlib.Path] = None,
+      type: str = "chrome",  # pylint: disable=redefined-builtin
+      viewport: Optional[Viewport] = None,
+      splash_screen: Optional[SplashScreen] = None,
+      platform: Optional[Platform] = None):
     super().__init__(
         label,
         path,
-        js_flags,
         flags,
+        js_flags,
         cache_dir,
-        type="chrome",
+        type=type,
         viewport=viewport,
         splash_screen=splash_screen,
         platform=platform)

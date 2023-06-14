@@ -291,6 +291,11 @@ class CrossBenchCLI:
         "See config/browser.config.example.hjson on how to set up a complex "
         "configuration file. "
         "Cannot be used together with --browser.")
+    browser_group.add_argument(
+        "--driver-path",
+        type=cli_helper.parse_file_path,
+        help="Use the same custom driver path for all specified browsers. "
+        "Version mismatches might cause crashes.")
 
     splashscreen_group = browser_group.add_mutually_exclusive_group()
     splashscreen_group.add_argument(

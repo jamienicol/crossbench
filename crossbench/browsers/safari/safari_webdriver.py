@@ -26,16 +26,20 @@ if TYPE_CHECKING:
 
 class SafariWebDriver(WebDriverBrowser, Safari):
 
-  def __init__(self,
-               label: str,
-               path: pathlib.Path,
-               flags: Flags.InitialDataType = None,
-               cache_dir: Optional[pathlib.Path] = None,
-               viewport: Viewport = Viewport.DEFAULT,
-               splash_screen: SplashScreen = SplashScreen.DEFAULT,
-               platform: Optional[MacOSPlatform] = None):
-    super().__init__(label, path, flags, cache_dir, viewport, splash_screen,
-                     platform)
+  def __init__(
+      self,
+      label: str,
+      path: pathlib.Path,
+      flags: Flags.InitialDataType = None,
+      js_flags: Flags.InitialDataType = None,
+      cache_dir: Optional[pathlib.Path] = None,
+      type: str = "safari",  # pylint: disable=redefined-builtin
+      driver_path: Optional[pathlib.Path] = None,
+      viewport: Optional[Viewport] = None,
+      splash_screen: Optional[SplashScreen] = None,
+      platform: Optional[MacOSPlatform] = None):
+    super().__init__(label, path, flags, js_flags, cache_dir, type, driver_path,
+                     viewport, splash_screen, platform)
     assert self.platform.is_macos
 
   def _find_driver(self) -> pathlib.Path:
