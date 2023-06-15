@@ -285,7 +285,7 @@ class CrossBenchCLI:
         "Cannot be used with --browser-config")
     browser_config_group.add_argument(
         "--browser-config",
-        type=cli_helper.parse_file_path,
+        type=cli_helper.parse_hjson_file_path,
         help="Browser configuration.json file. "
         "Use this to run multiple browsers and/or multiple flag configurations."
         "See config/browser.config.example.hjson on how to set up a complex "
@@ -296,6 +296,11 @@ class CrossBenchCLI:
         type=cli_helper.parse_file_path,
         help="Use the same custom driver path for all specified browsers. "
         "Version mismatches might cause crashes.")
+    browser_group.add_argument(
+        "--config",
+        type=cli_helper.parse_file_path,
+        help="Specify a common config for "
+        "--probe-config, --browser-config and --env-config.")
 
     splashscreen_group = browser_group.add_mutually_exclusive_group()
     splashscreen_group.add_argument(
@@ -366,7 +371,7 @@ class CrossBenchCLI:
         f"\n\nChoices: {', '.join(cli_config.ProbeConfig.LOOKUP.keys())}")
     probe_config_group.add_argument(
         "--probe-config",
-        type=cli_helper.parse_file_path,
+        type=cli_helper.parse_hjson_file_path,
         help="Browser configuration.json file. "
         "Use this config file to specify more complex Probe settings."
         "See config/probe.config.example.hjson on how to set up a complex "
@@ -382,6 +387,7 @@ class CrossBenchCLI:
     runner = None
     try:
       self._benchmark_subcommand_helper(args)
+      self._benchmark_subcommand_process_args(args)
       benchmark = self._get_benchmark(args)
       with tempfile.TemporaryDirectory(prefix="crossbench") as tmp_dirname:
         if args.dry_run:
@@ -449,6 +455,22 @@ class CrossBenchCLI:
       args.filter = args.benchmark_cls.NAME
       args.json = False
       self.describe_subcommand(args)
+
+  def _benchmark_subcommand_process_args(self, args) -> None:
+    if args.config:
+      if args.env_config:
+        raise argparse.ArgumentTypeError(
+            "--config cannot be used together with --env-config")
+      if args.browser_config:
+        raise argparse.ArgumentTypeError(
+            "--config cannot be used together with --browser-config")
+      if args.probe_config:
+        raise argparse.ArgumentTypeError(
+            "--config cannot be used together with --probe-config")
+      # Propagate the global config file to all sub-configs
+      args.env_config = cli_config.parse_env_config_file(args.config)
+      args.browser_config = args.config
+      args.probe_config = args.config
 
   def _log_benchmark_subcommand_failure(self, benchmark: Optional[Benchmark],
                                         runner: Optional[Runner],

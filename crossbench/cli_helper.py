@@ -11,6 +11,8 @@ import math
 import pathlib
 from typing import Any, Generator
 
+import hjson
+
 
 def parse_path(str_value: str) -> pathlib.Path:
   try:
@@ -46,10 +48,22 @@ def parse_json_file_path(str_value: str) -> pathlib.Path:
   return path
 
 
+def parse_hjson_file_path(str_value: str) -> pathlib.Path:
+  path = parse_file_path(str_value)
+  with path.open(encoding="utf-8") as f:
+    try:
+      hjson.load(f)
+    except ValueError as e:
+      raise argparse.ArgumentTypeError(
+          f"Invalid {hjson.__name__} file: {path}: {e}") from e
+  return path
+
+
 def parse_json_file(str_value: str) -> Any:
   path = parse_file_path(str_value)
   with path.open(encoding="utf-8") as f:
     return json.load(f)
+
 
 def parse_positive_float(value: str) -> float:
   value_f = float(value)

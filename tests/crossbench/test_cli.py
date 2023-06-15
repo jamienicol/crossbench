@@ -256,12 +256,65 @@ class CliTestCase(BaseCrossbenchTestCase):
     config_data = {"probes": {"invalid probe name": {}}}
     with config_file.open("w", encoding="utf-8") as f:
       hjson.dump(config_data, f)
+    with self.assertRaises(ProbeConfigError) as cm:
+      with mock.patch.object(
+          CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        self.run_cli("loading", f"--probe-config={config_file}",
+                     "--urls=http://test.com", "--env-validation=skip",
+                     "--throw")
+    self.assertIn("invalid probe name", str(cm.exception))
+
+  def test_invalid_config_file(self):
+    config_file = pathlib.Path("/config.hjson")
+    config_data = {"probes": {}, "browsers": {}}
+    with config_file.open("w", encoding="utf-8") as f:
+      hjson.dump(config_data, f)
+    with self.assertRaises(argparse.ArgumentTypeError) as cm:
+      with mock.patch.object(
+          CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+        url = "http://test.com"
+        self.run_cli("loading", f"--config={config_file}", f"--urls={url}",
+                     "--env-validation=skip", "--throw")
+    self.assertIn("env", str(cm.exception))
+
+  def test_empty_config_file(self):
+    config_file = pathlib.Path("/config.hjson")
+    config_data = {"probes": {}, "env": {}, "browsers": {}}
+    with config_file.open("w", encoding="utf-8") as f:
+      hjson.dump(config_data, f)
+    with mock.patch.object(
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      url = "http://test.com"
+      self.run_cli("loading", f"--config={config_file}", f"--urls={url}",
+                   "--env-validation=skip")
+      for browser in self.browsers:
+        self.assertListEqual([url], browser.url_list[1:])
+        self.assertNotIn("--log", browser.js_flags)
+
+  def test_config_file_with_probe(self):
+    config_file = pathlib.Path("/config.hjson")
+    js_flags = ["--log-foo", "--log-bar"]
+    config_data = {
+        "probes": {
+            "v8.log": {
+                "js_flags": js_flags
+            }
+        },
+        "env": {},
+        "browsers": {}
+    }
+    with config_file.open("w", encoding="utf-8") as f:
+      hjson.dump(config_data, f)
 
     with mock.patch.object(
-        CrossBenchCLI, "_get_browsers",
-        return_value=self.browsers), self.assertRaises(ProbeConfigError):
-      self.run_cli("loading", f"--probe-config={config_file}",
-                   "--urls=http://test.com", "--env-validation=skip", "--throw")
+        CrossBenchCLI, "_get_browsers", return_value=self.browsers):
+      url = "http://test.com"
+      self.run_cli("loading", f"--config={config_file}", f"--urls={url}",
+                   "--env-validation=skip")
+      for browser in self.browsers:
+        self.assertListEqual([url], browser.url_list[1:])
+        for flag in js_flags:
+          self.assertIn(flag, browser.js_flags)
 
   def test_invalid_browser_identifier(self):
     with self.assertRaises(argparse.ArgumentTypeError):
