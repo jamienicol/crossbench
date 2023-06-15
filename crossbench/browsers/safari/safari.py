@@ -58,6 +58,9 @@ class Safari(Browser):
     ).expanduser()
 
   def clear_cache(self, runner: Runner) -> None:
+    self._clear_cache()
+
+  def _clear_cache(self) -> None:
     logging.info("CLEAR CACHE: %s", self)
     self.platform.exec_apple_script(f"""
       tell application "{self.app_path}" to activate

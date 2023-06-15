@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from crossbench import helper
 from crossbench.browsers.browser import Browser
+from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebDriverBrowser
 
 if TYPE_CHECKING:
   from crossbench.browsers.splash_screen import SplashScreen
-  from crossbench.browsers.viewport import Viewport
   from crossbench.flags import Flags
   from crossbench.platform import Platform
   from crossbench.runner import Run

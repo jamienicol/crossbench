@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Optional
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.safari.options import Options as SafariOptions
+from selenium.webdriver.safari.service import Service as SafariService
 
 from crossbench.browsers.splash_screen import SplashScreen
 from crossbench.browsers.viewport import Viewport
@@ -42,6 +43,11 @@ class SafariWebDriver(WebDriverBrowser, Safari):
                      viewport, splash_screen, platform)
     assert self.platform.is_macos
 
+  def clear_cache(self, runner: Runner) -> None:
+    # skip the default caching, and only do it after launching the browser
+    # via selenium.
+    pass
+
   def _find_driver(self) -> pathlib.Path:
     assert self.path
     driver_path = self.path.parent / "safaridriver"
@@ -55,30 +61,36 @@ class SafariWebDriver(WebDriverBrowser, Safari):
     assert not self._is_running
     logging.info("STARTING BROWSER: browser: %s driver: %s", self.path,
                  driver_path)
+
     options = SafariOptions()
     args = self._get_browser_flags_for_run(run)
     for arg in args:
       options.add_argument(arg)
     options.binary_location = str(self.path)
-    capabilities = DesiredCapabilities.SAFARI.copy()
-    capabilities["safari.cleanSession"] = "true"
+
+    options.set_capability("safari.cleanSession", "true")
     # Don't wait for document-ready.
-    capabilities["pageLoadStrategy"] = "eager"
+    options.set_capability("pageLoadStrategy", "eager")
     # Enable browser logging
-    capabilities["safari:diagnose"] = "true"
+    options.set_capability("safari:diagnose", "true")
     if "Technology Preview" in self.app_name:
-      capabilities["browserName"] = "Safari Technology Preview"
+      options.set_capability("browserName", "Safari Technology Preview")
       options.use_technology_preview = True
-    driver = webdriver.Safari(  # pytype: disable=wrong-keyword-args
-        executable_path=str(driver_path),
-        desired_capabilities=capabilities,
-        options=options)
+
+    service = SafariService(executable_path=str(driver_path),)
+    driver = webdriver.Safari(
+        service=service,
+        options=options,
+        desired_capabilities=options.to_capabilities())
     assert driver.session_id, "Could not start webdriver"
+    self._clear_cache()
     logs = (
         pathlib.Path("~/Library/Logs/com.apple.WebDriver/").expanduser() /
         driver.session_id)
-    self.log_file = list(logs.glob("safaridriver*"))[0]
-    assert self.log_file.is_file()
+    all_logs = list(logs.glob("safaridriver*"))
+    if all_logs:
+      self.log_file = all_logs[0]
+      assert self.log_file.is_file()
     return driver
 
   def _check_driver_version(self) -> None:
