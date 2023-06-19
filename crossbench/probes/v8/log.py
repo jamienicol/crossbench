@@ -109,6 +109,7 @@ class V8LogProbe(Probe):
   def attach(self, browser: Browser) -> None:
     super().attach(browser)
     assert isinstance(browser, Chromium)
+    browser = cast(Chromium, browser)
     browser.flags.set("--no-sandbox")
     browser.js_flags.update(self._js_flags)
 
