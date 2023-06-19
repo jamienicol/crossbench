@@ -209,7 +209,8 @@ class ExceptionAnnotator:
     } for entry in self._exceptions]
 
   def __str__(self) -> str:
-    return "\n".join(str(entry.exception) for entry in self._exceptions)
+    return "\n".join(
+        f"{entry.info_stack}: {entry.exception}" for entry in self._exceptions)
 
 # Expose simpler name
 Annotator = ExceptionAnnotator

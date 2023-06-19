@@ -8,8 +8,8 @@ import collections
 import enum
 import inspect
 import textwrap
-from typing import (Any, Callable, Dict, Iterable, List, Optional, Tuple, Type,
-                    Union, cast)
+from typing import (Any, Callable, Dict, Generic, Iterable, List, Optional,
+                    Tuple, Type, TypeVar, Union, cast)
 
 import tabulate
 
@@ -201,13 +201,16 @@ class _ConfigArg:
     raise ValueError("Expected enum {self.type}, but got {data}")
 
 
-class ConfigParser:
+ConfigParserResultT = TypeVar("ConfigParserResultT", bound="object")
 
-  def __init__(self, title: str, cls: Type[object]):
+
+class ConfigParser(Generic[ConfigParserResultT]):
+
+  def __init__(self, title: str, cls: Type[ConfigParserResultT]):
     self.title = title
     assert title, "No title provided"
     self._cls = cls
-    self._args: Dict[str, _ConfigArg] = dict()
+    self._args: Dict[str, _ConfigArg] = {}
 
   def add_argument(  # pylint: disable=redefined-builtin
       self,
@@ -231,6 +234,11 @@ class ConfigParser:
         kwargs[arg.name] = arg.parse(config_data)
     exceptions.assert_success("Failed to parse config: {}", log=False)
     return kwargs
+
+  def parse(self,
+            config_data: Dict[str, Any],
+            throw: bool = False) -> ConfigParserResultT:
+    return self.cls(**self.kwargs_from_config(config_data, throw))
 
   @property
   def cls(self) -> Type:

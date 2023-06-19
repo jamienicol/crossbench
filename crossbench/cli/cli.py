@@ -39,7 +39,6 @@ if TYPE_CHECKING:
 
 argparse.ArgumentError = cli_helper.CrossBenchArgumentError
 
-
 class CrossBenchCLI:
 
   BENCHMARKS: Tuple[Tuple[BenchmarkClsT, Tuple[str, ...]], ...] = (
@@ -55,10 +54,11 @@ class CrossBenchCLI:
   RUNNER_CLS: Type[Runner] = Runner
 
   def __init__(self) -> None:
-    self._subparsers: Dict[BenchmarkClsT, argparse.ArgumentParser] = {}
-    self.parser = argparse.ArgumentParser()
-    self.describe_parser = argparse.ArgumentParser()
-    self.recorder_parser = argparse.ArgumentParser()
+    self._subparsers: Dict[BenchmarkClsT,
+                           cli_helper.CrossBenchArgumentParser] = {}
+    self.parser = cli_helper.CrossBenchArgumentParser()
+    self.describe_parser = cli_helper.CrossBenchArgumentParser()
+    self.recorder_parser = cli_helper.CrossBenchArgumentParser()
     # TODO: use self.args instead of passing it along as parameter.
     self.args = argparse.Namespace()
     self._setup_parser()
@@ -103,7 +103,10 @@ class CrossBenchCLI:
 
   def _setup_subparser(self) -> None:
     self.subparsers = self.parser.add_subparsers(
-        title="Subcommands", dest="subcommand", required=True)
+        title="Subcommands",
+        dest="subcommand",
+        required=True,
+        parser_class=cli_helper.CrossBenchArgumentParser)
     for benchmark_cls, alias in self.BENCHMARKS:
       assert isinstance(
           alias,
@@ -121,6 +124,7 @@ class CrossBenchCLI:
   def _setup_describe_subparser(self) -> None:
     self.describe_parser = self.subparsers.add_parser(
         "describe", aliases=["desc"], help="Print all benchmarks and stories")
+    assert isinstance(self.describe_parser, cli_helper.CrossBenchArgumentParser)
     self.describe_parser.add_argument(
         "category",
         nargs="?",
@@ -269,6 +273,7 @@ class CrossBenchCLI:
     browser_config_group.add_argument(
         "--browser",
         "-b",
+        type=cli_config.BrowserConfig.parse,
         action="append",
         default=[],
         help="Browser binary. Use this to test a simple browser variant. "
@@ -584,7 +589,7 @@ class CrossBenchCLI:
         logging.debug("log_result_summary failed: %s", e)
 
   def _get_browsers(self, args: argparse.Namespace) -> Sequence[Browser]:
-    args.browser_config = cli_config.BrowserConfig.from_cli_args(args)
+    args.browser_config = cli_config.BrowserVariantsConfig.from_cli_args(args)
     return args.browser_config.variants
 
   def _get_probes(self, args: argparse.Namespace) -> Sequence[Probe]:
@@ -640,8 +645,16 @@ class CrossBenchCLI:
         **runner_kwargs)
 
   def run(self, argv: Sequence[str]) -> None:
-    # Manually check for unprocessed_argv to print nicer error messages.
-    self.args, unprocessed_argv = self.parser.parse_known_args(argv)
+    unprocessed_argv = []
+    try:
+      # Manually check for unprocessed_argv to print nicer error messages.
+      self.args, unprocessed_argv = self.parser.parse_known_args(argv)
+    except argparse.ArgumentError as e:
+      # args is not set at this point, as parsing might have failed before
+      # handling --throw.
+      if "--throw" in argv:
+        raise e
+      self.error(str(e))
     if unprocessed_argv:
       self.error(f"unrecognized arguments: {unprocessed_argv}\n"
                  f"Use `{self.parser.prog} {self.args.subcommand} --help` "
@@ -653,17 +666,21 @@ class CrossBenchCLI:
     self.error(f"error argument {e.flag}: {e.message}")
 
   def error(self, message: str) -> None:
-    parser = self.parser
+    parser: cli_helper.CrossBenchArgumentParser = self.parser
     # Try to use the subparser to print nicer usage help on errors.
     # ArgumentParser tends to default to the toplevel parser instead of the
     # current subcommand, which in turn prints the wrong usage text.
-    if self.args.subcommand == "describe":
+    subcommand: str = getattr(self.args, "subcommand", "")
+    if subcommand == "describe":
       parser = self.describe_parser
     else:
       maybe_benchmark_cls = getattr(self.args, "benchmark_cls", None)
       if maybe_benchmark_cls:
         parser = self._subparsers[maybe_benchmark_cls]
-    parser.error(f"{self.args.subcommand}: {message}")
+    if subcommand:
+      parser.fail(f"{subcommand}: {message}")
+    else:
+      parser.fail(message)
 
   def _initialize_logging(self) -> None:
     logging.getLogger().setLevel(logging.INFO)

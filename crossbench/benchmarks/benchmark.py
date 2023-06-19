@@ -10,7 +10,7 @@ import logging
 import re
 from typing import (TYPE_CHECKING, Any, Dict, Generic, List, Optional, Sequence,
                     Type, TypeVar, cast)
-from crossbench import helper
+from crossbench import helper, cli_helper
 
 from crossbench.stories import PressBenchmarkStory, Story
 
@@ -39,7 +39,8 @@ class Benchmark(abc.ABC):
 
   @classmethod
   def add_cli_parser(
-      cls, subparsers, aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
+      cls, subparsers, aliases: Sequence[str] = ()
+  ) -> cli_helper.CrossBenchArgumentParser:
     parser = subparsers.add_parser(
         cls.NAME,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -47,6 +48,7 @@ class Benchmark(abc.ABC):
         description=cls.cli_description(),
         epilog=cls.cli_epilog(),
         aliases=aliases)
+    assert isinstance(parser, cli_helper.CrossBenchArgumentParser)
     return parser
 
   @classmethod

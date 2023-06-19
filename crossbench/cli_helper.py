@@ -8,6 +8,7 @@ import argparse
 import contextlib
 import json
 import math
+import sys
 import pathlib
 from typing import Any, Generator
 
@@ -106,6 +107,33 @@ class CrossBenchArgumentError(argparse.ArgumentError):
     return (f"argument error {self.argument_name}:\n\n"
             f"Help {self.argument_name}:\n{self.help}\n\n"
             f"{formatted}")
+
+
+# Needed to gap the diff between 3.8 and 3.9 default args that change throwing
+# behavior.
+class _BaseCrossBenchArgumentParser(argparse.ArgumentParser):
+
+  def fail(self, message):
+    super().error(message)
+
+
+if sys.version_info < (3, 9, 0):
+
+  class CrossBenchArgumentParser(_BaseCrossBenchArgumentParser):
+
+    def error(self, _):
+      # Let the CrossBenchCLI handle all errors and simplify testing.
+      exception = sys.exc_info()[1]
+      assert isinstance(exception, BaseException)
+      raise exception
+
+else:
+
+  class CrossBenchArgumentParser(_BaseCrossBenchArgumentParser):
+
+    def __init__(self, *args, **kwargs):
+      kwargs["exit_on_error"] = False
+      super().__init__(*args, **kwargs)
 
 
 class LateArgumentError(argparse.ArgumentTypeError):
