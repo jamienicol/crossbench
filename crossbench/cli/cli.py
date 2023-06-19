@@ -535,25 +535,33 @@ class CrossBenchCLI:
         self._update_results_symlinks(runner)
 
   def _update_results_symlinks(self, runner: Runner) -> None:
-    latest = runner.out_dir.parent / "latest"
+    results_root = runner.out_dir.parent
+    latest = results_root / "latest"
     if latest.is_symlink():
       latest.unlink()
     if not latest.exists():
-      latest.symlink_to(runner.out_dir, target_is_directory=True)
+      latest.symlink_to(
+          runner.out_dir.relative_to(results_root), target_is_directory=True)
     else:
       logging.error("Could not create %s", latest)
     if not runner.runs:
       return
-    first_run = runner.out_dir / 'first_run'
-    last_run = runner.out_dir / 'last_run'
+    out_dir = runner.out_dir
+    first_run = out_dir / 'first_run'
+    last_run = out_dir / 'last_run'
     if first_run.exists():
       logging.error("Cannot create first_run symlink: %s", first_run)
     else:
-      first_run.symlink_to(runner.runs[0].out_dir)
+      first_run.symlink_to(runner.runs[0].out_dir.relative_to(out_dir))
     if last_run.exists():
       logging.error("Cannot create last_run symlink: %s", last_run)
     else:
-      last_run.symlink_to(runner.runs[-1].out_dir)
+      last_run.symlink_to(runner.runs[-1].out_dir.relative_to(out_dir))
+    runs = out_dir / 'runs'
+    runs.mkdir()
+    for run in runner.runs:
+      relative = pathlib.Path("..") / run.out_dir.relative_to(out_dir)
+      (runs / str(run.index)).symlink_to(relative)
 
   def _log_results(self, args: argparse.Namespace, runner: Runner,
                    is_success: bool) -> None:
