@@ -32,10 +32,11 @@ class Safari(Browser):
       self,
       label: str,
       path: pathlib.Path,
-      flags: Flags.InitialDataType = None,
-      js_flags: Flags.InitialDataType = None,
+      flags: Optional[Flags.InitialDataType] = None,
+      js_flags: Optional[Flags.InitialDataType] = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "safari",  # pylint: disable=redefined-builtin
+      driver_path: Optional[pathlib.Path] = None,
       viewport: Optional[Viewport] = None,
       splash_screen: Optional[SplashScreen] = None,
       platform: Optional[MacOSPlatform] = None):
@@ -45,6 +46,7 @@ class Safari(Browser):
         flags,
         js_flags=None,
         type=type,
+        driver_path=driver_path,
         viewport=viewport,
         splash_screen=splash_screen,
         platform=platform)

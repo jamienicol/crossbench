@@ -106,14 +106,14 @@ class StoryFilter(Generic[StoryT], metaclass=abc.ABCMeta):
 
   @classmethod
   def from_cli_args(cls, story_cls: Type[StoryT],
-                    args: argparse.Namespace) -> StoryFilter:
+                    args: argparse.Namespace) -> StoryFilter[StoryT]:
     kwargs = cls.kwargs_from_cli(args)
     return cls(story_cls, **kwargs)
 
   def __init__(self,
                story_cls: Type[StoryT],
                patterns: Sequence[str],
-               separate: bool = False):
+               separate: bool = False) -> None:
     self.story_cls = story_cls
     assert issubclass(
         story_cls, Story), (f"Subclass of {Story} expected, found {story_cls}")

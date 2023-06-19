@@ -67,10 +67,11 @@ class Chromium(Browser):
       self,
       label: str,
       path: pathlib.Path,
-      flags: Flags.InitialDataType = None,
-      js_flags: Flags.InitialDataType = None,
+      flags: Optional[Flags.InitialDataType] = None,
+      js_flags: Optional[Flags.InitialDataType] = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "chromium",  # pylint: disable=redefined-builtin
+      driver_path: Optional[pathlib.Path] = None,
       viewport: Optional[Viewport] = None,
       splash_screen: Optional[SplashScreen] = None,
       platform: Optional[Platform] = None):
@@ -79,12 +80,15 @@ class Chromium(Browser):
         path,
         flags=None,
         type=type,
+        driver_path=driver_path,
         viewport=viewport,
         splash_screen=splash_screen,
         platform=platform)
     self._flags: ChromeFlags = self._create_flags(flags, js_flags)
     if cache_dir is None:
-      cache_dir = self._flags.get("--user-data-dir")
+      maybe_cache_dir = self._flags.get("--user-data-dir", None)
+      if maybe_cache_dir:
+        cache_dir = pathlib.Path(maybe_cache_dir)
     if cache_dir is None:
       # pylint: disable=bad-option-value, consider-using-with
       self.cache_dir = pathlib.Path(
@@ -149,7 +153,11 @@ class Chromium(Browser):
     assert self.path
     version_string = self.platform.app_version(self.path)
     # Sample output: "Chromium 90.0.4430.212 dev" => "90.0.4430.212"
-    return re.findall(r"[\d\.]+", version_string)[0]
+    matches = re.findall(r"[\d\.]+", version_string)
+    if not matches:
+      raise ValueError(
+          f"Could not extract version number from '{version_string}'")
+    return str(matches[0])
 
   @property
   def is_headless(self) -> bool:

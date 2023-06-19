@@ -29,8 +29,8 @@ class SystemStatsProbe(probe.Probe):
 
   _interval: float
 
-  def __init__(self, *args, interval: float = 1, **kwargs) -> None:
-    super().__init__(*args, **kwargs)
+  def __init__(self, interval: float = 1) -> None:
+    super().__init__()
     self._interval = interval
 
   @property

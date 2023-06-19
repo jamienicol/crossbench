@@ -136,7 +136,7 @@ class ProfilingProbe(Probe):
     for browser in self._browsers:
       self._pre_check_browser(browser, env)
 
-  def _pre_check_browser(self, browser: Browser, env: HostEnvironment):
+  def _pre_check_browser(self, browser: Browser, env: HostEnvironment) -> None:
     browser_platform = browser.platform
     if self.run_pprof:
       self._run_pprof = browser_platform.which("gcert") is not None
@@ -407,7 +407,7 @@ def linux_perf_probe_inject_v8_symbols(
       # TODO: investigate why almost all small perf.data files fail
       logging.debug("Failed processing small profile (likely empty): %s\n%s",
                     perf_data_file, e)
-  if not output_file.exists:
+  if not output_file.exists():
     return None
   return output_file
 

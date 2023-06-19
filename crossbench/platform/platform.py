@@ -58,7 +58,7 @@ class MachineArch(enum.Enum):
   ARM_32 = ("arm32", "arm", 32)
   ARM_64 = ("arm64", "arm", 64)
 
-  def __init__(self, name, arch, bits):
+  def __init__(self, name: str, arch: str, bits: int) -> None:
     self.identifier = name
     self.arch = arch
     self.bits = bits
@@ -327,7 +327,7 @@ class Platform(abc.ABC):
     return pathlib.Path(name)
 
   def sh_stdout(self,
-                *args,
+                *args: Union[str, pathlib.Path],
                 shell: bool = False,
                 quiet: bool = False,
                 encoding: str = "utf-8",
@@ -337,7 +337,7 @@ class Platform(abc.ABC):
     return completed_process.stdout.decode(encoding)
 
   def popen(self,
-            *args,
+            *args: Union[str, pathlib.Path],
             shell: bool = False,
             stdout=None,
             stderr=None,
@@ -357,7 +357,7 @@ class Platform(abc.ABC):
         env=env)
 
   def sh(self,
-         *args,
+         *args: Union[str, pathlib.Path],
          shell: bool = False,
          capture_output: bool = False,
          stdout=None,

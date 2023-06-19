@@ -11,7 +11,7 @@ import math
 import pathlib
 import re
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 from urllib.parse import urlparse
 
 import hjson
@@ -260,7 +260,7 @@ PAGE_LIST_SMALL = (PAGES["facebook"], PAGES["maps"], PAGES["timesofindia"],
                    PAGES["cnn"])
 
 
-class LoadingPageFilter(StoryFilter):
+class LoadingPageFilter(StoryFilter[Page]):
   """
   Filter / create loading stories
 
@@ -289,7 +289,7 @@ class LoadingPageFilter(StoryFilter):
                story_cls: Type[Page],
                patterns: Sequence[str],
                separate: bool = True,
-               playback: Optional[PlaybackController] = None):
+               playback: Optional[PlaybackController] = None) -> None:
     self._playback = playback or PlaybackController.once()
     super().__init__(story_cls, patterns, separate)
 
@@ -477,6 +477,39 @@ class AbstractPageConfig(abc.ABC):
     pass
 
 
+class Action(abc.ABC):
+  TYPE: ActionType = ActionType.GET
+
+  timeout: float
+  _story: Story
+
+  _EXCEPTION_BASE_STR = "Not valid action for scenario: "
+
+  def __init__(self,
+               value: Optional[str] = None,
+               duration: Union[float, int] = 0.0):
+    self.value = value
+    assert isinstance(duration, (float, int))
+    self.duration = duration
+    assert duration >= 0 and not math.isinf(duration), (
+        f"Invalid duration: {duration}")
+
+  @abc.abstractmethod
+  def run(self, run: Run, story: Story) -> None:
+    pass
+
+  @abc.abstractmethod
+  def _validate_action(self) -> None:
+    pass
+
+  @abc.abstractmethod
+  def details_json(self) -> Dict[str, Any]:
+    pass
+
+
+ActionT = TypeVar("ActionT", bound=Action)
+
+
 class PageConfig(AbstractPageConfig):
 
   def _load_dict(self, raw_config_data: Dict) -> None:
@@ -537,7 +570,7 @@ class PageConfig(AbstractPageConfig):
                           "does not contain any valid actions")
     return actions_list
 
-  def _create_action(self, action_type, value, duration) -> Action:
+  def _create_action(self, action_type: ActionType, value, duration) -> ActionT:
     if action_type not in _ACTION_FACTORY:
       raise ValueError(f"Unknown action name: '{action_type}'")
     return _ACTION_FACTORY[action_type](value, duration)
@@ -649,34 +682,6 @@ class _Duration:
     return time_value * cls.get_multiplier(time_unit)
 
 
-class Action(abc.ABC):
-  TYPE: ActionType = ActionType.GET
-
-  timeout: float
-  _story: Story
-
-  _EXCEPTION_BASE_STR = "Not valid action for scenario: "
-
-  def __init__(self,
-               value: Optional[str] = None,
-               duration: Union[float, int] = 0.0):
-    self.value = value
-    assert isinstance(duration, (float, int))
-    self.duration = duration
-    assert duration >= 0 and not math.isinf(duration), (
-        f"Invalid duration: {duration}")
-
-  @abc.abstractmethod
-  def run(self, run: Run, story: Story) -> None:
-    pass
-
-  @abc.abstractmethod
-  def _validate_action(self) -> None:
-    pass
-
-  @abc.abstractmethod
-  def details_json(self) -> Dict[str, Any]:
-    pass
 
 
 class ReadyState(compat.StrEnum):
@@ -701,6 +706,7 @@ class GetAction(Action):
     self._story = story
     self._validate_action()
     with run.actions("GetAction") as action:
+      assert self.value
       action.show_url(self.value)
       if self._ready_state == ReadyState.ANY:
         return
@@ -806,7 +812,7 @@ class ClickAction(Action):
     }
 
 
-_ACTION_FACTORY = {
+_ACTION_FACTORY: Dict[ActionType, Type] = {
     ActionType.GET: GetAction,
     ActionType.WAIT: WaitAction,
     ActionType.SCROLL: ScrollAction,

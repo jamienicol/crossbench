@@ -4,12 +4,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 import sys
 import traceback as tb
+from dataclasses import dataclass
 from types import TracebackType
-from typing import Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from crossbench import helper
 
@@ -201,7 +201,7 @@ class ExceptionAnnotator:
         logging.error("      %s", entry.exception)
       logging.error("-" * 80)
 
-  def to_json(self) -> list:
+  def to_json(self) -> List[Dict[str, Any]]:
     return [{
         "title": str(entry.exception),
         "trace": str(entry.traceback).splitlines(),

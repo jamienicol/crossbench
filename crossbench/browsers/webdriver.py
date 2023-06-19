@@ -52,16 +52,16 @@ class WebDriverBrowser(Browser, metaclass=abc.ABCMeta):
       self,
       label: str,
       path: Optional[pathlib.Path] = None,
-      flags: Flags.InitialDataType = None,
-      js_flags: Flags.InitialDataType = None,
+      flags: Optional[Flags.InitialDataType] = None,
+      js_flags: Optional[Flags.InitialDataType] = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "webdriver",  # pylint: disable=redefined-builtin
       driver_path: Optional[pathlib.Path] = None,
       viewport: Optional[Viewport] = None,
       splash_screen: Optional[SplashScreen] = None,
       platform: Optional[Platform] = None):
-    super().__init__(label, path, flags, js_flags, cache_dir, type, viewport,
-                     splash_screen, platform)
+    super().__init__(label, path, flags, js_flags, cache_dir, type, None,
+                     viewport, splash_screen, platform)
     self._driver_path = driver_path
 
   @property
@@ -85,6 +85,7 @@ class WebDriverBrowser(Browser, metaclass=abc.ABCMeta):
 
   def start(self, run: Run) -> None:
     self._check_driver_version()
+    assert self._driver_path
     try:
       self._driver = self._start_driver(run, self._driver_path)
     except selenium.common.exceptions.SessionNotCreatedException as e:

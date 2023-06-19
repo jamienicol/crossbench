@@ -144,7 +144,7 @@ class ChromeDownloader(abc.ABC):
       shutil.rmtree(temp_extracted_path)
     self._extract_archive(self._archive_path)
     logging.info("Parsing browser version: %s", self._app_path)
-    assert self._app_path.exists, (
+    assert self._app_path.exists(), (
         f"Extraction failed, app does not exist: {self._app_path}")
     full_version_string = self._platform.app_version(self._app_path)
     self._parse_version(full_version_string)

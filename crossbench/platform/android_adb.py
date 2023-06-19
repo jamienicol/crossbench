@@ -9,7 +9,7 @@ import pathlib
 import re
 from functools import lru_cache
 import subprocess
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from .platform import MachineArch, Platform
 from .posix import PosixPlatform
@@ -312,7 +312,7 @@ class AndroidAdbPlatform(PosixPlatform):
     return pathlib.Path("/data/local/tmp/")
 
   def sh(self,
-         *args,
+         *args: Union[str, pathlib.Path],
          shell: bool = False,
          capture_output: bool = False,
          stdout=None,

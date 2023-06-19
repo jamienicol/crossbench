@@ -223,7 +223,7 @@ class ProbeScope(abc.ABC, Generic[ProbeT]):
     assert self._start_time is None
     self._start_time = start_datetime
 
-  def __enter__(self) -> ProbeScope:
+  def __enter__(self) -> ProbeScope[ProbeT]:
     assert not self._is_active
     assert not self._is_success
     with self._run.exception_handler(f"Probe {self.name} start"):

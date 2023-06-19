@@ -35,10 +35,11 @@ class ChromeAppleScript(ChromePathMixin, ChromiumAppleScript):
       self,
       label: str,
       path: pathlib.Path,
-      flags: Flags.InitialDataType = None,
-      js_flags: Flags.InitialDataType = None,
+      flags: Optional[Flags.InitialDataType] = None,
+      js_flags: Optional[Flags.InitialDataType] = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "chrome",  # pylint: disable=redefined-builtin
+      driver_path: Optional[pathlib.Path] = None,
       viewport: Optional[Viewport] = None,
       splash_screen: Optional[SplashScreen] = None,
       platform: Optional[Platform] = None):
@@ -49,9 +50,11 @@ class ChromeAppleScript(ChromePathMixin, ChromiumAppleScript):
         js_flags,
         cache_dir,
         type=type,
+        driver_path=None,
         viewport=viewport,
         splash_screen=splash_screen,
         platform=platform)
+    del driver_path
 
   def _create_driver(self, options, service) -> ChromiumDriver:
     return webdriver.Chrome(  # pytype: disable=wrong-keyword-args

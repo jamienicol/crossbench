@@ -10,7 +10,7 @@ import pathlib
 import shutil
 import subprocess
 import tempfile
-from typing import TYPE_CHECKING, Dict, List, Tuple
+from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
 import crossbench
 from crossbench import helper
@@ -42,8 +42,8 @@ class VideoProbe(Probe):
   IMAGE_FORMAT = "png"
   TIMESTRIP_FILE_SUFFIX = f".timestrip.{IMAGE_FORMAT}"
 
-  def __init__(self, *args, **kwargs) -> None:
-    super().__init__(*args, **kwargs)
+  def __init__(self) -> None:
+    super().__init__()
     self._duration = None
 
   @property
@@ -110,7 +110,7 @@ class VideoProbe(Probe):
 
     logging.info("VIDEO merge page iterations")
     browser = group.browser
-    video_file_inputs = []
+    video_file_inputs: List[Union[str, pathlib.Path]] = []
     for run in runs:
       video_file_inputs += ["-i", run.results[self].file_list[0]]
     draw_text = ("fontfile='/Library/Fonts/Arial.ttf':"

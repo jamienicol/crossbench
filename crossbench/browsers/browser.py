@@ -40,8 +40,8 @@ class Browser(abc.ABC):
       self,
       label: str,
       path: Optional[pathlib.Path] = None,
-      flags: Flags.InitialDataType = None,
-      js_flags: Flags.InitialDataType = None,
+      flags: Optional[Flags.InitialDataType] = None,
+      js_flags: Optional[Flags.InitialDataType] = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: Optional[str] = None,  # pylint: disable=redefined-builtin
       driver_path: Optional[pathlib.Path] = None,

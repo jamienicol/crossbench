@@ -396,7 +396,7 @@ class EnumWithHelp(enum.Enum):
     obj._value_ = value
     return obj
 
-  def __init__(self, value, help_str: str = ""):
+  def __init__(self, value, help_str: str = "") -> None:
     del value
     assert help_str, "Missing help_str"
     self._help = help_str
@@ -425,7 +425,7 @@ class StrEnumWithHelp(EnumWithHelp):
 
 def update_url_query(url: str, query_params: Dict[str, str]) -> str:
   parsed_url = urlparse.urlparse(url)
-  query = urlparse.parse_qs(parsed_url.query)
+  query = dict(urlparse.parse_qsl(parsed_url.query))
   query.update(query_params)
   parsed_url = parsed_url._replace(query=urlparse.urlencode(query, doseq=True))
   return parsed_url.geturl()

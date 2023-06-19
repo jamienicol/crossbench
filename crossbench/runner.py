@@ -862,7 +862,7 @@ class Run:
                   self.browser_platform)
     return path
 
-  def setup(self, is_dry_run: bool) -> List[ProbeScope]:
+  def setup(self, is_dry_run: bool) -> List[ProbeScope[Any]]:
     self._advance_state(self.STATE_INITIAL, self.STATE_PREPARE)
     logging.debug("PREPARE")
     logging.info("STORY: %s", self.story)
@@ -1061,7 +1061,7 @@ class Actions(helper.TimeScope):
   def js(self,
          js_code: str,
          timeout: Union[float, int] = 10,
-         arguments=(),
+         arguments: Sequence[object] = (),
          **kwargs) -> Any:
     self._assert_is_active()
     assert js_code, "js_code must be a valid JS script"

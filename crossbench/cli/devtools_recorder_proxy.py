@@ -14,9 +14,10 @@ import secrets
 import shlex
 import sys
 import tempfile
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Coroutine, Dict, List, Optional, Tuple, Union
 
 import websockets
+from websockets.server import WebSocketServerProtocol
 
 from crossbench import compat
 
@@ -61,7 +62,7 @@ class CrossbenchDevToolsRecorderProxy:
         use_auth_token=args.use_auth_token)
     instance.run()
 
-  _websocket: Any
+  _websocket: WebSocketServerProtocol
 
   def __init__(self, use_auth_token: bool = True) -> None:
     self._token = secrets.token_hex(16)
@@ -77,7 +78,7 @@ class CrossbenchDevToolsRecorderProxy:
   def run(self) -> None:
     asyncio.run(self.run_server())
 
-  async def run_server(self):
+  async def run_server(self) -> None:
     try:
       serve = websockets.serve(self.handler, "localhost", self.DEFAULT_PORT)
     except Exception as e:
@@ -100,15 +101,17 @@ class CrossbenchDevToolsRecorderProxy:
       logging.info("#" * 80)
       await asyncio.Future()  # run forever
 
-  async def handler(self, websocket) -> None:
+  async def handler(self, websocket: WebSocketServerProtocol) -> None:
     self._websocket = websocket
     async for message in websocket:
       await self._send_message(self._handle_message(message))
 
-  async def _send_message(self, coroutine) -> None:
+  async def _send_message(
+      self, coroutine: Coroutine[Any, Any, Optional[Tuple[Response,
+                                                          Any]]]) -> None:
     response = {"success": False, "payload": None, "error": None}
     try:
-      result = await coroutine
+      result: Optional[Tuple[Response, Any]] = await coroutine
       response["success"] = True
       if result:
         response_type, payload = result
@@ -168,26 +171,30 @@ class CrossbenchDevToolsRecorderProxy:
     self._state = State.RUNNING
     cb_path = pathlib.Path(__file__).parents[2] / "cb.py"
     os.environ["PYTHONUNBUFFERED"] = "1"
+    cmd: List[Union[str, pathlib.Path]] = []
     if args.get("cmd") == "--help":
-      cmd = [cb_path.absolute(), "load", "--help"]
+      cmd = ["load", "--help"]
       self._print_cmd_output = False
     elif args.get("cmd") == "describe probes":
-      cmd = [cb_path.absolute(), "describe", "probes"]
+      cmd = ["describe", "probes"]
       self._print_cmd_output = False
     else:
       self._print_cmd_output = True
       with self._tmp_json.open("w", encoding="utf-8") as f:
         json.dump(args["json"], f)
       assert self._tmp_json.exists()
-      assert cb_path.exists
+      assert cb_path.exists()
       cmd = [
-          cb_path.absolute(), "load", "--env-validation=warn", "--verbose",
+          "load", "--env-validation=warn", "--verbose",
           f"--devtools-recorder={self._tmp_json.absolute()}",
           *shlex.split(args.get("cmd"))
       ]
     logging.info("CROSSBENCH COMMAND: %s", cmd)
     self._crossbench_process = await asyncio.create_subprocess_exec(
-        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        cb_path.absolute(),
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE)
     self._crossbench_task = asyncio.create_task(self._wait_for_crossbench())
     return await self._status_command()
 

@@ -46,8 +46,8 @@ class ChromiumWebDriver(WebDriverBrowser, Chromium, metaclass=abc.ABCMeta):
       self,
       label: str,
       path: Optional[pathlib.Path] = None,
-      flags: Flags.InitialDataType = None,
-      js_flags: Flags.InitialDataType = None,
+      flags: Optional[Flags.InitialDataType] = None,
+      js_flags: Optional[Flags.InitialDataType] = None,
       cache_dir: Optional[pathlib.Path] = None,
       type: str = "chromium",  # pylint: disable=redefined-builtin
       driver_path: Optional[pathlib.Path] = None,
@@ -116,7 +116,8 @@ class ChromiumWebDriver(WebDriverBrowser, Chromium, metaclass=abc.ABCMeta):
     return options
 
   @abc.abstractmethod
-  def _create_driver(self, options, service) -> ChromiumDriver:
+  def _create_driver(self, options: ChromiumOptions,
+                     service: ChromiumService) -> ChromiumDriver:
     pass
 
   def _check_driver_version(self) -> None:

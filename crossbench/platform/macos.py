@@ -61,7 +61,7 @@ class MacOSPlatform(PosixPlatform):
       return binaries[0]
     # Fallback to read plist
     plist_path = app_path / "Contents" / "Info.plist"
-    assert plist_path.is_file, (
+    assert plist_path.is_file(), (
         f"Could not find Info.plist in app bundle: {app_path}")
     with plist_path.open("rb") as f:
       plist = plistlib.load(f)
@@ -212,7 +212,7 @@ class MacOSPlatform(PosixPlatform):
     self.sh("sudo", falconctl, "unload")
     return True
 
-  def _get_display_service(self) -> Tuple:
+  def _get_display_service(self) -> Tuple[ctypes.CDLL, Any]:
     core_graphics = ctypes.CDLL(
         "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
     main_display = core_graphics.CGMainDisplayID()

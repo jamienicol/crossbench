@@ -474,7 +474,8 @@ class HostEnvironment:
     if missing_binaries:
       self.handle_warning(message.format(missing_binaries))
 
-  def check_sh_success(self, *args,
+  def check_sh_success(self,
+                       *args: Union[str, pathlib.Path],
                        message: str = "Could not execute: {}") -> None:
     assert args, "Missing sh arguments"
     try:

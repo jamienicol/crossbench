@@ -78,7 +78,7 @@ class PowerSamplerProbe(Probe):
     self._sampling_interval = sampling_interval
     assert sampling_interval >= 0, (
         f"Invalid sampling_interval={sampling_interval}")
-    assert "battery" not in samplers
+    assert SamplerType.BATTERY not in samplers
     self._samplers = tuple(samplers)
     self._wait_for_battery = wait_for_battery
 
