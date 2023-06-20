@@ -21,15 +21,26 @@ def parse_path(str_value: str) -> pathlib.Path:
   except RuntimeError as e:
     raise argparse.ArgumentTypeError(f"Invalid Path '{str_value}': {e}") from e
   if not path.exists():
-    raise argparse.ArgumentTypeError(f"Path '{path}', does not exist.")
+    raise argparse.ArgumentTypeError(f"Path '{path}' does not exist.")
+  return path
+
+
+def parse_existing_file_path(str_value: str) -> pathlib.Path:
+  path = parse_path(str_value)
+  if not path.is_file():
+    raise argparse.ArgumentTypeError(f"Path '{path}' is not a file.")
+  return path
+
+
+def parse_non_empty_file_path(str_value: str) -> pathlib.Path:
+  path: pathlib.Path = parse_existing_file_path(str_value)
+  if path.stat().st_size == 0:
+    raise argparse.ArgumentTypeError(f"Path '{path}' is empty.")
   return path
 
 
 def parse_file_path(str_value: str) -> pathlib.Path:
-  path = parse_path(str_value)
-  if not path.is_file():
-    raise argparse.ArgumentTypeError(f"Path '{path}', is not a file.")
-  return path
+  return parse_non_empty_file_path(str_value)
 
 
 def parse_dir_path(str_value: str) -> pathlib.Path:

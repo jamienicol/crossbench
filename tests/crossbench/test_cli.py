@@ -215,9 +215,12 @@ class CliTestCase(BaseCrossbenchTestCase):
     with mock.patch.object(
         CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       url = "http://test.com"
-      with self.assertRaises(ProbeConfigError):
+      with self.assertRaises(argparse.ArgumentError) as cm:
         self.run_cli("loading", f"--probe-config={config_file}",
                      f"--urls={url}", "--env-validation=skip", "--throw")
+      message = str(cm.exception)
+      self.assertIn("--probe-config", message)
+      self.assertIn("empty", message)
       for browser in self.browsers:
         self.assertListEqual([], browser.url_list[1:])
         self.assertNotIn("--log", browser.js_flags)
@@ -896,7 +899,7 @@ class TestProbeConfig(fake_filesystem_unittest.TestCase):
 
   def test_inline_config(self):
     mock_d8_file = pathlib.Path("out/d8")
-    self.fs.create_file(mock_d8_file)
+    self.fs.create_file(mock_d8_file, st_size=8 * 1024)
     config_data = {"d8_binary": str(mock_d8_file)}
     args = mock.Mock(probe_config=None, throw=True, wraps=False)
 

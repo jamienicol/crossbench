@@ -791,7 +791,6 @@ def parse_inline_env_config(value: str) -> HostEnvironmentConfig:
     raise argparse.ArgumentTypeError(
         f"Invalid inline config string: {value}{msg}") from e
 
-
 def parse_env_config_file(value: str) -> HostEnvironmentConfig:
   config_path: pathlib.Path = cli_helper.parse_file_path(value)
   try:
