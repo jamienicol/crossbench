@@ -132,11 +132,12 @@ if sys.version_info < (3, 9, 0):
 
   class CrossBenchArgumentParser(_BaseCrossBenchArgumentParser):
 
-    def error(self, _):
+    def error(self, message):
       # Let the CrossBenchCLI handle all errors and simplify testing.
       exception = sys.exc_info()[1]
-      assert isinstance(exception, BaseException)
-      raise exception
+      if isinstance(exception, BaseException):
+        raise exception
+      raise argparse.ArgumentError(None, message)
 
 else:
 
