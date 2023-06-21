@@ -565,6 +565,8 @@ class CrossBenchCLI:
     runs = out_dir / 'runs'
     runs.mkdir()
     for run in runner.runs:
+      if not run.out_dir.exists():
+        continue
       relative = pathlib.Path("..") / run.out_dir.relative_to(out_dir)
       (runs / str(run.index)).symlink_to(relative)
 

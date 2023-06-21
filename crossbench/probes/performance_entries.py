@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 from __future__ import annotations
+import logging
 
 from typing import TYPE_CHECKING, Any, Dict
 
@@ -45,10 +46,18 @@ class PerformanceEntriesProbe(JsonResultProbe):
       """)
 
   def merge_stories(self, group: StoriesRunGroup) -> ProbeResult:
+    stories = list(group.stories)
+    if len(stories) > 1:
+      logging.warning(
+          "%s: Merging performance.entries from %d possibly unrelated pages %s",
+          group.browser.unique_name, len(stories),
+          ', '.join(story.name for story in stories))
     merged = probes_helper.ValuesMerger.merge_json_list(
-        story_group.results[self].json
-        for story_group in group.repetitions_groups)
-    return self.write_group_result(group, merged)
+        (story_group.results[self].json
+         for story_group in group.repetitions_groups),
+        merge_duplicate_paths=True)
+    return self.write_group_result(group, merged, write_csv=True)
 
   def merge_browsers(self, group: BrowsersRunGroup) -> ProbeResult:
-    return self.merge_browsers_json_list(group)
+    return self.merge_browsers_json_list(group).merge(
+        self.merge_browsers_csv_list(group))
