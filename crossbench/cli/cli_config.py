@@ -164,7 +164,6 @@ class DriverConfig:
 
 SUPPORTED_BROWSER = ("chromium", "chrome", "safari", "edge", "firefox")
 
-
 @dataclasses.dataclass(frozen=True)
 class BrowserConfig:
   path_or_identifier: Union[pathlib.Path, str]
@@ -271,7 +270,7 @@ class BrowserConfig:
     driver_path_or_identifier, _, path_or_identifier = value.partition(":")
     driver = DriverConfig.parse(driver_path_or_identifier)
     path: Union[str, pathlib.Path] = cls._parse_path_or_identifier(
-        path_or_identifier)
+        path_or_identifier, driver.type)
     return (driver, path)
 
   @classmethod

@@ -5,10 +5,11 @@
 from __future__ import annotations
 
 import abc
-from functools import lru_cache
 import pathlib
-from typing import List, Optional, Union
-from .platform import Platform
+from functools import lru_cache
+from typing import Iterator, List, Optional, Union
+
+from .platform import Environ, Platform
 
 
 class PosixPlatform(Platform, metaclass=abc.ABCMeta):
@@ -68,3 +69,48 @@ class PosixPlatform(Platform, metaclass=abc.ABCMeta):
     args.append(str(template))
     result = self.sh_stdout(*args)
     return pathlib.Path(result.strip())
+
+  def exists(self, path: pathlib.Path) -> bool:
+    if self.is_remote:
+      return self.sh("[", "-e", path, "]", check=False).returncode == 0
+    return super().exists(path)
+
+  def is_file(self, path: pathlib.Path) -> bool:
+    if self.is_remote:
+      return self.sh("[", "-f", path, "]", check=False).returncode == 0
+    return super().is_file(path)
+
+  def is_dir(self, path: pathlib.Path) -> bool:
+    if self.is_remote:
+      return self.sh("[", "-d", path, "]", check=False).returncode == 0
+    return super().is_dir(path)
+
+  @property
+  def environ(self) -> Environ:
+    if self.is_remote:
+      return RemotePosixEnviron(self)
+    return super().environ
+
+
+class RemotePosixEnviron(Environ):
+
+  def __init__(self, platform: PosixPlatform) -> None:
+    self._platform = platform
+    self._environ = dict(
+        line.split("=", maxsplit=1)
+        for line in self._platform.sh_stdout("env").splitlines())
+
+  def __getitem__(self, key: str) -> str:
+    return self._environ.__getitem__(key)
+
+  def __setitem__(self, key: str, item: str) -> None:
+    raise NotImplementedError("Unsupported")
+
+  def __delitem__(self, key: str) -> None:
+    raise NotImplementedError("Unsupported")
+
+  def __iter__(self) -> Iterator[str]:
+    return self._environ.__iter__()
+
+  def __len__(self) -> int:
+    return self._environ.__len__()

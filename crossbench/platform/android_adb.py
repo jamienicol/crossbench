@@ -70,8 +70,35 @@ class Adb:
   def device_info(self) -> str:
     return self._device_info
 
+  def _adb(self,
+           *args: Union[str, pathlib.Path],
+           shell: bool = False,
+           capture_output: bool = False,
+           stdout=None,
+           stderr=None,
+           stdin=None,
+           env: Optional[Mapping[str, str]] = None,
+           quiet: bool = False,
+           check: bool = True,
+           use_serial_id: bool = True) -> subprocess.CompletedProcess:
+    if use_serial_id:
+      adb_cmd = ["adb", "-s", self._serial_id]
+    else:
+      adb_cmd = ["adb"]
+    adb_cmd.extend(args)
+    return self._host_platform.sh(
+        *adb_cmd,
+        shell=shell,
+        capture_output=capture_output,
+        stdout=stdout,
+        stderr=stderr,
+        stdin=stdin,
+        env=env,
+        quiet=quiet,
+        check=check)
+
   def _adb_stdout(self,
-                  *args: str,
+                  *args: Union[str, pathlib.Path],
                   quiet: bool = False,
                   encoding: str = "utf-8",
                   use_serial_id: bool = True) -> str:
@@ -79,13 +106,12 @@ class Adb:
       adb_cmd = ["adb", "-s", self._serial_id]
     else:
       adb_cmd = ["adb"]
-
     adb_cmd.extend(args)
     return self._host_platform.sh_stdout(
         *adb_cmd, quiet=quiet, encoding=encoding)
 
   def shell_stdout(self,
-                   *args: str,
+                   *args: Union[str, pathlib.Path],
                    quiet: bool = False,
                    encoding: str = "utf-8") -> str:
     # -e: choose escape character, or "none"; default '~'
@@ -96,17 +122,18 @@ class Adb:
     return self._adb_stdout("shell", *args, quiet=quiet, encoding=encoding)
 
   def shell(self,
-            *args,
+            *args: Union[str, pathlib.Path],
             shell: bool = False,
             capture_output: bool = False,
             stdout=None,
             stderr=None,
             stdin=None,
             env: Optional[Mapping[str, str]] = None,
-            quiet: bool = False) -> subprocess.CompletedProcess:
+            quiet: bool = False,
+            check: bool = True) -> subprocess.CompletedProcess:
     # See shell_stdout for more `adb shell` options.
-    adb_cmd = ["adb", "-s", self._serial_id, "shell", *args]
-    return self._host_platform.sh(
+    adb_cmd = ["shell", *args]
+    return self._adb(
         *adb_cmd,
         shell=shell,
         capture_output=capture_output,
@@ -114,7 +141,8 @@ class Adb:
         stderr=stderr,
         stdin=stdin,
         env=env,
-        quiet=quiet)
+        quiet=quiet,
+        check=check)
 
   def start_server(self) -> None:
     self._adb_stdout("start-server", use_serial_id=False)
@@ -133,6 +161,10 @@ class Adb:
       serial_id, details = line.split(" ", maxsplit=1)
       result[serial_id.strip()] = details.strip()
     return result
+
+  def pull(self, device_src_path: pathlib.Path,
+           local_dest_path: pathlib.Path) -> None:
+    self._adb("pull", device_src_path, local_dest_path)
 
   def cmd(self,
           *args: str,
@@ -319,7 +351,8 @@ class AndroidAdbPlatform(PosixPlatform):
          stderr=None,
          stdin=None,
          env: Optional[Mapping[str, str]] = None,
-         quiet: bool = False) -> subprocess.CompletedProcess:
+         quiet: bool = False,
+         check: bool = False) -> subprocess.CompletedProcess:
     return self.adb.shell(
         *args,
         shell=shell,
@@ -328,4 +361,13 @@ class AndroidAdbPlatform(PosixPlatform):
         stderr=stderr,
         stdin=stdin,
         env=env,
-        quiet=quiet)
+        quiet=quiet,
+        check=check)
+
+  def rsync(self, from_path: pathlib.Path,
+            to_path: pathlib.Path) -> pathlib.Path:
+    assert self.exists(
+        from_path), f"Source file '{from_path}' does not exist on {self}"
+    to_path.parent.mkdir(parents=True, exist_ok=True)
+    self.adb.pull(from_path, to_path)
+    return to_path

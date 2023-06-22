@@ -76,24 +76,35 @@ class BrowserConfigTestCase(BaseCrossbenchTestCase):
         BrowserConfig.parse("osa:chrome"),
         BrowserConfig(Chrome.stable_path(),
                       DriverConfig(BrowserDriverType.APPLE_SCRIPT)))
-    self.assertEqual(
-        BrowserConfig.parse("adb:chrome"),
-        BrowserConfig(Chrome.stable_path(),
-                      DriverConfig(BrowserDriverType.ANDROID)))
-    self.assertEqual(
-        BrowserConfig.parse("android:chrome"),
-        BrowserConfig(Chrome.stable_path(),
-                      DriverConfig(BrowserDriverType.ANDROID)))
+
+  def test_parse_simple_with_driver_ios(self):
     self.assertEqual(
         BrowserConfig.parse("ios:chrome"),
         BrowserConfig(Chrome.stable_path(),
                       DriverConfig(BrowserDriverType.IOS)))
 
+  def test_parse_simple_with_driver_android(self):
+    self.assertEqual(
+        BrowserConfig.parse("adb:chrome"),
+        BrowserConfig(
+            pathlib.Path("com.android.chrome"),
+            DriverConfig(BrowserDriverType.ANDROID)))
+    self.assertEqual(
+        BrowserConfig.parse("adb:chrome-dev"),
+        BrowserConfig(
+            pathlib.Path("com.chrome.dev"),
+            DriverConfig(BrowserDriverType.ANDROID)))
+    self.assertEqual(
+        BrowserConfig.parse("android:chrome-canary"),
+        BrowserConfig(
+            pathlib.Path("com.chrome.canary"),
+            DriverConfig(BrowserDriverType.ANDROID)))
+
   @unittest.expectedFailure
   def test_parse_inline_config_simple(self):
     self.assertEqual(
         BrowserConfig.parse("adb:pixel_7:chrome"),
-        BrowserConfig(Chrome.stable_path(),
+        BrowserConfig("android:chrome-canary",
                       DriverConfig(BrowserDriverType.ANDROID)))
 
   def test_parse_invalid_driver(self):

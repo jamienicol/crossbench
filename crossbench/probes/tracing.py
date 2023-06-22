@@ -129,6 +129,9 @@ def parse_trace_config_file_path(value: str) -> pathlib.Path:
   return pathlib.Path(value)
 
 
+ANDROID_TRACE_CONFIG_PATH = pathlib.Path("/data/local/chrome-trace-config.json")
+
+
 class TracingProbe(Probe):
   """
   Chromium-only Probe to collect tracing / perfetto data that can be used by
@@ -240,6 +243,9 @@ class TracingProbe(Probe):
     # pylint: disable=no-member
     flags["--trace-startup-duration"] = str(self._startup_duration)
     if self._trace_config:
+      # TODO: use ANDROID_TRACE_CONFIG_PATH
+      assert not browser.platform.is_android, (
+          "Trace config files not supported on android yet")
       flags["--trace-config-file"] = str(self._trace_config.absolute())
     else:
       flags["--trace-startup-record-mode"] = str(self._record_mode)
@@ -277,7 +283,9 @@ class TracingProbeScope(ProbeScope[TracingProbe]):
       logging.info(
           "No traceconv binary: skipping converting proto to legacy traces")
       return self.browser_result(file=(self.result_path,))
-    logging.info("Converting to legacy .json trace: %s", self.result_path)
+
+    logging.info("Converting to legacy .json trace on local machine: %s",
+                 self.result_path)
     json_trace_file = self.result_path.with_suffix(".json")
     self.browser_platform.sh(self._traceconv, "json", self.result_path,
                              json_trace_file)

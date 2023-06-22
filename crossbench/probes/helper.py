@@ -457,12 +457,12 @@ class V8CheckoutFinder:
   def _find_v8_checkout(self) -> Optional[pathlib.Path]:
     # Try potential build location
     for candidate_dir in self.checkout_candidates:
-      if candidate_dir.is_dir():
+      if self.platform.is_dir(candidate_dir):
         return candidate_dir
     maybe_d8_path = self.platform.environ.get("D8_PATH")
     if not maybe_d8_path:
       return None
     for candidate_dir in pathlib.Path(maybe_d8_path).parents:
-      if (candidate_dir / "include" / "v8.h").is_file():
+      if self.platform.is_file(candidate_dir / "include" / "v8.h"):
         return candidate_dir
     return None

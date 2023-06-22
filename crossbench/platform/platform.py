@@ -293,9 +293,12 @@ class Platform(abc.ABC):
     with pathlib.Path(file).open(encoding=encoding) as f:
       return f.read()
 
-  def copy_to(self, from_path: pathlib.Path,
-              to_path: pathlib.Path) -> pathlib.Path:
+  def rsync(self, from_path: pathlib.Path,
+            to_path: pathlib.Path) -> pathlib.Path:
+    """ Convenience implementation that works for copying local dirs """
     assert not self.is_remote, "Unsupported operation on remote platform"
+    if not from_path.exists():
+      raise ValueError(f"Cannot copy non-existing source path: {from_path}")
     to_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(from_path, to_path)
     return to_path
@@ -325,6 +328,18 @@ class Platform(abc.ABC):
     fd, name = tempfile.mkstemp(prefix=prefix, dir=dir)
     os.close(fd)
     return pathlib.Path(name)
+
+  def exists(self, path: pathlib.Path) -> bool:
+    assert not self.is_remote, "Unsupported operation on remote platform"
+    return path.exists()
+
+  def is_file(self, path: pathlib.Path) -> bool:
+    assert not self.is_remote, "Unsupported operation on remote platform"
+    return path.is_file()
+
+  def is_dir(self, path: pathlib.Path) -> bool:
+    assert not self.is_remote, "Unsupported operation on remote platform"
+    return path.is_dir()
 
   def sh_stdout(self,
                 *args: Union[str, pathlib.Path],
@@ -364,7 +379,8 @@ class Platform(abc.ABC):
          stderr=None,
          stdin=None,
          env: Optional[Mapping[str, str]] = None,
-         quiet: bool = False) -> subprocess.CompletedProcess:
+         quiet: bool = False,
+         check: bool = False) -> subprocess.CompletedProcess:
     assert not self.is_remote, "Unsupported operation on remote platform"
     if not quiet:
       logging.debug("SHELL: %s", shlex.join(map(str, args)))
@@ -378,7 +394,7 @@ class Platform(abc.ABC):
         env=env,
         capture_output=capture_output,
         check=False)
-    if process.returncode != 0:
+    if check and process.returncode != 0:
       raise SubprocessError(self, process)
     return process
 

@@ -160,7 +160,7 @@ class BrowserProbeResult(ProbeResult):
     for remote_path in paths:
       relative_path = remote_path.relative_to(remote_tmp_dir)
       result_path = out_dir / relative_path
-      browser_platform.copy_to(remote_path, result_path)
+      browser_platform.rsync(remote_path, result_path)
       assert result_path.exists(), "Failed to copy result file."
       result_paths.append(result_path)
     return result_paths
