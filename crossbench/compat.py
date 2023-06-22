@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import enum
+import pathlib
 import sys
 
 if sys.version_info >= (3, 11):
@@ -18,4 +19,18 @@ else:
       return str(self.value)
 
 
-__all__ = ("StrEnum",)
+if sys.version_info >= (3, 9):
+
+  def is_relative_to(path_a: pathlib.Path, path_b: pathlib.Path) -> bool:
+    return path_a.is_relative_to(path_b)
+else:
+
+  def is_relative_to(path_a: pathlib.Path, path_b: pathlib.Path) -> bool:
+    try:
+      path_a.relative_to(path_b)
+      return True
+    except ValueError:
+      return False
+
+
+__all__ = ("StrEnum", "is_relative_to")

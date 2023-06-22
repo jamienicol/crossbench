@@ -80,6 +80,9 @@ class ChromeDownloader(abc.ABC):
           not self._archive_path.exists()):
         raise ValueError(f"Chrome archive does not exist: {self._archive_path}")
       self._load_from_archive()
+    assert self._app_path.exists(), (
+        f"Could not extract chrome binary: {self._app_path}")
+    logging.debug("Extracted app: %s", self._app_path)
 
   @property
   def app_path(self) -> pathlib.Path:
@@ -366,9 +369,9 @@ class ChromeDownloaderLinux(ChromeDownloader):
           f"--directory={extracted_path}",
           "--make-directories",
           stdin=f)
+    cpio_file.unlink()
     assert self._app_path.is_file(), (
         f"Could not extract chrome binary: {self._app_path}")
-    cpio_file.unlink()
 
 
 class ChromeDownloaderMacOS(ChromeDownloader):

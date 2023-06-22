@@ -2,11 +2,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import shutil
 import pathlib
-from typing import Union
-import pytest
+import shutil
 import sys
+from typing import Union
+
+import pytest
+
+from crossbench import compat
 from crossbench.browsers.chrome.downloader import ChromeDownloader
 from tests.end2end.helper import End2EndTestCase
 
@@ -27,8 +30,12 @@ class ChromeDownloaderTestCase(End2EndTestCase):
                              expect_archive: bool = True) -> pathlib.Path:
     app_path = ChromeDownloader.load(version_or_archive, self.platform,
                                      self.output_dir)
-    self.assertSetEqual(
-        set(self.output_dir.iterdir()), {app_path, self.archive_dir})
+    self.assertTrue(compat.is_relative_to(app_path, self.output_dir))
+    self.assertTrue(self.archive_dir.exists())
+    self.assertTrue(app_path.exists())
+    if self.platform.is_macos:
+      self.assertSetEqual(
+          set(self.output_dir.iterdir()), {app_path, self.archive_dir})
     self.assertIn(version_str, self.platform.app_version(app_path))
     archives = list(self.archive_dir.iterdir())
     if expect_archive:
@@ -48,7 +55,10 @@ class ChromeDownloaderTestCase(End2EndTestCase):
     # Delete the extracted app and reload, can't reuse the cached archive since
     # we're requesting only a milestone that could have been updated
     # in the meantime.
-    shutil.rmtree(app_path)
+    if self.platform.is_macos:
+      shutil.rmtree(app_path)
+    else:
+      shutil.rmtree(self.output_dir / "M111")
     self.assertFalse(app_path.exists())
     self.load_and_check_version("chrome-M111", "111", expect_archive=False)
 
@@ -61,12 +71,18 @@ class ChromeDownloaderTestCase(End2EndTestCase):
     app_path = self.load_and_check_version(f"chrome-{version_str}", version_str)
 
     # Delete the extracted app and reload, should reuse the cached archive.
-    shutil.rmtree(app_path)
+    if self.platform.is_macos:
+      shutil.rmtree(app_path)
+    else:
+      shutil.rmtree(self.output_dir / version_str)
     self.assertFalse(app_path.exists())
     app_path = self.load_and_check_version(f"chrome-{version_str}", version_str)
 
     # Delete app and install from archive.
-    shutil.rmtree(app_path)
+    if self.platform.is_macos:
+      shutil.rmtree(app_path)
+    else:
+      shutil.rmtree(self.output_dir / version_str)
     self.assertFalse(app_path.exists())
     archives = list(self.archive_dir.iterdir())
     self.assertEqual(len(archives), 1)
