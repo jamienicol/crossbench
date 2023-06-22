@@ -114,28 +114,28 @@ class RunResultsSummaryProbe(JsonResultProbe):
     }
 
   def merge_repetitions(self, group: RepetitionsRunGroup) -> ProbeResult:
-    iterations = []
+    repetitions = []
     browser = None
 
     for run in group.runs:
       source_file = run.results[self].json
       assert source_file.is_file()
       with source_file.open(encoding="utf-8") as f:
-        iteration_data = json.load(f)
+        repetition_data = json.load(f)
       if browser is None:
-        browser = iteration_data["browser"]
+        browser = repetition_data["browser"]
         del browser["log"]
-      iterations.append({
-          "cwd": iteration_data["cwd"],
-          "probes": iteration_data["probes"],
-          "errors": iteration_data["errors"],
+      repetitions.append({
+          "cwd": repetition_data["cwd"],
+          "probes": repetition_data["probes"],
+          "errors": repetition_data["errors"],
       })
 
     merged_data = {
         "cwd": str(group.path),
         "story": group.story.details_json(),
         "browser": browser,
-        "iterations": iterations,
+        "repetitions": repetitions,
         "probes": group.results.to_json(),
         "errors": group.exceptions.to_json(),
     }

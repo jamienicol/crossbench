@@ -61,8 +61,7 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
     super().__init__(label, path, *args, **kwargs)
     self.url_list: List[str] = []
     self.js_list: List[str] = []
-    self.js_side_effect: List[Any] = []
-    self.run_js_side_effect: List[Any] = []
+    self.js_side_effects: List[Any] = []
     self.did_run: bool = False
     self.clear_cache_dir: bool = False
     chrome_flags = self.flags
@@ -76,7 +75,6 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
     assert not self._is_running
     self._is_running = True
     self.did_run = True
-    self.run_js_side_effect = copy.deepcopy(self.js_side_effect)
 
   def force_quit(self):
     # Assert that start() was called before force_quit()
@@ -100,14 +98,13 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
     self.js_list.append(script)
     if timeout:
       assert timeout.total_seconds() > 0
-    if self.js_side_effect is None:
+    if self.js_side_effects is None:
       return None
-    assert self.run_js_side_effect, (
-        "Not enough mock js_side_effect available. "
-        "Please add another js_side_effect entry for "
-        f"arguments={arguments} \n"
-        f"Script: {script}")
-    result = self.run_js_side_effect.pop(0)
+    assert self.js_side_effects, ("Not enough mock js_side_effect available. "
+                                  "Please add another js_side_effect entry for "
+                                  f"arguments={arguments} \n"
+                                  f"Script: {script}")
+    result = self.js_side_effects.pop(0)
     # Return copies to avoid leaking data between repetitions.
     return copy.deepcopy(result)
 

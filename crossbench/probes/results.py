@@ -191,6 +191,11 @@ class ProbeResultDict:
   def get(self, probe: Probe, default: Any = None) -> ProbeResult:
     return self._dict.get(probe.name, default)
 
+  def get_by_name(self, name: str, default: Any = None) -> ProbeResult:
+    # Debug helper only.
+    # Use bracket `results[probe]` or `results.get(probe)` instead.
+    return self._dict.get(name, default)
+
   def to_json(self) -> Dict[str, Any]:
     data: Dict[str, Any] = {}
     for probe_name, results in self._dict.items():

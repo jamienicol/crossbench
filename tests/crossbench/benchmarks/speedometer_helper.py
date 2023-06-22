@@ -4,9 +4,11 @@
 
 import abc
 import argparse
+import copy
 import csv
+import types
 from dataclasses import dataclass
-from typing import Optional, Sequence, Type
+from typing import Dict, List, Optional, Sequence, Type
 from unittest import mock
 
 from crossbench.benchmarks.speedometer.speedometer import (SpeedometerBenchmark,
@@ -138,75 +140,75 @@ class SpeedometerBaseTestCase(
         [story.name for story in stories_b],
     )
 
-  def test_run_throw(self):
-    self._test_run(throw=True)
 
-  def test_run_default(self):
-    self._test_run()
-    for browser in self.browsers:
-      urls = self.filter_data_urls(browser.url_list)
-      self.assertIn(f"{self.story_cls.URL}?iterationCount=10", urls)
-      self.assertNotIn(f"{self.story_cls.URL_LOCAL}?iterationCount=10", urls)
+  EXAMPLE_STORY_DATA = types.MappingProxyType({
+      "tests": {
+          "Adding100Items": {
+              "tests": {
+                  "Sync": 74.6000000089407,
+                  "Async": 6.299999997019768
+              },
+              "total": 80.90000000596046
+          },
+          "CompletingAllItems": {
+              "tests": {
+                  "Sync": 22.600000008940697,
+                  "Async": 5.899999991059303
+              },
+              "total": 28.5
+          },
+          "DeletingItems": {
+              "tests": {
+                  "Sync": 11.800000011920929,
+                  "Async": 0.19999998807907104
+              },
+              "total": 12
+          }
+      },
+      "total": 121.40000000596046
+  })
 
-  def test_run_custom_url(self):
-    custom_url = "http://test.example.com/speedometer"
-    self._test_run(custom_url)
-    for browser in self.browsers:
-      urls = self.filter_data_urls(browser.url_list)
-      self.assertIn(f"{custom_url}?iterationCount=10", urls)
-      self.assertNotIn(f"{self.story_cls.URL}?iterationCount=10", urls)
-      self.assertNotIn(f"{self.story_cls.URL_LOCAL}?iterationCount=10", urls)
-
-  def _test_run(self, custom_url: Optional[str] = None, throw: bool = False):
+  def _test_run(self,
+                story_names: Optional[Sequence[str]] = None,
+                separate: bool = False,
+                custom_url: Optional[str] = None,
+                throw: bool = True) -> Runner:
     repetitions = 3
     iterations = 2
-    default_story_name = self.story_cls.SUBSTORIES[0]
-    self.assertTrue(default_story_name)
-    stories = self.story_cls.from_names([default_story_name], url=custom_url)
-    example_story_data = {
-        "tests": {
-            "Adding100Items": {
-                "tests": {
-                    "Sync": 74.6000000089407,
-                    "Async": 6.299999997019768
-                },
-                "total": 80.90000000596046
-            },
-            "CompletingAllItems": {
-                "tests": {
-                    "Sync": 22.600000008940697,
-                    "Async": 5.899999991059303
-                },
-                "total": 28.5
-            },
-            "DeletingItems": {
-                "tests": {
-                    "Sync": 11.800000011920929,
-                    "Async": 0.19999998807907104
-                },
-                "total": 12
-            }
-        },
-        "total": 121.40000000596046
-    }
-    speedometer_probe_results = [{
-        "tests": {story.name: example_story_data for story in stories},
-        "total": 1000,
-        "mean": 2000,
-        "geomean": 3000,
-        "score": 10
-    } for i in range(iterations)]
+    if story_names is None:
+      default_story_name = self.story_cls.SUBSTORIES[0]
+      self.assertTrue(default_story_name)
+      story_names = [default_story_name]
+    stories = self.story_cls.from_names(
+        story_names, separate=separate, url=custom_url)
 
+    # The order should match Runner.get_runs
+    for _ in range(repetitions):
+      for story in stories:
+        speedometer_probe_results = [{
+            "tests": {
+                substory_name: dict(self.EXAMPLE_STORY_DATA)
+                for substory_name in story.substories
+            },
+            "total": 1000,
+            "mean": 2000,
+            "geomean": 3000,
+            "score": 10
+        }
+                                     for _ in range(iterations)]
+        js_side_effects = [
+            True,  # Page is ready
+            None,  # _setup_substories
+            None,  # _setup_benchmark_client
+            None,  # _run_stories
+            True,  # Wait until done
+            speedometer_probe_results,
+        ]
+        for browser in self.browsers:
+          browser.js_side_effects += js_side_effects
     for browser in self.browsers:
-      # This depends on the JS actions in SpeedometerStory:
-      browser.js_side_effect = [
-          True,  # Page is ready
-          None,  # _setup_substories
-          None,  # _setup_benchmark_client
-          None,  # _run_stories
-          True,  # Wait until done
-          speedometer_probe_results,
-      ]
+      browser.js_side_effect = copy.deepcopy(browser.js_side_effects)
+
     benchmark = self.benchmark_cls(stories, custom_url=custom_url)
     self.assertTrue(len(benchmark.describe()) > 0)
     runner = Runner(
@@ -218,101 +220,22 @@ class SpeedometerBaseTestCase(
         platform=self.platform,
         repetitions=repetitions,
         throw=throw)
-    with mock.patch.object(
-        HostEnvironment, "validate_url", return_value=True) as cm:
-      runner.run()
-    cm.assert_called_once()
-    for browser in self.browsers:
-      urls = self.filter_data_urls(browser.url_list)
-      self.assertEqual(len(urls), repetitions)
-      self.assertIn(SpeedometerProbe.JS, browser.js_list)
-
-    with (self.out_dir /
-          f"{self.probe_cls.NAME}.csv").open(encoding="utf-8") as f:
-      csv_data = list(csv.DictReader(f, delimiter="\t"))
-    self.assertListEqual(list(csv_data[0].keys()), ["label", "dev", "stable"])
-    self.assertDictEqual(csv_data[1], {
-        'label': 'version',
-        'dev': '102.22.33.44',
-        'stable': '100.22.33.44'
-    })
-
-  def _run_story_names(self, story_names: Sequence[str], separate: bool,
-                       expected_num_urls: int):
-    repetitions = 3
-    iterations = 2
-    stories = self.story_cls.from_names(story_names, separate=separate)
-    example_story_data = {
-        "tests": {
-            "Adding100Items": {
-                "tests": {
-                    "Sync": 74.6000000089407,
-                    "Async": 6.299999997019768
-                },
-                "total": 80.90000000596046
-            },
-            "CompletingAllItems": {
-                "tests": {
-                    "Sync": 22.600000008940697,
-                    "Async": 5.899999991059303
-                },
-                "total": 28.5
-            },
-            "DeletingItems": {
-                "tests": {
-                    "Sync": 11.800000011920929,
-                    "Async": 0.19999998807907104
-                },
-                "total": 12
-            }
-        },
-        "total": 121.40000000596046
-    }
-    speedometer_probe_results = [{
-        "tests": {story.name: example_story_data for story in stories},
-        "total": 1000,
-        "mean": 2000,
-        "geomean": 3000,
-        "score": 10
-    } for i in range(iterations)]
-
-    for browser in self.browsers:
-      browser.js_side_effect = [
-          True,  # Page is ready
-          None,  # _setup_substories
-          None,  # _setup_benchmark_client
-          None,  # _run_stories
-          True,  # Wait until done
-          speedometer_probe_results,
-      ]
-    benchmark = self.benchmark_cls(stories)
-    self.assertTrue(len(benchmark.describe()) > 0)
-    runner = Runner(
-        self.out_dir,
-        self.browsers,
-        benchmark,
-        env_config=HostEnvironmentConfig(),
-        env_validation_mode=ValidationMode.SKIP,
-        platform=self.platform,
-        repetitions=repetitions)
     with mock.patch.object(self.benchmark_cls, "validate_url") as cm:
       runner.run()
     cm.assert_called_once()
+    return runner
 
+  def _verify_results(
+      self,
+      runner: Runner,
+      expected_num_urls: Optional[int] = None) -> List[Dict[str, str]]:
     for browser in self.browsers:
       urls = self.filter_data_urls(browser.url_list)
-      self.assertEqual(len(urls), expected_num_urls)
+      if expected_num_urls is not None:
+        self.assertEqual(len(urls), expected_num_urls)
       self.assertIn(self.probe_cls.JS, browser.js_list)
+      self.assertListEqual(browser.js_side_effects, [])
 
-    with (self.out_dir /
-          f"{self.probe_cls.NAME}.csv").open(encoding="utf-8") as f:
-      csv_data = list(csv.DictReader(f, delimiter="\t"))
-    self.assertListEqual(list(csv_data[0].keys()), ["label", "dev", "stable"])
-    self.assertDictEqual(csv_data[1], {
-        'label': 'version',
-        'dev': '102.22.33.44',
-        'stable': '100.22.33.44'
-    })
     with self.assertLogs(level='INFO') as cm:
       for probe in runner.probes:
         for run in runner.runs:
@@ -328,12 +251,62 @@ class SpeedometerBaseTestCase(
     self.assertIn("102.22.33.44", output)
     self.assertIn("100.22.33.44", output)
 
+    csv_files = list(runner.out_dir.glob("speedometer*.csv"))
+    self.assertEqual(len(csv_files), 1)
+    csv_file = self.out_dir / f"{self.probe_cls.NAME}.csv"
+    rows: List[Dict[str, str]] = [{}]
+    with csv_file.open(encoding="utf-8") as f:
+      reader = csv.DictReader(f, delimiter="\t")
+      rows = list(reader)
+    self.assertListEqual(list(rows[0].keys()), ["label", "dev", "stable"])
+    self.assertDictEqual(rows[1], {
+        'label': 'version',
+        'dev': '102.22.33.44',
+        'stable': '100.22.33.44'
+    })
+    return rows
+
+  def test_run_throw(self):
+    runner = self._test_run(throw=True)
+    self._verify_results(runner)
+
+  def test_run_default(self):
+    runner = self._test_run()
+    self._verify_results(runner)
+    for browser in self.browsers:
+      urls = self.filter_data_urls(browser.url_list)
+      self.assertIn(f"{self.story_cls.URL}?iterationCount=10", urls)
+      self.assertNotIn(f"{self.story_cls.URL_LOCAL}?iterationCount=10", urls)
+
+  def test_run_custom_url(self):
+    custom_url = "http://test.example.com/speedometer"
+    runner = self._test_run(custom_url=custom_url)
+    self._verify_results(runner)
+    for browser in self.browsers:
+      urls = self.filter_data_urls(browser.url_list)
+      self.assertIn(f"{custom_url}?iterationCount=10", urls)
+      self.assertNotIn(f"{self.story_cls.URL}?iterationCount=10", urls)
+      self.assertNotIn(f"{self.story_cls.URL_LOCAL}?iterationCount=10", urls)
+
+  def _verify_results_stories(self, rows, story_names):
+    labels = [row['label'] for row in rows]
+    self.assertNotIn(f"{self.benchmark_cls.NAME}_{'_'.join(story_names)}",
+                     labels)
+    for story_name in story_names:
+      self.assertIn(story_name, labels)
+
+  def _run_combined(self, story_names: Sequence[str]):
+    runner = self._test_run(story_names=story_names, separate=False)
+    rows = self._verify_results(runner, expected_num_urls=3)
+    self._verify_results_stories(rows, story_names)
+
+  def _run_separate(self, story_names: Sequence[str]):
+    runner = self._test_run(story_names=story_names, separate=True)
+    rows = self._verify_results(runner, expected_num_urls=6)
+    self._verify_results_stories(rows, story_names)
+
   def test_run_combined(self):
-    self._run_story_names(["VanillaJS-TodoMVC", "Elm-TodoMVC"],
-                          separate=False,
-                          expected_num_urls=3)
+    self._run_combined(["VanillaJS-TodoMVC", "Elm-TodoMVC"])
 
   def test_run_separate(self):
-    self._run_story_names(["VanillaJS-TodoMVC", "Elm-TodoMVC"],
-                          separate=True,
-                          expected_num_urls=6)
+    self._run_separate(["VanillaJS-TodoMVC", "Elm-TodoMVC"])

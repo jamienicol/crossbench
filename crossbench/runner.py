@@ -326,17 +326,17 @@ class Runner:
 
   def get_runs(self) -> Iterable[Run]:
     index = 0
-    for iteration in range(self.repetitions):
+    for repetition in range(self.repetitions):
       for story in self.stories:
         for browser in self.browsers:
           yield Run(
               self,
               browser,
               story,
-              iteration,
+              repetition,
               index,
               self.out_dir,
-              name=f"{story.name}[{iteration}]",
+              name=f"{story.name}[{repetition}]",
               throw=self._exceptions.throw)
           index += 1
 
@@ -367,7 +367,7 @@ class Runner:
     logging.info("RUNS COMPLETED")
     logging.info("-" * 80)
     logging.info("MERGING PROBE DATA")
-    logging.debug("MERGING PROBE DATA: iterations")
+    logging.debug("MERGING PROBE DATA: repetitions")
     throw = self._exceptions.throw
     self._repetitions_groups = RepetitionsRunGroup.groups(self._runs, throw)
     with self._exceptions.info("Merging results from multiple repetitions"):
@@ -661,7 +661,7 @@ class Run:
                runner: Runner,
                browser: Browser,
                story: Story,
-               iteration: int,
+               repetition: int,
                index: int,
                root_dir: pathlib.Path,
                name: Optional[str] = None,
@@ -672,8 +672,8 @@ class Run:
     self._runner = runner
     self._browser = browser
     self._story = story
-    assert iteration >= 0
-    self._iteration = iteration
+    assert repetition >= 0
+    self._repetition = repetition
     assert index >= 0
     self._index = index
     self._name = name
@@ -686,9 +686,12 @@ class Run:
     self._exceptions = exception.Annotator(throw)
     self._browser_tmp_dir: Optional[pathlib.Path] = None
 
+  def __str__(self) -> str:
+    return f"Run({self.name}, {self._state}, {self.browser})"
+
   def get_out_dir(self, root_dir: pathlib.Path) -> pathlib.Path:
     return root_dir / self.browser.unique_name / self.story.name / str(
-        self._iteration)
+        self._repetition)
 
   @property
   def group_dir(self) -> pathlib.Path:
@@ -704,13 +707,13 @@ class Run:
         (f"browser={self.browser.type} label={self.browser.label} "
          "binary={self.browser.path}"),
         f"story={self.story}",
-        f"iteration={self.iteration}",
+        f"repetition={self.repetition}",
     )
 
   def details_json(self) -> Dict[str, Any]:
     details = {
         "name": self.name,
-        "iteration": self.iteration,
+        "repetition": self.repetition,
         "temperature": self.temperature,
         "story": str(self.story),
         "duration": dt.timedelta(seconds=self.story.duration),
@@ -727,8 +730,8 @@ class Run:
     return self._durations
 
   @property
-  def iteration(self) -> int:
-    return self._iteration
+  def repetition(self) -> int:
+    return self._repetition
 
   @property
   def index(self) -> int:

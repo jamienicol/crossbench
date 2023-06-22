@@ -146,6 +146,10 @@ class PressBenchmarkStory(Story, metaclass=ABCMeta):
     return startup_delay + story_factor * self.substory_duration
 
   @property
+  def substories(self) -> List[str]:
+    return list(self._substories)
+
+  @property
   def fast_duration(self) -> float:
     """Expected benchmark duration on fast machines.
     Keep this low enough to not have to wait needlessly at the end of a

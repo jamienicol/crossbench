@@ -102,13 +102,13 @@ class VideoProbe(Probe):
       shutil.copy(run_result_file, result_file)
       shutil.copy(run_timeline_strip_file, timeline_strip_file)
       return LocalProbeResult(file=(result_file, timeline_strip_file))
-    logging.info("TIMESTRIP merge page iterations")
+    logging.info("TIMESTRIP merge page repetitions")
     timeline_strips = (run.results[self].file_list[1] for run in runs)
     self.runner_platform.sh("montage", *timeline_strips, "-tile", "1x",
                             "-gravity", "NorthWest", "-geometry", "x100",
                             timeline_strip_file)
 
-    logging.info("VIDEO merge page iterations")
+    logging.info("VIDEO merge page repetitions")
     browser = group.browser
     video_file_inputs: List[Union[str, pathlib.Path]] = []
     for run in runs:

@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import copy
 import csv
 import sys
 from typing import Optional
@@ -101,15 +102,21 @@ class MotionMark2Test(helper.PressBaseBenchmarkTestCase):
 
   def _test_run(self, custom_url: Optional[str] = None, throw: bool = False):
     stories = MotionMark12Story.from_names(['Multiply'], url=custom_url)
-    for browser in self.browsers:
-      browser.js_side_effect = [
-          True,  # Page is ready
-          1,  # NOF enabled benchmarks
-          None,  # Start running benchmark
-          True,  # Wait until done
-          self.EXAMPLE_PROBE_DATA
-      ]
     repetitions = 3
+    # The order should match Runner.get_runs
+    for _ in range(repetitions):
+      for _ in stories:
+        js_side_effects = [
+            True,  # Page is ready
+            1,  # NOF enabled benchmarks
+            None,  # Start running benchmark
+            True,  # Wait until done
+            self.EXAMPLE_PROBE_DATA
+        ]
+        for browser in self.browsers:
+          browser.js_side_effects += js_side_effects
+    for browser in self.browsers:
+      browser.js_side_effect = copy.deepcopy(browser.js_side_effects)
     benchmark = self.benchmark_cls(stories, custom_url=custom_url)
     self.assertTrue(len(benchmark.describe()) > 0)
     runner = Runner(

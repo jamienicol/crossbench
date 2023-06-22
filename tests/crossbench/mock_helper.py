@@ -132,6 +132,8 @@ class BaseCrossbenchTestCase(
     ]
     self.sleep_patcher = mock.patch('time.sleep', return_value=None)
     self.sleep_patcher.start()
+    for browser in self.browsers:
+      self.assertListEqual(browser.js_side_effects, [])
 
   def tearDown(self) -> None:
     self.sleep_patcher.stop()

@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import abc
+import copy
 import csv
 from typing import Optional, Type
 from unittest import mock
@@ -54,6 +55,7 @@ class JetStream2BaseTestCase(
       self.assertNotIn(self.story_cls.URL_LOCAL, urls)
 
   def _test_run(self, custom_url: Optional[str] = None, throw: bool = False):
+    repetitions = 3
     stories = self.story_cls.from_names(["WSL"], url=custom_url)
     example_story_data = {
         "firstIteration": 1,
@@ -61,19 +63,25 @@ class JetStream2BaseTestCase(
         "worst4": 1.1,
         "score": 1
     }
-    jetstream_probe_results = {
-        story.name: example_story_data for story in stories
-    }
+    # The order should match Runner.get_runs
+    for _ in range(repetitions):
+      for _ in stories:
+        jetstream_probe_results = {
+            story.name: example_story_data for story in stories
+        }
+        js_side_effects = [
+            True,  # Page is ready
+            None,  # filter benchmarks
+            True,  # UI is updated and ready,
+            None,  # Start running benchmark
+            True,  # Wait until done
+            jetstream_probe_results,
+        ]
+        for browser in self.browsers:
+          browser.js_side_effects += js_side_effects
     for browser in self.browsers:
-      browser.js_side_effect = [
-          True,  # Page is ready
-          None,  # filter benchmarks
-          True,  # UI is updated and ready,
-          None,  # Start running benchmark
-          True,  # Wait until done
-          jetstream_probe_results,
-      ]
-    repetitions = 3
+      browser.js_side_effect = copy.deepcopy(browser.js_side_effects)
+
     benchmark = self.benchmark_cls(stories, custom_url=custom_url)
     self.assertTrue(len(benchmark.describe()) > 0)
     runner = Runner(

@@ -73,14 +73,10 @@ class Speedometer30TestCase(speedometer_helper.SpeedometerBaseTestCase):
     return "speedometer_3.0"
 
   def test_run_combined(self):
-    self._run_story_names(["TodoMVC-JavaScript-ES5", "TodoMVC-Backbone"],
-                          separate=False,
-                          expected_num_urls=3)
+    self._run_combined(["TodoMVC-JavaScript-ES5", "TodoMVC-Backbone"])
 
   def test_run_separate(self):
-    self._run_story_names(["TodoMVC-JavaScript-ES5", "TodoMVC-Backbone"],
-                          separate=True,
-                          expected_num_urls=6)
+    self._run_separate(["TodoMVC-JavaScript-ES5", "TodoMVC-Backbone"])
 
 
 if __name__ == "__main__":
