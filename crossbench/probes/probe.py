@@ -110,6 +110,9 @@ class Probe(abc.ABC):
     assert self.name is not None, "A Probe must define a name"
     self._browsers = set()
 
+  def __str__(self) -> str:
+    return type(self).__name__
+
   @property
   def runner_platform(self) -> Platform:
     # TODO(cbruni): support remote platforms
