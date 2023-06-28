@@ -199,7 +199,7 @@ class Chromium(Browser):
     if len(js_flags_copy):
       flags_copy["--js-flags"] = str(js_flags_copy)
     if user_data_dir := self.flags.get("--user-data-dir"):
-      assert user_data_dir == self.cache_dir, (
+      assert user_data_dir == str(self.cache_dir), (
           f"--user-data-dir path: {user_data_dir} was passed"
           f"but does not match cache-dir: {self.cache_dir}")
     if self.cache_dir:
