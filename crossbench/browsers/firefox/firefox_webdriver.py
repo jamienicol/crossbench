@@ -11,7 +11,7 @@ import shlex
 import shutil
 import stat
 import tempfile
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple, cast
 
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
@@ -20,6 +20,7 @@ from selenium.webdriver.firefox.service import Service as FirefoxService
 from crossbench import exception, helper
 from crossbench.browsers.browser import BROWSERS_CACHE
 from crossbench.browsers.webdriver import WebDriverBrowser
+from crossbench.platform.android_adb import AndroidAdbPlatform
 
 from .firefox import Firefox
 
@@ -56,14 +57,8 @@ class FirefoxWebDriver(WebDriverBrowser, Firefox):
                     driver_path: pathlib.Path) -> webdriver.Firefox:
     assert not self._is_running
     assert self.log_file
-    options = FirefoxOptions()
-    options.set_capability("browserVersion", str(self.major_version))
-    # Don't wait for document-ready.
-    options.set_capability("pageLoadStrategy", "eager")
     args = self._get_browser_flags_for_run(run)
-    for arg in args:
-      options.add_argument(arg)
-    options.binary_location = str(self.path)
+    options = self._create_options(args)
     logging.info("STARTING BROWSER: %s", self.path)
     logging.info("STARTING BROWSER: driver: %s", driver_path)
     logging.info("STARTING BROWSER: args: %s", shlex.join(args))
@@ -76,10 +71,44 @@ class FirefoxWebDriver(WebDriverBrowser, Firefox):
         options=options, service=service)
     return driver
 
+  def _create_options(self, args: Sequence[str]) -> FirefoxOptions:
+    assert not self._is_running
+    options = FirefoxOptions()
+    if not self.platform.is_android:
+      # FIXME: setting this prevents firefox from running on Android
+      options.set_capability("browserVersion", str(self.major_version))
+    # Don't wait for document-ready.
+    options.set_capability("pageLoadStrategy", "eager")
+    for arg in args:
+      options.add_argument(arg)
+    if not self.platform.is_android:
+      # FIXME: setting this prevents firefox from running on Android
+      options.binary_location = str(self.path)
+    return options
+
   def _check_driver_version(self) -> None:
     # TODO
     # version = self.platform.sh_stdout(self._driver_path, "--version")
     pass
+
+
+class FirefoxWebDriverAndroid(FirefoxWebDriver):
+
+  @property
+  def platform(self) -> AndroidAdbPlatform:
+    assert isinstance(
+        self._platform,
+        AndroidAdbPlatform), (f"Invalid platform: {self._platform}")
+    return cast(AndroidAdbPlatform, self._platform)
+
+  def _resolve_binary(self, path: pathlib.Path) -> pathlib.Path:
+    return path
+
+  def _create_options(self, args: Sequence[str]) -> FirefoxOptions:
+    options: FirefoxOptions = super()._create_options(args)
+    package = self.platform.app_path_to_package(self.path)
+    options.enable_mobile(android_package=package, device_serial=self.platform.adb.serial_id)
+    return options
 
 
 class FirefoxDriverFinder:
@@ -88,6 +117,7 @@ class FirefoxDriverFinder:
   def __init__(self, browser: FirefoxWebDriver):
     self.browser = browser
     self.platform = browser.platform
+    self.host_platform = browser.platform.host_platform
     self.extension = ""
     if self.platform.is_win:
       self.extension = ".exe"
@@ -106,7 +136,7 @@ class FirefoxDriverFinder:
     url, archive_type = self._find_driver_download_url()
     with tempfile.TemporaryDirectory() as tmp_dir:
       tar_file = pathlib.Path(tmp_dir) / f"download.{archive_type}"
-      self.platform.download_to(url, tar_file)
+      self.host_platform.download_to(url, tar_file)
       unpack_dir = pathlib.Path(tmp_dir) / "extracted"
       shutil.unpack_archive(tar_file, unpack_dir)
       driver = unpack_dir / f"geckodriver{self.extension}"
@@ -174,19 +204,21 @@ class FirefoxDriverFinder:
     return dict(sorted(versions.items(), reverse=True))
 
   def _arch_identifier(self) -> str:
-    if self.platform.is_linux:
+    if self.host_platform.is_linux:
       arch = "linux"
-    elif self.platform.is_macos:
+    elif self.host_platform.is_macos:
       arch = "macos"
-    elif self.platform.is_win:
+    elif self.host_platform.is_win:
       arch = "win"
+    elif self.host_platform.is_android:
+      arch = "android"
     else:
-      raise ValueError(f"Unsupported geckodriver platform {self.platform}")
-    if not self.platform.is_macos:
-      if self.platform.is_x64:
+      raise ValueError(f"Unsupported geckodriver platform {self.host_platform}")
+    if not self.host_platform.is_macos:
+      if self.host_platform.is_x64:
         arch += "64"
-      elif self.platform.is_ia32:
+      elif self.host_platform.is_ia32:
         arch += "32"
-    if self.platform.is_arm64:
+    if self.host_platform.is_arm64:
       arch += "-aarch64"
     return arch

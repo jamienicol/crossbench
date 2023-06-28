@@ -189,7 +189,7 @@ class DriverConfig(ConfigObject):
     return parser
 
 
-SUPPORTED_BROWSER = ("chromium", "chrome", "safari", "edge", "firefox")
+SUPPORTED_BROWSER = ("chromium", "chrome", "safari", "edge", "firefox", "geckoview_example")
 
 @dataclasses.dataclass(frozen=True)
 class BrowserConfig(ConfigObject):
@@ -259,11 +259,20 @@ class BrowserConfig(ConfigObject):
     if identifier in ("safari-technology-preview", "safari-tp", "sf-tp", "tp"):
       return browsers.Safari.technology_preview_path()
     if identifier in ("firefox", "ff"):
+      if driver_type == BrowserDriverType.ANDROID:
+        return pathlib.Path("org.mozilla.firefox")
       return browsers.Firefox.default_path()
     if identifier in ("firefox-dev", "firefox-developer-edition", "ff-dev"):
+      if driver_type == BrowserDriverType.ANDROID:
+        return pathlib.Path("org.mozilla.firefox.beta")
       return browsers.Firefox.developer_edition_path()
     if identifier in ("firefox-nightly", "ff-nightly", "ff-trunk"):
+      if driver_type == BrowserDriverType.ANDROID:
+        return pathlib.Path("org.mozilla.fenix")
       return browsers.Firefox.nightly_path()
+    if identifier in ("gve", "geckoview-example"):
+      if driver_type == BrowserDriverType.ANDROID:
+        return pathlib.Path("org.mozilla.geckoview_example")
     if ChromeDownloader.is_valid(maybe_path_or_identifier, platform.PLATFORM):
       # We have a valid version identifier for chrome.
       return maybe_path_or_identifier
@@ -573,6 +582,11 @@ class BrowserVariantsConfig:
     if "firefox" in path_str:
       if driver == BrowserDriverType.WEB_DRIVER:
         return browsers.FirefoxWebDriver
+      if driver == BrowserDriverType.ANDROID:
+        return browsers.FirefoxWebDriverAndroid
+    if "geckoview_example" in path_str:
+      if driver == BrowserDriverType.ANDROID:
+        return browsers.FirefoxWebDriverAndroid
     if "edge" in path_str:
       return browsers.EdgeWebDriver
     raise argparse.ArgumentTypeError(f"Unsupported browser path='{path}'")

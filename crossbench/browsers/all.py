@@ -12,7 +12,7 @@ from crossbench.browsers.chromium import (Chromium, ChromiumAppleScript,
                                           ChromiumWebDriver,
                                           ChromiumWebDriverAndroid)
 from crossbench.browsers.edge import Edge, EdgeWebDriver
-from crossbench.browsers.firefox import Firefox, FirefoxWebDriver
+from crossbench.browsers.firefox import Firefox, FirefoxWebDriver, FirefoxWebDriverAndroid
 from crossbench.browsers.safari import (Safari, SafariAppleScript,
                                         SafariWebDriver)
 from crossbench.browsers.webdriver import RemoteWebDriver
@@ -32,6 +32,7 @@ __all__ = (
     "EdgeWebDriver",
     "Firefox",
     "FirefoxWebDriver",
+    "FirefoxWebDriverAndroid",
     "RemoteWebDriver",
     "Safari",
     "SafariAppleScript",
