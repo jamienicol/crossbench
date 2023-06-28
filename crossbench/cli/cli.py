@@ -56,7 +56,10 @@ class CrossBenchCLI:
   def __init__(self) -> None:
     self._subparsers: Dict[BenchmarkClsT,
                            cli_helper.CrossBenchArgumentParser] = {}
-    self.parser = cli_helper.CrossBenchArgumentParser()
+    self.parser = cli_helper.CrossBenchArgumentParser(
+        description=("A cross browser and cross benchmark runner "
+                     "with configurable measurement probes."))
+    self.help_parser = cli_helper.CrossBenchArgumentParser()
     self.describe_parser = cli_helper.CrossBenchArgumentParser()
     self.recorder_parser = cli_helper.CrossBenchArgumentParser()
     # TODO: use self.args instead of passing it along as parameter.
@@ -113,8 +116,9 @@ class CrossBenchCLI:
           (list,
            tuple)), (f"Benchmark alias must be list or tuple, but got: {alias}")
       self._setup_benchmark_subparser(benchmark_cls, alias)
-    self._setup_recorder_subparser()
+    self._setup_help_subparser()
     self._setup_describe_subparser()
+    self._setup_recorder_subparser()
 
   def _setup_recorder_subparser(self) -> None:
     self.recorder_parser = CrossbenchDevToolsRecorderProxy.add_subcommand(
@@ -143,6 +147,14 @@ class CrossBenchCLI:
         action="store_true",
         help="Print the data as json data")
     self.describe_parser.set_defaults(subcommand_fn=self.describe_subcommand)
+    self._add_verbosity_argument(self.describe_parser)
+
+  def _setup_help_subparser(self) -> None:
+    # Just for completeness we want to support "--help" and "help"
+    self.help_parser = self.subparsers.add_parser(
+        "help", help="Print the top-level --help")
+    assert isinstance(self.describe_parser, cli_helper.CrossBenchArgumentParser)
+    self.help_parser.set_defaults(subcommand_fn=self.help_subcommand)
     self._add_verbosity_argument(self.describe_parser)
 
   def describe_subcommand(self, args: argparse.Namespace) -> None:
@@ -174,9 +186,12 @@ class CrossBenchCLI:
           self.error(f"No matching benchmark found: '{args.filter}'")
       else:
         assert args.category == "all"
+        if not data["benchmarks"] and not data["probes"]:
+          self.error(f"No matching benchmarks or probes found: '{args.filter}'")
       print(json.dumps(data, indent=2))
       return
     # Create tabular format
+    printed_any = False
     if args.category in ("all", "benchmark", "benchmarks"):
       table: List[List[Optional[str]]] = [["Benchmark", "Property", "Value"]]
       for benchmark_name, values in data["benchmarks"].items():
@@ -194,8 +209,10 @@ class CrossBenchCLI:
               value = tabulate(value.items(), tablefmt="plain", **kwargs)
           table.append([None, name, value])
       if len(table) <= 1:
-        self.error(f"No matching benchmark found: '{args.filter}'")
+        if args.category != "all":
+          self.error(f"No matching benchmark found: '{args.filter}'")
       else:
+        printed_any = True
         print(tabulate(table, tablefmt="grid"))
 
     if args.category in ("all", "probe", "probes"):
@@ -203,9 +220,19 @@ class CrossBenchCLI:
       for probe_name, probe_desc in data["probes"].items():
         table.append([probe_name, probe_desc])
       if len(table) <= 1:
-        self.error(f"No matching probe found: '{args.filter}'")
+        if args.category != "all":
+          self.error(f"No matching probe found: '{args.filter}'")
       else:
+        printed_any = True
         print(tabulate(table, tablefmt="grid"))
+
+    if not printed_any:
+      self.error(f"No matching benchmarks or probes found: '{args.filter}'")
+
+  def help_subcommand(self, args: argparse.Namespace) -> None:
+    del args
+    self.parser.print_help()
+    sys.exit(0)
 
   def _setup_benchmark_subparser(self, benchmark_cls: Type[Benchmark],
                                  aliases: Sequence[str]) -> None:
@@ -390,8 +417,8 @@ class CrossBenchCLI:
   def benchmark_subcommand(self, args: argparse.Namespace) -> None:
     benchmark = None
     runner = None
+    self._benchmark_subcommand_helper(args)
     try:
-      self._benchmark_subcommand_helper(args)
       self._benchmark_subcommand_process_args(args)
       benchmark = self._get_benchmark(args)
       with tempfile.TemporaryDirectory(prefix="crossbench") as tmp_dirname:
@@ -409,15 +436,15 @@ class CrossBenchCLI:
         # browsers are open when 'power' probes are used since it might distort
         # the data.
         if len(args.browser) > 1 or args.repeat > 1:
-          single_run_probes_list = ['powermetrics', 'powersampler']
-          for probe in probes:
-            if probe.NAME in single_run_probes_list:
-              raise argparse.ArgumentTypeError(
-                  "Cannot use 'powermetric' and/or 'powersampler' probe(s) "
-                  "with repeat > 1 and/or with multiple browsers. We need to "
-                  "always start at the same battery level, and by running "
-                  "stories on multiple browsers or multiples time will create "
-                  "erroneous data.")
+          probe_names = [probe.name for probe in probes if probe.BATTERY_ONLY]
+          if probe_names:
+            names_str = ",".join(probe_names)
+            raise argparse.ArgumentTypeError(
+                f"Cannot use [{names_str}] probe(s) "
+                "with repeat > 1 and/or with multiple browsers. We need to "
+                "always start at the same battery level, and by running "
+                "stories on multiple browsers or multiples time will create "
+                "erroneous data.")
 
         for probe in probes:
           runner.attach_probe(probe, matching_browser_only=True)
@@ -449,17 +476,17 @@ class CrossBenchCLI:
       args.other_browser_args.pop()
       return
     if maybe_command == "help":
-      logging.error("Please use --help")
       self._subparsers[args.benchmark_cls].print_help()
       sys.exit(0)
     if maybe_command == "describe":
-      logging.warning("Please use `describe benchmark %s`",
+      logging.warning("See `describe benchmark %s` for more options",
                       args.benchmark_cls.NAME)
       # Patch args to simulate: describe benchmark BENCHMARK_NAME
       args.category = "benchmarks"
       args.filter = args.benchmark_cls.NAME
       args.json = False
       self.describe_subcommand(args)
+      sys.exit(0)
 
   def _benchmark_subcommand_process_args(self, args) -> None:
     if args.config:

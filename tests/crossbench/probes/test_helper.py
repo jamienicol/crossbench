@@ -4,14 +4,17 @@
 
 import csv
 import json
+import os
 import pathlib
 import sys
 import unittest
+from unittest import mock
 
 import pyfakefs.fake_filesystem_unittest
 import pytest
 
 from crossbench.probes import helper
+from tests.crossbench.mock_helper import BaseCrossbenchTestCase
 
 
 class TestMergeCSV(pyfakefs.fake_filesystem_unittest.TestCase):
@@ -380,6 +383,51 @@ class ValuesMergerTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
                                                  merge_duplicate_paths=False)
     data = merger.data
     self.assertListEqual(list(data.keys()), ["a/a", "a/b"])
+
+
+class V8CheckoutFinderTestCase(BaseCrossbenchTestCase):
+
+  def test_find_none(self):
+    self.assertIsNone(helper.V8CheckoutFinder(self.platform).v8_checkout)
+
+  def _add_v8_checkout_files(self, checkout_dir: pathlib.Path) -> None:
+    self.assertIsNone(helper.V8CheckoutFinder(self.platform).v8_checkout)
+    (checkout_dir / ".git").mkdir(parents=True)
+    self.assertIsNone(helper.V8CheckoutFinder(self.platform).v8_checkout)
+    self.fs.create_file(checkout_dir / "include" / "v8.h", st_size=100)
+
+  def test_D8_PATH(self):
+    with mock.patch.dict(os.environ, {}, clear=True):
+      self.assertIsNone(helper.V8CheckoutFinder(self.platform).v8_checkout)
+    candidate_dir = pathlib.Path("/custom/v8/")
+    d8_path = candidate_dir / "out/x64.release/d8"
+    with mock.patch.dict(os.environ, {"D8_PATH": str(d8_path)}, clear=True):
+      self.assertIsNone(helper.V8CheckoutFinder(self.platform).v8_checkout)
+    self._add_v8_checkout_files(candidate_dir)
+    with mock.patch.dict(os.environ, {"D8_PATH": str(d8_path)}, clear=True):
+      self.assertEqual(
+          helper.V8CheckoutFinder(self.platform).v8_checkout, candidate_dir)
+    # Still NONE without custom D8_PATH env var.
+    self.assertIsNone(helper.V8CheckoutFinder(self.platform).v8_checkout)
+
+  def test_known_location(self):
+    checkout_dir = pathlib.Path.home() / "v8/v8"
+    self.assertIsNone(helper.V8CheckoutFinder(self.platform).v8_checkout)
+    checkout_dir.mkdir(parents=True)
+    self._add_v8_checkout_files(checkout_dir)
+    self.assertEqual(
+        helper.V8CheckoutFinder(self.platform).v8_checkout, checkout_dir)
+
+  def test_module_relative(self):
+    self.assertIsNone(helper.V8CheckoutFinder(self.platform).v8_checkout)
+    path = pathlib.Path(__file__)
+    self.assertFalse(path.exists())
+    fake_chrome_root = path.parents[4]
+    checkout_dir = fake_chrome_root / "v8"
+    self.assertIsNone(helper.V8CheckoutFinder(self.platform).v8_checkout)
+    self._add_v8_checkout_files(checkout_dir)
+    self.assertEqual(
+        helper.V8CheckoutFinder(self.platform).v8_checkout, checkout_dir)
 
 
 if __name__ == "__main__":

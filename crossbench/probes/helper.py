@@ -435,6 +435,8 @@ class V8CheckoutFinder:
     self.platform = platform
     # A generous list of potential locations of a V8 or chromium checkout
     self.checkout_candidates = [
+        # Assume crossbench is in chrome's src/third_party/crossbench
+        pathlib.Path(__file__).parents[3] / "v8",
         # V8 Checkouts
         pathlib.Path.home() / "Documents/v8/v8",
         pathlib.Path.home() / "v8/v8",
@@ -457,12 +459,18 @@ class V8CheckoutFinder:
   def _find_v8_checkout(self) -> Optional[pathlib.Path]:
     # Try potential build location
     for candidate_dir in self.checkout_candidates:
-      if self.platform.is_dir(candidate_dir):
+      if self._is_checkout_dir(candidate_dir):
         return candidate_dir
     maybe_d8_path = self.platform.environ.get("D8_PATH")
     if not maybe_d8_path:
       return None
     for candidate_dir in pathlib.Path(maybe_d8_path).parents:
-      if self.platform.is_file(candidate_dir / "include" / "v8.h"):
+      if self._is_checkout_dir(candidate_dir):
         return candidate_dir
     return None
+
+  def _is_checkout_dir(self, candidate_dir: pathlib.Path) -> bool:
+    v8_header_file = candidate_dir / "include" / "v8.h"
+    git_dir = candidate_dir / '.git'
+    return self.platform.is_file(v8_header_file) and (
+        self.platform.is_dir(git_dir))

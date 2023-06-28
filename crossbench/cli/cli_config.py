@@ -43,6 +43,19 @@ def _map_flag_group_item(flag_name: str,
   return (flag_name, flag_value)
 
 
+def parse_inline_hjson(value: str) -> Any:
+  if value[0] != "{" or value[-1] != "}":
+    raise argparse.ArgumentTypeError(
+        f"Invalid inline {hjson.__name__}, missing braces: '{value}'")
+  try:
+    return hjson.loads(value)
+  except ValueError as e:
+    message = (f"Could not decode inline config: {value}\n" f"   {str(e)}")
+    if "eof" in message:
+      message += "\n   Likely missing quotes."
+    raise argparse.ArgumentTypeError(message) from e
+
+
 class ConfigFileError(argparse.ArgumentTypeError):
   pass
 
@@ -144,6 +157,8 @@ class DriverConfig:
       else:
         # Variant 2: full hjson config
         raise NotImplementedError("Not yet implemented")
+    if path and path.stat().st_size == 0:
+      raise argparse.ArgumentTypeError(f"Driver path is empty file: {path}")
     return DriverConfig(driver_type, path)
 
   @classmethod
@@ -191,9 +206,7 @@ class BrowserConfig:
       driver, path = cls._parse_inline_driver(value)
     else:
       # Variant 3: Full inline hjson
-      config = {}
-      with exception.annotate(f"Parsing inline {hjson.__name__}"):
-        config = hjson.loads(value)
+      config = parse_inline_hjson(value)
       with exception.annotate(f"Parsing inline {cls.__name__}"):
         return cls.load_dict(config)
     assert path, "Invalid path"
@@ -592,7 +605,7 @@ class BrowserVariantsConfig:
       return
     if args.driver_path:
       raise argparse.ArgumentTypeError(
-          f"Cannot use custom driver path '{args.driver_path}' "
+          f"Cannot use custom --driver-path='{args.driver_path}' "
           f"for multiple browser {browser_types}.")
     if args.other_browser_args:
       raise argparse.ArgumentTypeError(
@@ -720,15 +733,7 @@ class ProbeConfig:
     if match["config"]:
       probe_name = match["probe_name"]
       json_args = match["config"]
-      assert json_args[0] == "{" and json_args[-1] == "}"
-      try:
-        inline_config = hjson.loads(json_args)
-      except ValueError as e:
-        message = (f"Could not decode inline probe config: {json_args}\n"
-                   f"   {str(e)}")
-        if "eof" in message:
-          message += "\n   Likely missing quotes for --probe argument."
-        raise ProbeConfigError(message) from e
+      inline_config = parse_inline_hjson(json_args)
     else:
       # Default case without the additional hjson payload
       probe_name = match["probe_name"]
@@ -783,7 +788,7 @@ def parse_inline_env_config(value: str) -> HostEnvironmentConfig:
   kwargs = None
   msg = ""
   try:
-    kwargs = hjson.loads(value)
+    kwargs = parse_inline_hjson(value)
     return HostEnvironmentConfig(**kwargs)
   except Exception as e:
     msg = f"\n{e}"

@@ -101,7 +101,7 @@ class Probe(abc.ABC):
   # Set the default probe result location, used to figure out whether result
   # files need to be transferred from a remote machine.
   RESULT_LOCATION: ResultLocation = ResultLocation.LOCAL
-  # Set to True if the probe only works on battery power
+  # Set to True if the probe only works on battery power with single runs
   BATTERY_ONLY: bool = False
 
   _browsers: Set[Browser]

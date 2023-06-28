@@ -350,6 +350,5 @@ class UpdateUrlQueryTestCase(unittest.TestCase):
         helper.update_url_query("http://test.com?foo=BAR&xyz=10#status",
                                 {"foo": "bar"}))
 
-
 if __name__ == "__main__":
   sys.exit(pytest.main([__file__]))

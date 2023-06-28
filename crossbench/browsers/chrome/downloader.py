@@ -22,7 +22,7 @@ from crossbench.browsers.browser import BROWSERS_CACHE
 class ChromeDownloader(abc.ABC):
   ARCHIVE_SUFFIX: str = ""
   VERSION_RE: Final = re.compile(
-      r"(chrome-)?(?P<version>(m[0-9]+)|([0-9]+(\.[0-9]+){3}))", re.I)
+      r"(chrome-)?(?P<version>(m[0-9]{2,})|([0-9]+(\.[0-9]+){3}))", re.I)
   ANY_MARKER: Final = 9999
   STORAGE_URL: Final = "gs://chrome-signed/desktop-5c0tCh/"
   VERSION_URL = (
