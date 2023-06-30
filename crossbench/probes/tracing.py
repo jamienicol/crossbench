@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import pathlib
 from typing import TYPE_CHECKING, Dict, Optional, Sequence, Set
@@ -180,10 +179,9 @@ class TracingProbe(Probe):
         "record_format",
         default=RecordFormat.PROTO,
         type=RecordFormat,
-        help=(
-            "Choose between 'json' or the default 'proto' format. "
-            "Perfetto proto output is converted automatically to the legacy json "
-            "format."))
+        help=("Choose between 'json' or the default 'proto' format. "
+              "Perfetto proto output is converted automatically to the "
+              "legacy json format."))
     parser.add_argument(
         "traceconv",
         default=None,

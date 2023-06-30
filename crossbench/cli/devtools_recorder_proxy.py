@@ -44,8 +44,8 @@ class CrossbenchDevToolsRecorderProxy:
     parser = subparsers.add_parser(
         "devtools-recorder-proxy",
         aliases=["devtools"],
-        help="Starts a local server to communicate with the DevTools Recorder extension."
-    )
+        help=("Starts a local server to communicate with the "
+              "DevTools Recorder extension."))
     parser.set_defaults(subcommand_fn=cls._subcommand)
     parser.add_argument(
         "--disable-token-authentication",

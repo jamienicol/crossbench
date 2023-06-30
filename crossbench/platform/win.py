@@ -4,9 +4,9 @@
 
 from __future__ import annotations
 
-import pathlib
-from typing import Optional, Union
 import os
+import pathlib
+from typing import Optional
 
 from .platform import Platform
 

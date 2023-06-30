@@ -300,7 +300,7 @@ class AndroidAdbPlatform(PosixPlatform):
     if match_result is None:
       raise ValueError(
           f"Could not find version for '{package}': {package_info}")
-    return match_result.group('version')
+    return match_result.group("version")
 
   def process_children(self,
                        parent_pid: int,

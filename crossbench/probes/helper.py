@@ -471,6 +471,6 @@ class V8CheckoutFinder:
 
   def _is_checkout_dir(self, candidate_dir: pathlib.Path) -> bool:
     v8_header_file = candidate_dir / "include" / "v8.h"
-    git_dir = candidate_dir / '.git'
+    git_dir = candidate_dir / ".git"
     return self.platform.is_file(v8_header_file) and (
         self.platform.is_dir(git_dir))

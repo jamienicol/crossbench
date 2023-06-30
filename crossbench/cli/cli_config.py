@@ -10,7 +10,6 @@ import itertools
 import logging
 import pathlib
 import re
-from enum import Enum
 from typing import (TYPE_CHECKING, Any, Dict, Final, Iterable, List, Optional,
                     TextIO, Tuple, Type, Union)
 
@@ -50,7 +49,7 @@ def parse_inline_hjson(value: str) -> Any:
   try:
     return hjson.loads(value)
   except ValueError as e:
-    message = (f"Could not decode inline config: {value}\n" f"   {str(e)}")
+    message = f"Could not decode inline config: {value}\n" f"   {str(e)}"
     if "eof" in message:
       message += "\n   Likely missing quotes."
     raise argparse.ArgumentTypeError(message) from e
@@ -652,7 +651,7 @@ class BrowserVariantsConfig:
     browser_platform = helper.PLATFORM
     if browser_config.driver.type == BrowserDriverType.ANDROID:
       browser_platform = AndroidAdbPlatform(helper.PLATFORM)
-    browser_instance = browser_cls(  # pytype: disable=not-instantiable
+    browser_instance = browser_cls(  # pytype: disable=not-instantiable,
         label=label,
         path=path,
         flags=flags,

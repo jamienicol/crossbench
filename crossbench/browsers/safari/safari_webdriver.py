@@ -9,13 +9,12 @@ import pathlib
 from typing import TYPE_CHECKING, Optional
 
 from selenium import webdriver
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.safari.options import Options as SafariOptions
 from selenium.webdriver.safari.service import Service as SafariService
 
 from crossbench.browsers.splash_screen import SplashScreen
-from crossbench.browsers.viewport import Viewport
 from crossbench.browsers.webdriver import WebDriverBrowser
+from crossbench.browsers.viewport import Viewport
 
 from .safari import Safari
 

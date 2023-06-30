@@ -22,7 +22,7 @@ def _get_default() -> Platform:
     return MacOSPlatform()
   if sys.platform == "win32":
     return WinPlatform()
-  raise Exception("Unsupported Platform")
+  raise NotImplementedError("Unsupported Platform")
 
 
 DEFAULT: Final[Platform] = _get_default()

@@ -19,7 +19,7 @@ from crossbench.probes import helper
 from crossbench.probes.results import (EmptyProbeResult, LocalProbeResult,
                                        ProbeResult)
 
-from .probe import Probe, ProbeScope
+from .probe import Probe, ProbeMissingDataError, ProbeScope
 
 if TYPE_CHECKING:
   from crossbench.runner import (Actions, BrowsersRunGroup, RepetitionsRunGroup,
@@ -67,7 +67,8 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
     merger = helper.ValuesMerger()
     for run in group.runs:
       if self not in run.results:
-        raise Exception(f"Probe {self.NAME} produced no data to merge.")
+        raise ProbeMissingDataError(
+            f"Probe {self.NAME} produced no data to merge.")
       source_file = run.results[self].json
       assert source_file.is_file(), (
           f"{source_file} from {run} is not a file or doesn't exist.")
@@ -83,8 +84,8 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
       browser_result["info"] = story_group.info
       browser_json_path = story_group.results[self].json
       assert browser_json_path.is_file(), (
-          f"{browser_json_path} from {story_group} is not a file or doesn't exist."
-      )
+          f"{browser_json_path} from {story_group} "
+          "is not a file or doesn't exist.")
       with browser_json_path.open(encoding="utf-8") as f:
         browser_result["data"] = json.load(f)
     merged_json_path = group.get_local_probe_result_path(self)

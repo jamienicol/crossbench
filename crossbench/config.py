@@ -132,7 +132,7 @@ class _ConfigArg:
         if not self.default:
           items.append(("default", "[]"))
         else:
-          items.append(("default", ','.join(map(str, self.default))))
+          items.append(("default", ",".join(map(str, self.default))))
       else:
         items.append(("default", str(self.default)))
     if self.is_enum:
@@ -146,7 +146,7 @@ class _ConfigArg:
     return text
 
   def _choices_help_text(self, choices: Iterable) -> Tuple[str, str]:
-    return ("choices", ', '.join(map(str, choices)))
+    return ("choices", ", ".join(map(str, choices)))
 
   def _enum_help_text(self) -> List[Tuple[str, str]]:
     if hasattr(self.type, "help_text_items"):

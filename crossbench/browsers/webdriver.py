@@ -160,7 +160,7 @@ class WebDriverBrowser(Browser, metaclass=abc.ABCMeta):
       return self._driver.execute_script(script, *arguments)
     except selenium.common.exceptions.WebDriverException as e:
       # pylint: disable=raise-missing-from
-      raise Exception(f"Could not execute JS: {e.msg}")
+      raise ValueError(f"Could not execute JS: {e.msg}")
 
   def quit(self, runner: Runner) -> None:
     assert self._is_running
@@ -202,7 +202,7 @@ class RemoteWebDriver(WebDriverBrowser, Browser):
   def __init__(self, label: str, driver: webdriver.Remote):
     super().__init__(label=label, path=None, type="remote")
     self._driver = driver
-    self.version : str = driver.capabilities['browserVersion']
+    self.version: str = driver.capabilities["browserVersion"]
     self.major_version: int = int(self.version.split(".")[0])
 
   def _check_driver_version(self) -> None:

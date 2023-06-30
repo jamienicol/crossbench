@@ -8,7 +8,6 @@ import abc
 import json
 import logging
 import pathlib
-import urllib.parse as urlparse
 from typing import (TYPE_CHECKING, Any, Dict, Final, List, Optional, Sequence,
                     Tuple, Type)
 

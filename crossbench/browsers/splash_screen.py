@@ -64,11 +64,12 @@ class DetailedSplashScreen(BaseURLSplashScreen):
 
   def get_url(self, run: Run) -> str:
     browser: Browser = run.browser
-    page = (
-        "<html><head>"
-        f"<title>Run Details</title>"
-        "<style>"
-        """
+    title = html.escape(browser.app_name.title())
+    version = html.escape(browser.version)
+    page = ("<html><head>"
+            f"<title>Run Details</title>"
+            "<style>"
+            """
             html { font-family: sans-serif; }
             dl {
               display: grid;
@@ -77,11 +78,9 @@ class DetailedSplashScreen(BaseURLSplashScreen):
             dt { grid-column-start: 1; }
             dd { grid-column-start: 2;  font-family: monospace; }
         """
-        "</style>"
-        "</head><body>"
-        "<h1>"
-        f"{html.escape(browser.app_name.title())} {html.escape(browser.version)}"
-        "</h1>")
+            "</style>"
+            "</head><body>"
+            f"<h1>{title} {version}</h1>")
     page += self._render_browser_details(run)
     page += self._render_run_details(run)
     page += "</body></html>"
@@ -89,7 +88,7 @@ class DetailedSplashScreen(BaseURLSplashScreen):
     return data_url
 
   def _render_properties(self, title: str, properties: Dict[str, str]) -> str:
-    section = (f"<h2>{html.escape(title)}</h2>" "<dl>")
+    section = f"<h2>{html.escape(title)}</h2><dl>"
     for property_name, value in properties.items():
       section += f"<dt>{html.escape(property_name)}</dt>"
       section += f"<dd>{html.escape(str(value))}</dd>"

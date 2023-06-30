@@ -17,7 +17,7 @@ from crossbench import helper
 from crossbench.probes.results import (EmptyProbeResult, LocalProbeResult,
                                        ProbeResult)
 
-from .probe import Probe, ProbeScope, ResultLocation
+from .probe import Probe, ProbeMissingDataError, ProbeScope, ResultLocation
 
 #TODO: fix imports
 cb = crossbench
@@ -206,7 +206,7 @@ class VideoProbeScope(ProbeScope[VideoProbe]):
       return ("/usr/sbin/screencapture", "-v",
               f"-R{viewport.x},{viewport.y},{viewport.width},{viewport.height}",
               str(self.result_path))
-    raise Exception("Invalid platform")
+    raise ValueError("Invalid platform")
 
   def stop(self, run: Run) -> None:
     assert self._record_process, "screencapture stopped early."
@@ -225,8 +225,9 @@ class VideoProbeScope(ProbeScope[VideoProbe]):
     self._recorder_log_file.close()
     if self._record_process.poll() is not None:
       self._record_process.wait(timeout=5)
-    assert self.result_path.exists(), (
-        f"No screen recording video found at: {self.result_path}")
+    if not self.result_path.exists():
+      raise ProbeMissingDataError(
+          f"No screen recording video found at: {self.result_path}")
     with tempfile.TemporaryDirectory() as tmp_dir:
       timestrip_file = self._create_time_strip(pathlib.Path(tmp_dir))
     return LocalProbeResult(file=(self.result_path, timestrip_file))

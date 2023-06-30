@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import abc
 import argparse
-from collections.abc import Callable, Iterable, Mapping
 import contextlib
 import dataclasses
 import datetime as dt
@@ -232,8 +231,8 @@ class Runner:
           logging.warning("Skipping incompatible probe=%s for browser=%s",
                           probe.name, browser.unique_name)
           continue
-        raise Exception(f"Probe '{probe.name}' is not compatible with browser "
-                        f"{browser.type}")
+        raise ValueError(f"Probe '{probe.name}' is not compatible with browser "
+                         f"{browser.type}")
       browser.attach_probe(probe)
     return probe
 
@@ -407,9 +406,6 @@ class RunThreadGroup(threading.Thread):
     self._runner: Runner = runs[0].runner
     self._runs = runs
     self.is_dry_run: bool = False
-
-  def start(self) -> None:
-    return super().start()
 
   def run(self) -> None:
     for run in self._runs:
@@ -939,7 +935,7 @@ class Run:
       probe_scope_manager.enter_context(probe_scope)
 
     with probe_scope_manager:
-      self._durations["probes-start"] = (dt.datetime.now() - probe_start_time)
+      self._durations["probes-start"] = dt.datetime.now() - probe_start_time
       logging.info("RUNNING STORY")
       assert self._state == self.STATE_RUN, "Invalid state"
       try:

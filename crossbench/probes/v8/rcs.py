@@ -8,7 +8,7 @@ import logging
 from typing import TYPE_CHECKING, Optional, cast
 
 from crossbench.browsers.chromium import Chromium
-from crossbench.probes.probe import Probe, ProbeScope
+from crossbench.probes.probe import Probe, ProbeMissingDataError, ProbeScope
 from crossbench.probes.results import LocalProbeResult, ProbeResult
 
 if TYPE_CHECKING:
@@ -94,9 +94,10 @@ class V8RCSProbeScope(ProbeScope[V8RCSProbe]):
 
   def tear_down(self, run: Run) -> ProbeResult:
     if not self._rcs_table:
-      raise Exception("Chrome didn't produce any RCS data. "
-                      "Use Chrome Canary or make sure to enable the "
-                      "v8_enable_runtime_call_stats compile-time flag.")
+      raise ProbeMissingDataError(
+          "Chrome didn't produce any RCS data. "
+          "Use Chrome Canary or make sure to enable the "
+          "v8_enable_runtime_call_stats compile-time flag.")
     rcs_file = self.result_path
     with rcs_file.open("a") as f:
       f.write(self._rcs_table)

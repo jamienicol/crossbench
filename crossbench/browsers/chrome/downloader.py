@@ -199,7 +199,8 @@ class ChromeDownloader(abc.ABC):
     assert len(cached_version) == 4, f"Got invalid version: {app_version}"
     if not self._version_matches(cached_version):
       raise ValueError(
-          f"Previously downloaded browser at {self._app_path} might have been auto-updated.\n"
+          f"Previously downloaded browser at {self._app_path} "
+          "might have been auto-updated.\n"
           "Please delete the old version and re-install/-download it.\n"
           f"Expected: {self._requested_version} Got: {cached_version}")
     return cached_version_str

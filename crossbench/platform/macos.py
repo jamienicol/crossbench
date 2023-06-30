@@ -70,7 +70,7 @@ class MacOSPlatform(PosixPlatform):
         plist.get("CFBundleExecutable", app_path.stem))
     if bin_path.is_file():
       return bin_path
-    raise Exception(f"Invalid number of binaries candidates found: {binaries}")
+    raise ValueError(f"Invalid number of binaries candidates found: {binaries}")
 
   def search_binary(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
     if app_path.suffix != ".app":
@@ -182,9 +182,9 @@ class MacOSPlatform(PosixPlatform):
           for display in spdisplays_ndrvs:
             if auto_brightness := display.get("spdisplays_ambient_brightness"):
               return auto_brightness == "spdisplays_yes"
-        raise Exception(
+        raise ValueError(
             "Could not find 'spdisplays_ndrvs' from SPDisplaysDataType")
-    raise Exception("Could not get 'SPDisplaysDataType' form system profiler")
+    raise ValueError("Could not get 'SPDisplaysDataType' form system profiler")
 
   def check_crowdstrike(self, disable: bool = False) -> bool:
     falconctl = pathlib.Path(

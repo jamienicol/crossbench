@@ -396,7 +396,8 @@ class CrossBenchCLI:
         default=[],
         help="Enable general purpose probes to measure data on all cb.stories. "
         "This argument can be specified multiple times to add more probes. "
-        "Use inline hjson (e.g. --probe=\"$NAME{$CONFIG}\") to configure probes. "
+        "Use inline hjson (e.g. --probe=\"$NAME{$CONFIG}\") "
+        "to configure probes. "
         "Use 'describe probes' or 'describe probe $NAME' for probe "
         "configuration details."
         "Cannot be used together with --probe-config."
@@ -538,7 +539,7 @@ class CrossBenchCLI:
       return
     tb_info = traceback.extract_tb(tb)
     filename, line, _, text = tb_info[-1]
-    logging.info('%s:%s: %s', filename, line, text)
+    logging.info("%s:%s: %s", filename, line, text)
 
   def _log_runner_debug_hints(self, runner: Runner) -> None:
     failed_runs = [run for run in runner.runs if not run.is_success]
@@ -579,8 +580,8 @@ class CrossBenchCLI:
     if not runner.runs:
       return
     out_dir = runner.out_dir
-    first_run = out_dir / 'first_run'
-    last_run = out_dir / 'last_run'
+    first_run = out_dir / "first_run"
+    last_run = out_dir / "last_run"
     if first_run.exists():
       logging.error("Cannot create first_run symlink: %s", first_run)
     else:
@@ -589,7 +590,7 @@ class CrossBenchCLI:
       logging.error("Cannot create last_run symlink: %s", last_run)
     else:
       last_run.symlink_to(runner.runs[-1].out_dir.relative_to(out_dir))
-    runs = out_dir / 'runs'
+    runs = out_dir / "runs"
     runs.mkdir()
     for run in runner.runs:
       if not run.out_dir.exists():

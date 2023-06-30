@@ -17,7 +17,6 @@ import zipfile
 from typing import (TYPE_CHECKING, Dict, Final, List, Optional, Sequence, Tuple,
                     Type, cast)
 
-import selenium.common.exceptions
 from selenium.webdriver.chromium.options import ChromiumOptions
 from selenium.webdriver.chromium.service import ChromiumService
 from selenium.webdriver.chromium.webdriver import ChromiumDriver
@@ -161,7 +160,7 @@ class ChromiumWebDriverAndroid(ChromiumWebDriver):
     options: ChromiumOptions = super()._create_options(args)
     options.binary_location = ""
     package = self.platform.app_path_to_package(self.path)
-    options.add_experimental_option('androidPackage', package)
+    options.add_experimental_option("androidPackage", package)
     options.add_experimental_option("androidDeviceSerial",
                                     self.platform.adb.serial_id)
     return options
@@ -306,7 +305,7 @@ class ChromeDriverFinder:
       arch_suffix = "win32"
     else:
       raise DriverNotFoundError("Unsupported chromedriver platform")
-    url = (f"{self.URL}/{driver_version}/" f"chromedriver_{arch_suffix}.zip")
+    url = f"{self.URL}/{driver_version}/" f"chromedriver_{arch_suffix}.zip"
     return listing_url, url
 
   CHROMIUM_DASH_PARAMS: Dict[Tuple[str, str], Dict] = {

@@ -26,8 +26,9 @@ import tabulate
 
 import crossbench.platform
 
-if not hasattr(shlex, "join"):
-  raise Exception("Please update to python v3.8 that has shlex.join")
+assert hasattr(shlex,
+               "join"), ("Please update to python v3.8 that has shlex.join")
+
 
 class TTYColor:
   CYAN = "\033[1;36;6m"
@@ -165,7 +166,7 @@ def search_app_or_executable(name: str,
     binary = PLATFORM.search_app(pathlib.Path(name_or_path))
     if binary and binary.exists():
       return binary
-  raise Exception(f"Executable {name} not found on {PLATFORM.name}")
+  raise ValueError(f"Executable {name} not found on {PLATFORM.name}")
 
 # =============================================================================
 

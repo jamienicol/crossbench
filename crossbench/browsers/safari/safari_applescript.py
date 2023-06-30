@@ -37,5 +37,4 @@ class SafariAppleScript(Safari, AppleScriptBrowser):
     else:
       bounds = (f"{self.viewport.x},{self.viewport.y},"
                 f"{self.viewport.width},{self.viewport.height}")
-      self._exec_apple_script("set the bounds of the first window to {%s}" %
-                              bounds)
+      self._exec_apple_script(f"set the bounds of the first window to {bounds}")

@@ -41,6 +41,10 @@ class ResultLocation(helper.EnumWithHelp):
               "or local (default system browser)."))
 
 
+class ProbeMissingDataError(ValueError):
+  pass
+
+
 class Probe(abc.ABC):
   """
   Abstract Probe class.

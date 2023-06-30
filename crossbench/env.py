@@ -320,17 +320,19 @@ class HostEnvironment:
     system_forbidden_process_names = self._config.system_forbidden_process_names
     if system_forbidden_process_names is HostEnvironmentConfig.IGNORE:
       return
-    if process_found := self._platform.process_running(system_forbidden_process_names):
-      raise Exception(f"Process:{process_found} found."
-                      "Make sure not to have a terminal opened. Use SSH.")
+    process_found = self._platform.process_running(
+        system_forbidden_process_names)
+    if process_found:
+      self.handle_warning(f"Process:{process_found} found."
+                          "Make sure not to have a terminal opened. Use SSH.")
 
   def _check_screen_autobrightness(self) -> None:
     auto_brightness = self._config.screen_allow_autobrightness
     if auto_brightness is not False:
       return
     if self._platform.check_autobrightness():
-      raise Exception("Auto-brightness was found to be ON. "
-                      "Desactivate it in 'System Preferences/Displays'")
+      self.handle_warning("Auto-brightness was found to be ON. "
+                          "Deactivate it in 'System Preferences/Displays'")
 
   def _check_cpu_power_mode(self) -> bool:
     # TODO Implement checks for performance mode

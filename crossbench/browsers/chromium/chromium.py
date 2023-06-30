@@ -110,7 +110,7 @@ class Chromium(Browser):
 
     if "--allow-background-interventions" in self._flags.data:
       # The --allow-background-interventions flag should have no value.
-      assert(self._flags.get("--allow-background-interventions") is None)
+      assert self._flags.get("--allow-background-interventions") is None
     else:
       self._flags.update(self.FLAGS_FOR_DISABLING_BACKGROUND_INTERVENTIONS)
 

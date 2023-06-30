@@ -8,7 +8,6 @@ import argparse
 import datetime as dt
 import logging
 import math
-import pathlib
 import re
 import time
 from typing import TYPE_CHECKING, TypeVar
@@ -663,12 +662,12 @@ class _Duration:
     if match is None:
       return None
 
-    value = match.group('value')
+    value = match.group("value")
     if not value:
       raise argparse.ArgumentTypeError(
           "Error: Duration value not found."
           "Make sure to include a valid duration value")
-    time_unit = match.group('unit')
+    time_unit = match.group("unit")
     try:
       time_value = float(value)
     except ValueError as e:
@@ -715,8 +714,8 @@ class GetAction(Action):
 
   def _validate_action(self) -> None:
     if not self.value:
-      raise Exception(self._EXCEPTION_BASE_STR +
-                      f"{self._story._name}. Argument 'value' is not provided")
+      raise ValueError(self._EXCEPTION_BASE_STR +
+                       f"{self._story.name}. Argument 'value' is not provided")
 
   def details_json(self) -> Dict[str, Any]:
     return {"action": str(self.TYPE), "value": self.value}
@@ -732,9 +731,9 @@ class WaitAction(Action):
 
   def _validate_action(self) -> None:
     if not self.duration:
-      raise Exception(
+      raise ValueError(
           self._EXCEPTION_BASE_STR +
-          f"{self._story._name}. Argument 'duration' is not provided")
+          f"{self._story.name}. Argument 'duration' is not provided")
 
   def details_json(self) -> Dict[str, Any]:
     return {"action": str(self.TYPE), "duration": self.duration}
@@ -763,9 +762,9 @@ class ScrollAction(Action):
 
   def _validate_action(self) -> None:
     if not self.duration or not self.value:
-      raise Exception(
+      raise ValueError(
           self._EXCEPTION_BASE_STR +
-          f"{self._story._name}. Argument 'duration' is not provided")
+          f"{self._story.name}. Argument 'duration' is not provided")
 
   def details_json(self) -> Dict[str, Any]:
     return {
