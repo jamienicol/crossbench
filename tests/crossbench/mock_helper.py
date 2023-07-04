@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, List, Sequence, Type
 from unittest import mock
 
 import psutil
+from crossbench.platform.platform import MachineArch
 from pyfakefs import fake_filesystem_unittest
 
 import crossbench
@@ -32,6 +33,17 @@ class MockPlatform(ActivePlatformClass):
 
   def __init__(self, is_battery_powered=False):
     self._is_battery_powered = is_battery_powered
+    # Cache some helper properties that might fail under pyfakefs.
+    self._key = platform.DEFAULT.key
+    self._machine: MachineArch = platform.DEFAULT.machine
+
+  @property
+  def key(self) -> str:
+    return f"mock-{self._key}"
+
+  @property
+  def machine(self) -> MachineArch:
+    return self._machine
 
   @property
   def version(self) -> str:

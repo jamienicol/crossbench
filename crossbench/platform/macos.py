@@ -72,13 +72,13 @@ class MacOSPlatform(PosixPlatform):
       return bin_path
     raise ValueError(f"Invalid number of binaries candidates found: {binaries}")
 
-  def search_binary(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
-    if app_path.suffix != ".app":
+  def search_binary(self, app_or_bin: pathlib.Path) -> Optional[pathlib.Path]:
+    if app_or_bin.suffix != ".app":
       raise ValueError("Expected app name with '.app' suffix, "
-                       f"but got: '{app_path.name}'")
+                       f"but got: '{app_or_bin.name}'")
     for search_path in self.SEARCH_PATHS:
       # Recreate Path object for easier pyfakefs testing
-      result_path = pathlib.Path(search_path) / app_path
+      result_path = pathlib.Path(search_path) / app_or_bin
       if not result_path.is_dir():
         continue
       result_path = self._find_app_binary_path(result_path)
@@ -86,8 +86,8 @@ class MacOSPlatform(PosixPlatform):
         return result_path
     return None
 
-  def search_app(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
-    binary = self.search_binary(app_path)
+  def search_app(self, app_or_bin: pathlib.Path) -> Optional[pathlib.Path]:
+    binary = self.search_binary(app_or_bin)
     if not binary:
       return None
     # input: /Applications/Safari.app/Contents/MacOS/Safari
@@ -97,37 +97,35 @@ class MacOSPlatform(PosixPlatform):
     assert app_path.is_dir()
     return app_path
 
-  def app_version(self, app_path: pathlib.Path) -> str:
-    assert app_path.exists(), f"Binary {bin} does not exist."
+  def app_version(self, app_or_bin: pathlib.Path) -> str:
+    assert app_or_bin.exists(), f"Binary {app_or_bin} does not exist."
 
-    dot_app_path = None
-    current = app_path
-    while current != app_path.root:
-      if current.suffix == ".app":
-        dot_app_path = current
+    app_path = None
+    for current in (app_or_bin, *app_or_bin.parents):
+      if current.suffix == ".app" and current.stem == app_or_bin.stem:
+        app_path = current
         break
-      current = current.parent
-    if not dot_app_path:
+    if not app_path:
       # Most likely just a cli tool"
-      return self.sh_stdout(app_path, "--version").strip()
-
+      return self.sh_stdout(app_or_bin, "--version").strip()
     version_string = self.sh_stdout("mdls", "-name", "kMDItemVersion",
-                                    dot_app_path).strip()
+                                    app_path).strip()
+    logging.debug("version_string = %s %s", version_string, app_path)
     # Filter output: 'kMDItemVersion = "14.1"' => '"14.1"'
     _, version_string = version_string.split(" = ", maxsplit=1)
     if version_string != "(null)":
       # Strip quotes: '"14.1"' => '14.1'
       return version_string[1:-1]
-    # Backup solution with --version
-    maybe_bin_path: Optional[pathlib.Path] = app_path
-    if app_path.suffix == ".app":
-      maybe_bin_path = self.search_binary(app_path)
-    if maybe_bin_path:
-      try:
-        return self.sh_stdout(maybe_bin_path, "--version").strip()
-      except SubprocessError as e:
-        logging.debug("Could not use --version: %s", e)
-    raise ValueError(f"Could not extract app version: {app_path}")
+    # Backup solution use the binary (not the .app bundle) with --version.
+    maybe_bin_path: Optional[pathlib.Path] = app_or_bin
+    if app_or_bin.suffix == ".app":
+      maybe_bin_path = self.search_binary(app_or_bin)
+    if not maybe_bin_path:
+      raise ValueError(f"Could not extract app version: {app_or_bin}")
+    try:
+      return self.sh_stdout(maybe_bin_path, "--version").strip()
+    except SubprocessError as e:
+      raise ValueError(f"Could not extract app version: {app_or_bin}") from e
 
   def exec_apple_script(self, script: str, *args: str) -> str:
     if args:

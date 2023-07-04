@@ -7,12 +7,12 @@ from __future__ import annotations
 import abc
 import copy
 import pathlib
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Type, cast
 
 from crossbench import helper
 from crossbench.browsers.all import (Browser, Chrome, Chromium, Edge, Firefox,
                                      Safari)
-from crossbench.flags import ChromeFlags, Flags
+from crossbench.flags import ChromeFlags, Flags, JSFlags
 
 if TYPE_CHECKING:
   import datetime as dt
@@ -41,7 +41,8 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
     fs.create_file(bin_path)
 
   @classmethod
-  def default_flags(cls, initial_data: Flags.InitialDataType = None):
+  def default_flags(cls,
+                    initial_data: Flags.InitialDataType = None) -> ChromeFlags:
     return ChromeFlags(initial_data)
 
   def __init__(self,
@@ -64,9 +65,6 @@ class MockBrowser(Browser, metaclass=abc.ABCMeta):
     self.js_side_effects: List[Any] = []
     self.did_run: bool = False
     self.clear_cache_dir: bool = False
-    chrome_flags = self.flags
-    assert isinstance(chrome_flags, ChromeFlags)
-    self.js_flags = chrome_flags.js_flags  # pylint: disable=no-member
 
   def clear_cache(self, runner: Runner):
     pass
@@ -118,7 +116,12 @@ else:
 
 
 class MockChromiumBrowser(MockBrowser, metaclass=abc.ABCMeta):
-  pass
+
+  @property
+  def js_flags(self) -> JSFlags:
+    chrome_flags = cast(ChromeFlags, self.flags)
+    assert isinstance(chrome_flags, ChromeFlags)
+    return chrome_flags.js_flags  # pylint: disable=no-member
 
 
 # Inject MockBrowser into the browser hierarchy for easier testing.

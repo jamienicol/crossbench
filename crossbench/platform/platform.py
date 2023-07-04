@@ -201,19 +201,27 @@ class Platform(abc.ABC):
       return False
     return not status.power_plugged
 
-  def search_app(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
-    return self.search_binary(app_path)
+  def search_app(self, app_or_bin: pathlib.Path) -> Optional[pathlib.Path]:
+    """Look up a application bundle (macos) or binary (all other platforms) in 
+    the common search paths.
+    """
+    return self.search_binary(app_or_bin)
 
   @abc.abstractmethod
-  def search_binary(self, app_path: pathlib.Path) -> Optional[pathlib.Path]:
-    pass
+  def search_binary(self, app_or_bin: pathlib.Path) -> Optional[pathlib.Path]:
+    """Look up a binary in the common search paths based of a path or a single
+    segment path with just the binary name.
+    Returns the location of the binary (and not the .app bundle on macOS).
+    """
 
   @abc.abstractmethod
-  def app_version(self, app_path: pathlib.Path) -> str:
+  def app_version(self, app_or_bin: pathlib.Path) -> str:
     pass
 
   @property
   def has_display(self) -> bool:
+    """Return a bool whether the platform has an active display.
+    This can be false on linux without $DISPLAY, true an all other platforms."""
     return True
 
   def sleep(self, seconds: Union[int, float, dt.timedelta]) -> None:
