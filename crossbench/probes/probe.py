@@ -25,9 +25,9 @@ if TYPE_CHECKING:
 ProbeT = TypeVar("ProbeT", bound="Probe")
 
 
-class ProbeConfigParser(ConfigParser):
+class ProbeConfigParser(ConfigParser[ProbeT]):
 
-  def __init__(self, probe_cls: Type[Probe]):
+  def __init__(self, probe_cls: Type[ProbeT]):
     super().__init__("Probe", probe_cls)
     self._probe_cls = probe_cls
 

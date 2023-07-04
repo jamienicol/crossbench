@@ -201,12 +201,31 @@ class _ConfigArg:
     raise ValueError("Expected enum {self.type}, but got {data}")
 
 
-ConfigParserResultT = TypeVar("ConfigParserResultT", bound="object")
+class ConfigObject:
+
+  @classmethod
+  def parse(cls, value: Any) -> ConfigObject:
+    if isinstance(value, dict):
+      return cls.load_dict(value)
+    return cls.loads(value)
+
+  @classmethod
+  def loads(cls, value: str) -> ConfigObject:
+    raise NotImplementedError()
+
+  @classmethod
+  def load_dict(cls,
+                config: Dict[str, Any],
+                throw: bool = False) -> ConfigObject:
+    raise NotImplementedError()
 
 
-class ConfigParser(Generic[ConfigParserResultT]):
+ConfigResultObjectT = TypeVar("ConfigResultObjectT", bound="object")
 
-  def __init__(self, title: str, cls: Type[ConfigParserResultT]):
+
+class ConfigParser(Generic[ConfigResultObjectT]):
+
+  def __init__(self, title: str, cls: Type[ConfigResultObjectT]):
     self.title = title
     assert title, "No title provided"
     self._cls = cls
@@ -237,7 +256,7 @@ class ConfigParser(Generic[ConfigParserResultT]):
 
   def parse(self,
             config_data: Dict[str, Any],
-            throw: bool = False) -> ConfigParserResultT:
+            throw: bool = False) -> ConfigResultObjectT:
     return self.cls(**self.kwargs_from_config(config_data, throw))
 
   @property

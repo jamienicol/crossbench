@@ -47,6 +47,12 @@ class DriverConfigTestCase(BaseCrossbenchTestCase):
       _ = DriverConfig.parse("")
     with self.assertRaises(argparse.ArgumentTypeError):
       _ = DriverConfig.parse(":")
+    with self.assertRaises(argparse.ArgumentTypeError):
+      _ = DriverConfig.parse("{:}")
+    with self.assertRaises(argparse.ArgumentTypeError):
+      _ = DriverConfig.parse("}")
+    with self.assertRaises(argparse.ArgumentTypeError):
+      _ = DriverConfig.parse("{")
 
   def test_parse_path(self):
     driver_path = self.out_dir / "driver"
@@ -60,6 +66,15 @@ class DriverConfigTestCase(BaseCrossbenchTestCase):
     message = str(cm.exception)
     self.assertIn(str(driver_path), message)
     self.assertIn("empty", message)
+
+  def test_parse_inline_json(self):
+    config_dict = {"type": 'adb', "settings": {"serial": 1234}}
+    config = DriverConfig.parse(hjson.dumps(config_dict))
+    self.assertEqual(config.type, BrowserDriverType.ANDROID)
+    self.assertEqual(config.settings["serial"], 1234)
+    config = DriverConfig.load_dict(config_dict)
+    self.assertEqual(config.type, BrowserDriverType.ANDROID)
+    self.assertEqual(config.settings["serial"], 1234)
 
 
 class BrowserConfigTestCase(BaseCrossbenchTestCase):
@@ -171,6 +186,19 @@ class BrowserConfigTestCase(BaseCrossbenchTestCase):
       BrowserConfig.parse("}")
     with self.assertRaises(argparse.ArgumentTypeError):
       BrowserConfig.parse("{path:something}")
+
+  def test_parse_inline_hjson(self):
+    config_dict = {
+        "browser": "chrome",
+        "driver": {
+            "type": 'adb',
+            "settings": {}
+        }
+    }
+    config = BrowserConfig.parse(hjson.dumps(config_dict))
+    self.assertEqual(config.driver.type, BrowserDriverType.ANDROID)
+    config = BrowserConfig.load_dict(config_dict)
+    self.assertEqual(config.driver.type, BrowserDriverType.ANDROID)
 
 
 class CliTestCase(BaseCrossbenchTestCase):

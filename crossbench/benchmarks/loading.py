@@ -465,10 +465,10 @@ class AbstractPageConfig(abc.ABC):
         self.load_dict(config, throw=throw)
     self._exceptions.assert_success()
 
-  def load_dict(self, raw_config_data: Dict, throw: bool = False) -> None:
+  def load_dict(self, config: Dict[str, Any], throw: bool = False) -> None:
     assert not self.stories
     self._exceptions.throw = throw
-    self._load_dict(raw_config_data)
+    self._load_dict(config)
     self._exceptions.assert_success()
 
   @abc.abstractmethod

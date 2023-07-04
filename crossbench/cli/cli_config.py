@@ -20,7 +20,7 @@ import crossbench.browsers.all as browsers
 from crossbench import helper, cli_helper, platform
 from crossbench.browsers.browser import convert_flags_to_label
 from crossbench.browsers.chrome import ChromeDownloader
-from crossbench.config import ConfigParser
+from crossbench.config import ConfigObject, ConfigParser
 from crossbench.env import HostEnvironment, HostEnvironmentConfig
 from crossbench.exception import ExceptionAnnotator
 from crossbench.flags import ChromeFlags, Flags
@@ -104,63 +104,8 @@ class BrowserDriverType(helper.EnumWithHelp):
   def default(cls) -> BrowserDriverType:
     return cls.WEB_DRIVER
 
-
-def try_resolve_existing_path(value: str) -> Optional[pathlib.Path]:
-  if not value:
-    return None
-  maybe_path = pathlib.Path(value)
-  if maybe_path.exists():
-    return maybe_path
-  maybe_path = maybe_path.expanduser()
-  if maybe_path.exists():
-    return maybe_path
-  return None
-
-
-@dataclasses.dataclass(frozen=True)
-class DriverConfig:
-  type: BrowserDriverType = BrowserDriverType.default()
-  path: Optional[pathlib.Path] = None
-  settings: Optional[Any] = None
-
   @classmethod
-  def default(cls) -> DriverConfig:
-    return cls(BrowserDriverType.default())
-
-  @classmethod
-  def config_parser(cls) -> ConfigParser[DriverConfig]:
-    parser = ConfigParser("DriverConfig parser", cls)
-    parser.add_argument("type", type=BrowserDriverType)
-    parser.add_argument(
-        "settings",
-        type=dict,
-        help="Additional driver settings (Driver dependent).")
-    return parser
-
-  @classmethod
-  def parse(cls, value: str) -> DriverConfig:
-    return cls.loads(value)
-
-  @classmethod
-  def loads(cls, value: str) -> DriverConfig:
-    if not value:
-      raise argparse.ArgumentTypeError("Cannot parse empty string")
-    # Variant 1: $PATH
-    path: Optional[pathlib.Path] = try_resolve_existing_path(value)
-    driver_type: BrowserDriverType = BrowserDriverType.default()
-    if not path:
-      # Variant 2: $DRIVER_TYPE
-      if "{" != value[0]:
-        driver_type = cls._parse_type(value)
-      else:
-        # Variant 2: full hjson config
-        raise NotImplementedError("Not yet implemented")
-    if path and path.stat().st_size == 0:
-      raise argparse.ArgumentTypeError(f"Driver path is empty file: {path}")
-    return DriverConfig(driver_type, path)
-
-  @classmethod
-  def _parse_type(cls, value: str) -> BrowserDriverType:
+  def parse(cls, value: str) -> BrowserDriverType:
     identifier = value.lower()
     if identifier == "":
       return BrowserDriverType.default()
@@ -175,20 +120,74 @@ class DriverConfig:
     raise argparse.ArgumentTypeError(f"Unknown driver type: {identifier}")
 
 
+def try_resolve_existing_path(value: str) -> Optional[pathlib.Path]:
+  if not value:
+    return None
+  maybe_path = pathlib.Path(value)
+  if maybe_path.exists():
+    return maybe_path
+  maybe_path = maybe_path.expanduser()
+  if maybe_path.exists():
+    return maybe_path
+  return None
+
+
+@dataclasses.dataclass(frozen=True)
+class DriverConfig(ConfigObject):
+  type: BrowserDriverType = BrowserDriverType.default()
+  path: Optional[pathlib.Path] = None
+  settings: Optional[Any] = None
+
+  @classmethod
+  def default(cls) -> DriverConfig:
+    return cls(BrowserDriverType.default())
+
+  @classmethod
+  def loads(cls, value: str) -> DriverConfig:
+    if not value:
+      raise argparse.ArgumentTypeError("Cannot parse empty string")
+    # Variant 1: $PATH
+    path: Optional[pathlib.Path] = try_resolve_existing_path(value)
+    driver_type: BrowserDriverType = BrowserDriverType.default()
+    if not path:
+      # Variant 2: $DRIVER_TYPE
+      if "{" != value[0]:
+        driver_type = BrowserDriverType.parse(value)
+      else:
+        # Variant 2: full hjson config
+        data = parse_inline_hjson(value)
+        return cls.load_dict(data)
+    if path and path.stat().st_size == 0:
+      raise argparse.ArgumentTypeError(f"Driver path is empty file: {path}")
+    return DriverConfig(driver_type, path)
+
+  @classmethod
+  def load_dict(cls,
+                config: Dict[str, Any],
+                throw: bool = False) -> DriverConfig:
+    return cls.config_parser().parse(config, throw)
+
+  @classmethod
+  def config_parser(cls) -> ConfigParser[DriverConfig]:
+    parser = ConfigParser("DriverConfig parser", cls)
+    parser.add_argument("type", type=BrowserDriverType.parse)
+    parser.add_argument(
+        "settings",
+        type=dict,
+        help="Additional driver settings (Driver dependent).")
+    return parser
+
+
 SUPPORTED_BROWSER = ("chromium", "chrome", "safari", "edge", "firefox")
 
 @dataclasses.dataclass(frozen=True)
-class BrowserConfig:
-  path_or_identifier: Union[pathlib.Path, str]
-  driver: DriverConfig = DriverConfig(BrowserDriverType.default())
+class BrowserConfig(ConfigObject):
+  browser: Union[pathlib.Path, str]
+  driver: DriverConfig = DriverConfig.default()
 
   @classmethod
   def default(cls) -> BrowserConfig:
     return cls(browsers.Chrome.stable_path(), DriverConfig.default())
-
-  @classmethod
-  def parse(cls, value: str) -> BrowserConfig:
-    return cls.loads(value)
 
   @classmethod
   def loads(cls, value: str) -> BrowserConfig:
@@ -294,13 +293,22 @@ class BrowserConfig:
     raise argparse.ArgumentTypeError(f"Could not parse : '{f.name}'")
 
   @classmethod
-  def load_dict(cls, config: Dict[str, Any]) -> BrowserConfig:
-    raise NotImplementedError("Loading inline dict is not supported yet")
+  def load_dict(cls,
+                config: Dict[str, Any],
+                throw: bool = False) -> BrowserConfig:
+    return cls.config_parse().parse(config, throw)
+
+  @classmethod
+  def config_parse(cls) -> ConfigParser[BrowserConfig]:
+    parser = ConfigParser("BrowserConfig parser", cls)
+    parser.add_argument("browser", type=cls._parse_path_or_identifier)
+    parser.add_argument("driver", type=DriverConfig.parse)
+    return parser
 
   @property
   def path(self) -> pathlib.Path:
-    assert isinstance(self.path_or_identifier, pathlib.Path)
-    return self.path_or_identifier
+    assert isinstance(self.browser, pathlib.Path)
+    return self.browser
 
 
 BrowserLookupTableT = Dict[str, Tuple[Type[browsers.Browser], BrowserConfig]]
@@ -348,18 +356,17 @@ class BrowserVariantsConfig:
       with self._exceptions.info(f"Parsing config file: {f.name}"):
         self.load_dict(config, args)
 
-  def load_dict(self, raw_config_data: Dict[str, Any],
-                args: argparse.Namespace) -> None:
+  def load_dict(self, config: Dict[str, Any], args: argparse.Namespace) -> None:
     try:
-      if "flags" in raw_config_data:
+      if "flags" in config:
         with self._exceptions.info("Parsing config['flags']"):
-          self._parse_flag_groups(raw_config_data["flags"])
-      if "browsers" not in raw_config_data:
+          self._parse_flag_groups(config["flags"])
+      if "browsers" not in config:
         raise ConfigFileError("Config does not provide a 'browsers' dict.")
-      if not raw_config_data["browsers"]:
+      if not config["browsers"]:
         raise ConfigFileError("Config contains empty 'browsers' dict.")
       with self._exceptions.info("Parsing config['browsers']"):
-        self._parse_browsers(raw_config_data["browsers"], args)
+        self._parse_browsers(config["browsers"], args)
     except Exception as e:  # pylint: disable=broad-except
       self._exceptions.append(e)
 
@@ -426,7 +433,7 @@ class BrowserVariantsConfig:
           path_or_identifier]
     else:
       browser_config = self._maybe_downloaded_binary(
-          BrowserConfig.loads(path_or_identifier))
+          BrowserConfig.parse(path_or_identifier))
       browser_cls = self._get_browser_cls(browser_config)
     if browser_config.driver.type != BrowserDriverType.ANDROID and (
         not browser_config.path.exists()):
@@ -619,7 +626,7 @@ class BrowserVariantsConfig:
                                browser_config: BrowserConfig) -> BrowserConfig:
     if browser_config.driver.type == BrowserDriverType.ANDROID:
       return browser_config
-    path_or_identifier = browser_config.path_or_identifier
+    path_or_identifier = browser_config.browser
     if isinstance(path_or_identifier, pathlib.Path):
       return browser_config
     downloaded = ChromeDownloader.load(
@@ -756,8 +763,8 @@ class ProbeConfig:
             "Probe config file does not contain a 'probes' dict value.")
       self.load_dict(data["probes"])
 
-  def load_dict(self, data: Dict[str, Any]) -> None:
-    for probe_name, config_data in data.items():
+  def load_dict(self, config: Dict[str, Any]) -> None:
+    for probe_name, config_data in config.items():
       with self._exceptions.info(
           f"Parsing probe config probes['{probe_name}']"):
         if probe_name not in self.LOOKUP:
