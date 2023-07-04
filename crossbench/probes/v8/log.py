@@ -128,7 +128,7 @@ class V8LogProbe(Probe):
       return []
     logging.info(
         "PROBE v8.log: generating profview json data "
-        "for %d v8.log files.", len(log_files))
+        "for %d v8.log files. (slow)", len(log_files))
     if platform.is_remote:
       # TODO: fix, currently unused
       # Use loop, as we cannot easily serialize the remote platform.
@@ -155,7 +155,6 @@ class V8LogProbe(Probe):
     logging.info("  *.v8.log:        https://v8.dev/tools/head/system-analyzer")
     logging.info("  *.profview.json: https://v8.dev/tools/head/profview")
     logging.info("- " * 40)
-    cwd = pathlib.Path.cwd()
     # Iterate over all runs again, to get proper indices:
     for i, run in enumerate(group.runs):
       if self not in run.results:
@@ -163,23 +162,22 @@ class V8LogProbe(Probe):
       log_files = run.results[self].file_list
       if not log_files:
         continue
-      largest_log_file = log_files[0]
       logging.info("Run %d: %s", i + 1, run.name)
-      logging.critical("    %s : %s", largest_log_file.relative_to(cwd),
-                   helper.get_file_size(largest_log_file))
+      largest_log_file = log_files[0]
+      logging.critical("    %s : %s", largest_log_file,
+                       helper.get_file_size(largest_log_file))
       if len(log_files) > 1:
-        logging.info("    %s/.*v8.log: %d files",
-                     largest_log_file.parent.relative_to(cwd), len(log_files))
+        logging.info("    %s/.*v8.log: %d files", largest_log_file.parent,
+                     len(log_files))
       profview_files = run.results[self].json_list
       if not profview_files:
         continue
       largest_profview_file = profview_files[0]
-      logging.critical("    %s : %s", largest_profview_file.relative_to(cwd),
-                   helper.get_file_size(largest_profview_file))
+      logging.critical("    %s : %s", largest_profview_file,
+                       helper.get_file_size(largest_profview_file))
       if len(profview_files) > 1:
         logging.info("    %s/*.profview.json: %d more files",
-                     largest_profview_file.parent.relative_to(cwd),
-                     len(profview_files))
+                     largest_profview_file.parent, len(profview_files))
 
 
 class V8LogProbeScope(ProbeScope[V8LogProbe]):
@@ -203,7 +201,8 @@ class V8LogProbeScope(ProbeScope[V8LogProbe]):
     log_files = helper.sort_by_file_size(log_dir.glob("*-v8.log"))
     # Only convert a v8.log file with profile ticks.
     json_list: List[pathlib.Path] = []
-    if "--prof" in getattr(self.browser, "js_flags", {}):
+    maybe_js_flags = getattr(self.browser, "js_flags", {})
+    if "--prof" in maybe_js_flags or "--log-all" in maybe_js_flags:
       with helper.Spinner():
         json_list = self.probe.process_log_files(log_files)
     return self.browser_result(file=tuple(log_files), json=json_list)

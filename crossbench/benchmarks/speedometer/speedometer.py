@@ -72,8 +72,7 @@ class SpeedometerProbe(JsonResultProbe, metaclass=abc.ABCMeta):
     logging.info("-" * 80)
     logging.critical("Speedometer results:")
     if not single_result:
-      relative_path = result_dict[self].csv.relative_to(pathlib.Path.cwd())
-      logging.critical("  %s", relative_path)
+      logging.critical("  %s", result_dict[self].csv)
     logging.info("- " * 40)
 
     with results_json.open(encoding="utf-8") as f:

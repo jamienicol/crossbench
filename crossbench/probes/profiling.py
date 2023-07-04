@@ -194,7 +194,6 @@ class ProfilingProbe(Probe):
   def _log_run_result_summary(self, run: Run, i: int) -> None:
     if self not in run.results:
       return
-    cwd = pathlib.Path.cwd()
     urls = run.results[self].url_list
     perf_files = run.results[self].file_list
     if not urls and not perf_files:
@@ -205,11 +204,11 @@ class ProfilingProbe(Probe):
       logging.critical("    %s", urls[0])
     if perf_files:
       largest_perf_file = perf_files[0]
-      logging.critical("    %s : %s", largest_perf_file.relative_to(cwd),
-                   helper.get_file_size(largest_perf_file))
+      logging.critical("    %s : %s", largest_perf_file,
+                       helper.get_file_size(largest_perf_file))
       if len(perf_files) > 1:
         logging.info("    %s/*.perf.data*: %d more files",
-                     largest_perf_file.parent.relative_to(cwd), len(perf_files))
+                     largest_perf_file.parent, len(perf_files))
 
   def get_scope(self, run: Run) -> ProfilingScope:
     if run.platform.is_linux:
