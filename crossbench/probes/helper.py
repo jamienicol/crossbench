@@ -122,6 +122,11 @@ class Values:
     return max(self.values)
 
   @property
+  def sum(self) -> float:
+    assert self._is_numeric
+    return sum(self.values)
+
+  @property
   def average(self) -> float:
     assert self._is_numeric
     return sum(self.values) / len(self.values)
@@ -156,6 +161,7 @@ class Values:
       average = json_data["average"] = self.average
       json_data["geomean"] = self.geomean
       json_data["max"] = self.max
+      json_data["sum"] = self.sum
       stddev = json_data["stddev"] = self.stddev
       if average == 0:
         json_data["stddevPercent"] = 0

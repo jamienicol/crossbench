@@ -35,6 +35,9 @@ class ProbeResult(abc.ABC):
     return not any(
         (self._url_list, self._file_list, self._json_list, self._csv_list))
 
+  def __bool__(self) -> bool:
+    return not self.is_empty
+
   def merge(self, other: ProbeResult) -> ProbeResult:
     if self.is_empty:
       return other
@@ -118,6 +121,9 @@ class EmptyProbeResult(ProbeResult):
 
   def __init__(self) -> None:
     super().__init__()
+
+  def __bool__(self) -> bool:
+    return False
 
 
 class LocalProbeResult(ProbeResult):

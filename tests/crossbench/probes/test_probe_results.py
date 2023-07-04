@@ -36,12 +36,15 @@ class ProbeResultTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
   def test_is_empty(self):
     empty = EmptyProbeResult()
     self.assertTrue(empty.is_empty)
+    self.assertFalse(empty)
     combined = empty.merge(EmptyProbeResult())
     self.assertTrue(combined.is_empty)
     url = LocalProbeResult(url=["http://test.com"])
     self.assertFalse(url.is_empty)
+    self.assertTrue(url)
     combined = empty.merge(url)
     self.assertFalse(combined.is_empty)
+    self.assertTrue(combined)
 
   def test_invalid_files(self):
     with self.assertRaises(ValueError):

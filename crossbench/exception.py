@@ -20,7 +20,7 @@ TExceptionTypes = Tuple[Type[BaseException], ...]
 
 @dataclass
 class Entry:
-  traceback: str
+  traceback: List[str]
   exception: BaseException
   info_stack: TInfoStack
 
@@ -161,9 +161,10 @@ class ExceptionAnnotator:
       self._exceptions.append(merged_entry)
 
   def append(self, exception: BaseException) -> None:
-    traceback: str = tb.format_exc()
+    traceback_str = tb.format_exc()
     logging.debug("Intermediate Exception %s:%s", type(exception), exception)
-    logging.debug(traceback)
+    logging.debug(traceback_str)
+    traceback: List[str] = traceback_str.splitlines()
     if isinstance(exception, KeyboardInterrupt):
       # Fast exit on KeyboardInterrupts for a better user experience.
       sys.exit(0)
@@ -182,35 +183,53 @@ class ExceptionAnnotator:
     if self.is_success:
       return
     logging.error("=" * 80)
-    logging.error("ERRORS occurred:")
+    logging.error("ERRORS occurred (1/%d):", len(self._exceptions))
     logging.error("=" * 80)
     for entry in self._exceptions:
       logging.debug(entry.exception)
-      logging.debug(entry.traceback)
+      logging.debug("\n".join(entry.traceback))
       logging.debug("-" * 80)
-    for info_stack, entries in helper.group_by(
-        self._exceptions, key=lambda entry: tuple(entry.info_stack)).items():
+    is_first_entry = True
+    grouped_entries: Dict[TInfoStack, List[Entry]] = helper.group_by(
+        self._exceptions, key=lambda entry: entry.info_stack, sort_key=None)
+    for info_stack, entries in grouped_entries.items():
+      logging_level = logging.ERROR if is_first_entry else logging.DEBUG
+      is_first_entry = False
       if info_stack:
         info = "Info: "
         joiner = "\n" + (" " * (len(info) - 2)) + "> "
         message = f"{info}{joiner.join(info_stack)}"
-        logging.error(message)
+        logging.log(logging_level, message)
       for entry in entries:
-        logging.error("- " * 40)
-        logging.error("Type: %s:", entry.exception.__class__.__name__)
-        logging.error("      %s", entry.exception)
-      logging.error("-" * 80)
+        logging.log(logging_level, "- " * 40)
+        logging.log(logging_level, "Type: %s:",
+                    helper.type_name(type(entry.exception)))
+        logging.log(logging_level, "      %s", self.format_exception(entry))
+        logging_level = logging.DEBUG
+      logging.log(logging_level, "-" * 80)
+
+  def error_messages(self) -> List[str]:
+    return [self.format_exception(entry) for entry in self._exceptions]
 
   def to_json(self) -> List[Dict[str, Any]]:
     return [{
-        "title": str(entry.exception),
-        "trace": str(entry.traceback).splitlines(),
-        "info_stack": entry.info_stack
+        "info_stack": entry.info_stack,
+        "type": helper.type_name(type(entry.exception)),
+        "title": self.format_exception(entry),
+        "trace": entry.traceback
     } for entry in self._exceptions]
+
+  def format_exception(self, entry: Entry) -> str:
+    msg = str(entry.exception).strip()
+    # Try to print the source line for empty AssertionError
+    if not msg and isinstance(entry.exception, AssertionError):
+      return entry.traceback[-2].strip()
+    return msg
 
   def __str__(self) -> str:
     return "\n".join(
         f"{entry.info_stack}: {entry.exception}" for entry in self._exceptions)
+
 
 # Expose simpler name
 Annotator = ExceptionAnnotator

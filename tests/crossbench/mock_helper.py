@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import abc
 import pathlib
-from typing import TYPE_CHECKING, List, Sequence, Type
+from typing import TYPE_CHECKING, Any, Dict, List, Sequence, Type
 from unittest import mock
 
 import psutil
@@ -70,8 +70,11 @@ class MockPlatform(ActivePlatformClass):
     return psutil._common.sdiskusage(
         total=GIB * 100, used=20 * GIB, free=80 * GIB, percent=20)
 
-  def cpu_usage(self):
+  def cpu_usage(self) -> float:
     return 0.1
+
+  def cpu_details(self) -> Dict[str, Any]:
+    return {"physical cores": 2, "logical cores": 4}
 
   def system_details(self):
     return {"CPU": "20-core 3.1 GHz"}

@@ -26,6 +26,7 @@ from crossbench.browsers.viewport import Viewport, ViewportMode
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.probes.all import GENERAL_PURPOSE_PROBES
+from crossbench.probes.internal import ErrorsProbe
 from crossbench.runner import Runner, Timing
 
 from . import cli_config
@@ -102,7 +103,9 @@ class CrossBenchCLI:
         "--throw",
         action="store_true",
         default=False,
-        help="Directly throw exceptions")
+        help=("Directly throw exceptions instead. "
+              "Note that this prevents merging of probe results if only "
+              "a subset of the runs failed."))
 
   def _setup_subparser(self) -> None:
     self.subparsers = self.parser.add_subparsers(
@@ -517,11 +520,12 @@ class CrossBenchCLI:
     logging.error("-" * 80)
     if benchmark:
       logging.error("Running '%s' was not successful:", benchmark.NAME)
-    logging.error("- Check run results.json for detailed backtraces")
     logging.error("- Use --throw to throw on the first logged exception")
     logging.error("- Use -vv for detailed logging")
     if runner and runner.runs:
       self._log_runner_debug_hints(runner)
+    else:
+      logging.error("- Check %s.json detailed backtraces", ErrorsProbe.NAME)
     logging.error("#" * 80)
     sys.exit(3)
 
@@ -545,15 +549,26 @@ class CrossBenchCLI:
     failed_runs = [run for run in runner.runs if not run.is_success]
     if not failed_runs:
       return
+    candidates: List[pathlib.Path] = [
+        *runner.out_dir.glob(f"{ErrorsProbe.NAME}*"),
+    ]
+    for failed_run in failed_runs:
+      candidates.extend(failed_run.out_dir.glob(f"{ErrorsProbe.NAME}*"))
+      candidates.extend(failed_run.out_dir.glob("*.log"))
+
     failed_run = failed_runs[0]
-    logging.error("- Check log outputs (first out of %d failed runs): %s",
-                  len(failed_runs), failed_run.out_dir)
-    for log_file in failed_run.out_dir.glob("*.log"):
+    logging.error("- Check log outputs (1 of %d failed runs):",
+                  len(failed_runs))
+    limit = 3
+    for log_file in candidates[:limit]:
       try:
         log_file = log_file.relative_to(pathlib.Path.cwd())
       finally:
         pass
       logging.error("  - %s", log_file)
+    if (pending := len(candidates) - limit) > 0:
+      logging.error("  - ... and %d more interesting %s.json or *.log files",
+                    pending, ErrorsProbe.NAME)
 
   def _run_benchmark(self, args: argparse.Namespace, runner: Runner) -> None:
     try:

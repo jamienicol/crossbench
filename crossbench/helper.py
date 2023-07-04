@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
+from collections import OrderedDict
 
 import datetime as dt
 import enum
@@ -20,7 +21,7 @@ import urllib.request
 import urllib.parse as urlparse
 from math import floor, log10
 from typing import (Any, Callable, Dict, Final, Iterable, Iterator, List,
-                    Optional, Sequence, Tuple, TypeVar, Union)
+                    Optional, Sequence, Tuple, Type, TypeVar, Union)
 
 import tabulate
 
@@ -349,6 +350,13 @@ def wrap_lines(body: str, width: int = 80, indent: str = "") -> Iterable[str]:
   for line in body.splitlines():
     for split in textwrap.wrap(line, width):
       yield f"{indent}{split}"
+
+
+def type_name(t: Type) -> str:
+  module = t.__module__
+  if not module:
+    return t.__qualname__
+  return f"{module}.{t.__qualname__}"
 
 
 class Spinner:

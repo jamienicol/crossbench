@@ -17,7 +17,7 @@ import hjson
 from crossbench import exception
 
 import crossbench.browsers.all as browsers
-from crossbench import helper, cli_helper
+from crossbench import helper, cli_helper, platform
 from crossbench.browsers.browser import convert_flags_to_label
 from crossbench.browsers.chrome import ChromeDownloader
 from crossbench.config import ConfigParser
@@ -25,7 +25,6 @@ from crossbench.env import HostEnvironment, HostEnvironmentConfig
 from crossbench.exception import ExceptionAnnotator
 from crossbench.flags import ChromeFlags, Flags
 from crossbench.probes.all import GENERAL_PURPOSE_PROBES
-from crossbench.platform.android_adb import AndroidAdbPlatform
 
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
@@ -255,8 +254,7 @@ class BrowserConfig:
       return browsers.Firefox.developer_edition_path()
     if identifier in ("firefox-nightly", "ff-nightly", "ff-trunk"):
       return browsers.Firefox.nightly_path()
-    platform = helper.PLATFORM
-    if ChromeDownloader.is_valid(maybe_path_or_identifier, platform):
+    if ChromeDownloader.is_valid(maybe_path_or_identifier, platform.DEFAULT):
       # We have a valid version identifier for chrome.
       return maybe_path_or_identifier
     path = try_resolve_existing_path(maybe_path_or_identifier)
@@ -446,10 +444,7 @@ class BrowserVariantsConfig:
                  len(variants_flags))
     for i in range(len(variants_flags)):
       logging.info("   %s: %s", i, variants_flags[i])
-    browser_platform = helper.PLATFORM
-    # TODO: support more custom platform properties (serial-id...)
-    if browser_config.driver.type == BrowserDriverType.ANDROID:
-      browser_platform = AndroidAdbPlatform(helper.PLATFORM)
+    browser_platform = self._get_browser_platform(browser_config)
     for flags in variants_flags:
       # pytype: disable=not-instantiable
       browser_instance = browser_cls(
@@ -564,6 +559,13 @@ class BrowserVariantsConfig:
       return browsers.EdgeWebDriver
     raise argparse.ArgumentTypeError(f"Unsupported browser path='{path}'")
 
+  def _get_browser_platform(self,
+                            browser_config: BrowserConfig) -> platform.Platform:
+    # TODO: support more custom platform properties (serial-id...)
+    if browser_config.driver.type == BrowserDriverType.ANDROID:
+      return platform.AndroidAdbPlatform(platform.DEFAULT)
+    return platform.DEFAULT
+
   def _ensure_unique_browser_names(self) -> None:
     if self._has_unique_variant_names():
       return
@@ -615,14 +617,13 @@ class BrowserVariantsConfig:
 
   def _maybe_downloaded_binary(self,
                                browser_config: BrowserConfig) -> BrowserConfig:
-    platform = helper.PLATFORM
     if browser_config.driver.type == BrowserDriverType.ANDROID:
       return browser_config
     path_or_identifier = browser_config.path_or_identifier
     if isinstance(path_or_identifier, pathlib.Path):
       return browser_config
     downloaded = ChromeDownloader.load(
-        path_or_identifier, platform, cache_dir=self._cache_dir)
+        path_or_identifier, platform.DEFAULT, cache_dir=self._cache_dir)
     return BrowserConfig(downloaded, browser_config.driver)
 
   def _append_browser(self, args: argparse.Namespace,
@@ -646,12 +647,8 @@ class BrowserVariantsConfig:
       flags.set(flag_name, flag_value)
 
     label = convert_flags_to_label(*flags.get_list())
-    # TODO: clean up this hack and add complex browser config settings so we
-    # can specify ADB device ids.
-    browser_platform = helper.PLATFORM
-    if browser_config.driver.type == BrowserDriverType.ANDROID:
-      browser_platform = AndroidAdbPlatform(helper.PLATFORM)
-    browser_instance = browser_cls(  # pytype: disable=not-instantiable,
+    browser_platform = self._get_browser_platform(browser_config)
+    browser_instance = browser_cls(  # pytype: disable=not-instantiable
         label=label,
         path=path,
         flags=flags,

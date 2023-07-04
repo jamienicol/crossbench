@@ -9,12 +9,13 @@ import argparse
 import contextlib
 import dataclasses
 import datetime as dt
+import enum
 import inspect
-import json
 import logging
 import pathlib
 import sys
 import threading
+from collections.abc import Callable, Iterable, Mapping
 from typing import (TYPE_CHECKING, Any, Dict, Iterable, Iterator, List,
                     Optional, Sequence, Tuple, Type, Union)
 
@@ -23,11 +24,11 @@ from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.flags import Flags, JSFlags
 from crossbench.platform import DEFAULT_PLATFORM, Platform
+from crossbench.probes.all import INTERNAL_PROBES
+from crossbench.probes.internal import InternalProbe, ResultsSummaryProbe
 from crossbench.probes.probe import Probe, ProbeScope, ResultLocation
 from crossbench.probes.results import (EmptyProbeResult, ProbeResult,
                                        ProbeResultDict)
-from crossbench.probes.runner import (RunDurationsProbe, RunResultsSummaryProbe,
-                                      RunRunnerLogProbe)
 
 if TYPE_CHECKING:
   from crossbench.benchmarks.benchmark import Benchmark
@@ -212,11 +213,13 @@ class Runner:
 
   def _attach_default_probes(self, probe_list: Iterable[Probe]) -> None:
     assert len(self._probes) == 0
-    self.attach_probe(RunResultsSummaryProbe())
-    self.attach_probe(RunDurationsProbe())
-    self.attach_probe(RunRunnerLogProbe())
+    for probe_cls in INTERNAL_PROBES:
+      self.attach_probe(probe_cls())  # pytype: disable=not-instantiable
     for probe in probe_list:
       self.attach_probe(probe)
+    # Results probe must be first in the list, and thus last to be processed
+    # so all other probes have data by the time we write the results summary.
+    assert isinstance(self._probes[0], ResultsSummaryProbe)
 
   def attach_probe(self, probe: Probe,
                    matching_browser_only: bool = False) -> Probe:
@@ -289,11 +292,16 @@ class Runner:
     delta = self.timing.timedelta(time, absolute_time)
     self._platform.sleep(delta)
 
-  def collect_system_details(self) -> None:
-    with (self.out_dir / "system_details.json").open(
-        "w", encoding="utf-8") as f:
-      details = self._platform.system_details()
-      json.dump(details, f, indent=2)
+  def run(self, is_dry_run: bool = False) -> None:
+    with helper.SystemSleepPreventer():
+      self._setup()
+      self._run(is_dry_run)
+    if self._exceptions.throw:
+      # Ensure that we bail out on the first exception.
+      self.assert_successful_runs()
+    if not is_dry_run:
+      self._tear_down()
+    self.assert_successful_runs()
 
   def _setup(self) -> None:
     logging.info("-" * 80)
@@ -320,7 +328,6 @@ class Runner:
         f"Preparing Benchmark: {self._benchmark.NAME}"):
       # TODO: rewrite all imports and hopefully fix this
       self._benchmark.setup(self)  # pytype:  disable=wrong-arg-types
-    self.collect_system_details()
     self._exceptions.assert_success()
 
   def get_runs(self) -> Iterable[Run]:
@@ -339,12 +346,7 @@ class Runner:
               throw=self._exceptions.throw)
           index += 1
 
-  def run(self, is_dry_run: bool = False) -> None:
-    with helper.SystemSleepPreventer():
-      self._setup()
-      self._run(is_dry_run)
-    if not is_dry_run:
-      self._tear_down()
+  def assert_successful_runs(self) -> None:
     failed_runs = list(run for run in self.runs if not run.is_success)
     self._exceptions.assert_success(
         f"Runs Failed: {len(failed_runs)}/{len(self.runs)} runs failed.",
@@ -355,6 +357,10 @@ class Runner:
 
   def _run(self, is_dry_run: bool = False) -> None:
     thread_groups: List[RunThreadGroup] = self._get_thread_groups()
+    if len(thread_groups) == 1:
+      # Special case single thread groups
+      thread_groups[0].run()
+      return
     for thread_group in thread_groups:
       thread_group.is_dry_run = is_dry_run
       thread_group.start()
@@ -366,26 +372,24 @@ class Runner:
     logging.info("RUNS COMPLETED")
     logging.info("-" * 80)
     logging.info("MERGING PROBE DATA")
+
     logging.debug("MERGING PROBE DATA: repetitions")
     throw = self._exceptions.throw
     self._repetitions_groups = RepetitionsRunGroup.groups(self._runs, throw)
-    with self._exceptions.info("Merging results from multiple repetitions"):
-      for repetitions_group in self._repetitions_groups:
-        repetitions_group.merge(self)
-        self._exceptions.extend(repetitions_group.exceptions, is_nested=True)
+    for repetitions_group in self._repetitions_groups:
+      repetitions_group.merge(self)
+      self._exceptions.extend(repetitions_group.exceptions, is_nested=True)
 
     logging.debug("MERGING PROBE DATA: stories")
     self._story_groups = StoriesRunGroup.groups(self._repetitions_groups, throw)
-    with self._exceptions.info("Merging results from multiple stories"):
-      for story_group in self._story_groups:
-        story_group.merge(self)
-        self._exceptions.extend(story_group.exceptions, is_nested=True)
+    for story_group in self._story_groups:
+      story_group.merge(self)
+      self._exceptions.extend(story_group.exceptions, is_nested=True)
 
     logging.debug("MERGING PROBE DATA: browsers")
     self._browser_group = BrowsersRunGroup(self._story_groups, throw)
-    with self._exceptions.info("Merging results from multiple browsers"):
-      self._browser_group.merge(self)
-      self._exceptions.extend(self._browser_group.exceptions, is_nested=True)
+    self._browser_group.merge(self)
+    self._exceptions.extend(self._browser_group.exceptions, is_nested=True)
 
   def cool_down(self) -> None:
     # Cool down between runs
@@ -444,6 +448,10 @@ class RunGroup(abc.ABC):
   @property
   def exceptions(self) -> exception.Annotator:
     return self._exceptions
+
+  @property
+  def is_success(self) -> bool:
+    return self._exceptions.is_success
 
   @property
   @abc.abstractmethod
@@ -527,7 +535,8 @@ class RepetitionsRunGroup(RunGroup):
 
   @property
   def info_stack(self) -> exception.TInfoStack:
-    return (f"browser={self.browser.unique_name}", f"story={self.story}")
+    return ("Merging results from multiple repetitions",
+            f"browser={self.browser.unique_name}", f"story={self.story}")
 
   @property
   def info(self) -> Dict[str, str]:
@@ -582,7 +591,10 @@ class StoriesRunGroup(RunGroup):
 
   @property
   def info_stack(self) -> exception.TInfoStack:
-    return (f"browser={self.browser.unique_name}",)
+    return (
+        "Merging results from multiple stories",
+        f"browser={self.browser.unique_name}",
+    )
 
   @property
   def info(self) -> Dict[str, str]:
@@ -635,7 +647,7 @@ class BrowsersRunGroup(RunGroup):
 
   @property
   def info_stack(self) -> exception.TInfoStack:
-    return ()
+    return ("Merging results from multiple browsers",)
 
   @property
   def info(self) -> Dict[str, str]:
@@ -646,12 +658,15 @@ class BrowsersRunGroup(RunGroup):
     return probe.merge_browsers(self)  # pytype: disable=wrong-arg-types
 
 
+@enum.unique
+class RunState(enum.Enum):
+  INITIAL = enum.auto()
+  SETUP = enum.auto()
+  RUN = enum.auto()
+  DONE = enum.auto()
+
+
 class Run:
-  # TODO: use enum class
-  STATE_INITIAL = 0
-  STATE_PREPARE = 1
-  STATE_RUN = 2
-  STATE_DONE = 3
 
   def __init__(self,
                runner: Runner,
@@ -663,8 +678,7 @@ class Run:
                name: Optional[str] = None,
                temperature: Optional[int] = None,
                throw: bool = False):
-    self._state = self.STATE_INITIAL
-    self._run_success: Optional[bool] = None
+    self._state = RunState.INITIAL
     self._runner = runner
     self._browser = browser
     self._story = story
@@ -851,7 +865,7 @@ class Run:
     return file
 
   def get_browser_probe_result_path(self, probe: Probe) -> pathlib.Path:
-    """Returns a temporary path on the remote browser or the same as 
+    """Returns a temporary path on the remote browser or the same as
     get_local_probe_result_path() on a local browser."""
     if not self.is_remote:
       return self.get_local_probe_result_path(probe)
@@ -861,23 +875,36 @@ class Run:
                   self.browser_platform)
     return path
 
-  def setup(self, is_dry_run: bool) -> List[ProbeScope[Any]]:
-    self._advance_state(self.STATE_INITIAL, self.STATE_PREPARE)
-    logging.debug("PREPARE")
+  def run(self, is_dry_run: bool = False) -> None:
+    self._advance_state(RunState.INITIAL, RunState.SETUP)
+    self._out_dir.mkdir(parents=True, exist_ok=True)
+    with helper.ChangeCWD(self._out_dir), self.exception_info(*self.info_stack):
+      probe_scopes: Sequence[ProbeScope] = []
+      try:
+        probe_scopes = self._setup_probes(is_dry_run)
+        self._setup_browser(is_dry_run)
+      except Exception as e:  # pylint: disable=broad-except
+        self._handle_setup_error(e, probe_scopes)
+        return
+      try:
+        self._run(probe_scopes, is_dry_run)
+      except Exception as e:  # pylint: disable=broad-except
+        self._exceptions.append(e)
+      finally:
+        if not is_dry_run:
+          self.tear_down(probe_scopes)
+
+  def _setup_probes(self, is_dry_run: bool) -> List[ProbeScope[Any]]:
+    assert self._state == RunState.SETUP
+    logging.debug("SETUP")
     logging.info("STORY: %s", self.story)
     logging.info("STORY DURATION: %ss",
                  self.timing.timedelta(self.story.duration))
     logging.info("RUN DIR: %s", self._out_dir)
+    logging.debug("CWD %s", self._out_dir)
 
     if is_dry_run:
-      logging.info("BROWSER: %s", self.browser.path)
       return []
-
-    self._run_success = None
-    browser_log_file = self._out_dir / "browser.log"
-    assert not browser_log_file.exists(), (
-        f"Default browser log file {browser_log_file} already exists.")
-    self._browser.set_log_file(browser_log_file)
 
     with self.measure("runner-cooldown"):
       self._runner.wait(self._runner.timing.cool_down_time, absolute_time=True)
@@ -900,6 +927,19 @@ class Run:
       for probe_scope in probe_run_scopes:
         with self.exception_info(f"Probe {probe_scope.name} setup"):
           probe_scope.setup(self)  # pytype: disable=wrong-arg-types
+    return probe_run_scopes
+
+  def _setup_browser(self, is_dry_run: bool) -> None:
+    assert self._state == RunState.SETUP
+
+    if is_dry_run:
+      logging.info("BROWSER: %s", self.browser.path)
+      return
+
+    browser_log_file = self._out_dir / "browser.log"
+    assert not browser_log_file.exists(), (
+        f"Default browser log file {browser_log_file} already exists.")
+    self._browser.set_log_file(browser_log_file)
 
     with self.measure("browser-setup"):
       try:
@@ -909,24 +949,22 @@ class Run:
         # Clean up half-setup browser instances
         self._browser.force_quit()
         raise
-    return probe_run_scopes
 
-  def run(self, is_dry_run: bool = False) -> None:
-    self._out_dir.mkdir(parents=True, exist_ok=True)
-    with helper.ChangeCWD(self._out_dir), self.exception_info(*self.info_stack):
-      probe_scopes = self.setup(is_dry_run)
-      self._advance_state(self.STATE_PREPARE, self.STATE_RUN)
-      self._run_success = False
-      logging.debug("CWD %s", self._out_dir)
-      try:
-        self._run(probe_scopes, is_dry_run)
-      except Exception as e:  # pylint: disable=broad-except
-        self._exceptions.append(e)
-      finally:
-        if not is_dry_run:
-          self.tear_down(probe_scopes)
+  def _handle_setup_error(self, setup_exception: BaseException,
+                          probe_scopes: Sequence[ProbeScope]) -> None:
+    self._advance_state(RunState.SETUP, RunState.DONE)
+    self._exceptions.append(setup_exception)
+    assert self._state == RunState.DONE
+    assert not self._exceptions.is_success
+    # Special handling for crucial runner probes
+    internal_probe_scopes = [
+        scope for scope in probe_scopes
+        if isinstance(scope.probe, InternalProbe)
+    ]
+    self._tear_down_probe_scopes(internal_probe_scopes)
 
   def _run(self, probe_scopes: Sequence[ProbeScope], is_dry_run: bool) -> None:
+    self._advance_state(RunState.SETUP, RunState.RUN)
     probe_start_time = dt.datetime.now()
     probe_scope_manager = contextlib.ExitStack()
 
@@ -937,12 +975,11 @@ class Run:
     with probe_scope_manager:
       self._durations["probes-start"] = dt.datetime.now() - probe_start_time
       logging.info("RUNNING STORY")
-      assert self._state == self.STATE_RUN, "Invalid state"
+      assert self._state == RunState.RUN, "Invalid state"
       try:
         with self.measure("run"), helper.Spinner():
           if not is_dry_run:
             self._story.run(self)
-        self._run_success = True
       except TimeoutError as e:
         # Handle TimeoutError earlier since they might be caused by
         # throttled down non-foreground browser.
@@ -960,7 +997,7 @@ class Run:
         "was not in the foreground at the end of the benchmark. "
         "Background apps and tabs can be heavily throttled.")
 
-  def _advance_state(self, expected: int, next_state: int) -> None:
+  def _advance_state(self, expected: RunState, next_state: RunState) -> None:
     assert self._state == expected, (
         f"Invalid state got={self._state} expected={expected}")
     self._state = next_state
@@ -968,7 +1005,7 @@ class Run:
   def tear_down(self,
                 probe_scopes: List[ProbeScope],
                 is_shutdown: bool = False) -> None:
-    self._advance_state(self.STATE_RUN, self.STATE_DONE)
+    self._advance_state(RunState.RUN, RunState.DONE)
     with self.measure("browser-tear_down"):
       if self._browser.is_running is False:
         logging.warning("Browser is no longer running (crashed or closed).")
@@ -982,11 +1019,11 @@ class Run:
         with self._exceptions.capture("Quit browser"):
           self._browser.quit(self._runner)  # pytype: disable=wrong-arg-types
     with self.measure("probes-tear_down"):
-      logging.debug("TEARDOWN")
       self._tear_down_probe_scopes(probe_scopes)
     self._rm_browser_tmp_dir()
 
   def _tear_down_probe_scopes(self, probe_scopes: List[ProbeScope]) -> None:
+    logging.debug("PROBE SCOPE TEARDOWN")
     for probe_scope in reversed(probe_scopes):
       with self.exceptions.capture(f"Probe {probe_scope.name} teardown"):
         assert probe_scope.run == self

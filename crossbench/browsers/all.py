@@ -17,7 +17,7 @@ from crossbench.browsers.safari import (Safari, SafariAppleScript,
                                         SafariWebDriver)
 from crossbench.browsers.webdriver import RemoteWebDriver
 
-__all__ = [
+__all__ = (
     "BROWSERS_CACHE",
     "Browser",
     "Chrome",
@@ -37,4 +37,4 @@ __all__ = [
     "SafariAppleScript",
     "SafariWebDriver",
     "convert_flags_to_label",
-]
+)

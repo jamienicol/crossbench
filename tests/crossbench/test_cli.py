@@ -16,7 +16,7 @@ import pytest
 from pyfakefs import fake_filesystem_unittest
 
 import crossbench
-from crossbench import cli_helper, helper
+from crossbench import cli_helper, helper, platform
 from crossbench.browsers import splash_screen, viewport
 from crossbench.browsers.chrome import Chrome, ChromeWebDriver
 from crossbench.browsers.safari import Safari
@@ -28,6 +28,7 @@ from crossbench.cli.cli_config import (BrowserConfig, BrowserDriverType,
 from crossbench.probes.power_sampler import PowerSamplerProbe
 from crossbench.probes.v8.log import V8LogProbe
 from crossbench.runner import Runner
+from crossbench.probes import internal
 from tests.crossbench import mock_browser
 from tests.crossbench.mock_helper import BaseCrossbenchTestCase, MockCLI
 
@@ -179,7 +180,8 @@ class CliTestCase(BaseCrossbenchTestCase):
     with mock.patch(
         "sys.stdout", new_callable=io.StringIO) as mock_stdout, mock.patch(
             "sys.stderr", new_callable=io.StringIO) as mock_stderr, mock.patch(
-                "sys.exit", side_effect=SysExitException):
+                "sys.exit", side_effect=SysExitException), mock.patch.object(
+                    platform, "DEFAULT", self.platform):
       if raises:
         with self.assertRaises(raises):
           cli.run(args)
@@ -629,7 +631,9 @@ class CliTestCase(BaseCrossbenchTestCase):
                      "--env-validation=skip", f"--out-dir={out_dir}")
         self.assertTrue(out_dir.exists())
         get_browser_cls.assert_called_once()
-        result_file = list(out_dir.glob("**/results.json"))[0]
+        result_files = list(
+            out_dir.glob(f"**/{internal.ResultsSummaryProbe.NAME}.json"))
+        result_file = result_files[1]
         with result_file.open(encoding="utf-8") as f:
           results = json.load(f)
         self.assertEqual(results["browser"]["version"], browser_cls.VERSION)
@@ -665,7 +669,8 @@ class CliTestCase(BaseCrossbenchTestCase):
                    f"--out-dir={self.out_dir}")
       self.assertTrue(self.out_dir.exists())
       get_browser_cls.assert_called()
-      result_files = list(self.out_dir.glob("*/results.json"))
+      result_files = list(
+          self.out_dir.glob(f"*/{internal.ResultsSummaryProbe.NAME}.json"))
       self.assertEqual(len(result_files), 3)
       versions = []
       for result_file in result_files:
@@ -707,7 +712,8 @@ class CliTestCase(BaseCrossbenchTestCase):
                    f"--out-dir={self.out_dir}")
       self.assertTrue(self.out_dir.exists())
       get_browser_cls.assert_called()
-      result_files = list(self.out_dir.glob("*/results.json"))
+      result_files = list(
+          self.out_dir.glob(f"*/{internal.ResultsSummaryProbe.NAME}.json"))
       self.assertEqual(len(result_files), 2)
       versions = []
       for result_file in result_files:
@@ -749,7 +755,8 @@ class CliTestCase(BaseCrossbenchTestCase):
                    f"--out-dir={self.out_dir}")
       self.assertTrue(self.out_dir.exists())
       get_browser_cls.assert_called()
-      result_files = list(self.out_dir.glob("*/results.json"))
+      result_files = list(
+          self.out_dir.glob(f"*/{internal.ResultsSummaryProbe.NAME}.json"))
       self.assertEqual(len(result_files), 2)
       versions = []
       for result_file in result_files:
@@ -788,7 +795,8 @@ class CliTestCase(BaseCrossbenchTestCase):
                    "--env-validation=skip", f"--out-dir={self.out_dir}")
       self.assertTrue(self.out_dir.exists())
       get_browser_cls.assert_called()
-      result_files = list(self.out_dir.glob("*/results.json"))
+      result_files = list(
+          self.out_dir.glob(f"*/{internal.ResultsSummaryProbe.NAME}.json"))
       self.assertEqual(len(result_files), 3)
       versions = []
       for result_file in result_files:

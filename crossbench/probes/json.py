@@ -110,15 +110,15 @@ class JsonResultProbe(Probe, metaclass=abc.ABCMeta):
       csv.writer(f, delimiter="\t").writerows(merged_table)
     return LocalProbeResult(csv=(merged_csv_path,))
 
-  def write_group_result(self,
-                         group: RunGroup,
-                         merged_data: Union[Dict, helper.ValuesMerger],
-                         write_csv: bool = False,
-                         value_fn: Optional[Callable[[Any], Any]] = None
-                        ) -> ProbeResult:
+  def write_group_result(
+      self,
+      group: RunGroup,
+      merged_data: Union[Dict, List, helper.ValuesMerger],
+      write_csv: bool = False,
+      value_fn: Optional[Callable[[Any], Any]] = None) -> ProbeResult:
     merged_json_path = group.get_local_probe_result_path(self)
     with merged_json_path.open("w", encoding="utf-8") as f:
-      if isinstance(merged_data, dict):
+      if isinstance(merged_data, (dict, list)):
         json.dump(merged_data, f, indent=2)
       else:
         json.dump(merged_data.to_json(), f, indent=2)
@@ -195,7 +195,7 @@ class JsonResultProbeScope(ProbeScope[JsonResultProbeT],
     self._json_data = self.process_json_data(self._json_data)
     return self.write_json(run, self._json_data)
 
-  def extract_json(self, run: Run) -> Dict:
+  def extract_json(self, run: Run) -> Union[Dict, List]:
     with run.actions(f"Extracting Probe name={self.probe.name}") as actions:
       json_data = self.to_json(actions)
       assert json_data is not None, (
