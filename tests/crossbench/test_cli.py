@@ -24,7 +24,8 @@ from crossbench.cli import CrossBenchCLI
 from crossbench.cli.cli_config import (BrowserConfig, BrowserDriverType,
                                        BrowserVariantsConfig, ConfigFileError,
                                        DriverConfig, FlagGroupConfig,
-                                       ProbeConfig, ProbeConfigError)
+                                       SingleProbeConfig, ProbeConfig,
+                                       ProbeConfigError)
 from crossbench.probes.power_sampler import PowerSamplerProbe
 from crossbench.probes.v8.log import V8LogProbe
 from crossbench.runner import Runner
@@ -399,7 +400,7 @@ class CliTestCase(BaseCrossbenchTestCase):
         self.assertListEqual([url], browser.url_list[1:])
 
   def test_invalid_probe(self):
-    with self.assertRaises(ProbeConfigError), mock.patch.object(
+    with self.assertRaises(argparse.ArgumentError), mock.patch.object(
         CrossBenchCLI, "_get_browsers", return_value=self.browsers):
       self.run_cli("loading", "--probe=invalid_probe_name", "--throw")
 
@@ -838,7 +839,7 @@ class CliTestCase(BaseCrossbenchTestCase):
       self.assertIn(mock_browser.MockChromeDev.VERSION, versions)
 
   def test_probe_invalid_inline_json_config(self):
-    with self.assertRaises(argparse.ArgumentTypeError) as cm:
+    with self.assertRaises(argparse.ArgumentError) as cm:
       with mock.patch.object(
           CrossBenchCLI, "_get_browsers", return_value=self.browsers):
         self.run_cli("loading", "--probe=v8.log{invalid json: d a t a}",
@@ -1171,7 +1172,7 @@ class TestProbeConfig(fake_filesystem_unittest.TestCase):
     args = mock.Mock(probe_config=None, throw=True, wraps=False)
 
     args.probe = [
-        f"v8.log{hjson.dumps(config_data)}",
+        SingleProbeConfig.parse(f"v8.log{hjson.dumps(config_data)}"),
     ]
     config = ProbeConfig.from_cli_args(args)
     self.assertTrue(len(config.probes), 1)
@@ -1179,7 +1180,7 @@ class TestProbeConfig(fake_filesystem_unittest.TestCase):
     self.assertTrue(isinstance(probe, V8LogProbe))
 
     args.probe = [
-        f"v8.log:{hjson.dumps(config_data)}",
+        SingleProbeConfig.parse(f"v8.log:{hjson.dumps(config_data)}"),
     ]
     config = ProbeConfig.from_cli_args(args)
     self.assertTrue(len(config.probes), 1)
@@ -1190,30 +1191,22 @@ class TestProbeConfig(fake_filesystem_unittest.TestCase):
     mock_d8_file = pathlib.Path("out/d8")
     self.fs.create_file(mock_d8_file)
     config_data = {"d8_binary": str(mock_d8_file)}
-    args = mock.Mock(probe_config=None, throw=True, wraps=False)
     trailing_brace = "}"
-    args.probe = [
-        f"v8.log{hjson.dumps(config_data)}{trailing_brace}",
-    ]
     with self.assertRaises(argparse.ArgumentTypeError):
-      ProbeConfig.from_cli_args(args)
-    args.probe = [
-        f"v8.log:{hjson.dumps(config_data)}{trailing_brace}",
-    ]
+      SingleProbeConfig.parse(
+          f"v8.log{hjson.dumps(config_data)}{trailing_brace}")
     with self.assertRaises(argparse.ArgumentTypeError):
-      ProbeConfig.from_cli_args(args)
-    args.probe = [
-        "v8.log::",
-    ]
+      SingleProbeConfig.parse(
+          f"v8.log:{hjson.dumps(config_data)}{trailing_brace}")
     with self.assertRaises(argparse.ArgumentTypeError):
-      ProbeConfig.from_cli_args(args)
+      SingleProbeConfig.parse("v8.log::")
 
   def test_inline_config_dir_instead_of_file(self):
     mock_dir = pathlib.Path("some/dir")
     mock_dir.mkdir(parents=True)
     config_data = {"d8_binary": str(mock_dir)}
     args = mock.Mock(
-        probe=[f"v8.log{hjson.dumps(config_data)}"],
+        probe=[SingleProbeConfig.parse(f"v8.log{hjson.dumps(config_data)}")],
         probe_config=None,
         throw=True,
         wraps=False)
@@ -1224,7 +1217,7 @@ class TestProbeConfig(fake_filesystem_unittest.TestCase):
   def test_inline_config_non_existent_file(self):
     config_data = {"d8_binary": "does/not/exist/d8"}
     args = mock.Mock(
-        probe=[f"v8.log{hjson.dumps(config_data)}"],
+        probe=[SingleProbeConfig.parse(f"v8.log{hjson.dumps(config_data)}")],
         probe_config=None,
         throw=True,
         wraps=False)

@@ -685,10 +685,52 @@ class ProbeConfigError(argparse.ArgumentTypeError):
   pass
 
 
-class ProbeConfig:
 
-  LOOKUP: Dict[str,
-               Type[Probe]] = {cls.NAME: cls for cls in GENERAL_PURPOSE_PROBES}
+PROBE_LOOKUP: Dict[str, Type[Probe]] = {
+    cls.NAME: cls for cls in GENERAL_PURPOSE_PROBES
+}
+
+_PROBE_CONFIG_RE: Final[re.Pattern] = re.compile(
+    r"(?P<probe_name>[\w.]+)(:?(?P<config>\{.*\}))?", re.MULTILINE | re.DOTALL)
+
+
+@dataclasses.dataclass(frozen=True)
+class SingleProbeConfig(ConfigObject):
+  cls: Type[Probe]
+  config: Dict[str, Any] = dataclasses.field(default_factory=dict)
+
+  @classmethod
+  def loads(cls, value: str) -> SingleProbeConfig:
+    # 1. variant: known probe
+    if value in PROBE_LOOKUP:
+      return cls(PROBE_LOOKUP[value])
+    # 2. variant: inline hjson
+    match = _PROBE_CONFIG_RE.fullmatch(value)
+    if match is None:
+      raise ProbeConfigError(f"Could not parse probe argument: {value}")
+    config = {"name": match["probe_name"]}
+    if match["config"]:
+      inline_config = parse_inline_hjson(match["config"])
+      assert "name" not in inline_config
+      config.update(inline_config)
+    return cls.load_dict(config)
+
+  @classmethod
+  def load_dict(cls,
+                config: Dict[str, Any],
+                throw: bool = False) -> SingleProbeConfig:
+    probe_name = config.pop("name")
+    if probe_name not in PROBE_LOOKUP:
+      raise ProbeConfigError(f"Unknown probe: '{probe_name}'")
+    probe_cls = PROBE_LOOKUP[probe_name]
+    return cls(probe_cls, config)
+
+  @property
+  def name(self) -> str:
+    return self.cls.NAME
+
+
+class ProbeConfig:
 
   _PROBE_RE: Final[re.Pattern] = re.compile(
       r"(?P<probe_name>[\w.]+)(:?(?P<config>\{.*\}))?",
@@ -708,15 +750,15 @@ class ProbeConfig:
     return probe_config
 
   def __init__(self,
-               probe_names_with_args: Optional[Iterable[str]] = None,
+               probe_configs: Optional[Iterable[SingleProbeConfig]] = None,
                throw: bool = False):
     self._exceptions = ExceptionAnnotator(throw=throw)
     self._probes: List[Probe] = []
-    if not probe_names_with_args:
+    if not probe_configs:
       return
-    for probe_name_with_args in probe_names_with_args:
-      with self._exceptions.capture(f"Parsing --probe={probe_name_with_args}"):
-        self.add_probe(probe_name_with_args)
+    for probe_config in probe_configs:
+      with self._exceptions.capture(f"Parsing --probe={probe_config.name}"):
+        self.add_probe(probe_config)
 
   @property
   def probes(self) -> List[Probe]:
@@ -724,31 +766,10 @@ class ProbeConfig:
                                     ConfigFileError)
     return self._probes
 
-  def add_probe(self, probe_name_with_args: str) -> None:
-    # Look for probes with json payload:
-    # - "ProbeName{json_key:json_value, ...}"
-    # - "ProbeName:{json_key:json_value, ...}"
-    inline_config = {}
-    match = self._PROBE_RE.fullmatch(probe_name_with_args)
-    if match is None:
-      raise ProbeConfigError(
-          f"Could not parse probe argument: {probe_name_with_args}")
-    if match["config"]:
-      probe_name = match["probe_name"]
-      json_args = match["config"]
-      inline_config = parse_inline_hjson(json_args)
-    else:
-      # Default case without the additional hjson payload
-      probe_name = match["probe_name"]
-    if probe_name not in self.LOOKUP:
-      self.raise_unknown_probe(probe_name)
-    with self._exceptions.info(
-        f"Parsing inline probe config: {probe_name}",
-        f"  Use 'describe probe {probe_name}' for more details"):
-      probe_cls: Type[Probe] = self.LOOKUP[probe_name]
-      probe: Probe = probe_cls.from_config(
-          inline_config, throw=self._exceptions.throw)
-      self._probes.append(probe)
+  def add_probe(self, probe_config: SingleProbeConfig) -> None:
+    probe: Probe = probe_config.cls.from_config(
+        probe_config.config, throw=self._exceptions.throw)
+    self._probes.append(probe)
 
   def load_config_file(self, file: TextIO) -> None:
     with self._exceptions.capture(f"Loading probe config file: {file.name}"):
@@ -767,16 +788,16 @@ class ProbeConfig:
     for probe_name, config_data in config.items():
       with self._exceptions.info(
           f"Parsing probe config probes['{probe_name}']"):
-        if probe_name not in self.LOOKUP:
+        if probe_name not in PROBE_LOOKUP:
           self.raise_unknown_probe(probe_name)
-        probe_cls = self.LOOKUP[probe_name]
+        probe_cls = PROBE_LOOKUP[probe_name]
         self._probes.append(probe_cls.from_config(config_data))
 
   def raise_unknown_probe(self, probe_name: str) -> None:
     additional_msg = ""
     if ":" in probe_name or "}" in probe_name:
       additional_msg = "\n    Likely missing quotes for --probe argument"
-    msg = f"    Options are: {list(self.LOOKUP.keys())}{additional_msg}"
+    msg = f"    Options are: {list(PROBE_LOOKUP.keys())}{additional_msg}"
     raise ProbeConfigError(f"Unknown probe name: '{probe_name}'\n{msg}")
 
 

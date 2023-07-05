@@ -396,6 +396,7 @@ class CrossBenchCLI:
     probe_config_group.add_argument(
         "--probe",
         action="append",
+        type=cli_config.SingleProbeConfig.parse,
         default=[],
         help="Enable general purpose probes to measure data on all cb.stories. "
         "This argument can be specified multiple times to add more probes. "
@@ -404,7 +405,7 @@ class CrossBenchCLI:
         "Use 'describe probes' or 'describe probe $NAME' for probe "
         "configuration details."
         "Cannot be used together with --probe-config."
-        f"\n\nChoices: {', '.join(cli_config.ProbeConfig.LOOKUP.keys())}")
+        f"\n\nChoices: {', '.join(cli_config.PROBE_LOOKUP.keys())}")
     probe_config_group.add_argument(
         "--probe-config",
         type=cli_helper.parse_hjson_file_path,
