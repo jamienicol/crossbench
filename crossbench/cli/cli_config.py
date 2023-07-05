@@ -48,10 +48,21 @@ def parse_inline_hjson(value: str) -> Any:
   try:
     return hjson.loads(value)
   except ValueError as e:
-    message = f"Could not decode inline config: {value}\n" f"   {str(e)}"
+    message = _extract_decoding_error(value, e)
     if "eof" in message:
       message += "\n   Likely missing quotes."
     raise argparse.ArgumentTypeError(message) from e
+
+
+def _extract_decoding_error(value: str, e: ValueError) -> str:
+  lineno = getattr(e, "lineno", -1) - 1
+  colno = getattr(e, "colno", -1) - 1
+  decode_message = "Could not decode inline config"
+  if lineno < 0 or colno < 0:
+    return f"{decode_message}: {value}\n    {str(e)}"
+  line = value.splitlines()[lineno - 1]
+  marker = (" " * colno) + "^"
+  return f"{decode_message}\n    {line}\n    {marker}\n({str(e)})"
 
 
 class ConfigFileError(argparse.ArgumentTypeError):
