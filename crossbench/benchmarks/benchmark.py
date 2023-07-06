@@ -9,7 +9,7 @@ import argparse
 import logging
 import re
 from typing import (TYPE_CHECKING, Any, Dict, Generic, List, Optional, Sequence,
-                    Type, TypeVar, cast)
+                    Tuple, Type, TypeVar, cast)
 from crossbench import helper, cli_helper
 
 from crossbench.stories import PressBenchmarkStory, Story
@@ -36,6 +36,10 @@ class Benchmark(abc.ABC):
   @classmethod
   def cli_epilog(cls) -> str:
     return ""
+
+  @classmethod
+  def aliases(cls) -> Tuple[str, ...]:
+    return tuple()
 
   @classmethod
   def add_cli_parser(
@@ -318,6 +322,33 @@ class PressBenchmarkStoryFilter(StoryFilter[PressBenchmarkStory]):
 class PressBenchmark(SubStoryBenchmark):
   STORY_FILTER_CLS = PressBenchmarkStoryFilter
   DEFAULT_STORY_CLS: Type[PressBenchmarkStory] = PressBenchmarkStory
+
+  @classmethod
+  @abc.abstractmethod
+  def short_base_name(cls) -> str:
+    raise NotImplementedError()
+
+  @classmethod
+  @abc.abstractmethod
+  def base_name(cls) -> str:
+    raise NotImplementedError()
+
+  @classmethod
+  @abc.abstractmethod
+  def version(cls) -> Tuple[int, ...]:
+    raise NotImplementedError()
+
+  @classmethod
+  def aliases(cls) -> Tuple[str, ...]:
+    version = [str(v) for v in cls.version()]
+    assert version, "Expected non-empty version tuple."
+    version_names = []
+    dot_version = ".".join(version)
+    for name in (cls.short_base_name(), cls.base_name()):
+      assert name, "Expected non-empty base name."
+      version_names.append(f"{name}{dot_version}")
+      version_names.append(f"{name}_{dot_version}")
+    return tuple(version_names)
 
   @classmethod
   def add_cli_parser(

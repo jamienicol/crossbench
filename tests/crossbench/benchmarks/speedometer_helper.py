@@ -45,8 +45,8 @@ class SpeedometerBaseTestCase(
 
   def test_iterations(self):
     with self.assertRaises(AssertionError):
-      self.benchmark_cls(iterations=-1)
-    benchmark = self.benchmark_cls(iterations=123)
+      self.benchmark_cls(iterations=-1)  # pytype: disable=not-instantiable
+    benchmark = self.benchmark_cls(iterations=123)  # pytype: disable=not-instantiable
     for story in benchmark.stories:
       assert isinstance(story, self.story_cls)
       self.assertEqual(story.iterations, 123)
@@ -209,7 +209,7 @@ class SpeedometerBaseTestCase(
     for browser in self.browsers:
       browser.js_side_effect = copy.deepcopy(browser.js_side_effects)
 
-    benchmark = self.benchmark_cls(stories, custom_url=custom_url)
+    benchmark = self.benchmark_cls(stories, custom_url=custom_url)  # pytype: disable=not-instantiable
     self.assertTrue(len(benchmark.describe()) > 0)
     runner = Runner(
         self.out_dir,

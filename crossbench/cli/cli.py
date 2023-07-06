@@ -40,16 +40,16 @@ if TYPE_CHECKING:
 
 argparse.ArgumentError = cli_helper.CrossBenchArgumentError
 
-class CrossBenchCLI:
 
-  BENCHMARKS: Tuple[Tuple[BenchmarkClsT, Tuple[str, ...]], ...] = (
-      (benchmarks.Speedometer30Benchmark, ("sp30", "sp3")),
-      (benchmarks.Speedometer20Benchmark, ("sp20",)),
-      (benchmarks.Speedometer21Benchmark, ("speedometer", "sp", "sp2", "sp21")),
-      (benchmarks.JetStream20Benchmark, ("js20",)),
-      (benchmarks.JetStream21Benchmark, ("jetstream", "js21")),
-      (benchmarks.MotionMark12Benchmark, ("motionmark", "mm", "mm12")),
-      (benchmarks.PageLoadBenchmark, ("load", "page")),
+class CrossBenchCLI:
+  BENCHMARKS: Tuple[BenchmarkClsT, ...] = (
+      benchmarks.Speedometer30Benchmark,
+      benchmarks.Speedometer21Benchmark,
+      benchmarks.Speedometer20Benchmark,
+      benchmarks.JetStream21Benchmark,
+      benchmarks.JetStream20Benchmark,
+      benchmarks.MotionMark12Benchmark,
+      benchmarks.PageLoadBenchmark,
   )
 
   RUNNER_CLS: Type[Runner] = Runner
@@ -113,12 +113,8 @@ class CrossBenchCLI:
         dest="subcommand",
         required=True,
         parser_class=cli_helper.CrossBenchArgumentParser)
-    for benchmark_cls, alias in self.BENCHMARKS:
-      assert isinstance(
-          alias,
-          (list,
-           tuple)), (f"Benchmark alias must be list or tuple, but got: {alias}")
-      self._setup_benchmark_subparser(benchmark_cls, alias)
+    for benchmark_cls in self.BENCHMARKS:
+      self._setup_benchmark_subparser(benchmark_cls)
     self._setup_help_subparser()
     self._setup_describe_subparser()
     self._setup_recorder_subparser()
@@ -162,7 +158,8 @@ class CrossBenchCLI:
 
   def describe_subcommand(self, args: argparse.Namespace) -> None:
     benchmarks_data: Dict[str, Any] = {}
-    for benchmark_cls, aliases in self.BENCHMARKS:
+    for benchmark_cls in self.BENCHMARKS:
+      aliases: Tuple[str, ...] = benchmark_cls.aliases()
       if args.filter:
         if benchmark_cls.NAME != args.filter and args.filter not in aliases:
           continue
@@ -237,9 +234,9 @@ class CrossBenchCLI:
     self.parser.print_help()
     sys.exit(0)
 
-  def _setup_benchmark_subparser(self, benchmark_cls: Type[Benchmark],
-                                 aliases: Sequence[str]) -> None:
-    subparser = benchmark_cls.add_cli_parser(self.subparsers, aliases)
+  def _setup_benchmark_subparser(self, benchmark_cls: Type[Benchmark]) -> None:
+    subparser = benchmark_cls.add_cli_parser(self.subparsers,
+                                             benchmark_cls.aliases())
     self.RUNNER_CLS.add_cli_parser(benchmark_cls, subparser)
     assert isinstance(subparser, argparse.ArgumentParser), (
         f"Benchmark class {benchmark_cls}.add_cli_parser did not return "

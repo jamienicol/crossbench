@@ -224,5 +224,16 @@ class JetStream2Story(PressBenchmarkStory, metaclass=abc.ABCMeta):
 ProbeClsTupleT = Tuple[Type[JetStream2Probe], ...]
 
 
-class JetStream2Benchmark(PressBenchmark, metaclass=abc.ABCMeta):
+class JetStreamBenchmark(PressBenchmark, metaclass=abc.ABCMeta):
+
+  @classmethod
+  def short_base_name(cls) -> str:
+    return "js"
+
+  @classmethod
+  def base_name(cls) -> str:
+    return "jetstream"
+
+
+class JetStream2Benchmark(JetStreamBenchmark):
   pass

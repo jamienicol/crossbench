@@ -79,9 +79,9 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     self.assertTrue(browser_config.is_file())
     results_dir = self.output_dir / "results"
     self.assertFalse(results_dir.exists())
-    self.run_cli("sp20", f"--browser-config={browser_config}", "--iterations=2",
-                 "--env-validation=skip", f"--out-dir={results_dir}",
-                 f"--cache-dir={self.cache_dir}",
+    self.run_cli("sp_2.0", f"--browser-config={browser_config}",
+                 "--iterations=2", "--env-validation=skip",
+                 f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",
                  "--probe=tracing:{preset:'minimal'}")
 
     browser_dirs = self.get_browser_dirs(results_dir)
@@ -98,7 +98,7 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     self.run_cli("describe", "benchmark", "speedometer_2.1")
     results_dir = self.output_dir / "results"
     self.assertFalse(results_dir.exists())
-    self.run_cli("sp21", "--browser=chrome-stable", "--splashscreen=minimal",
+    self.run_cli("sp2.1", "--browser=chrome-stable", "--splashscreen=minimal",
                  "--iterations=2", "--env-validation=skip",
                  f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",
                  "--stories=.*Vanilla.*",
@@ -118,7 +118,7 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     results_dir = self.output_dir / "results"
     # TODO: speed up --browser=chrome-M111 and add it.
     self.assertEqual(len(list(self.cache_dir.iterdir())), 0)
-    self.run_cli("sp21", f"--cache-dir={self.cache_dir}",
+    self.run_cli("sp2.1", f"--cache-dir={self.cache_dir}",
                  "--browser=chrome-stable", "--browser=chrome-111.0.5563.110",
                  "--headless", "--iterations=1", "--env-validation=skip",
                  f"--out-dir={results_dir}", f"--cache-dir={self.cache_dir}",

@@ -179,6 +179,14 @@ class SpeedometerBenchmark(PressBenchmark, metaclass=abc.ABCMeta):
   DEFAULT_STORY_CLS = SpeedometerStory
 
   @classmethod
+  def short_base_name(cls) -> str:
+    return "sp"
+
+  @classmethod
+  def base_name(cls) -> str:
+    return "speedometer"
+
+  @classmethod
   def add_cli_parser(
       cls, subparsers, aliases: Sequence[str] = ()) -> argparse.ArgumentParser:
     parser = super().add_cli_parser(subparsers, aliases)

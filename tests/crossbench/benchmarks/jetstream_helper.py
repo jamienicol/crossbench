@@ -82,7 +82,7 @@ class JetStream2BaseTestCase(
     for browser in self.browsers:
       browser.js_side_effect = copy.deepcopy(browser.js_side_effects)
 
-    benchmark = self.benchmark_cls(stories, custom_url=custom_url)
+    benchmark = self.benchmark_cls(stories, custom_url=custom_url)  # pytype: disable=not-instantiable
     self.assertTrue(len(benchmark.describe()) > 0)
     runner = Runner(
         self.out_dir,

@@ -33,11 +33,10 @@ class CBBTestCase(end2end.End2EndTestCase, metaclass=abc.ABCMeta):
     workload = story_class(  # pytype: disable=not-instantiable
         substories=stories)
 
-    benchmark_cls = cbb_adapter.get_pressbenchmark_cls(  # pytype: disable=not-instantiable
-        self.benchmark_name)
+    benchmark_cls = cbb_adapter.get_pressbenchmark_cls(self.benchmark_name)
     assert benchmark_cls, (
         f"Could not find benchmark class for '{self.benchmark_name}'")
-    benchmark = benchmark_cls(stories=[workload])
+    benchmark = benchmark_cls(stories=[workload])  # pytype: disable=not-instantiable
     return benchmark
 
   def test_benchmark_chrome(self) -> None:

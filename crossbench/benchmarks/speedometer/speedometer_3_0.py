@@ -3,10 +3,11 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-from typing import Final
 
-from .speedometer import (SpeedometerProbe, SpeedometerStory,
-                          SpeedometerBenchmark, ProbeClsTupleT)
+from typing import Final, Tuple
+
+from .speedometer import (ProbeClsTupleT, SpeedometerBenchmark,
+                          SpeedometerProbe, SpeedometerStory)
 
 
 class Speedometer30Probe(SpeedometerProbe):
@@ -55,3 +56,11 @@ class Speedometer30Benchmark(SpeedometerBenchmark):
   """
   NAME: Final[str] = "speedometer_3.0"
   DEFAULT_STORY_CLS = Speedometer30Story
+
+  @classmethod
+  def version(cls) -> Tuple[int, ...]:
+    return (3, 0)
+
+  @classmethod
+  def aliases(cls) -> Tuple[str, ...]:
+    return ("sp3", "speedometer_3") + super().aliases()

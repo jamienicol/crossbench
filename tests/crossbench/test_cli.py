@@ -355,8 +355,8 @@ class CliTestCase(BaseCrossbenchTestCase):
     self.assertIn("Disable colored output", stdout)
 
   def test_subcommand_help(self):
-    for benchmark_cls, aliases in CrossBenchCLI.BENCHMARKS:
-      subcommands = (benchmark_cls.NAME,) + aliases
+    for benchmark_cls in CrossBenchCLI.BENCHMARKS:
+      subcommands = (benchmark_cls.NAME,) + benchmark_cls.aliases()
       for subcommand in subcommands:
         with self.assertRaises(SysExitException) as cm:
           self.run_cli(subcommand, "--help")
@@ -367,8 +367,8 @@ class CliTestCase(BaseCrossbenchTestCase):
         self.assertIn("--env-validation ENV_VALIDATION", stdout)
 
   def test_subcommand_help_subcommand(self):
-    for benchmark_cls, aliases in CrossBenchCLI.BENCHMARKS:
-      subcommands = (benchmark_cls.NAME,) + aliases
+    for benchmark_cls in CrossBenchCLI.BENCHMARKS:
+      subcommands = (benchmark_cls.NAME,) + benchmark_cls.aliases()
       for subcommand in subcommands:
         with self.assertRaises(SysExitException) as cm:
           self.run_cli(subcommand, "help")
@@ -379,8 +379,8 @@ class CliTestCase(BaseCrossbenchTestCase):
         self.assertIn("--env-validation ENV_VALIDATION", stdout)
 
   def test_subcommand_describe_subcommand(self):
-    for benchmark_cls, aliases in CrossBenchCLI.BENCHMARKS:
-      subcommands = (benchmark_cls.NAME,) + aliases
+    for benchmark_cls in CrossBenchCLI.BENCHMARKS:
+      subcommands = (benchmark_cls.NAME,) + benchmark_cls.aliases()
       for subcommand in subcommands:
         with self.assertRaises(SysExitException) as cm:
           self.run_cli(subcommand, "describe")

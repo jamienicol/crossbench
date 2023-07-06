@@ -199,7 +199,18 @@ class MotionMark12Story(PressBenchmarkStory):
           """, self.substory_duration / 4, self.slow_duration)
 
 
-class MotionMark12Benchmark(PressBenchmark):
+class MotionMarkBenchmark(PressBenchmark):
+
+  @classmethod
+  def short_base_name(cls) -> str:
+    return "mm"
+
+  @classmethod
+  def base_name(cls) -> str:
+    return "motionmark"
+
+
+class MotionMark12Benchmark(MotionMarkBenchmark):
   """
   Benchmark runner for MotionMark 1.2.
 
@@ -208,3 +219,7 @@ class MotionMark12Benchmark(PressBenchmark):
 
   NAME = "motionmark_1.2"
   DEFAULT_STORY_CLS = MotionMark12Story
+
+  @classmethod
+  def version(cls) -> Tuple[int, ...]:
+    return (1, 2)

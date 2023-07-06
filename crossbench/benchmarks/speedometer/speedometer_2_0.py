@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, Tuple
 
 from .speedometer import ProbeClsTupleT, SpeedometerBenchmark, SpeedometerProbe
 from .speedometer_2 import Speedometer2Story
@@ -26,3 +26,7 @@ class Speedometer20Benchmark(SpeedometerBenchmark):
   """
   NAME: Final[str] = "speedometer_2.0"
   DEFAULT_STORY_CLS = Speedometer20Story
+
+  @classmethod
+  def version(cls) -> Tuple[int, ...]:
+    return (2, 0)

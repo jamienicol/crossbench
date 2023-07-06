@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-from typing import Final
+from typing import Final, Tuple
 
 from .jetstream_2 import (JetStream2Probe, JetStream2Story, JetStream2Benchmark,
                           ProbeClsTupleT)
@@ -28,3 +28,11 @@ class JetStream21Benchmark(JetStream2Benchmark):
 
   NAME: Final[str] = "jetstream_2.1"
   DEFAULT_STORY_CLS = JetStream21Story
+
+  @classmethod
+  def version(cls) -> Tuple[int, ...]:
+    return (2, 1)
+
+  @classmethod
+  def aliases(cls) -> Tuple[str, ...]:
+    return ("js", "jetstream", "js2", "jetstream_2") + super().aliases()
