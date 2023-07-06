@@ -19,24 +19,26 @@ class Speedometer30Probe(SpeedometerProbe):
 
 class Speedometer30Story(SpeedometerStory):
   __doc__ = SpeedometerStory.__doc__
-  URL_LOCAL: str = "http://127.0.0.1:7000"
   NAME: Final[str] = "speedometer_3.0"
   PROBES: Final[ProbeClsTupleT] = (Speedometer30Probe,)
   # TODO: Update once public version is available
-  URL: Final[str] = "https://browserbench.org/Speedometer3.0/"
+  URL: Final[str] = "https://sp3-alpha-testing.netlify.app/"
+  URL_LOCAL: str = "http://127.0.0.1:7000"
   SUBSTORIES = (
       "TodoMVC-JavaScript-ES5",
       "TodoMVC-JavaScript-ES6",
       "TodoMVC-JavaScript-ES6-Webpack",
+      "TodoMVC-WebComponents",
       "TodoMVC-React",
-      "TodoMVC-React-Redux",
       "TodoMVC-React-Complex-DOM",
+      "TodoMVC-React-Redux",
       "TodoMVC-Backbone",
       "TodoMVC-Angular",
       "TodoMVC-Vue",
       "TodoMVC-jQuery",
       "TodoMVC-Preact",
       "TodoMVC-Svelte",
+      "TodoMVC-Lit",
       "NewsSite-Next",
       "NewsSite-Nuxt",
       "Editor-CodeMirror",
@@ -46,7 +48,6 @@ class Speedometer30Story(SpeedometerStory):
       "React-Stockcharts-SVG",
       "Perf-Dashboard",
   )
-
 
 class Speedometer30Benchmark(SpeedometerBenchmark):
   """
