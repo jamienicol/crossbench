@@ -1141,7 +1141,7 @@ class TestProbeConfig(fake_filesystem_unittest.TestCase):
     self.assertTrue(len(config.probes), 1)
     probe = config.probes[0]
     assert isinstance(probe, V8LogProbe)
-    for flag in js_flags + ["--prof"]:
+    for flag in js_flags + ["--log-all"]:
       self.assertIn(flag, probe.js_flags)
 
   def test_from_cli_args(self):
@@ -1162,7 +1162,7 @@ class TestProbeConfig(fake_filesystem_unittest.TestCase):
     self.assertTrue(len(config.probes), 1)
     probe = config.probes[0]
     assert isinstance(probe, V8LogProbe)
-    for flag in js_flags + ["--prof"]:
+    for flag in js_flags + ["--log-all"]:
       self.assertIn(flag, probe.js_flags)
 
   def test_inline_config(self):

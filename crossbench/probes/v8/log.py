@@ -12,10 +12,11 @@ import re
 import subprocess
 from typing import TYPE_CHECKING, Iterable, List, Optional, cast
 
-from crossbench import cli_helper, helper
+from crossbench import cli_helper, compat, helper
 from crossbench.browsers.browser import Browser
 from crossbench.browsers.chromium import Chromium
 from crossbench.flags import JSFlags
+from crossbench.platform.linux import LinuxPlatform
 from crossbench.probes import helper as probe_helper
 from crossbench.probes.probe import (Probe, ProbeConfigParser, ProbeScope,
                                      ResultLocation)
@@ -25,6 +26,9 @@ if TYPE_CHECKING:
   from crossbench.env import HostEnvironment
   from crossbench.platform import Platform
   from crossbench.runner import BrowsersRunGroup, Run
+
+_PROF_FLAG = "--prof"
+_LOG_ALL_FLAG = "--log-all"
 
 
 class V8LogProbe(Probe):
@@ -39,7 +43,7 @@ class V8LogProbe(Probe):
   NAME = "v8.log"
   RESULT_LOCATION = ResultLocation.BROWSER
 
-  _FLAG_RE = re.compile("^--(prof|log-.*|no-log-.*|)$")
+  _FLAG_RE = re.compile("^--(prof|log-|no-log-).*$")
 
   @classmethod
   def config_parser(cls) -> ProbeConfigParser:
@@ -52,8 +56,14 @@ class V8LogProbe(Probe):
     parser.add_argument(
         "prof",
         type=bool,
-        default=False,
+        default=True,
         help="Enable v8-profiling (equivalent to --prof)")
+    parser.add_argument(
+        "profview",
+        type=bool,
+        default=True,
+        help=("Enable v8-profiling and generate profview.json files for "
+              "http://v8.dev/tools/head/profview"))
     parser.add_argument(
         "js_flags",
         type=str,
@@ -76,11 +86,13 @@ class V8LogProbe(Probe):
 
   def __init__(self,
                log_all: bool = True,
-               prof: bool = False,
+               prof: bool = True,
+               profview: bool = True,
                js_flags: Optional[Iterable[str]] = None,
                d8_binary: Optional[pathlib.Path] = None,
                v8_checkout: Optional[pathlib.Path] = None) -> None:
     super().__init__()
+    self._profview = profview
     self._js_flags = JSFlags()
     self._d8_binary = d8_binary
     self._v8_checkout = v8_checkout
@@ -88,23 +100,37 @@ class V8LogProbe(Probe):
                       bool), (f"Expected bool value, got log_all={log_all}")
     assert isinstance(prof, bool), f"Expected bool value, got log_all={prof}"
     if log_all:
-      self._js_flags.set("--log-all")
-    if prof:
-      self._js_flags.set("--prof")
+      self._js_flags.set(_LOG_ALL_FLAG)
+    elif prof:
+      self._js_flags.set(_PROF_FLAG)
+    elif profview:
+      raise ValueError(f"{self}: Need prof:true with profview:true")
     js_flags = js_flags or []
     for flag in js_flags:
       if self._FLAG_RE.match(flag):
         self._js_flags.set(flag)
       else:
-        raise ValueError(f"Non-v8.log-related flag detected: {flag}")
-    assert len(self._js_flags) > 0, "V8LogProbe has no effect"
+        raise ValueError(f"{self}: Non-v8.log-related flag detected: {flag}")
+    if len(self._js_flags) == 0:
+      raise ValueError(f"{self}: V8LogProbe has no effect")
 
   @property
   def js_flags(self) -> JSFlags:
     return self._js_flags.copy()
 
   def is_compatible(self, browser: Browser) -> bool:
-    return isinstance(browser, Chromium)
+    if not isinstance(browser, Chromium):
+      return False
+    # --prof sometimes causes issues on enterprise chrome on linux.
+    if not _PROF_FLAG in self._js_flags:
+      return True
+    if not browser.platform.is_linux or browser.major_version <= 106:
+      return True
+    for search_path in cast(LinuxPlatform, browser.platform).SEARCH_PATHS:
+      if compat.is_relative_to(browser.path, search_path):
+        logging.error(
+            "Probe with V8 --prof might not work with enterprise profiles")
+    return True
 
   def attach(self, browser: Browser) -> None:
     super().attach(browser)
@@ -122,10 +148,12 @@ class V8LogProbe(Probe):
 
   def process_log_files(self,
                         log_files: List[pathlib.Path]) -> List[pathlib.Path]:
+    if not self._profview:
+      return []
     platform = self.runner_platform
     finder = V8ToolsFinder(platform, self._d8_binary, self._v8_checkout)
     if not finder.d8_binary or not finder.tick_processor or not log_files:
-      logging.info("Did not find $D8_PATH for profview processing.")
+      logging.warning("Did not find $D8_PATH for profview processing.")
       return []
     logging.info(
         "PROBE v8.log: generating profview json data "
@@ -203,7 +231,7 @@ class V8LogProbeScope(ProbeScope[V8LogProbe]):
     # Only convert a v8.log file with profile ticks.
     json_list: List[pathlib.Path] = []
     maybe_js_flags = getattr(self.browser, "js_flags", {})
-    if "--prof" in maybe_js_flags or "--log-all" in maybe_js_flags:
+    if _PROF_FLAG in maybe_js_flags or _LOG_ALL_FLAG in maybe_js_flags:
       with helper.Spinner():
         json_list = self.probe.process_log_files(log_files)
     return self.browser_result(file=tuple(log_files), json=json_list)
