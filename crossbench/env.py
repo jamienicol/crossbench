@@ -14,7 +14,8 @@ from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterable, List,
                     Optional, Union)
 from urllib.parse import urlparse
 
-from crossbench import helper, platform
+from crossbench import helper
+from crossbench.platform import SubprocessError
 
 if TYPE_CHECKING:
   from crossbench.browsers.browser import Browser
@@ -253,7 +254,7 @@ class HostEnvironment:
       if force_disable:
         # Add cool-down period, crowdstrike caused CPU usage spikes
         self._add_min_delay(5)
-    except platform.SubprocessError as e:
+    except SubprocessError as e:
       self.handle_warning(
           "Could not disable go/crowdstrike-falcon monitor which can cause"
           f" high background CPU usage: {e}")
@@ -482,5 +483,5 @@ class HostEnvironment:
     assert args, "Missing sh arguments"
     try:
       assert self._platform.sh_stdout(*args, quiet=True)
-    except platform.SubprocessError as e:
+    except SubprocessError as e:
       self.handle_warning(message.format(e))

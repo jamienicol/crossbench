@@ -25,11 +25,10 @@ def _get_default() -> Platform:
   raise NotImplementedError("Unsupported Platform")
 
 
-DEFAULT: Final[Platform] = _get_default()
-DEFAULT_PLATFORM: Final[Platform] = DEFAULT
+PLATFORM: Final[Platform] = _get_default()
 
 __all__ = (
-    "DEFAULT",
+    "PLATFORM",
     "Platform",
     "MachineArch",
     "SubprocessError",

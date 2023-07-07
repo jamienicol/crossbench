@@ -10,13 +10,13 @@ from typing import TYPE_CHECKING, Any, Dict, List, Sequence, Type
 from unittest import mock
 
 import psutil
-from crossbench.platform.platform import MachineArch
 from pyfakefs import fake_filesystem_unittest
 
 import crossbench
-from crossbench import platform
 from crossbench.benchmarks.benchmark import SubStoryBenchmark
 from crossbench.cli import CrossBenchCLI
+from crossbench.platform import PLATFORM, Platform
+from crossbench.platform.platform import MachineArch
 from crossbench.stories import Story
 
 if TYPE_CHECKING:
@@ -26,7 +26,7 @@ from . import mock_browser
 
 GIB = 1014**3
 
-ActivePlatformClass: Type[platform.Platform] = type(platform.DEFAULT)
+ActivePlatformClass: Type[Platform] = type(PLATFORM)
 
 
 class MockPlatform(ActivePlatformClass):
@@ -34,8 +34,8 @@ class MockPlatform(ActivePlatformClass):
   def __init__(self, is_battery_powered=False):
     self._is_battery_powered = is_battery_powered
     # Cache some helper properties that might fail under pyfakefs.
-    self._key = platform.DEFAULT.key
-    self._machine: MachineArch = platform.DEFAULT.machine
+    self._key = PLATFORM.key
+    self._machine: MachineArch = PLATFORM.machine
 
   @property
   def key(self) -> str:

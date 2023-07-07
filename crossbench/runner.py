@@ -23,7 +23,7 @@ from crossbench import cli_helper, exception, helper
 from crossbench.env import (HostEnvironment, HostEnvironmentConfig,
                             ValidationMode)
 from crossbench.flags import Flags, JSFlags
-from crossbench.platform import DEFAULT_PLATFORM, Platform
+from crossbench.platform import PLATFORM, Platform
 from crossbench.probes.all import INTERNAL_PROBES
 from crossbench.probes.internal import InternalProbe, ResultsSummaryProbe
 from crossbench.probes.probe import Probe, ProbeScope, ResultLocation
@@ -167,7 +167,7 @@ class Runner:
       browsers: Sequence[Browser],
       benchmark: Benchmark,
       additional_probes: Iterable[Probe] = (),
-      platform: Platform = DEFAULT_PLATFORM,
+      platform: Platform = PLATFORM,
       env_config: Optional[HostEnvironmentConfig] = None,
       env_validation_mode: ValidationMode = ValidationMode.THROW,  # pytype: disable=annotation-type-mismatch
       repetitions: int = 1,

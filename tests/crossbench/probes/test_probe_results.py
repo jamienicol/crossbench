@@ -9,7 +9,7 @@ from unittest import mock
 import pyfakefs.fake_filesystem_unittest
 import pytest
 
-from crossbench.platform import DEFAULT_PLATFORM
+from crossbench.platform import PLATFORM
 from crossbench.probes.results import EmptyProbeResult, LocalProbeResult
 
 
@@ -17,7 +17,7 @@ class BrowserProbeResultTestCase(pyfakefs.fake_filesystem_unittest.TestCase):
 
   def setUp(self) -> None:
     super().setUp()
-    self.run = mock.Mock(platform=DEFAULT_PLATFORM)
+    self.run = mock.Mock(platform=PLATFORM)
 
   # TODO add remote platform test
 

@@ -9,7 +9,7 @@ import unittest
 
 import pytest
 
-from crossbench.platform import Platform, DEFAULT_PLATFORM, MachineArch
+from crossbench.platform import Platform, PLATFORM, MachineArch
 from crossbench.platform.macos import MacOSPlatform
 from crossbench.platform.posix import PosixPlatform
 from crossbench.platform.win import WinPlatform
@@ -51,7 +51,7 @@ class MachineArchTestCase(unittest.TestCase):
 class PlatformTestCase(unittest.TestCase):
 
   def setUp(self):
-    self.platform: Platform = DEFAULT_PLATFORM
+    self.platform: Platform = PLATFORM
 
   def test_sleep(self):
     self.platform.sleep(0)
@@ -79,14 +79,14 @@ class PlatformTestCase(unittest.TestCase):
     self.assertIsNotNone(self.platform.system_details())
 
 
-@unittest.skipIf(not DEFAULT_PLATFORM.is_win, "Incompatible platform")
+@unittest.skipIf(not PLATFORM.is_win, "Incompatible platform")
 class WinPlatformUnittest(unittest.TestCase):
   platform: WinPlatform
 
   def setUp(self):
     super().setUp()
-    assert isinstance(DEFAULT_PLATFORM, WinPlatform)
-    self.platform = DEFAULT_PLATFORM
+    assert isinstance(PLATFORM, WinPlatform)
+    self.platform = PLATFORM
 
   def test_sh(self):
     ls = self.platform.sh_stdout("ls")
@@ -113,14 +113,14 @@ class WinPlatformUnittest(unittest.TestCase):
     self.assertFalse(self.platform.is_remote)
 
 
-@unittest.skipIf(not DEFAULT_PLATFORM.is_posix, "Incompatible platform")
+@unittest.skipIf(not PLATFORM.is_posix, "Incompatible platform")
 class PosixPlatformUnittest(unittest.TestCase):
   platform: PosixPlatform
 
   def setUp(self):
     super().setUp()
-    assert isinstance(DEFAULT_PLATFORM, PosixPlatform)
-    self.platform: PosixPlatform = DEFAULT_PLATFORM
+    assert isinstance(PLATFORM, PosixPlatform)
+    self.platform: PosixPlatform = PLATFORM
 
   def test_sh(self):
     ls = self.platform.sh_stdout("ls")
@@ -141,14 +141,14 @@ class PosixPlatformUnittest(unittest.TestCase):
     self.assertTrue(details)
 
 
-@unittest.skipIf(not DEFAULT_PLATFORM.is_macos, "Incompatible platform")
+@unittest.skipIf(not PLATFORM.is_macos, "Incompatible platform")
 class MacOSPlatformHelperTestCase(unittest.TestCase):
   platform: MacOSPlatform
 
   def setUp(self):
     super().setUp()
-    assert isinstance(DEFAULT_PLATFORM, MacOSPlatform)
-    self.platform = DEFAULT_PLATFORM
+    assert isinstance(PLATFORM, MacOSPlatform)
+    self.platform = PLATFORM
 
   def test_search_binary_not_found(self):
     with self.assertRaises(ValueError):
@@ -175,13 +175,12 @@ class MacOSPlatformHelperTestCase(unittest.TestCase):
     self.assertFalse(self.platform.is_remote)
 
   def test_set_main_screen_brightness(self):
-    prev_level = DEFAULT_PLATFORM.get_main_display_brightness()
+    prev_level = PLATFORM.get_main_display_brightness()
     brightness_level = 32
-    DEFAULT_PLATFORM.set_main_display_brightness(brightness_level)
-    self.assertEqual(brightness_level,
-                     DEFAULT_PLATFORM.get_main_display_brightness())
-    DEFAULT_PLATFORM.set_main_display_brightness(prev_level)
-    self.assertEqual(prev_level, DEFAULT_PLATFORM.get_main_display_brightness())
+    PLATFORM.set_main_display_brightness(brightness_level)
+    self.assertEqual(brightness_level, PLATFORM.get_main_display_brightness())
+    PLATFORM.set_main_display_brightness(prev_level)
+    self.assertEqual(prev_level, PLATFORM.get_main_display_brightness())
 
 
 if __name__ == "__main__":

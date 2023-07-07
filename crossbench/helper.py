@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 from __future__ import annotations
-from collections import OrderedDict
 
 import datetime as dt
 import enum
@@ -17,15 +16,15 @@ import threading
 import time
 import urllib
 import urllib.error
-import urllib.request
 import urllib.parse as urlparse
+import urllib.request
 from math import floor, log10
 from typing import (Any, Callable, Dict, Final, Iterable, Iterator, List,
                     Optional, Sequence, Tuple, Type, TypeVar, Union)
 
 import tabulate
 
-import crossbench.platform
+from crossbench.platform import PLATFORM
 
 assert hasattr(shlex,
                "join"), ("Please update to python v3.8 that has shlex.join")
@@ -143,11 +142,6 @@ def get_file_size(file: pathlib.Path, digits: int = 2) -> str:
   return f"{size:.{digits}f} {SIZE_UNITS[unit_index]}"
 
 
-
-PLATFORM = crossbench.platform.DEFAULT
-log = PLATFORM.log
-
-
 def search_app_or_executable(name: str,
                              macos: Sequence[str] = (),
                              win: Sequence[str] = (),
@@ -238,7 +232,7 @@ class TimeScope:
   def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
     assert self._start
     diff = dt.datetime.now() - self._start
-    log(f"{self._message} duration={diff}", level=self._level)
+    logging.log(self._level, "%s duration=%s", self._message, diff)
 
 
 class WaitRange:

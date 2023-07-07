@@ -210,7 +210,7 @@ class CliTestCase(BaseCrossbenchTestCase):
         "sys.stdout", new_callable=io.StringIO) as mock_stdout, mock.patch(
             "sys.stderr", new_callable=io.StringIO) as mock_stderr, mock.patch(
                 "sys.exit", side_effect=SysExitException), mock.patch.object(
-                    platform, "DEFAULT", self.platform):
+                    platform, "PLATFORM", self.platform):
       if raises:
         with self.assertRaises(raises):
           cli.run(args)

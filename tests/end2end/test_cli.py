@@ -6,15 +6,15 @@ import contextlib
 import io
 import pathlib
 import sys
+import unittest
 from typing import List, Tuple
 from unittest import mock
-import unittest
 
 import pytest
-from crossbench import platform
 
 import crossbench.browsers.all as browsers
 from crossbench.cli import CrossBenchCLI
+from crossbench.platform import PLATFORM
 from tests.end2end.helper import End2EndTestCase
 
 
@@ -176,7 +176,7 @@ class CLIEnd2EndTestCase(End2EndTestCase):
     browser_dirs = self.get_browser_dirs(results_dir)
     self.assertEqual(len(browser_dirs), 1)
 
-  @unittest.skipIf(platform.DEFAULT.is_linux, "Chrome linux crashes on v8.log")
+  @unittest.skipIf(PLATFORM.is_linux, "Chrome linux crashes on v8.log")
   def test_jetstream_2_1(self) -> None:
     # - jetstream 2.1
     # - custom --time-unit

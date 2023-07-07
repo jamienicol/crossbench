@@ -14,16 +14,16 @@ from typing import (TYPE_CHECKING, Any, Dict, Final, Iterable, List, Optional,
                     TextIO, Tuple, Type, Union)
 
 import hjson
-from crossbench import exception
 
 import crossbench.browsers.all as browsers
-from crossbench import helper, cli_helper, platform
+from crossbench import cli_helper, exception, helper
 from crossbench.browsers.browser import convert_flags_to_label
 from crossbench.browsers.chrome import ChromeDownloader
 from crossbench.config import ConfigObject, ConfigParser
 from crossbench.env import HostEnvironment, HostEnvironmentConfig
 from crossbench.exception import ExceptionAnnotator
 from crossbench.flags import ChromeFlags, Flags
+from crossbench import platform
 from crossbench.probes.all import GENERAL_PURPOSE_PROBES
 
 if TYPE_CHECKING:
@@ -264,7 +264,7 @@ class BrowserConfig(ConfigObject):
       return browsers.Firefox.developer_edition_path()
     if identifier in ("firefox-nightly", "ff-nightly", "ff-trunk"):
       return browsers.Firefox.nightly_path()
-    if ChromeDownloader.is_valid(maybe_path_or_identifier, platform.DEFAULT):
+    if ChromeDownloader.is_valid(maybe_path_or_identifier, platform.PLATFORM):
       # We have a valid version identifier for chrome.
       return maybe_path_or_identifier
     path = try_resolve_existing_path(maybe_path_or_identifier)
@@ -581,8 +581,8 @@ class BrowserVariantsConfig:
                             browser_config: BrowserConfig) -> platform.Platform:
     # TODO: support more custom platform properties (serial-id...)
     if browser_config.driver.type == BrowserDriverType.ANDROID:
-      return platform.AndroidAdbPlatform(platform.DEFAULT)
-    return platform.DEFAULT
+      return platform.AndroidAdbPlatform(platform.PLATFORM)
+    return platform.PLATFORM
 
   def _ensure_unique_browser_names(self) -> None:
     if self._has_unique_variant_names():
@@ -641,7 +641,7 @@ class BrowserVariantsConfig:
     if isinstance(path_or_identifier, pathlib.Path):
       return browser_config
     downloaded = ChromeDownloader.load(
-        path_or_identifier, platform.DEFAULT, cache_dir=self._cache_dir)
+        path_or_identifier, platform.PLATFORM, cache_dir=self._cache_dir)
     return BrowserConfig(downloaded, browser_config.driver)
 
   def _append_browser(self, args: argparse.Namespace,
