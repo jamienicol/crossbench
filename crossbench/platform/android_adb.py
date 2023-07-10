@@ -320,7 +320,8 @@ class AndroidAdbPlatform(PosixPlatform):
   _GETPROP_RE = re.compile(r"^\[(?P<key>[^\]]+)\]: \[(?P<value>[^\]]+)\]$")
 
   def system_details(self) -> Dict[str, Any]:
-    details = super().system_details()
+    # details = super().system_details()
+    details = {}
     properties: Dict[str, str] = {}
     for line in self.adb.shell_stdout("getprop").strip().split("\n"):
       result = self._GETPROP_RE.fullmatch(line)
