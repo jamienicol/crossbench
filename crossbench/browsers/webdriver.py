@@ -117,8 +117,9 @@ class WebDriverBrowser(Browser, metaclass=abc.ABCMeta):
     elif self.viewport.is_maximized:
       self._driver.maximize_window()
     else:
-      self._driver.set_window_position(self.viewport.x, self.viewport.y)
-      self._driver.set_window_size(self.viewport.width, self.viewport.height)
+      pass
+      # self._driver.set_window_position(self.viewport.x, self.viewport.y)
+      # self._driver.set_window_size(self.viewport.width, self.viewport.height)
 
   @abc.abstractmethod
   def _start_driver(self, run: Run,
