@@ -62,10 +62,11 @@ class FirefoxWebDriver(WebDriverBrowser, Firefox):
     logging.info("STARTING BROWSER: %s", self.path)
     logging.info("STARTING BROWSER: driver: %s", driver_path)
     logging.info("STARTING BROWSER: args: %s", shlex.join(args))
+    service_args = self._create_service_args()
     service = FirefoxService(
         executable_path=str(driver_path),
         log_path=str(self.driver_log_file),
-        service_args=[])
+        service_args=service_args)
     service.log_file = self.stdout_log_file.open("w", encoding="utf-8")
     driver = webdriver.Firefox(  # pytype: disable=wrong-keyword-args
         options=options, service=service)
@@ -85,6 +86,9 @@ class FirefoxWebDriver(WebDriverBrowser, Firefox):
       # FIXME: setting this prevents firefox from running on Android
       options.binary_location = str(self.path)
     return options
+
+  def _create_service_args(self) -> List[str]:
+    return []
 
   def _check_driver_version(self) -> None:
     # TODO
@@ -110,6 +114,14 @@ class FirefoxWebDriverAndroid(FirefoxWebDriver):
     options.enable_mobile(android_package=package, device_serial=self.platform.adb.serial_id)
     return options
 
+  def _create_service_args(self) -> List[str]:
+    service_args = super()._create_service_args()
+    # Using the default android-storage location does not work on various devices due to
+    # https://bugzilla.mozilla.org/show_bug.cgi?id=1840443.  Using "app" works across all devices
+    # tested with a debuggable application, and on rooted devices with non-debuggable applications.
+    service_args.append('--android-storage')
+    service_args.append('app')
+    return service_args
 
 class FirefoxDriverFinder:
   RELEASES_URL = "https://api.github.com/repos/mozilla/geckodriver/releases"
